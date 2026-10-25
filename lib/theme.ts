@@ -16,6 +16,11 @@ export const THEME_OPTIONS = [
   { id: "contrast-light", label: "settings.themeContrastLight", scheme: "light" },
   { id: "contrast-dark", label: "settings.themeContrastDark", scheme: "dark" },
   { id: "zenburn", label: "settings.themeZenburn", scheme: "dark" },
+  // fork: the four Catppuccin flavours, styled in app/fork-catppuccin.css.
+  { id: "catppuccin-latte", label: "settings.themeCatppuccinLatte", scheme: "light" },
+  { id: "catppuccin-frappe", label: "settings.themeCatppuccinFrappe", scheme: "dark" },
+  { id: "catppuccin-macchiato", label: "settings.themeCatppuccinMacchiato", scheme: "dark" },
+  { id: "catppuccin-mocha", label: "settings.themeCatppuccinMocha", scheme: "dark" },
 ] as const;
 
 export type ThemePreference = (typeof THEME_OPTIONS)[number]["id"];
