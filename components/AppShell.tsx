@@ -1558,7 +1558,8 @@ export function AppShell() {
   const renderChatToolbarActions = (mobile: boolean) => {
     if (!mobile && !showChat) return null;
     return (
-      <div style={{ display: "flex", alignItems: "stretch", height: "100%" }}>
+      // fork: one styling hook for the existing toolbar actions, including mobile.
+      <div className={`fork-toolbar-actions${mobile ? " is-mobile" : ""}`} style={{ display: "flex", alignItems: "stretch", height: "100%" }}>
         <button
           type="button"
           onClick={() => {
@@ -2147,7 +2148,8 @@ export function AppShell() {
         }
       }
     `}</style>
-    <div style={{
+    {/* fork: presentation-only workspace skin; layout and behavior stay upstream. */}
+    <div className="fork-workspace" style={{
       display: "flex",
       width: "100%",
       height: "var(--app-viewport-height, 100dvh)",
@@ -2205,7 +2207,7 @@ export function AppShell() {
       {/* Center: chat */}
       <div inert={rightPanelFullWidth} style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
         {/* Top bar with sidebar toggle */}
-        <div ref={topBarRef} style={{ flexShrink: 0, background: "var(--bg-panel)" }}>
+        <div ref={topBarRef} className="fork-workspace-toolbar" style={{ flexShrink: 0, background: "var(--bg-panel)" }}>
         <div style={{ display: "flex", alignItems: "center", position: "relative", borderBottom: "1px solid var(--border)", height: "calc(36px + env(safe-area-inset-top))", paddingTop: "env(safe-area-inset-top)" }}>
           <button
             onClick={handleSidebarToggle}
