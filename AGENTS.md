@@ -68,7 +68,8 @@ the upstream block; when pulling upstream, replace everything between the two
 
 ### 4. What the fork adds
 
-Two fork features, each in its own file with one small hook into upstream code:
+Three fork features, each in its own file(s) with one small hook into upstream
+code:
 
 - **A softer, roomier skin** — `app/fork.css`, imported last in `app/layout.tsx`.
   Theme colors stay exactly as upstream defines them; only corner radii, type
@@ -86,6 +87,16 @@ Two fork features, each in its own file with one small hook into upstream code:
   remembers an explicit choice, and only an untouched card takes the default.
   A turn's Process details also start open (`components/ChatWindow.tsx`) so those
   steps are actually on screen.
+- **Syntax colors in a tool card** — `lib/fork-code-language.ts` (which Prism
+  language a call's text is written in: a read/write/edit file by extension or
+  name, a shell's command and output as that shell), `lib/fork-code-highlight.ts`
+  (refractor tokens, from the same on-demand `loadPrismLanguages()` chunk) and
+  `components/ForkCode.tsx` (`ForkCodeLanguageProvider` names a card's language,
+  `ForkCodeTokens` replaces the plain `{text}` inside the card's panes). The card
+  keeps its own frame, scroll and error colors and only the text gets colored,
+  in the `vs`/`vscDarkPlus` themes the Markdown fences already use; a card with
+  no known language (grep output, an MCP tool's prose) still reads as plain
+  monospace, and nothing is colored while a call's input is still streaming.
 
 ---
 

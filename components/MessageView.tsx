@@ -16,6 +16,9 @@ import { applyPatchPreviewToFiles, applyPatchResultHasFailures, extractApplyPatc
 import { isApplyPatchToolName, isEditToolName, isWriteToolName } from "@/lib/tool-names";
 import { getToolCallExpansion, setToolCallExpanded } from "@/lib/tool-call-expansion";
 import { isShellToolName, isToolCallExpandedByDefault, shellResultTail } from "@/lib/fork-tool-expansion";
+// fork: syntax colors inside the tool cards (lib/fork-code-language.ts, components/ForkCode.tsx).
+import { forkPathLanguage, forkToolLanguage } from "@/lib/fork-code-language";
+import { ForkCodeLanguageProvider, ForkCodeTokens } from "./ForkCode";
 import { isThinkingExpandedByDefault, THINKING_EXPANDED_EVENT } from "@/lib/thinking-expansion-preference";
 import { TurnWrittenFiles } from "./TurnWrittenFiles";
 import type { WrittenFile } from "@/lib/turn-written-files";
@@ -1230,8 +1233,13 @@ function ToolCallBlock({ block, result, duration, onOpenSubagent }: { block: Too
   const shellTail = shellTool && resultText !== null ? shellResultTail(resultText) : null;
   const subagent = isSubagentToolDetails(result?.details) ? result.details : null;
   const codemodeCallCount = codemode ? codemode.calls.length + codemode.omitted : 0;
+  // fork: the syntax of everything this card shows — a file's code for read/write/
+  // edit, a shell script for bash/powershell (lib/fork-code-language.ts). Nothing
+  // is colored while the input is still streaming JSON.
+  const codeLanguage = isStreamingInput ? undefined : forkToolLanguage(block.toolName, block.input);
 
   return (
+    <ForkCodeLanguageProvider lang={codeLanguage}>
     <div
       style={{
         borderRadius: 7,
@@ -1329,7 +1337,7 @@ function ToolCallBlock({ block, result, duration, onOpenSubagent }: { block: Too
               wordBreak: "break-all",
             }}
           >
-            {codemode ? codemode.code.replace(/\r/g, "").trimEnd() : inputStr}
+            <ForkCodeTokens text={codemode ? codemode.code.replace(/\r/g, "").trimEnd() : inputStr} />
           </pre>
         )
       )}
@@ -1385,6 +1393,7 @@ function ToolCallBlock({ block, result, duration, onOpenSubagent }: { block: Too
         <ShellOutputFooter isError={isError} onShowLess={() => setShowAllOutput(false)} />
       )}
     </div>
+    </ForkCodeLanguageProvider>
   );
 }
 
@@ -1434,6 +1443,8 @@ export function PatchDiffFiles({ files, layout }: { files: SplitDiffFile[]; layo
   return (
     <div style={{ maxHeight: 560, overflowY: "auto", overflowX: "hidden", background: "var(--bg)" }}>
       {files.map((file, fileIndex) => (
+        // fork: each file of a patch carries its own syntax, read off its path.
+        <ForkCodeLanguageProvider key={fileIndex} lang={forkPathLanguage(stackedFilePath(file))}>
         <div
           key={fileIndex}
           style={{
@@ -1508,6 +1519,7 @@ export function PatchDiffFiles({ files, layout }: { files: SplitDiffFile[]; layo
               : <StackedDiffLineView key={lineIndex} line={line} />
           ))}
         </div>
+        </ForkCodeLanguageProvider>
       ))}
     </div>
   );
@@ -1630,7 +1642,7 @@ function SplitDiffCellView({ cell, side }: { cell: SplitDiffCell; side: "left" |
           overflowWrap: "anywhere",
         }}
       >
-        {cell.text || "\u00a0"}
+        {cell.text ? <ForkCodeTokens text={cell.text} budget={false} /> : "\u00a0"}
       </span>
     </div>
   );
@@ -1750,7 +1762,7 @@ function ShellTailResult({ text, hiddenLines, isError, onShowAll }: {
           wordBreak: "break-all",
         }}
       >
-        {text}
+        <ForkCodeTokens text={text} />
       </pre>
     </div>
   );
@@ -1911,7 +1923,7 @@ function PairedResult({ text, isEmpty, isError }: {
           opacity: isEmpty ? 0.6 : 1,
         }}
       >
-        {isEmpty ? t("i18n.noOutput") : text}
+        {isEmpty ? t("i18n.noOutput") : <ForkCodeTokens text={text} />}
       </pre>
     </div>
   );
@@ -2307,7 +2319,10 @@ function ToolFieldRows({ fields }: { fields: ToolField[] }) {
           <tr key={field.key}>
             <td style={TOOL_FIELD_LABEL}>{field.key}</td>
             <td style={TOOL_FIELD_VALUE}>
-              {field.multiline ? <pre style={TOOL_FIELD_BLOCK}>{field.value}</pre> : field.value}
+              {/* fork: the card's own syntax colors a command or a file's text. */}
+              {field.multiline
+                ? <pre style={TOOL_FIELD_BLOCK}><ForkCodeTokens text={field.value} /></pre>
+                : <ForkCodeTokens text={field.value} />}
             </td>
           </tr>
         ))}
