@@ -14,7 +14,8 @@ import { formatTurnDuration } from "@/lib/turn-duration";
 import { diffGapLabel, parseUnifiedPatch, unifiedDiffLines, type SplitDiffCell, type SplitDiffFile, type SplitDiffGap, type UnifiedDiffLine } from "@/lib/patch";
 import { applyPatchPreviewToFiles, applyPatchResultHasFailures, extractApplyPatchPaths, getApplyPatchInputText, parseApplyPatchInput } from "@/lib/apply-patch";
 import { isApplyPatchToolName, isEditToolName, isWriteToolName } from "@/lib/tool-names";
-import { isToolCallExpanded, setToolCallExpanded } from "@/lib/tool-call-expansion";
+import { getToolCallExpansion, setToolCallExpanded } from "@/lib/tool-call-expansion";
+import { isShellToolName, isToolCallExpandedByDefault, shellResultTail } from "@/lib/fork-tool-expansion";
 import { isThinkingExpandedByDefault, THINKING_EXPANDED_EVENT } from "@/lib/thinking-expansion-preference";
 import { TurnWrittenFiles } from "./TurnWrittenFiles";
 import type { WrittenFile } from "@/lib/turn-written-files";
@@ -817,7 +818,7 @@ function AssistantMessageView({
     <div
       data-message-role="assistant"
       data-entry-id={entryId}
-      style={{ marginBottom: 16 }}
+      style={{ marginBottom: 18 }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -863,7 +864,8 @@ function AssistantMessageView({
         })()}
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {/* fork: a step further apart than upstream's 8px. */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {/* Not keyed by the entry id: a message of this run gets one when the file is
             read again, and its blocks keep their state across that read (#1184). */}
         {blockItems.map(({ block, originalIndex }) => (
@@ -1177,7 +1179,11 @@ export function formatToolDuration(ms: number): string {
 
 function ToolCallBlock({ block, result, duration, onOpenSubagent }: { block: ToolCallContent; result?: ToolResultMessage; duration?: number; onOpenSubagent?: (sessionId: string, label: string) => void }) {
   const { t } = useI18n();
-  const [expanded, setExpanded] = useState(() => isToolCallExpanded(block.toolCallId));
+  // fork: writes and shell calls start open, the CLI's view of a step; a card the
+  // user folded keeps its own choice (lib/fork-tool-expansion.ts).
+  const [expanded, setExpanded] = useState(() => getToolCallExpansion(block.toolCallId) ?? isToolCallExpandedByDefault(block.toolName));
+  // A shell's output opens on its tail; the lines above it wait behind a button.
+  const [showAllOutput, setShowAllOutput] = useState(false);
   const toggleExpanded = () => {
     const next = !expanded;
     setToolCallExpanded(block.toolCallId, next);
@@ -1219,6 +1225,9 @@ function ToolCallBlock({ block, result, duration, onOpenSubagent }: { block: Too
   const resultIsEmpty = resultText === null ? false : (resultText.trim() === "(no output)" || resultText.trim() === "");
   const isError = (result?.isError ?? false)
     || (isApplyPatchToolName(block.toolName) && applyPatchResultHasFailures(result?.details));
+  const shellTool = isShellToolName(block.toolName);
+  // Only a long shell result folds: a short one reads whole, as before.
+  const shellTail = shellTool && resultText !== null ? shellResultTail(resultText) : null;
   const subagent = isSubagentToolDetails(result?.details) ? result.details : null;
   const codemodeCallCount = codemode ? codemode.calls.length + codemode.omitted : 0;
 
@@ -1242,7 +1251,8 @@ function ToolCallBlock({ block, result, duration, onOpenSubagent }: { block: Too
             gap: 7,
             flex: 1,
             minWidth: 0,
-            padding: "6px 10px",
+            // fork: roomier rows than upstream's 6px 10px.
+            padding: "7px 12px",
             background: "none",
             border: "none",
             color: "var(--text-muted)",
@@ -1297,7 +1307,7 @@ function ToolCallBlock({ block, result, duration, onOpenSubagent }: { block: Too
         toolFields ? (
           <div
             style={{
-              padding: "6px 10px 8px",
+              padding: "8px 12px 10px",
               background: "var(--bg-subtle)",
               borderTop: isError ? "1px solid rgba(248,113,113,0.25)" : "1px solid rgba(34,197,94,0.2)",
             }}
@@ -1308,7 +1318,7 @@ function ToolCallBlock({ block, result, duration, onOpenSubagent }: { block: Too
           <pre
             style={{
               margin: 0,
-              padding: "8px 10px",
+              padding: "9px 12px",
               color: "var(--text-muted)",
               fontSize: "calc(12px + var(--chat-font-size-offset, 0px))",
               lineHeight: 1.5,
@@ -1353,12 +1363,26 @@ function ToolCallBlock({ block, result, duration, onOpenSubagent }: { block: Too
             diff={resultDiff}
           />
         ) : (!resultIsEmpty || resultImages.length === 0) && (
-          <PairedResult
-            text={resultText ?? ""}
-            isEmpty={resultIsEmpty}
-            isError={isError}
-          />
+          shellTail && !showAllOutput ? (
+            <ShellTailResult
+              text={shellTail.tail}
+              hiddenLines={shellTail.hiddenLines}
+              isError={isError}
+              onShowAll={() => setShowAllOutput(true)}
+            />
+          ) : (
+            <PairedResult
+              text={resultText ?? ""}
+              isEmpty={resultIsEmpty}
+              isError={isError}
+            />
+          )
         )
+      )}
+
+      {/* fork: back to the shell's tail after the whole output was shown. */}
+      {expanded && shellTail && showAllOutput && (
+        <ShellOutputFooter isError={isError} onShowLess={() => setShowAllOutput(false)} />
       )}
     </div>
   );
@@ -1673,6 +1697,101 @@ function PatchTextView({ text }: { text: string }) {
   );
 }
 
+/** fork: a shell result's last lines, the earlier ones behind a Show all button. */
+function ShellTailResult({ text, hiddenLines, isError, onShowAll }: {
+  text: string;
+  hiddenLines: number;
+  isError: boolean;
+  onShowAll: () => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <div
+      style={{
+        borderTop: `1px solid ${isError ? "rgba(248,113,113,0.3)" : "rgba(34,197,94,0.15)"}`,
+        background: isError ? "rgba(248,113,113,0.04)" : "var(--bg-subtle)",
+      }}
+    >
+      <button
+        type="button"
+        onClick={onShowAll}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          width: "100%",
+          padding: "6px 12px",
+          border: "none",
+          borderBottom: "1px solid var(--border)",
+          background: "none",
+          color: "var(--accent)",
+          cursor: "pointer",
+          fontSize: "calc(11.5px + var(--chat-font-size-offset, 0px))",
+          fontVariantNumeric: "tabular-nums",
+          textAlign: "left",
+        }}
+      >
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+        {t("chat.showAllOutput", { count: hiddenLines })}
+      </button>
+      <pre
+        style={{
+          margin: 0,
+          padding: "8px 12px",
+          color: isError ? "#f87171" : "var(--text-muted)",
+          fontSize: "calc(12px + var(--chat-font-size-offset, 0px))",
+          lineHeight: 1.55,
+          overflow: "auto",
+          maxHeight: 400,
+          background: "var(--bg)",
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-all",
+        }}
+      >
+        {text}
+      </pre>
+    </div>
+  );
+}
+
+/** fork: the way back to a shell's tail once the whole output is shown. */
+function ShellOutputFooter({ isError, onShowLess }: { isError: boolean; onShowLess: () => void }) {
+  const { t } = useI18n();
+  return (
+    <div
+      style={{
+        borderTop: `1px solid ${isError ? "rgba(248,113,113,0.3)" : "rgba(34,197,94,0.15)"}`,
+        background: "var(--bg-subtle)",
+      }}
+    >
+      <button
+        type="button"
+        onClick={onShowLess}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          width: "100%",
+          padding: "6px 12px",
+          border: "none",
+          background: "none",
+          color: "var(--text-dim)",
+          cursor: "pointer",
+          fontSize: "calc(11.5px + var(--chat-font-size-offset, 0px))",
+          textAlign: "left",
+        }}
+      >
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M18 15l-6-6-6 6" />
+        </svg>
+        {t("chat.showLessOutput")}
+      </button>
+    </div>
+  );
+}
+
 /**
  * Split diff rows for an apply_patch-style tool call.
  *
@@ -1779,7 +1898,7 @@ function PairedResult({ text, isEmpty, isError }: {
       <pre
         style={{
           margin: 0,
-          padding: "8px 10px",
+          padding: "9px 12px",
           color: isError ? "#f87171" : (isEmpty ? "var(--text-dim)" : "var(--text-muted)"),
           fontSize: "calc(12px + var(--chat-font-size-offset, 0px))",
           lineHeight: 1.5,

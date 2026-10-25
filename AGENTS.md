@@ -66,6 +66,27 @@ fine when the indirection would clearly cost more than the merge conflict saves.
 the upstream block; when pulling upstream, replace everything between the two
 `BEGIN`/`END` markers and leave the fork sections as they are.
 
+### 4. What the fork adds
+
+Two fork features, each in its own file with one small hook into upstream code:
+
+- **A softer, roomier skin** — `app/fork.css`, imported last in `app/layout.tsx`.
+  Theme colors stay exactly as upstream defines them; only corner radii, type
+  sizes and the space around them change. It lifts every radius an inline style
+  sets (attribute selectors, `!important` to beat the inline declaration, pills
+  and circles kept) and repeats the class rules of `app/*.css` at a bigger size.
+  The chat type scale comes from `CHAT_CONTENT_FONT_SIZE_DEFAULT = 16` in
+  `hooks/useChatAppearance.ts` (14px upstream); everything measured with
+  `--chat-font-size-offset` follows it.
+- **CLI-like tool cards** — `lib/fork-tool-expansion.ts` with
+  `components/MessageView.tsx`: a write and a shell call start expanded (a write's
+  whole file text, a shell's command plus the last `SHELL_TAIL_LINES` result lines
+  behind a “Show all” button), while read/search stay folded and thinking keeps
+  its own preference. The user's own fold wins: `lib/tool-call-expansion.ts`
+  remembers an explicit choice, and only an untouched card takes the default.
+  A turn's Process details also start open (`components/ChatWindow.tsx`) so those
+  steps are actually on screen.
+
 ---
 
 ## Upstream notes

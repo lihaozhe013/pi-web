@@ -1284,7 +1284,7 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
                           would otherwise stay open once its answer shows up, e.g. when
                           switching between an answered and an unanswered leaf of the same
                           turn. Manual toggles survive every other re-render. */}
-                      <ProcessDetailsGroup key={answered ? "answered" : "unanswered"} messageCount={processMessageCount} toolCallCount={processToolCount} durationMs={turnDurationMs} cacheMisses={processCacheMisses} defaultExpanded={!answered} reveal={revealProcess} t={t}>
+                      <ProcessDetailsGroup key={answered ? "answered" : "unanswered"} messageCount={processMessageCount} toolCallCount={processToolCount} durationMs={turnDurationMs} cacheMisses={processCacheMisses} defaultExpanded={true /* fork: a turn's steps stay open, as the CLI shows them */} reveal={revealProcess} t={t}>
                         {processViews}
                       </ProcessDetailsGroup>
                     </div>,

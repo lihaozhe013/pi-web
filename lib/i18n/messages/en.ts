@@ -495,6 +495,8 @@ export const enLocale: LocalePlugin = {
     "chat.runningCommand": "Running command...",
     "chat.thinking": "Thinking...",
     "chat.processDetails": "Process details",
+    "chat.showAllOutput": "Show all {count} earlier lines",
+    "chat.showLessOutput": "Show less",
     "chat.message": "message",
     "chat.messages": "messages",
     "chat.toolCall": "tool call",

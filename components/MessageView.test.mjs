@@ -162,7 +162,10 @@ test("marks only the matched text block after splitting thinking and the final a
   }
 });
 
-test("keeps streamed tool input out of collapsed markup while counting it", () => {
+test("shows a write's streamed input as it arrives, and counts it", () => {
+  // Fork: a write card opens by default (lib/fork-tool-expansion.ts), the way
+  // the CLI shows a step, so the partial JSON is on screen while it streams.
+  clearExpandedToolCalls();
   const block = {
     type: "toolCall",
     toolCallId: "call-write-1",
@@ -179,7 +182,7 @@ test("keeps streamed tool input out of collapsed markup while counting it", () =
 
   assert.match(html, /write/);
   assert.match(html, /Generating parameters/);
-  assert.doesNotMatch(html, /secret-stream-fragment/);
+  assert.match(html, /secret-stream-fragment/);
   assert.equal(getToolCallInputText(block), block.rawInput);
   assert.equal(getTokenEstimateText(block), block.rawInput);
 });

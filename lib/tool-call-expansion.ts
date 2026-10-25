@@ -1,5 +1,6 @@
 /**
- * Remembers which tool-call cards the user has expanded, keyed by toolCallId.
+ * Remembers which tool-call cards the user has expanded (or folded), keyed by
+ * toolCallId.
  *
  * A streaming assistant message is rendered from the streaming store, then re-rendered
  * from `messages` after `message_end`, and moves into Process details when the run
@@ -9,19 +10,27 @@
  * component state would collapse a card the user just opened. Keeping the set
  * outside React lets the remounted card start expanded without threading state
  * through every message component.
+ *
+ * The choice is three-valued (`getToolCallExpansion`): undefined means the user
+ * never touched the card, which is what lets the fork open its own defaults
+ * (lib/fork-tool-expansion.ts) without overriding a card the user folded.
  */
-const expandedToolCalls = new Set<string>();
+const toolCallExpansions = new Map<string, boolean>();
+
+/** The user's own choice for this card, or undefined when they never made one. */
+export function getToolCallExpansion(toolCallId: string | undefined): boolean | undefined {
+  return toolCallId === undefined ? undefined : toolCallExpansions.get(toolCallId);
+}
 
 export function isToolCallExpanded(toolCallId: string | undefined): boolean {
-  return toolCallId !== undefined && expandedToolCalls.has(toolCallId);
+  return getToolCallExpansion(toolCallId) === true;
 }
 
 export function setToolCallExpanded(toolCallId: string | undefined, expanded: boolean): void {
   if (!toolCallId) return;
-  if (expanded) expandedToolCalls.add(toolCallId);
-  else expandedToolCalls.delete(toolCallId);
+  toolCallExpansions.set(toolCallId, expanded);
 }
 
 export function clearExpandedToolCalls(): void {
-  expandedToolCalls.clear();
+  toolCallExpansions.clear();
 }
