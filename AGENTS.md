@@ -80,10 +80,13 @@ code:
   `hooks/useChatAppearance.ts` (14px upstream); everything measured with
   `--chat-font-size-offset` follows it.
 - **CLI-like tool cards** — `lib/fork-tool-expansion.ts` with
-  `components/MessageView.tsx`: a write and a shell call start expanded (a write's
-  whole file text, a shell's command plus the last `SHELL_TAIL_LINES` result lines
-  behind a “Show all” button), while read/search stay folded and thinking keeps
-  its own preference. The user's own fold wins: `lib/tool-call-expansion.ts`
+  `components/MessageView.tsx`: write/edit/patch cards open only after successful
+  execution; shell cards open at execution start (command plus the last
+  `SHELL_TAIL_LINES` result lines behind a “Show all” button). Read/search stay
+  folded and thinking keeps its own preference. `components/ForkToolActivity.tsx`
+  reads the existing client execution state via one provider in `ChatWindow`;
+  `app/fork-tools.css` adds neutral terminal-like frames and a reduced-motion-aware
+  running cursor. Partial output is never treated as a successful result. The user's own fold wins: `lib/tool-call-expansion.ts`
   remembers an explicit choice, and only an untouched card takes the default.
   A turn's Process details also start open (`components/ChatWindow.tsx`) so those
   steps are actually on screen.

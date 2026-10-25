@@ -162,9 +162,8 @@ test("marks only the matched text block after splitting thinking and the final a
   }
 });
 
-test("shows a write's streamed input as it arrives, and counts it", () => {
-  // Fork: a write card opens by default (lib/fork-tool-expansion.ts), the way
-  // the CLI shows a step, so the partial JSON is on screen while it streams.
+test("folds a write's streamed input by default, but still counts it", () => {
+  // fork: incomplete file content stays off screen until execution succeeds.
   clearExpandedToolCalls();
   const block = {
     type: "toolCall",
@@ -182,7 +181,8 @@ test("shows a write's streamed input as it arrives, and counts it", () => {
 
   assert.match(html, /write/);
   assert.match(html, /Generating parameters/);
-  assert.match(html, /secret-stream-fragment/);
+  assert.doesNotMatch(html, /secret-stream-fragment/);
+  assert.match(html, /aria-expanded="false"/);
   assert.equal(getToolCallInputText(block), block.rawInput);
   assert.equal(getTokenEstimateText(block), block.rawInput);
 });
@@ -372,7 +372,7 @@ test("renders subagents as standard tool calls with only an extra side-panel but
 });
 
 test("a tool card shows the run time pi recorded, else the timestamps' difference, never a tiny one", () => {
-  const block = { type: "toolCall", toolCallId: "call-duration-1", toolName: "bash", arguments: { command: "make" } };
+  const block = { type: "toolCall", toolCallId: "call-duration-1", toolName: "bash", input: { command: "make" } };
   const message = { role: "assistant", provider: "anthropic", model: "claude-test", content: [block], timestamp: 1_000_000, durationMs: 4_000 };
   const header = (result) => renderMessage(message, { toolResults: new Map([[block.toolCallId, result]]) });
   const result = { role: "toolResult", toolCallId: block.toolCallId, toolName: "bash", content: [], isError: false };

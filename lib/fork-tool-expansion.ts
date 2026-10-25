@@ -2,17 +2,16 @@
  * Fork: which tool cards a run leaves open, and how much of a shell result is
  * shown while it does.
  *
- * The CLI shows every write and every command as it works, step by step; this
- * module gives the chat view the same default. Writes and shell calls start
- * expanded (a write's whole file text, a shell's command and the tail of its
- * output), while read/search stay folded and thinking keeps its own preference
+ * Writes and edits open only after success; commands open once execution starts
+ * (a command and the tail of its output). Read/search stay folded and thinking
+ * keeps its own preference
  * (`lib/thinking-expansion-preference.ts`). A card the user folds stays folded:
  * `lib/tool-call-expansion.ts` remembers the explicit choice per tool call.
  *
  * Presentation only, and kept in one file so the fork's rule is a single edit.
  */
 
-import { isWriteToolName } from "./tool-names";
+import { isWriteToolName, isEditToolName, isApplyPatchToolName } from "./tool-names";
 
 /** Tool names that run a command, bare or as a decorated/mcp form. */
 const SHELL_TOOL_NAMES = new Set([
@@ -47,9 +46,12 @@ export function isShellToolName(toolName: string): boolean {
   return /(^|[._-])(bash|shell|powershell)([._-]|$)/.test(head);
 }
 
-/** Tool cards the fork opens by default. */
-export function isToolCallExpandedByDefault(toolName: string): boolean {
-  return isWriteToolName(toolName) || isShellToolName(toolName);
+export type ForkToolState = "pending" | "running" | "success" | "error";
+
+/** Defaults are derived every render, never stored as a user's explicit choice. */
+export function isToolCallExpandedByDefault(toolName: string, state: ForkToolState = "pending"): boolean {
+  if (isShellToolName(toolName)) return state !== "pending";
+  return state === "success" && (isWriteToolName(toolName) || isEditToolName(toolName) || isApplyPatchToolName(toolName));
 }
 
 /**

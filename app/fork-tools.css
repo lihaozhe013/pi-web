@@ -1,0 +1,50 @@
+/* Fork-only transcript skin. Remove this import and ForkToolActivity to drop it. */
+.fork-tool-card {
+  border-color: var(--border) !important;
+  background: var(--bg-panel) !important;
+  border-radius: var(--fork-r-xs, 8px) !important;
+  border-left: 2px solid var(--border) !important;
+}
+
+.fork-tool-card[data-state="running"] {
+  border-left-color: var(--accent) !important;
+}
+
+.fork-tool-card[data-state="error"] {
+  border-color: var(--error, #f87171) !important;
+}
+
+.fork-tool-header {
+  min-height: 36px;
+  font-family: var(--font-mono);
+}
+
+.fork-tool-header:hover { background: var(--bg-hover) !important; }
+.fork-tool-header:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.fork-tool-header > span:first-child { color: var(--text) !important; }
+.fork-tool-card[data-state="error"] .fork-tool-header > span:first-child { color: var(--error, #f87171) !important; }
+
+.fork-tool-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.fork-tool-status[data-state="running"] { color: var(--accent); }
+.fork-tool-status[data-state="error"] { color: var(--error, #f87171); }
+.fork-tool-status-mark { display: inline-block; width: 1ch; text-align: center; }
+.fork-tool-status[data-state="running"] .fork-tool-status-mark {
+  animation: fork-tool-cursor 1.1s steps(2, jump-none) infinite;
+}
+
+@keyframes fork-tool-cursor { from { opacity: 1; } to { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) {
+  .fork-tool-status[data-state="running"] .fork-tool-status-mark { animation: none; }
+  .fork-tool-header svg { transition: none !important; }
+}
+@media (pointer: coarse) { .fork-tool-header { min-height: 44px; } }

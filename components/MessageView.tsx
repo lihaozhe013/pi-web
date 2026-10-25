@@ -15,6 +15,7 @@ import { diffGapLabel, parseUnifiedPatch, unifiedDiffLines, type SplitDiffCell, 
 import { applyPatchPreviewToFiles, applyPatchResultHasFailures, extractApplyPatchPaths, getApplyPatchInputText, parseApplyPatchInput } from "@/lib/apply-patch";
 import { isApplyPatchToolName, isEditToolName, isWriteToolName } from "@/lib/tool-names";
 import { getToolCallExpansion, setToolCallExpanded } from "@/lib/tool-call-expansion";
+import { ForkToolStatus, useForkToolState } from "./ForkToolActivity";
 import { isShellToolName, isToolCallExpandedByDefault, shellResultTail } from "@/lib/fork-tool-expansion";
 // fork: syntax colors inside the tool cards (lib/fork-code-language.ts, components/ForkCode.tsx).
 import { forkPathLanguage, forkToolLanguage } from "@/lib/fork-code-language";
@@ -1180,17 +1181,21 @@ export function formatToolDuration(ms: number): string {
   return `${Math.floor(minutes / 60)}h ${minutes % 60}m ${remainder}s`;
 }
 
-function ToolCallBlock({ block, result, duration, onOpenSubagent }: { block: ToolCallContent; result?: ToolResultMessage; duration?: number; onOpenSubagent?: (sessionId: string, label: string) => void }) {
+function ToolCallBlock({ block, result, duration, onOpenSubagent, executing }: { block: ToolCallContent; result?: ToolResultMessage; duration?: number; onOpenSubagent?: (sessionId: string, label: string) => void; executing?: boolean }) {
   const { t } = useI18n();
-  // fork: writes and shell calls start open, the CLI's view of a step; a card the
-  // user folded keeps its own choice (lib/fork-tool-expansion.ts).
-  const [expanded, setExpanded] = useState(() => getToolCallExpansion(block.toolCallId) ?? isToolCallExpandedByDefault(block.toolName));
+  // fork: only explicit user choices are state; lifecycle defaults stay derived.
+  const [expansionOverride, setExpansionOverride] = useState(() => getToolCallExpansion(block.toolCallId));
+  const toolError = (result?.isError ?? false)
+    || (isApplyPatchToolName(block.toolName) && applyPatchResultHasFailures(result?.details));
+  const activityState = useForkToolState(block.toolCallId, result !== undefined, toolError);
+  const toolState = executing ? "running" : activityState;
+  const expanded = expansionOverride ?? isToolCallExpandedByDefault(block.toolName, toolState);
   // A shell's output opens on its tail; the lines above it wait behind a button.
   const [showAllOutput, setShowAllOutput] = useState(false);
   const toggleExpanded = () => {
     const next = !expanded;
     setToolCallExpanded(block.toolCallId, next);
-    setExpanded(next);
+    setExpansionOverride(next);
   };
   const writtenFileText = getWrittenFileText(block);
   const inputStr = writtenFileText ?? getToolCallInputText(block);
@@ -1241,6 +1246,9 @@ function ToolCallBlock({ block, result, duration, onOpenSubagent }: { block: Too
   return (
     <ForkCodeLanguageProvider lang={codeLanguage}>
     <div
+      className="fork-tool-card"
+      data-state={toolState}
+      aria-busy={toolState === "running"}
       style={{
         borderRadius: 7,
         overflow: "hidden",
@@ -1253,6 +1261,8 @@ function ToolCallBlock({ block, result, duration, onOpenSubagent }: { block: Too
       <div style={{ display: "flex", alignItems: "stretch", minWidth: 0 }}>
         <button
           onClick={toggleExpanded}
+          aria-expanded={expanded}
+          className="fork-tool-header"
           style={{
             display: "flex",
             alignItems: "center",
@@ -1285,6 +1295,7 @@ function ToolCallBlock({ block, result, duration, onOpenSubagent }: { block: Too
               ? t("chat.generatingToolInput")
               : (patchLabel ?? (codemode ? codemodeScriptPreview(codemode.code) : getToolPreview(block)))}
           </span>
+          <ForkToolStatus state={toolState} />
           {codemodeCallCount > 0 && (
             <span style={{ fontSize: 11, color: "var(--text-dim)", flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>
               {codemodeCallCount === 1 ? t("codemode.callCountOne") : t("codemode.callCount", { count: codemodeCallCount })}
@@ -1365,7 +1376,7 @@ function ToolCallBlock({ block, result, duration, onOpenSubagent }: { block: Too
           isError={isError}
         />
       )}
-      {expanded && result && !patchFiles && !codemodeRunning && (
+      {expanded && result && !patchFiles && !codemodeRunning && !(shellTool && toolState === "running" && resultIsEmpty) && (
         resultDiff ? (
           <PairedDiffResult
             diff={resultDiff}
@@ -2424,7 +2435,7 @@ function BashExecutionView({ message, sessionId }: { message: BashExecutionMessa
 
   return (
     <div style={{ margin: "6px 0" }}>
-      <ToolCallBlock block={block} result={result} />
+      <ToolCallBlock block={block} result={result} executing={isPending} />
       {message.truncated && fullOutputUrl && (
         <div style={{ padding: "4px 10px", fontSize: 11, marginTop: -1 }}>
           {showFullButton && (
