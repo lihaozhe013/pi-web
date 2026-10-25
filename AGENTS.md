@@ -1,3 +1,80 @@
+# Pi Web — Agent Notes
+
+## This repository is a fork
+
+`lihaozhe013/pi-web` (this repo, remote `origin`) is a **personal fork** of
+[`agegr/pi-web`](https://github.com/agegr/pi-web), the local browser UI for the
+[pi coding agent](https://github.com/earendil-works/pi). Upstream stays the source
+of truth for what Pi Web is and how it works; the fork only adds its own tweaks on
+top and pulls upstream in regularly.
+
+The section [Upstream notes](#upstream-notes) below is the upstream `AGENTS.md`,
+kept **verbatim** between two markers so upstream updates can be dropped in
+without touching the fork-specific text above it.
+
+## Fork rules
+
+These rules sit on top of everything in the upstream notes. Where the two
+disagree, this section wins.
+
+### 1. Stay in the UI layer — do not change core logic
+
+The fork changes how Pi Web looks and feels, not what it does.
+
+- **Fine to change:** presentation and interaction — layout, spacing, colors,
+  typography, icons, motion, wording of labels, keyboard and touch affordances,
+  responsive behavior, how panels/dialogs/rows are composed, client-side view
+  state and derived display values.
+- **Not fine without a real reason:** core logic — the session lifecycle
+  (`lib/rpc-manager.ts`, `lib/session-reader.ts`), the routes in `app/api/**`, the
+  session file format and its writes, tool / prompt / compaction behavior, model
+  resolution, MCP wiring, auth, the file-access allow-list, and the SSE protocol
+  or event shapes.
+- If a visual change looks like it needs a logic change, look for a
+  presentation-only route first: a new component, a CSS variable, a client-side
+  derived value. If there genuinely is none, say so and explain the upstream cost
+  before implementing.
+
+### 2. Optimize for cheap upstream merges
+
+The fork has to keep tracking upstream for a long time, so every diff is a future
+merge conflict. Prefer additive changes:
+
+- **Suggested pattern:** put fork code in **new files**
+  (`components/Fork*.tsx`, `lib/fork-*.ts`, `hooks/useFork*.ts`) and reference
+  them from the upstream file, keeping the edit there as small as possible —
+  ideally one added import plus one rendered element or one guarded branch.
+- Prefer a wrapper, an extra prop, or an overridden CSS variable over rewriting an
+  upstream file's internals.
+- No reformatting, reordering, or drive-by cleanup inside upstream files (and
+  inside the verbatim upstream block of this document); keep unrelated edits out
+  of the same region.
+- Mark intentional divergences with a short marker so a three-way merge stays
+  readable, e.g. `// fork: <one line why>`.
+- Keep a fork-only feature reachable from one obvious place (one component, one
+  helper module), so it can be disabled or dropped in a single edit.
+- Don't rename or move upstream files. The upstream rule still holds: no
+  pi-web-only options or fields in the extension API (`ctx.ui.*`,
+  `extension_ui_request`) and no changes to what pi itself does.
+
+This is advice, not a hard law: a small, surgical edit inside an upstream file is
+fine when the indirection would clearly cost more than the merge conflict saves.
+
+### 3. Keep this file mergeable
+
+`AGENTS.md` is tracked against upstream too. All fork-specific text belongs above
+the upstream block; when pulling upstream, replace everything between the two
+`BEGIN`/`END` markers and leave the fork sections as they are.
+
+---
+
+## Upstream notes
+
+Everything below this line is the upstream `AGENTS.md` from `agegr/pi-web`,
+verbatim. Read it as the project's own documentation — it describes code the fork
+does not intend to diverge from.
+
+<!-- BEGIN upstream AGENTS.md (verbatim — do not edit between the markers) -->
 # Pi Web - Development Notes
 
 ## Quick Start
@@ -290,3 +367,5 @@ Location: `~/.pi/agent/sessions/<encoded-cwd>/<timestamp>_<uuid>.jsonl`
 --accent --user-bg --tool-bg
 --font-mono
 ```
+
+<!-- END upstream AGENTS.md -->
