@@ -99,7 +99,7 @@ export async function checkFontPreferences(page) {
     monoWeight: localStorage.getItem("pi-mono-font-weight"),
     width: localStorage.getItem("pi-chat-content-width"),
     fontSize: localStorage.getItem("pi-chat-content-font-size"),
-  })), { ui: null, mono: null, uiWeight: null, monoWeight: null, width: "820", fontSize: "14" });
+  })), { ui: null, mono: null, uiWeight: null, monoWeight: null, width: "820", fontSize: "16" });
   assert.equal(await resetUi.isDisabled(), true);
   assert.equal(await resetMono.isDisabled(), true);
   console.log("PASS: font families and weights, persistence, cross-tab sync, independent reset, emphasis and draft resizing");

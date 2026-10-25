@@ -14,8 +14,9 @@ test("chat width validation preserves the default and supported range", () => {
 });
 
 test("chat font size preserves the default and bounds stored or supplied values", () => {
+  // Fork: the default type scale is 16px (14px upstream).
   for (const value of [undefined, null, "invalid", Infinity, NaN]) {
-    assert.equal(clampChatContentFontSize(value), 14);
+    assert.equal(clampChatContentFontSize(value), 16);
   }
   assert.equal(clampChatContentFontSize(8), 12);
   assert.equal(clampChatContentFontSize("18"), 18);
@@ -24,9 +25,11 @@ test("chat font size preserves the default and bounds stored or supplied values"
 });
 
 test("the terminal keeps 13px at the default chat size and moves with the slider", () => {
-  for (const value of [undefined, null, "invalid", 14]) assert.equal(terminalFontSize(value), 13);
-  assert.equal(terminalFontSize(12), 11);
-  assert.equal(terminalFontSize(18), 17);
-  assert.equal(terminalFontSize(24), 23);
-  assert.equal(terminalFontSize(30), 23);
+  for (const value of [undefined, null, "invalid", 16]) assert.equal(terminalFontSize(value), 13);
+  assert.equal(terminalFontSize(14), 11);
+  // The step follows the 16px default: 18px chat is a 15px terminal.
+  assert.equal(terminalFontSize(12), 9);
+  assert.equal(terminalFontSize(18), 15);
+  assert.equal(terminalFontSize(24), 21);
+  assert.equal(terminalFontSize(30), 21);
 });

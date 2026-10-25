@@ -7,6 +7,7 @@ import "./globals.css";
 import "./settings.css";
 import "./sidebar.css";
 import "./sidebar-menu.css";
+import "./fork.css"; // fork: softer corners and a roomier type scale, kept in that one file
 
 const notoSansMono = Noto_Sans_Mono({
   subsets: ["latin", "cyrillic"],

@@ -1,0 +1,484 @@
+/*
+ * Fork skin (lihaozhe013/pi-web): softer corners, a roomier type scale.
+ *
+ * Presentation only, in one file, imported last in `app/layout.tsx`, so an
+ * upstream merge leaves it alone. Theme colors and every token upstream
+ * defines stay exactly as they are: only corner radii, type sizes and the
+ * space around them change here.
+ *
+ * Two mechanisms cover the app:
+ *  - inline styles in `components/**` through attribute selectors, matched on
+ *    the radius they set (`!important` outranks an inline declaration);
+ *  - class rules in `app/*.css` through selectors that repeat the upstream
+ *    one, this file being imported later.
+ */
+
+/* ── Radius scale ───────────────────────────────────────────────────────── */
+
+:root {
+  --fork-r-xs: 8px;    /* badges, inline code, tiny chips */
+  --fork-r-sm: 11px;   /* buttons, fields, chips */
+  --fork-r-md: 13px;   /* rows, tool cards, message bubbles */
+  --fork-r-lg: 18px;   /* menus, cards, popovers */
+  --fork-r-xl: 22px;   /* dialogs, sheets, the composer */
+}
+
+/* Inline radii: every shape the components draw moves one or two steps up the
+   scale, sized by what it used to be so small chips do not turn into pills. */
+[style*="border-radius: 2px"],
+[style*="border-radius: 3px"] {
+  border-radius: var(--fork-r-xs) !important;
+}
+
+[style*="border-radius: 4px"] {
+  border-radius: 10px !important;
+}
+
+[style*="border-radius: 5px"] {
+  border-radius: var(--fork-r-sm) !important;
+}
+
+[style*="border-radius: 6px"] {
+  border-radius: 12px !important;
+}
+
+[style*="border-radius: 7px"],
+[style*="border-radius: 8px"],
+[style*="border-radius: 9px"] {
+  border-radius: var(--fork-r-md) !important;
+}
+
+[style*="border-radius: 10px"],
+[style*="border-radius: 12px"] {
+  border-radius: var(--fork-r-lg) !important;
+}
+
+[style*="border-radius: 14px"] {
+  border-radius: var(--fork-r-xl) !important;
+}
+
+/* Circles and pills keep their shape (declared last so they win here). */
+[style*="border-radius: 50%"] {
+  border-radius: 50% !important;
+}
+
+[style*="border-radius: 999"] {
+  border-radius: 999px !important;
+}
+
+/* ── Class radii: small chips, badges, inline code ───────────────────────── */
+
+.markdown-body .markdown-inline-code,
+.markdown-file-preview code,
+.enabled-models-pin,
+.config-scope-tag,
+.settings-theme-chip,
+.mcp-config-chip,
+.project-trust-mcp-tag,
+.project-trust-mcp-chip,
+.markdown-code-action,
+.mermaid-zoom-stepper,
+.mermaid-zoom-icon-button {
+  border-radius: var(--fork-r-xs);
+}
+
+/* ── Class radii: fields, buttons, icon buttons ──────────────────────────── */
+
+.session-tree-rename,
+.sidebar-menu-item,
+.sidebar-menu-secondary,
+.sidebar-menu-filter-input,
+.sidebar-menu.is-classic .sidebar-worktree-create,
+.sidebar-menu.is-classic .sidebar-worktree-cancel,
+.sidebar-worktree-confirm .sidebar-worktree-force,
+.sidebar-worktree-confirm .sidebar-worktree-cancel,
+.sidebar-toast-action,
+.sidebar-toast-dismiss,
+.sidebar-worktree-input,
+.sidebar-worktree-create,
+.sidebar-worktree-force,
+.sidebar-worktree-cancel,
+.sidebar-menu-question-confirm,
+.sidebar-menu-question-cancel,
+.session-tree-action,
+.session-tree .session-tree-confirm-delete,
+.session-tree .session-tree-confirm-cancel,
+.session-tree .session-tree-group-action,
+.config-close-button,
+.config-sidebar-item,
+.config-button,
+.config-list-action-button,
+.config-add-source-input,
+.oauth-paste-input,
+.oauth-paste-submit,
+.enabled-models-error,
+.enabled-models-filter,
+.settings-shell-option,
+.settings-language-option,
+.settings-send-mode-option,
+.project-trust-button,
+.project-trust-mcp-server,
+.project-trust-path,
+.image-preview-close,
+.model-context-input,
+.agents-concurrency-control input,
+.mcp-add-input,
+.mcp-test-output {
+  border-radius: var(--fork-r-sm);
+}
+
+/* ── Class radii: rows, cards, tool surfaces ─────────────────────────────── */
+
+.session-tree-session,
+.session-tree-group,
+.session-tree-drag-source,
+.session-tree-footer-button,
+.session-tree-drag-ghost,
+.sidebar-files-section-toggle,
+.sidebar-search-input,
+.sidebar-tool-button,
+.project-picker-button,
+.project-picker.is-inline .project-picker-button,
+.markdown-code-block,
+.markdown-table-frame,
+.markdown-file-preview pre,
+.markdown-frontmatter,
+.mermaid-zoom-canvas,
+.compaction-file-list,
+.image-preview-image,
+.markdown-body img,
+.markdown-body video {
+  border-radius: var(--fork-r-md);
+}
+
+/* ── Class radii: surfaces (menus, dialogs, panels, sheets) ──────────────── */
+
+.sidebar-menu,
+.sidebar-toast,
+.config-panel-root.is-modal > .config-panel-surface,
+.settings-dialog-surface,
+.project-trust-dialog,
+.web-login-brand img,
+.web-login-form button {
+  border-radius: var(--fork-r-lg);
+}
+
+.web-login-composer {
+  border-radius: var(--fork-r-xl);
+}
+
+/* A sheet rises from the screen's bottom edge: round its top corners only. */
+.sidebar-sheet {
+  border-radius: var(--fork-r-xl) var(--fork-r-xl) 0 0;
+}
+
+.markdown-body blockquote {
+  border-radius: 0 var(--fork-r-md) var(--fork-r-md) 0;
+}
+
+.session-tree-drop-line {
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+}
+
+/* ── Type: chat ─────────────────────────────────────────────────────────── */
+
+/*
+ * `--chat-content-font-size` is set inline by `hooks/useChatAppearance.ts`
+ * from its default; the value here keeps the first paint, before that hook
+ * has run, on the same scale.
+ */
+:root,
+[data-theme] {
+  --chat-content-font-size: 16px;
+}
+
+.markdown-body {
+  line-height: 1.75;
+}
+
+.markdown-body p {
+  margin: 0 0 11px;
+}
+
+.markdown-body li {
+  margin: 4px 0;
+}
+
+.markdown-body li > p {
+  margin-bottom: 5px;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+  margin: 16px 0 7px;
+  line-height: 1.4;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  margin: 6px 0 11px;
+}
+
+.markdown-body blockquote {
+  padding: 8px 13px;
+  margin: 8px 0;
+  line-height: 1.7;
+}
+
+.markdown-body th,
+.markdown-body td {
+  padding: 8px 12px;
+}
+
+/* ── Type: session sidebar ──────────────────────────────────────────────── */
+
+.session-tree-title,
+.session-tree-group-toggle {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.session-tree.is-mobile .session-tree-title,
+.session-tree.is-mobile .session-tree-group-toggle {
+  font-size: 14px;
+}
+
+.session-tree-branch,
+.session-tree-meta,
+.session-tree-summary,
+.session-tree-group-empty,
+.session-tree-more,
+.session-tree-more-toggle,
+.session-tree-pinned-toggle {
+  font-size: 11.5px;
+}
+
+.session-tree-footer-button {
+  font-size: 12.5px;
+}
+
+.session-tree-message {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.sidebar-tab,
+.sidebar-new-button,
+.sidebar-search-toggle {
+  font-size: 13px;
+}
+
+.sidebar-tab-count {
+  font-size: 11px;
+}
+
+.sidebar-brand {
+  font-size: 16px;
+}
+
+.sidebar-files-section-toggle {
+  font-size: 12.5px;
+}
+
+.sidebar-search-input,
+.sidebar-archive-back {
+  font-size: 13.5px;
+}
+
+.sidebar-files-error {
+  font-size: 11px;
+}
+
+/* The tree's row heights come from `SIDEBAR_ROW_HEIGHTS` (lib/session-tree.ts)
+   and stay there; only the sidebar's own header grows. */
+.sidebar-header {
+  height: 40px;
+}
+
+.sidebar-search-toggle {
+  width: 40px;
+}
+
+.sidebar-new-button {
+  font-size: 13px;
+}
+
+/* ── Type: sidebar menus and sheets ─────────────────────────────────────── */
+
+.sidebar-menu {
+  padding: 6px;
+  font-size: 13px;
+}
+
+.sidebar-menu-item {
+  height: 32px;
+  font-size: 13.5px;
+}
+
+.sidebar-menu-label.is-mono {
+  font-size: 12.5px;
+}
+
+.sidebar-menu-note {
+  font-size: 12px;
+}
+
+.sidebar-menu-shortcut {
+  font-size: 11.5px;
+}
+
+.sidebar-menu-header {
+  font-size: 12px;
+}
+
+.sidebar-menu-filter-input,
+.sidebar-menu-empty {
+  font-size: 13px;
+}
+
+.sidebar-menu.is-classic .sidebar-menu-item {
+  font-size: 12.5px;
+}
+
+.sidebar-menu.is-classic .sidebar-menu-label.is-mono {
+  font-size: 12px;
+}
+
+.sidebar-menu.is-classic .sidebar-menu-note {
+  font-size: 11px;
+}
+
+.sidebar-menu.is-classic .sidebar-menu-filter-input,
+.sidebar-menu.is-classic .sidebar-menu-empty,
+.sidebar-menu.is-classic .sidebar-worktree-input,
+.sidebar-menu.is-classic .sidebar-worktree-create,
+.sidebar-menu.is-classic .sidebar-worktree-cancel {
+  font-size: 12.5px;
+}
+
+.sidebar-worktree-input {
+  font-size: 12.5px;
+}
+
+.sidebar-worktree-create,
+.sidebar-worktree-force,
+.sidebar-worktree-cancel,
+.sidebar-worktree-message,
+.sidebar-worktree-confirm-text,
+.sidebar-menu-question-text,
+.sidebar-menu-question-confirm,
+.sidebar-menu-question-cancel {
+  font-size: 13px;
+}
+
+.sidebar-worktree-error {
+  font-size: 12px;
+}
+
+.sidebar-toast,
+.sidebar-toast-action {
+  font-size: 13px;
+}
+
+.sidebar-sheet {
+  font-size: 16px;
+}
+
+.sidebar-sheet-title,
+.sidebar-sheet .sidebar-menu-header {
+  font-size: 13px;
+}
+
+.sidebar-sheet .sidebar-menu-item {
+  font-size: 16px;
+}
+
+.sidebar-sheet .sidebar-menu-label.is-mono {
+  font-size: 15px;
+}
+
+.sidebar-sheet .sidebar-menu-note {
+  font-size: 14px;
+}
+
+.sidebar-sheet .sidebar-menu-filter-input,
+.sidebar-sheet .sidebar-menu-question-text,
+.sidebar-sheet .sidebar-menu-question-confirm,
+.sidebar-sheet .sidebar-worktree-input,
+.sidebar-sheet .sidebar-worktree-create,
+.sidebar-sheet .sidebar-worktree-force,
+.sidebar-sheet .sidebar-worktree-cancel {
+  font-size: 15px;
+}
+
+.sidebar-sheet .sidebar-menu-empty,
+.sidebar-sheet-cancel {
+  font-size: 16px;
+}
+
+/* ── Type: settings ─────────────────────────────────────────────────────── */
+
+.config-panel-title,
+.settings-dialog-title {
+  font-size: 17px;
+}
+
+.config-panel-subtitle {
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.config-sidebar-group-label {
+  font-size: 11px;
+}
+
+.config-sidebar-group-status {
+  font-size: 12px;
+}
+
+.config-sidebar-item {
+  font-size: 13px;
+}
+
+.config-sidebar-text {
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.config-detail {
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.config-detail-title {
+  font-size: 16px;
+}
+
+.config-section-title {
+  font-size: 12.5px;
+}
+
+.config-field-label {
+  font-size: 12px;
+}
+
+.config-empty-state {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.config-button-default {
+  font-size: 13px;
+}
+
+.config-list-action-button {
+  font-size: 13px;
+}

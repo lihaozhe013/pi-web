@@ -13,7 +13,8 @@ export async function checkChatAppearanceReset(page) {
   assert.equal(await fontSize.inputValue(), "24", "Resetting width must preserve font size");
   await width.press("End");
   await resetFontSize.click();
-  assert.equal(await fontSize.inputValue(), "14");
+  // Fork: the default type scale is 16px (14px upstream), see hooks/useChatAppearance.ts.
+  assert.equal(await fontSize.inputValue(), "16");
   assert.equal(await width.inputValue(), "2000", "Resetting font size must preserve width");
   await resetWidth.click();
   assert.deepEqual(await page.evaluate(() => ({
@@ -21,13 +22,13 @@ export async function checkChatAppearanceReset(page) {
     fontSize: localStorage.getItem("pi-chat-content-font-size"),
     appliedWidth: document.documentElement.style.getPropertyValue("--chat-content-max-width"),
     appliedFontSize: document.documentElement.style.getPropertyValue("--chat-content-font-size"),
-  })), { width: "820", fontSize: "14", appliedWidth: "820px", appliedFontSize: "14px" });
+  })), { width: "820", fontSize: "16", appliedWidth: "820px", appliedFontSize: "16px" });
   await page.reload({ waitUntil: "networkidle" });
   const showSidebar = page.getByRole("button", { name: "Show sidebar", exact: true });
   if (await showSidebar.isVisible()) await showSidebar.click();
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   assert.equal(await width.inputValue(), "820");
-  assert.equal(await fontSize.inputValue(), "14");
+  assert.equal(await fontSize.inputValue(), "16");
   assert.equal(await resetWidth.isDisabled(), true);
   assert.equal(await resetFontSize.isDisabled(), true);
 }
@@ -50,7 +51,7 @@ export async function checkChatAppearance(page) {
 
   await openSettings();
   assert.equal(await width.inputValue(), "820");
-  assert.equal(await fontSize.inputValue(), "14");
+  assert.equal(await fontSize.inputValue(), "16");
   await width.press("End");
   await closeSettings();
   const draft = "Existing drafts resize when the available width or the reading font changes. ".repeat(6);
