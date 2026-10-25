@@ -1,4 +1,6 @@
-Pi Web portable package (personal fork)
+Pi Web portable package (personal-use fork, built and tested locally)
+
+This fork intentionally has no CI / GitHub Actions or automated releases.
 
 Prerequisite: latest Node.js LTS on PATH. No global Next.js, npm install,
 Bun, Docker or npm registry publication is needed on the target machine.
@@ -15,10 +17,10 @@ Linux/macOS environment example (disable upstream update checks):
 The application directory must be writable (startup rotates preview secrets).
 Keep the complete directory, including hidden .next and node_modules.
 Do not replace the bundled Next.js or copy node_modules between platforms.
-CI builds/tests with the latest Node.js LTS (lts/*), not a pinned major.
+Build and test locally with the latest Node.js LTS; upgrade it manually.
 PORTABLE.json records the actual build Node version for troubleshooting.
-Linux packages target glibc, NOT Alpine/musl. See the source packaging/README.md
-for build runner baselines. Native dependencies may require system libraries.
+Linux packages target glibc, NOT Alpine/musl. There is no CI runner matrix or
+cross-platform certification. Native dependencies may require system libraries.
 
 For remote access, prefer SSH forwarding:
   ssh -N -L 30141:127.0.0.1:30141 user@server

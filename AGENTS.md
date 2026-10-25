@@ -8,6 +8,17 @@
 of truth for what Pi Web is and how it works; the fork only adds its own tweaks on
 top and pulls upstream in regularly.
 
+This fork is **strictly for personal use**. Development, tests, UI checks and
+portable packaging run locally. **Do not add or restore CI / GitHub Actions
+workflows** unless the owner explicitly asks; their removal is intentional.
+There is no automated release or public distribution commitment. The upstream
+release instructions describe upstream's process, not this fork's workflow.
+
+Read [Fork UI design](docs/fork-ui-design.md) before changing the fork's look,
+tool-card interaction or adapting it to an upstream UI rewrite. That document
+records the design intent to preserve; current selectors and component structure
+are replaceable implementation details.
+
 The section [Upstream notes](#upstream-notes) below is the upstream `AGENTS.md`,
 kept **verbatim** between two markers so upstream updates can be dropped in
 without touching the fork-specific text above it.
@@ -60,6 +71,12 @@ merge conflict. Prefer additive changes:
 This is advice, not a hard law: a small, surgical edit inside an upstream file is
 fine when the indirection would clearly cost more than the merge conflict saves.
 
+When upstream substantially redesigns the UI, prefer its new structure and
+rebuild the fork's presentation on top, following `docs/fork-ui-design.md`.
+Preserve the style and interaction principles, not obsolete DOM, CSS selectors
+or a parallel copy of upstream components. Do not retain old code at the expense
+of upstream fixes or performance improvements.
+
 ### 3. Keep this file mergeable
 
 `AGENTS.md` is tracked against upstream too. All fork-specific text belongs above
@@ -68,11 +85,11 @@ the upstream block; when pulling upstream, replace everything between the two
 
 ### 4. What the fork adds
 
-Three fork features, each in its own file(s) with one small hook into upstream
-code:
+The fork's presentation lives mainly in dedicated files with small integration
+points in upstream components (see the design document for behavior and checks):
 
-- **A softer, roomier skin** — `app/fork.css`, imported last in `app/layout.tsx`.
-  Theme colors stay exactly as upstream defines them; only corner radii, type
+- **A softer, roomier skin** — `app/fork.css`, imported after upstream CSS in
+  `app/layout.tsx`. This base skin preserves upstream theme colors; only corner radii, type
   sizes and the space around them change. It lifts every radius an inline style
   sets (attribute selectors, `!important` to beat the inline declaration, pills
   and circles kept) and repeats the class rules of `app/*.css` at a bigger size.
@@ -100,6 +117,14 @@ code:
   in the `vs`/`vscDarkPlus` themes the Markdown fences already use; a card with
   no known language (grep output, an MCP tool's prose) still reads as plain
   monospace, and nothing is colored while a call's input is still streaming.
+- **Quiet workspace polish** — `app/fork-workspace.css`: softer surfaces, capsule
+  toolbar actions, a roomier composer and visible keyboard focus. Class hooks in
+  `AppShell` and `ChatInput` leave upstream behavior and virtual row heights alone.
+- **Optional Catppuccin themes** — `app/fork-catppuccin.css`: Latte, Frappé,
+  Macchiato and Mocha, registered in `lib/theme.ts` with translated labels.
+  They add palettes without replacing upstream themes.
+- **Local portable packaging** — `packaging/` and two npm scripts; no CI or
+  release workflow. See [packaging/README.md](packaging/README.md).
 
 ---
 
