@@ -91,4 +91,4 @@ node packaging/pty-probe.mjs .
 - 便携包不包含 Node、Git、Python、shell 或 MCP 外部程序。插件/技能安装可能需要 npm/npx；完整安装 Node 时通常已经包含它们。
 - 冒烟验证不等于全部功能验证；OAuth、各种模型、MCP 和第三方插件仍需按实际用途测试。
 
-所有打包实现留在 `packaging/`，仅通过 `package.json` 的本地命令接入；不依赖任何 workflow，应用运行时/SDK/API 不变，便于继续跟上游合并。
+所有打包实现留在 `packaging/`，仅通过 `package.json` 的本地命令接入；不依赖任何 workflow。`track-upstream` 分支借此保持易与上游合并；`main` 分支独立维护后，打包跟随其技术栈演进，始终保持纯本地、无 CI。

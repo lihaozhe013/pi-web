@@ -1,92 +1,73 @@
 # Pi Web — Agent Notes
 
-## This repository is a fork
+## Branch strategy
 
 `lihaozhe013/pi-web` (this repo, remote `origin`) is a **personal fork** of
 [`agegr/pi-web`](https://github.com/agegr/pi-web), the local browser UI for the
-[pi coding agent](https://github.com/earendil-works/pi). Upstream stays the source
-of truth for what Pi Web is and how it works; the fork only adds its own tweaks on
-top and pulls upstream in regularly.
+[pi coding agent](https://github.com/earendil-works/pi). It is **strictly for
+personal use**: development, tests, UI checks and portable packaging run
+locally. **Do not add or restore CI / GitHub Actions workflows** unless the
+owner explicitly asks; their removal is intentional. There is no automated
+release or public distribution commitment, and upstream's release instructions
+describe upstream's process, not this fork's.
 
-This fork is **strictly for personal use**. Development, tests, UI checks and
-portable packaging run locally. **Do not add or restore CI / GitHub Actions
-workflows** unless the owner explicitly asks; their removal is intentional.
-There is no automated release or public distribution commitment. The upstream
-release instructions describe upstream's process, not this fork's workflow.
+Maintenance now splits across two branches:
 
-Read [Fork UI design](docs/fork-ui-design.md) before changing the fork's look,
-tool-card interaction or adapting it to an upstream UI rewrite. That document
-records the design intent to preserve; current selectors and component structure
-are replaceable implementation details.
+- **`track-upstream`** — the long-term upstream-tracking line. It keeps the old
+  fork model: small additive tweaks over upstream, cheap merges, the verbatim
+  upstream `AGENTS.md` block, `// fork:` markers. That branch's own `AGENTS.md`
+  is the authority there; the merge-oriented parts of the old fork rules
+  describe `track-upstream`, not `main`.
+- **`main`** — from here on a **fully independent line that no longer pulls
+  from upstream**. Its goal is a **minimalist, modern rebuild of the agent
+  UI**: features are cut aggressively, whatever remains stays small, and the
+  implementation is free to adopt radically newer libraries and to restructure,
+  rename or delete any file, route or module. Upstream is reference material,
+  not a merge source.
 
-The section [Upstream notes](#upstream-notes) below is the upstream `AGENTS.md`,
-kept **verbatim** between two markers so upstream updates can be dropped in
-without touching the fork-specific text above it.
+This file describes `main`. When working on `track-upstream`, follow that
+branch's `AGENTS.md` instead.
 
-## Fork rules
+Read [Fork UI design](docs/fork-ui-design.md) for the design intent recorded at
+the split point. On `main`, its style and interaction principles still steer the
+rebuild; its adapt-to-upstream workflow belongs to `track-upstream` only. The
+document gets rewritten as the minimal redesign lands.
 
-These rules sit on top of everything in the upstream notes. Where the two
-disagree, this section wins.
+## Rules on `main`
 
-### 1. Stay in the UI layer — do not change core logic
+`main` is self-owned. Where these rules, old fork habits, or the upstream notes
+below disagree, these rules win.
 
-The fork changes how Pi Web looks and feels, not what it does.
+### 1. Cut aggressively — features are being removed, not added
 
-- **Fine to change:** presentation and interaction — layout, spacing, colors,
-  typography, icons, motion, wording of labels, keyboard and touch affordances,
-  responsive behavior, how panels/dialogs/rows are composed, client-side view
-  state and derived display values.
-- **Not fine without a real reason:** core logic — the session lifecycle
-  (`lib/rpc-manager.ts`, `lib/session-reader.ts`), the routes in `app/api/**`, the
-  session file format and its writes, tool / prompt / compaction behavior, model
-  resolution, MCP wiring, auth, the file-access allow-list, and the SSE protocol
-  or event shapes.
-- If a visual change looks like it needs a logic change, look for a
-  presentation-only route first: a new component, a CSS variable, a client-side
-  derived value. If there genuinely is none, say so and explain the upstream cost
-  before implementing.
+The direction is a minimalist agent UI. When touching an area, prefer deleting
+surface over keeping it: fewer panels, fewer settings, fewer modes, less
+chrome. What stays must serve talking to the agent and watching it work.
+Nothing is preserved for compatibility's sake; what the rebuilt product keeps
+is decided per area by the owner, and the docs are updated as each area lands.
 
-### 2. Optimize for cheap upstream merges
+### 2. Modern stack over inherited structure
 
-The fork has to keep tracking upstream for a long time, so every diff is a future
-merge conflict. Prefer additive changes:
+The old "stay in the UI layer, don't touch core logic" rule no longer applies
+on `main` (it still does on `track-upstream`). Replacing libraries, rewriting
+core logic, restructuring routes and modules, renaming or deleting files are
+all normal here. Choose radically simpler, modern libraries when they shrink
+code and dependency surface; don't keep an inherited dependency just because
+upstream uses it. Keep the result small, typed, fast, and reviewable by one
+person.
 
-- **Suggested pattern:** put fork code in **new files**
-  (`components/Fork*.tsx`, `lib/fork-*.ts`, `hooks/useFork*.ts`) and reference
-  them from the upstream file, keeping the edit there as small as possible —
-  ideally one added import plus one rendered element or one guarded branch.
-- Prefer a wrapper, an extra prop, or an overridden CSS variable over rewriting an
-  upstream file's internals.
-- No reformatting, reordering, or drive-by cleanup inside upstream files (and
-  inside the verbatim upstream block of this document); keep unrelated edits out
-  of the same region.
-- Mark intentional divergences with a short marker so a three-way merge stays
-  readable, e.g. `// fork: <one line why>`.
-- Keep a fork-only feature reachable from one obvious place (one component, one
-  helper module), so it can be disabled or dropped in a single edit.
-- Don't rename or move upstream files. The upstream rule still holds: no
-  pi-web-only options or fields in the extension API (`ctx.ui.*`,
-  `extension_ui_request`) and no changes to what pi itself does.
+### 3. Keep it personal and local
 
-This is advice, not a hard law: a small, surgical edit inside an upstream file is
-fine when the indirection would clearly cost more than the merge conflict saves.
+No CI, no release pipeline, no telemetry ambitions, no settings for imaginary
+users. One good default beats a switch. Anything that exists only for public
+distribution is out of scope.
 
-When upstream substantially redesigns the UI, prefer its new structure and
-rebuild the fork's presentation on top, following `docs/fork-ui-design.md`.
-Preserve the style and interaction principles, not obsolete DOM, CSS selectors
-or a parallel copy of upstream components. Do not retain old code at the expense
-of upstream fixes or performance improvements.
+### 4. Inventory: what the fork line had at the split
 
-### 3. Keep this file mergeable
-
-`AGENTS.md` is tracked against upstream too. All fork-specific text belongs above
-the upstream block; when pulling upstream, replace everything between the two
-`BEGIN`/`END` markers and leave the fork sections as they are.
-
-### 4. What the fork adds
-
-The fork's presentation lives mainly in dedicated files with small integration
-points in upstream components (see the design document for behavior and checks):
+The list below is what `main` inherited — mostly dedicated fork files with
+small integration points in upstream components (behavior and checks: see the
+design document). Treat it as inventory, not a spec; the minimal rebuild may
+drop or rewrite any of it:
 
 - **A softer, roomier skin** — `app/fork.css`, imported after upstream CSS in
   `app/layout.tsx`. This base skin preserves upstream theme colors; only corner radii, type
@@ -128,13 +109,17 @@ points in upstream components (see the design document for behavior and checks):
 
 ---
 
-## Upstream notes
+## Upstream notes (frozen reference snapshot)
 
 Everything below this line is the upstream `AGENTS.md` from `agegr/pi-web`,
-verbatim. Read it as the project's own documentation — it describes code the fork
-does not intend to diverge from.
+kept as a **frozen snapshot** from the point `main` stopped tracking upstream.
+Read it as a map of the code `main` inherited — architecture, routes, file map,
+session format, CSS variables — not as current rules. As `main` cuts features
+and rebuilds, this snapshot goes stale; trim or update any part a rebuilt area
+contradicts. (`track-upstream` keeps its own live copy of this block for
+merging.)
 
-<!-- BEGIN upstream AGENTS.md (verbatim — do not edit between the markers) -->
+<!-- BEGIN upstream AGENTS.md (frozen snapshot — update or trim freely as main diverges) -->
 # Pi Web - Development Notes
 
 ## Quick Start

@@ -2,6 +2,15 @@
 
 [中文文档](./docs/README.zh-CN.md) | [日本語](./docs/README.ja.md) | [Русский](./docs/README.ru.md)
 
+> **Fork notice:** `main` in this repository is an independently maintained
+> personal fork of [agegr/pi-web](https://github.com/agegr/pi-web) — it no
+> longer pulls from upstream and is being rebuilt as a minimalist, modern
+> agent UI, cutting features aggressively in favor of a smaller, newer stack.
+> Upstream tracking continues long-term on the `track-upstream` branch. See
+> [AGENTS.md](./AGENTS.md) for the branch strategy. The rest of this README
+> describes the upstream feature set at the split point and will be rewritten
+> as `main` diverges.
+
 Local browser UI for the [pi coding agent](https://github.com/earendil-works/pi). Pi Web uses the same local configuration and session files as pi, so you can browse and resume conversations, run agent turns, configure models and resources, and inspect project files from a browser.
 
 **[Try the interactive demo →](https://agegr.github.io/pi-web/)** The real Pi Web UI runs entirely in your browser, with sample sessions, files and models. There is nothing to install; replies are pre-written and no model is called.
