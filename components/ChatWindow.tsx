@@ -1342,7 +1342,6 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
               phase={agentPhase}
               messages={messages}
               compacting={isCompacting}
-              hasStreamingContent={hasStreamingContent}
             />}
 
             {bashRunning && !pendingBash && (

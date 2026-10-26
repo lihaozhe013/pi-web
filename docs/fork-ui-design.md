@@ -41,8 +41,12 @@ after completion. Explicit choices control retained cards. Long shell
 results show their last 16 lines with Show all/less when expanded.
 
 Thinking and explicit read tools leave no cards or counted groups in the main
-transcript. A transient status shows Thinking or Reading with the current file
-while that work runs, then disappears. Successful shell commands also leave no historical card. Full content remains
+transcript. A transient status keeps the same quiet dot-and-text presentation,
+showing Thinking only during streamed reasoning, Reading with the current file,
+Running with the current command (or tool name and progress), and Waiting for
+provider between model responses. Explicit execution/wait phases override stale
+streamed content; compaction takes precedence over all of them. Status disappears
+when the run ends. Successful shell commands also leave no historical card. Full content remains
 available through the existing full-history toolbar action; storage, exports and agent context
 are unchanged. Provider errors, truncation notices and transcript notices remain
 visible. The old default-expanded thinking setting is removed from the chat UI.

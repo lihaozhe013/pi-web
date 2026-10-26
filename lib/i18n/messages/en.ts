@@ -660,6 +660,8 @@ export const enLocale: LocalePlugin = {
     "activity.thinking": "Thinking…",
     "activity.reading": "Reading…",
     "activity.readingFile": "Reading {path}",
+    "activity.runningCommand": "Running {command}",
+    "activity.waitingProvider": "Waiting for provider…",
     "chatMinimap.contents": "Conversation contents",
     "chatMinimap.untitledTurn": "Untitled turn",
     "chatMinimap.earlierTurns": "Earlier turns not loaded: {count}. Click to load",
