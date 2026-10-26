@@ -28,7 +28,7 @@ const nextConfig: NextConfig = {
   // next/image is only used for the static logo, so the /_next/image optimizer
   // (and its sharp/libheif attack surface, see GHSA-2xp9-vwfh-vxw4) is not needed.
   images: { unoptimized: true },
-  // `next dev` runs Turbopack and `npm run build` runs webpack.
+  // `next dev` runs Turbopack and `bun run build` runs webpack.
   turbopack: {
     rules: {
       "**/mdast-util-gfm-autolink-literal/lib/index.js": { loaders: [gfmAutolinkEmailLoader] },

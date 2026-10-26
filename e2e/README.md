@@ -4,9 +4,9 @@ Adapted from @Nuctori's CI/E2E proposal in #617 and #599. The performance
 scanner, reverse reader, sidebar changes, and timing benchmarks are not included.
 
 ```sh
-npm ci
-npx playwright install chromium
-npm run test:e2e
+bun install --frozen-lockfile
+bunx --no-install playwright install chromium
+bun run test:e2e
 ```
 
 The script starts and stops its own Turbopack dev server on an available
@@ -64,4 +64,4 @@ Coverage:
 Model prompts, live model streaming, and agent execution are outside this suite.
 Failures save a screenshot, Playwright trace, and server log under
 `test-results/e2e/`; CI uploads that directory. Open a trace with
-`npx playwright show-trace test-results/e2e/trace.zip`.
+`bunx --no-install playwright show-trace test-results/e2e/trace.zip`.

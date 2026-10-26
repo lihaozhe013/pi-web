@@ -177,24 +177,29 @@ still take precedence.
 
 ## Development
 
+The independent `main` branch uses Bun 1.4.4 for dependency management and
+Node.js 22.19.0 or newer for development, builds, tests, and production.
+Commit `bun.lock` when dependencies change. Use `bun run test` for the Node.js
+test suite; `bun test` invokes a different test runner. Do not use `--bun`.
+
 ```bash
-npm install
-npm run dev
+bun install --frozen-lockfile
+bun run dev
 ```
 
 The development server runs at [http://127.0.0.1:30141](http://127.0.0.1:30141). Run the common checks with:
 
 ```bash
-npm test
-node_modules/.bin/tsc --noEmit
-npm run lint
+bun run test
+bun run typecheck
+bun run lint
 ```
 
-Do not run `next build` or `npm run build` during normal development. It writes to `.next/` and can interfere with the development server; leave builds for release work.
+Do not run `next build` or `bun run build` during normal development. It writes to `.next/` and can interfere with the development server; leave builds for release work.
 
 Before starting on a feature, read [Contributing](./CONTRIBUTING.md) for what is in scope and the pull request checklist.
 
-Contributor guides: [Internationalization](./docs/i18n.md) and [Release process](./docs/release.md).
+Contributor guides: [Internationalization](./docs/i18n.md) and [Local portable packaging](./packaging/README.md).
 
 ## Repository Layout
 

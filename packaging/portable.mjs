@@ -1,4 +1,4 @@
-// fork: portable distribution without changing the upstream runtime or npm release.
+// Local portable packaging with Bun for dependencies and Node.js for runtime.
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { cp, mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
@@ -18,17 +18,6 @@ export function artifactName(version, platform = process.platform, arch = proces
   return `pi-web-${version}-${platform}-${arch}${platform === "linux" ? "-glibc" : ""}`;
 }
 
-export function parsePackResult(stdout, packageName) {
-  const result = JSON.parse(stdout);
-  // npm 10/11 return an array; npm 12 returns { [packageName]: tarball }.
-  const tarball = Array.isArray(result) ? result[0] : result?.[packageName];
-  if (!tarball || typeof tarball.filename !== "string" ||
-      !/^[\w.@+-]+\.tgz$/.test(tarball.filename)) {
-    throw new Error("Unexpected npm pack --json output: missing or invalid tarball filename");
-  }
-  return tarball;
-}
-
 function run(command, args, cwd, capture = false) {
   const result = spawnSync(command, args, {
     cwd,
@@ -42,10 +31,13 @@ function run(command, args, cwd, capture = false) {
 }
 
 export async function packagePortable(output = join(root, "build", "portable")) {
-  // npm run provides the real npm JS entry, avoiding npm.cmd/shell quoting on Windows.
-  const npmCli = process.env.npm_execpath;
-  if (!npmCli) throw new Error("Run via: npm run package:portable");
-  const npm = (args, cwd, capture = false) => run(process.execPath, [npmCli, ...args], cwd, capture);
+  // Bun sets npm_execpath to its native executable when running package scripts.
+  // Spawn it directly, keeping process.execPath reserved for Node.js.
+  const bunCli = process.env.npm_execpath;
+  if (!bunCli || !/^bun(?:\.exe)?$/i.test(bunCli.split(/[\\/]/).pop())) {
+    throw new Error("Run via: bun run package:portable");
+  }
+  const bun = (args, cwd) => run(bunCli, args, cwd);
   const pkg = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
   const name = artifactName(pkg.version);
   if (process.platform === "linux" && !process.report.getReport().header.glibcVersionRuntime) {
@@ -61,31 +53,36 @@ export async function packagePortable(output = join(root, "build", "portable")) 
 
     // Copy tracked working-tree files only: never copy .env, sessions, node_modules
     // or the active dev .next. Commit/add new application files before packaging.
-    const files = execFileSync("git", ["ls-files", "-z"], { cwd: root, encoding: "utf8" }).split("\0").filter(Boolean);
+    const tracked = execFileSync("git", ["ls-files", "-z"], { cwd: root, encoding: "utf8" }).split("\0").filter(Boolean);
+    const files = new Set([...tracked, "bun.lock"]);
     for (const file of files) {
       const destination = join(source, file);
       await mkdir(dirname(destination), { recursive: true });
-      await cp(join(root, file), destination, { recursive: true });
+      try {
+        await cp(join(root, file), destination, { recursive: true });
+      } catch (error) {
+        if (error.code !== "ENOENT" || file === "bun.lock") throw error;
+      }
     }
-    npm(["ci", "--no-audit", "--no-fund"], source);
-    npm(["run", "build"], source);
+    bun(["install", "--frozen-lockfile"], source);
+    bun(["run", "build"], source);
 
-    // Reuse upstream's npm file allow-list, not a second hand-maintained list.
-    // npm pack does NOT publish and does NOT include node_modules.
-    const tarball = parsePackResult(npm(["pack", "--json", "--pack-destination", packed], source, true), pkg.name);
+    // Reuse package.json.files as the archive allow-list. This does not publish.
+    bun(["pm", "pack", "--filename", join(packed, "app.tgz")], source);
     // Relative archive paths avoid GNU tar interpreting Windows C: as a remote host.
-    run("tar", ["-xzf", `packed/${tarball.filename}`, "-C", "staging"], work);
+    run("tar", ["-xzf", "packed/app.tgz", "-C", "staging"], work);
     const app = join(staging, "pi-web");
     await rename(join(staging, "package"), app);
-    await cp(join(source, "package-lock.json"), join(app, "package-lock.json"));
+    await cp(join(source, "bun.lock"), join(app, "bun.lock"));
     // Install on the target OS/architecture so optional/native dependencies match.
-    npm(["ci", "--omit=dev", "--no-audit", "--no-fund"], app);
+    bun(["install", "--frozen-lockfile", "--production"], app);
     await writeFile(join(app, "PORTABLE.json"), JSON.stringify({
       version: pkg.version,
       platform: process.platform,
       arch: process.arch,
       libc: process.platform === "linux" ? "glibc" : undefined,
       buildNode: process.version,
+      buildBun: run(bunCli, ["--version"], source, true).trim(),
       commit: execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim(),
       source: "tracked working-tree files (may include local changes)",
     }, null, 2) + "\n");

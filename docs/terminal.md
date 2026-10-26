@@ -57,8 +57,8 @@ Restart Pi Web after repair.
 
 ## Verification
 
-Run `npm test` for native PTY, lease, output cursor, input queue, and storage
-checks. `npm run test:terminal` starts an isolated development server and runs
+Run `bun run test` for native PTY, lease, output cursor, input queue, and storage
+checks. `bun run test:terminal` starts an isolated development server and runs
 desktop/mobile browser checks using generated session fixtures. Install the
-Playwright Chromium browser first with `npx playwright install chromium`.
+Playwright Chromium browser first with `bunx --no-install playwright install chromium`.
 The browser check prints the temporary location of its screenshots and log.

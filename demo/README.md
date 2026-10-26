@@ -68,15 +68,15 @@ The demo never ends up in the app or its npm package:
 
 ```bash
 cd demo
-npm install
-npm run dev      # http://127.0.0.1:30142
-npm run lint
-npm run build    # static export in out/
+bun install --frozen-lockfile
+bun run dev      # http://127.0.0.1:30142
+bun run lint
+bun run build    # static export in out/
 ```
 
-`npm run dev` and `npm run build` first run `scripts/prepare-demo-files.mjs`.
+`bun run dev` and `bun run build` first run `scripts/prepare-demo-files.mjs`.
 To preview the build under a sub-path the way GitHub Pages serves it, set
-`PAGES_BASE_PATH=/pi-web` before `npm run build`.
+`PAGES_BASE_PATH=/pi-web` before `bun run build`.
 
 ## Deployment
 

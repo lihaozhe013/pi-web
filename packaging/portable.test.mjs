@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { artifactName, parsePackResult } from "./portable.mjs";
+import { artifactName } from "./portable.mjs";
 
 // The actual extracted-archive runtime smoke test is mandatory in packagePortable.
 test("portable artifact names identify platform, architecture and Linux libc", () => {
@@ -19,18 +19,6 @@ test("reject ambiguous or unsafe artifact names", () => {
   assert.throws(() => artifactName("../secret", "linux", "x64"), /Invalid/);
   assert.throws(() => artifactName("1.0.0", "freebsd", "x64"), /Unsupported/);
   assert.throws(() => artifactName("1.0.0", "linux", "ia32"), /Unsupported/);
-});
-
-test("parse npm pack output from both array and package-keyed formats", () => {
-  const tarball = { filename: "agegr-pi-web-0.12.2.tgz" };
-  assert.deepEqual(parsePackResult(JSON.stringify([tarball]), "@agegr/pi-web"), tarball);
-  assert.deepEqual(parsePackResult(JSON.stringify({ "@agegr/pi-web": tarball }), "@agegr/pi-web"), tarball);
-});
-
-test("reject unexpected npm pack output and unsafe filenames", () => {
-  for (const result of [null, [], {}, { "@agegr/pi-web": { filename: "../outside.tgz" } }]) {
-    assert.throws(() => parsePackResult(JSON.stringify(result), "@agegr/pi-web"), /Unexpected npm pack/);
-  }
 });
 
 test("PTY probe exits despite retained handles, but still rejects missing output", async () => {
@@ -62,10 +50,10 @@ test("PTY probe exits despite retained handles, but still rejects missing output
   }
 });
 
-test("portable packaging leaves upstream release/start commands intact", async () => {
+test("portable packaging keeps Node.js runtime commands and local-only packaging", async () => {
   const pkg = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
-  assert.equal(pkg.scripts.release, "npm version patch --no-git-tag-version && npm run build && npm publish --access public");
-  assert.equal(pkg.scripts.start, "next start -H 127.0.0.1 -p 30141");
+  assert.equal(pkg.scripts.release, undefined);
+  assert.equal(pkg.scripts.start, "node node_modules/next/dist/bin/next start -H 127.0.0.1 -p 30141");
   assert.equal(pkg.scripts["package:portable"], "node packaging/portable.mjs");
   assert.ok(pkg.files.includes("bin") && pkg.files.includes(".next"));
 });

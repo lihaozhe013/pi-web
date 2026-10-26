@@ -25,7 +25,7 @@ const nextConfig: NextConfig = {
   images: { unoptimized: true },
   // Next writes AGENTS.md / CLAUDE.md into the project on `next dev` otherwise.
   agentRules: false,
-  // `npm run dev` binds 127.0.0.1; Next 16 treats other hosts as cross-origin.
+  // `bun run dev` binds 127.0.0.1; Next 16 treats other hosts as cross-origin.
   allowedDevOrigins: ["127.0.0.1", "localhost"],
   env: {
     NEXT_PUBLIC_APP_VERSION: parentPackage.version,

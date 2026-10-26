@@ -1,6 +1,10 @@
-# Release Checklist
+# Upstream Release Checklist (Historical)
 
-This repo publishes two artifacts for each release:
+This is a frozen reference for upstream publication. The independent fork does
+not use this workflow or maintain a `release` script. Use
+[local portable packaging](../packaging/README.md) on `main`.
+
+Upstream publishes two artifacts for each release:
 
 - npm package: `@agegr/pi-web`
 - GitHub Release: `agegr/pi-web`

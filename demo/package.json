@@ -5,11 +5,11 @@
   "description": "Static, backend-free showcase of the Pi Web UI for GitHub Pages",
   "scripts": {
     "predev": "node scripts/prepare-demo-files.mjs",
-    "dev": "next dev -H 127.0.0.1 -p 30142",
+    "dev": "node node_modules/next/dist/bin/next dev -H 127.0.0.1 -p 30142",
     "prebuild": "node scripts/prepare-demo-files.mjs",
-    "build": "next build",
-    "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "build": "node node_modules/next/dist/bin/next build",
+    "lint": "node node_modules/eslint/bin/eslint.js .",
+    "typecheck": "node node_modules/typescript/bin/tsc --noEmit"
   },
   "dependencies": {
     "@xterm/addon-fit": "0.11.0",
@@ -45,5 +45,13 @@
   },
   "overrides": {
     "eslint-plugin-react-hooks": "7.0.1"
-  }
+  },
+  "packageManager": "bun@1.4.4",
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "trustedDependencies": [
+    "sharp",
+    "unrs-resolver"
+  ]
 }

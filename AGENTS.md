@@ -62,6 +62,21 @@ No CI, no release pipeline, no telemetry ambitions, no settings for imaginary
 users. One good default beats a switch. Anything that exists only for public
 distribution is out of scope.
 
+### Package management and runtime
+
+- Use Bun 1.4.4 for package management and commit `bun.lock` (also in `demo/`).
+- Install with `bun install --frozen-lockfile`; change dependencies with `bun add`
+  or `bun remove`. Pin all `@earendil-works/*` packages with `bun add --exact`.
+- Run scripts with `bun run`: `dev`, `test`, `typecheck`, `lint`, and
+  `test:portable`. `bun run test` runs Node's test suite; do not use `bun test`.
+- Node.js remains the runtime. Keep explicit `node` invocations in scripts;
+  do not use `bun --bun` or replace Node with Bun for application execution.
+- Portable packaging uses Bun in an isolated directory. The target only needs
+  Node.js. No npm release script or CI is maintained on `main`.
+- The frozen upstream npm development/release instructions below are historical;
+  use the Bun commands above on `main`. Runtime plugin/skill npm integrations
+  remain separate from this repository's package management.
+
 ### 4. Inventory: what the fork line had at the split
 
 The list below is what `main` inherited — mostly dedicated fork files with
@@ -104,7 +119,7 @@ drop or rewrite any of it:
 - **Optional Catppuccin themes** — `app/fork-catppuccin.css`: Latte, Frappé,
   Macchiato and Mocha, registered in `lib/theme.ts` with translated labels.
   They add palettes without replacing upstream themes.
-- **Local portable packaging** — `packaging/` and two npm scripts; no CI or
+- **Local portable packaging** — `packaging/` and local package scripts; no CI or
   release workflow. See [packaging/README.md](packaging/README.md).
 
 ---
