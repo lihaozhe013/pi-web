@@ -86,6 +86,17 @@ without it. Draw tool cards as borderless panes: a surface tint lifts the card o
 and the code, diff or output inside it sits a shade deeper, so color rather than a frame separates
 the body from the page.
 
+Motion explains a change; it never decorates one. A card fades in when its call starts, its status
+mark fades when it changes, its body folds open and shut, a result pane rises into place, and a card
+that leaves the transcript — a shell that succeeded — fades and folds away where it stood instead of
+vanishing in one frame. Only a card that lived in this page moves: the card remembers whether the
+call was still running at mount, so restoring a session, re-reading the same message, scrolling
+history or re-grouping a turn replays none of it. The run status row above the composer is always in
+the stack: it folds open with the run, folds away when the run ends, and only its words change in
+between, so the composer never jumps under the user's cursor. All of this is opacity, transform or a
+box size; `prefers-reduced-motion` makes every change instant, including the short hold that keeps a
+leaving card on screen for its fade.
+
 ## Questions near the composer
 
 Model-issued `ask_user` questions use a non-modal panel directly above the composer, aligned to its

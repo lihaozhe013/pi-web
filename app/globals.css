@@ -2873,11 +2873,23 @@ span.token.table {
 
 /* The live run status belongs to the composer stack: one fixed-height row above
    the input, outside the transcript, so a long run stays visible while history
-   scrolls under it and the composer does not move as tools start and finish. */
+   scrolls under it and the composer does not move as tools start and finish.
+   The slot is always in the stack and folds itself open (its row height), so the
+   input does not jump when a run starts or ends; only its content fades. */
 .composer-activity-slot {
+  display: grid;
+  grid-template-rows: 0fr;
   flex-shrink: 0;
   min-width: 0;
-  padding: 0 52px 6px 16px;
+  padding: 0 52px 0 16px;
+  transition: grid-template-rows 200ms ease;
+}
+.composer-activity-slot[data-open='true'] {
+  grid-template-rows: 1fr;
+}
+.composer-activity-row {
+  min-height: 0;
+  overflow: hidden;
 }
 .composer-activity {
   display: flex;
@@ -2885,17 +2897,35 @@ span.token.table {
   gap: 8px;
   height: 20px;
   max-width: var(--chat-content-max-width, 820px);
-  margin: 0 auto;
+  margin: 0 auto 6px;
   color: var(--text-muted);
   font-size: calc(13px + var(--ui-font-size-offset, 0px));
   line-height: 20px;
   overflow: hidden;
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+.composer-activity[data-visible='true'] {
+  opacity: 1;
+}
+/* A finished run takes its words with it instead of cutting them off. */
+.composer-activity-slot[data-fading='true'] .composer-activity {
+  opacity: 0;
 }
 .composer-activity-label {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* The label is re-keyed on every change: it rises into place, which reads as
+     one line flowing into the next instead of a swap. */
+  animation: composer-activity-in 220ms ease-out;
+}
+@keyframes composer-activity-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
 }
 .composer-activity-dot {
   width: 5px;
@@ -2913,6 +2943,13 @@ span.token.table {
 @media (prefers-reduced-motion: reduce) {
   .composer-activity-dot {
     animation: none;
+  }
+  .composer-activity-label {
+    animation: none;
+  }
+  .composer-activity-slot,
+  .composer-activity {
+    transition: none !important;
   }
 }
 @media (max-width: 640px) {

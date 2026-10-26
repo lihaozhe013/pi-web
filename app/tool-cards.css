@@ -16,6 +16,8 @@
   --tool-card-surface: color-mix(in srgb, var(--text) 5%, var(--bg));
   --tool-card-pane: color-mix(in srgb, var(--text) 4%, transparent);
   background: var(--tool-card-surface);
+  /* A state change warms or cools the surface instead of swapping the colour. */
+  transition: background-color 240ms ease;
 }
 
 .tool-card[data-state='error'] {
@@ -77,11 +79,115 @@
     opacity: 0.25;
   }
 }
+
+/*
+ * Motion. A card's life is a handful of small changes: it appears when the call
+ * starts, its status mark flips, its body opens and closes, a result pane or a
+ * codemode call arrives, and it leaves when the call folds out of the
+ * transcript. Each one fades and eases its box instead of cutting, so the steps
+ * read as a flow rather than a series of jumps.
+ *
+ * Only a card that lived in this page moves: `data-live` is set when the call was
+ * still running at mount (MessageView.tsx), so a history load, a re-render of the
+ * same message or a scroll never replays any of it. Everything here animates
+ * opacity, transform or a box size, and honours reduced motion.
+ */
+@keyframes tool-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+.tool-card[data-live='true'] {
+  animation: tool-card-in 180ms ease-out;
+}
+
+/* The status mark is re-keyed on every state change, so it fades in from here. */
+@keyframes tool-status-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+}
+.tool-card[data-live='true'] .tool-status {
+  animation: tool-status-in 160ms ease-out;
+}
+
+/*
+ * The card's body folds open and shut (`grid-template-rows` 0fr ↔ 1fr, which
+ * grows from the content's own height without measuring it). The content is
+ * clipped, never laid out at zero height. The opacity is a second, plainer fade
+ * for a browser that cannot interpolate the track: the fold would snap there,
+ * but the body would still arrive and leave softly instead of blinking.
+ */
+.tool-card-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 200ms ease,
+    opacity 160ms ease;
+}
+.tool-card-body[data-open='true'] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.tool-card-body-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* A pane that arrives while the call runs (its result, a diff, a codemode call). */
+@keyframes tool-card-pane-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+}
+.tool-card[data-live='true'] .tool-card-pane,
+.tool-card[data-live='true'] .tool-card-body-content,
+.tool-card[data-live='true'] .codemode-call {
+  animation: tool-card-pane-in 200ms ease-out;
+}
+
+/* A card on its way out of the transcript: it fades and folds away where it stood. */
+@keyframes tool-card-out {
+  from {
+    opacity: 1;
+    grid-template-rows: 1fr;
+  }
+  to {
+    opacity: 0;
+    grid-template-rows: 0fr;
+  }
+}
+.tool-card-exit {
+  display: grid;
+  grid-template-rows: 1fr;
+  animation: tool-card-out 240ms ease-in forwards;
+}
+.tool-card-exit > * {
+  min-height: 0;
+  overflow: hidden;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tool-status[data-state='running'] .tool-status-mark {
     animation: none;
   }
   .tool-card-header svg {
+    transition: none !important;
+  }
+  .tool-card[data-live='true'],
+  .tool-card[data-live='true'] .tool-status,
+  .tool-card[data-live='true'] .tool-card-pane,
+  .tool-card[data-live='true'] .tool-card-body-content,
+  .tool-card[data-live='true'] .codemode-call,
+  .tool-card-exit {
+    animation: none !important;
+  }
+  .tool-card,
+  .tool-card-body {
     transition: none !important;
   }
 }

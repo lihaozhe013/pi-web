@@ -2126,17 +2126,15 @@ export function ChatWindow({
           )}
           {/* The run status sits above the composer, aligned to its content
             width, so it stays in place while the transcript grows below the
-            user's viewport. */}
-          {agentRunning && (
-            <div className="composer-activity-slot">
-              <ComposerActivity
-                store={streamingStore}
-                phase={agentPhase}
-                messages={messages}
-                compacting={isCompacting}
-              />
-            </div>
-          )}
+            user's viewport. It is always mounted and folds itself open, so the
+            composer does not move when a run starts or ends. */}
+          <ComposerActivity
+            store={streamingStore}
+            phase={agentPhase}
+            messages={messages}
+            compacting={isCompacting}
+            running={agentRunning}
+          />
           {chatInputElement}
           <ExtensionStatusBar
             statuses={extensionStatuses}

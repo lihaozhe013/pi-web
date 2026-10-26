@@ -64,7 +64,7 @@ export function ToolStatus({ state }: { state: ToolState }) {
         : 'codemode.status.ok'
   );
   return (
-    <span className="tool-status" data-state={state}>
+    <span className="tool-status" data-state={state} key={state}>
       <span className="tool-status-mark" aria-hidden="true">
         {state === 'running' ? '▍' : state === 'error' ? '×' : '✓'}
       </span>

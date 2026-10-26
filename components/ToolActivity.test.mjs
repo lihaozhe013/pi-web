@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { createJiti } from 'jiti';
 
@@ -11,6 +12,8 @@ const { ToolActivityProvider } = await jiti.import('./ToolActivity.tsx');
 const { clearExpandedToolCalls, setToolCallExpanded } = await jiti.import(
   '@/lib/tool-call-expansion'
 );
+const { TOOL_CARD_BODY_MS, TOOL_CARD_EXIT_MS } = await jiti.import('@/hooks/useToolCardMotion');
+const toolCardsCss = readFileSync(new URL('../app/tool-cards.css', import.meta.url), 'utf8');
 
 function render(
   toolName,
@@ -154,4 +157,53 @@ test('a command the user ran keeps its live card', () => {
 
   assert.equal(run({ output: 'done', exitCode: 0 }), '');
   assert.match(run({ output: 'boom', exitCode: 1 }), /Failed/);
+});
+
+test('a card that lived in this page moves; a restored one does not', () => {
+  clearExpandedToolCalls();
+  // The call is running now: this card arrived with the page, so it fades in.
+  const live = render('bash', { running: true });
+  assert.match(live, /class="tool-card" data-state="running" data-live="true"/);
+  assert.match(live, /<div class="tool-card-body" data-open="true">/);
+  // A card the session file brought back is drawn as it is, with nothing to replay.
+  const restored = render('write', { complete: true });
+  assert.doesNotMatch(restored, /data-live/);
+  assert.match(restored, /<div class="tool-card-body" data-open="true">/);
+  // A folded card builds no body at all: a long transcript does not draw hidden diffs.
+  const folded = render('apply_patch', { complete: true });
+  assert.match(
+    folded,
+    /<div class="tool-card-body" inert="">[^<]*<div class="tool-card-body-inner"><\/div>/
+  );
+  clearExpandedToolCalls();
+});
+
+test("the card's motion and the code that times it agree", () => {
+  // A card that left the transcript is held exactly as long as its fade.
+  assert.match(toolCardsCss, new RegExp(`animation: tool-card-out ${TOOL_CARD_EXIT_MS}ms`));
+  // A folded body keeps its content until the fold is done.
+  const body = toolCardsCss.slice(
+    toolCardsCss.indexOf('.tool-card-body {'),
+    toolCardsCss.indexOf('.tool-card-body[data-open')
+  );
+  assert.match(body, new RegExp(`grid-template-rows ${TOOL_CARD_BODY_MS}ms`));
+  // Nothing animates on a reload, a re-render or a scroll: only the live card does.
+  assert.equal(toolCardsCss.split('animation: tool-card-in').length - 1, 1);
+  assert.match(toolCardsCss, /\.tool-card\[data-live='true'\] \{\s*animation: tool-card-in/);
+});
+
+test('reduced motion turns every part of the card off', () => {
+  const reduced = toolCardsCss.slice(
+    toolCardsCss.indexOf('@media (prefers-reduced-motion: reduce)')
+  );
+  for (const selector of [
+    ".tool-card[data-live='true']",
+    '.tool-status',
+    '.tool-card-pane',
+    '.tool-card-body-content',
+    '.codemode-call',
+    '.tool-card-exit'
+  ]) {
+    assert.ok(reduced.includes(selector), `${selector} keeps its motion off`);
+  }
 });

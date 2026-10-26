@@ -8,6 +8,7 @@ import { ThinkingIcon } from './ThinkingIcon';
 import { copyText } from '@/lib/clipboard';
 import { useI18n } from '@/hooks/useI18n';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { useBodyContent, useExitHold, useExitingItems } from '@/hooks/useToolCardMotion';
 import { parseCompactionSummary } from '@/lib/compaction-summary';
 import {
   getAssistantErrorMessage,
@@ -979,6 +980,9 @@ function AssistantMessageView({
         ),
     [message.content, toolResults, live]
   );
+  // A card that just left (a shell that succeeded) fades out where it stood
+  // instead of vanishing in one frame, so the steps below it do not jump.
+  const heldItems = useExitingItems(blockItems, (item) => String(item.originalIndex));
   const blocks = useMemo(() => blockItems.map(({ block }) => block), [blockItems]);
   const providerError = getAssistantErrorMessage(message, { isStreaming });
   const truncated = isAssistantTruncated(message, { isStreaming });
@@ -1110,7 +1114,7 @@ function AssistantMessageView({
     return () => clearInterval(id);
   }, [isStreaming]);
 
-  if (blocks.length === 0 && !providerError && !truncated) return null;
+  if (blocks.length === 0 && heldItems.length === 0 && !providerError && !truncated) return null;
 
   return (
     <div
@@ -1205,10 +1209,11 @@ function AssistantMessageView({
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {/* Not keyed by the entry id: a message of this run gets one when the file is
             read again, and its blocks keep their state across that read (#1184). */}
-        {blockItems.map(({ block, originalIndex }) => (
+        {heldItems.map(({ item: { block, originalIndex }, exiting }) => (
           <BlockView
             key={originalIndex}
             block={block}
+            exiting={exiting}
             searchTarget={block === searchBlock}
             toolResults={toolResults}
             isStreaming={isStreaming}
@@ -1388,6 +1393,7 @@ function AssistantMessageView({
 
 function BlockView({
   block,
+  exiting,
   searchTarget,
   toolResults,
   isStreaming,
@@ -1401,6 +1407,8 @@ function BlockView({
   blockIndex
 }: {
   block: AssistantContentBlock;
+  /** The block just left the transcript and is fading out. */
+  exiting?: boolean;
   searchTarget?: boolean;
   toolResults?: Map<string, ToolResultMessage>;
   isStreaming?: boolean;
@@ -1445,6 +1453,7 @@ function BlockView({
         block={tc}
         result={result}
         duration={duration}
+        exiting={exiting}
         onOpenSubagent={onOpenSubagent}
       />
     );
@@ -1669,13 +1678,16 @@ function ToolCallBlock({
   result,
   duration,
   onOpenSubagent,
-  executing
+  executing,
+  exiting
 }: {
   block: ToolCallContent;
   result?: ToolResultMessage;
   duration?: number;
   onOpenSubagent?: (sessionId: string, label: string) => void;
   executing?: boolean;
+  /** The card is on its way out of the transcript: it keeps its last look and fades. */
+  exiting?: boolean;
 }) {
   const { t } = useI18n();
   // only explicit user choices are state; lifecycle defaults stay derived.
@@ -1688,6 +1700,11 @@ function ToolCallBlock({
   const activityState = useToolState(block.toolCallId, result !== undefined, toolError);
   const toolState = executing ? 'running' : activityState;
   const expanded = expansionOverride ?? isToolCardExpandedByDefault(block.toolName, toolState);
+  // A card only moves when it lived in this page: a call that was still running
+  // at mount. Restored history, a re-render or a scroll never replays the fade.
+  const [enteredLive] = useState(() => toolState === 'running' || toolState === 'pending');
+  // The body's content is kept while it folds shut, so closing is not a cut.
+  const bodyContent = useBodyContent(expanded);
   // A shell's output opens on its tail; the lines above it wait behind a button.
   const [showAllOutput, setShowAllOutput] = useState(false);
   const toggleExpanded = () => {
@@ -1753,250 +1770,277 @@ function ToolCallBlock({
   // is colored while the input is still streaming JSON.
   const codeLanguage = isStreamingInput ? undefined : toolCodeLanguage(block.toolName, block.input);
 
-  if (shellTool && toolState === 'success') return null;
+  // A shell card leaves the transcript once it succeeded; while it is fading out
+  // (`exiting`) it keeps drawing itself, folded to its header.
+  if (shellTool && toolState === 'success' && !exiting) return null;
 
   return (
     <ToolCodeLanguageProvider lang={codeLanguage}>
-      <div
-        className="tool-card"
-        data-state={toolState}
-        aria-busy={toolState === 'running'}
-        style={{
-          // no border and no tint here — `.tool-card` in tool-cards.css
-          // draws the quiet surface; workspace.css lifts this 7px to --ui-radius-md.
-          borderRadius: 7,
-          overflow: 'hidden',
-          fontSize: 12
-        }}
-      >
-        {/* ── Tool call header ── */}
-        <div style={{ display: 'flex', alignItems: 'stretch', minWidth: 0 }}>
-          <button
-            onClick={toggleExpanded}
-            aria-expanded={expanded}
-            className="tool-card-header"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 7,
-              flex: 1,
-              minWidth: 0,
-              // Roomier rows improve scanning of tool arguments.
-              padding: '7px 12px',
-              background: 'none',
-              border: 'none',
-              color: 'var(--text-muted)',
-              cursor: 'pointer',
-              fontSize: 12,
-              textAlign: 'left'
-            }}
-          >
-            <span
-              title={mcpLabel ? block.toolName : undefined}
-              style={{
-                color: isError ? '#f87171' : 'var(--text-muted)',
-                fontFamily: 'var(--font-mono)',
-                fontWeight: 600,
-                fontSize: 11,
-                flexShrink: 0
-              }}
-            >
-              {mcpLabel ? (
-                <>
-                  <span style={{ fontWeight: 500, opacity: 0.75 }}>{mcpLabel.server}/</span>
-                  {mcpLabel.tool}
-                </>
-              ) : (
-                block.toolName
-              )}
-            </span>
-            <span
-              style={{
-                color: 'var(--text-dim)',
-                fontFamily: 'var(--font-mono)',
-                fontSize: 11,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                flex: 1,
-                minWidth: 0
-              }}
-            >
-              {isStreamingInput
-                ? t('chat.generatingToolInput')
-                : (patchLabel ??
-                  (codemode ? codemodeScriptPreview(codemode.code) : getToolPreview(block)))}
-            </span>
-            {!(shellTool && expanded && toolState === 'running') && (
-              <ToolStatus state={toolState} />
-            )}
-            {codemodeCallCount > 0 && (
-              <span
-                style={{
-                  fontSize: 11,
-                  color: 'var(--text-dim)',
-                  flexShrink: 0,
-                  fontVariantNumeric: 'tabular-nums'
-                }}
-              >
-                {codemodeCallCount === 1
-                  ? t('codemode.callCountOne')
-                  : t('codemode.callCount', { count: codemodeCallCount })}
-              </span>
-            )}
-            {duration !== undefined && (
-              <span
-                style={{
-                  fontSize: 11,
-                  color: 'var(--text-dim)',
-                  flexShrink: 0,
-                  fontVariantNumeric: 'tabular-nums'
-                }}
-              >
-                {formatToolDuration(duration)}
-              </span>
-            )}
-            <svg
-              width="10"
-              height="10"
-              viewBox="0 0 10 10"
-              fill="none"
-              stroke="var(--text-dim)"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{
-                flexShrink: 0,
-                transform: expanded ? 'rotate(180deg)' : 'none',
-                transition: 'transform 0.15s'
-              }}
-            >
-              <polyline points="2 3.5 5 6.5 8 3.5" />
-            </svg>
-          </button>
-          {subagent && onOpenSubagent && (
+      <div className={exiting ? 'tool-card-exit' : undefined} inert={exiting ? true : undefined}>
+        <div
+          className="tool-card"
+          data-state={toolState}
+          data-live={enteredLive ? 'true' : undefined}
+          aria-busy={toolState === 'running'}
+          style={{
+            // no border and no tint here — `.tool-card` in tool-cards.css
+            // draws the quiet surface; workspace.css lifts this 7px to --ui-radius-md.
+            borderRadius: 7,
+            overflow: 'hidden',
+            fontSize: 12
+          }}
+        >
+          {/* ── Tool call header ── */}
+          <div style={{ display: 'flex', alignItems: 'stretch', minWidth: 0 }}>
             <button
-              type="button"
-              onClick={() =>
-                onOpenSubagent(subagent.sessionId, subagent.description || subagent.profile)
-              }
-              title={t('subagent.openTab')}
-              aria-label={t('subagent.openTab')}
+              onClick={toggleExpanded}
+              aria-expanded={expanded}
+              className="tool-card-header"
               style={{
-                width: 32,
-                display: 'grid',
-                placeItems: 'center',
-                border: 'none',
-                borderLeft: CARD_RULE,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 7,
+                flex: 1,
+                minWidth: 0,
+                // Roomier rows improve scanning of tool arguments.
+                padding: '7px 12px',
                 background: 'none',
+                border: 'none',
                 color: 'var(--text-muted)',
                 cursor: 'pointer',
-                flexShrink: 0
+                fontSize: 12,
+                textAlign: 'left'
               }}
             >
+              <span
+                title={mcpLabel ? block.toolName : undefined}
+                style={{
+                  color: isError ? '#f87171' : 'var(--text-muted)',
+                  fontFamily: 'var(--font-mono)',
+                  fontWeight: 600,
+                  fontSize: 11,
+                  flexShrink: 0
+                }}
+              >
+                {mcpLabel ? (
+                  <>
+                    <span style={{ fontWeight: 500, opacity: 0.75 }}>{mcpLabel.server}/</span>
+                    {mcpLabel.tool}
+                  </>
+                ) : (
+                  block.toolName
+                )}
+              </span>
+              <span
+                style={{
+                  color: 'var(--text-dim)',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 11,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  flex: 1,
+                  minWidth: 0
+                }}
+              >
+                {isStreamingInput
+                  ? t('chat.generatingToolInput')
+                  : (patchLabel ??
+                    (codemode ? codemodeScriptPreview(codemode.code) : getToolPreview(block)))}
+              </span>
+              {!(shellTool && expanded && toolState === 'running') && (
+                <ToolStatus state={toolState} />
+              )}
+              {codemodeCallCount > 0 && (
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: 'var(--text-dim)',
+                    flexShrink: 0,
+                    fontVariantNumeric: 'tabular-nums'
+                  }}
+                >
+                  {codemodeCallCount === 1
+                    ? t('codemode.callCountOne')
+                    : t('codemode.callCount', { count: codemodeCallCount })}
+                </span>
+              )}
+              {duration !== undefined && (
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: 'var(--text-dim)',
+                    flexShrink: 0,
+                    fontVariantNumeric: 'tabular-nums'
+                  }}
+                >
+                  {formatToolDuration(duration)}
+                </span>
+              )}
               <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
+                width="10"
+                height="10"
+                viewBox="0 0 10 10"
                 fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
+                stroke="var(--text-dim)"
+                strokeWidth="1.6"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                aria-hidden="true"
+                style={{
+                  flexShrink: 0,
+                  transform: expanded ? 'rotate(180deg)' : 'none',
+                  transition: 'transform 0.15s'
+                }}
               >
-                <rect x="5" y="7" width="14" height="11" rx="2" />
-                <path d="M9 11h.01M15 11h.01M9 15h6M12 7V4M10 4h4" />
+                <polyline points="2 3.5 5 6.5 8 3.5" />
               </svg>
             </button>
-          )}
-        </div>
+            {subagent && onOpenSubagent && (
+              <button
+                type="button"
+                onClick={() =>
+                  onOpenSubagent(subagent.sessionId, subagent.description || subagent.profile)
+                }
+                title={t('subagent.openTab')}
+                aria-label={t('subagent.openTab')}
+                style={{
+                  width: 32,
+                  display: 'grid',
+                  placeItems: 'center',
+                  border: 'none',
+                  borderLeft: CARD_RULE,
+                  background: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  flexShrink: 0
+                }}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <rect x="5" y="7" width="14" height="11" rx="2" />
+                  <path d="M9 11h.01M15 11h.01M9 15h6M12 7V4M10 4h4" />
+                </svg>
+              </button>
+            )}
+          </div>
 
-        {/* ── Expanded: input args (only when no richer view exists); a codemode script in place of its JSON ── */}
-        {expanded &&
-          (isStreamingInput || !isEditTool) &&
-          !patchFiles &&
-          (toolFields ? (
-            <div
-              style={{
-                padding: '8px 12px 10px',
-                borderTop: CARD_RULE
-              }}
-            >
-              <ToolFieldRows fields={toolFields} />
+          {/* The body folds open and shut (`app/tool-cards.css`): its content is
+            clipped, not unmounted mid-fold, so closing reads as a movement. */}
+          <div
+            className="tool-card-body"
+            data-open={expanded ? 'true' : undefined}
+            inert={expanded ? undefined : true}
+          >
+            <div className="tool-card-body-inner">
+              {bodyContent && (
+                <div className="tool-card-body-content">
+                  {/* ── Expanded: input args (only when no richer view exists); a codemode script in place of its JSON ── */}
+                  {bodyContent &&
+                    (isStreamingInput || !isEditTool) &&
+                    !patchFiles &&
+                    (toolFields ? (
+                      <div
+                        style={{
+                          padding: '8px 12px 10px',
+                          borderTop: CARD_RULE
+                        }}
+                      >
+                        <ToolFieldRows fields={toolFields} />
+                      </div>
+                    ) : (
+                      <pre
+                        style={{
+                          margin: 0,
+                          padding: '9px 12px',
+                          color: 'var(--text-muted)',
+                          fontSize: 'var(--font-mono-size, 15px)',
+                          lineHeight: 1.5,
+                          overflow: 'auto',
+                          background: 'var(--tool-card-pane)',
+                          borderTop: CARD_RULE,
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-all'
+                        }}
+                      >
+                        <ToolCodeTokens
+                          text={codemode ? codemode.code.replace(/\r/g, '').trimEnd() : inputStr}
+                        />
+                      </pre>
+                    ))}
+
+                  {/* ── Expanded: the calls a codemode script made ── */}
+                  {bodyContent && codemode && (
+                    <CodemodeCallList calls={codemode.calls} omitted={codemode.omitted} />
+                  )}
+
+                  {/* ── Expanded: applied-patch split diff ── */}
+                  {bodyContent && patchFiles && (
+                    <div style={{ borderTop: CARD_RULE }}>
+                      <SplitFilesView files={patchFiles} />
+                    </div>
+                  )}
+
+                  {/* ── Paired result — only shown when expanded ── */}
+                  {bodyContent && result && patchFiles && isError && (
+                    <PairedResult
+                      text={resultText ?? ''}
+                      isEmpty={resultIsEmpty}
+                      isError={isError}
+                    />
+                  )}
+                  {bodyContent &&
+                    result &&
+                    !patchFiles &&
+                    !codemodeRunning &&
+                    !(shellTool && toolState === 'running' && resultIsEmpty) &&
+                    (resultDiff ? (
+                      <PairedDiffResult diff={resultDiff} />
+                    ) : (
+                      (!resultIsEmpty || resultImages.length === 0) &&
+                      (shellTail && !showAllOutput ? (
+                        <ShellTailResult
+                          text={shellTail.tail}
+                          hiddenLines={shellTail.hiddenLines}
+                          isError={isError}
+                          onShowAll={() => setShowAllOutput(true)}
+                        />
+                      ) : (
+                        <PairedResult
+                          text={resultText ?? ''}
+                          isEmpty={resultIsEmpty}
+                          isError={isError}
+                        />
+                      ))
+                    ))}
+
+                  {/* back to the shell's tail after the whole output was shown. */}
+                  {bodyContent && shellTail && showAllOutput && (
+                    <ShellOutputFooter onShowLess={() => setShowAllOutput(false)} />
+                  )}
+
+                  {/* Keep execution feedback at the reading edge, after the output buffer. */}
+                  {shellTool && bodyContent && toolState === 'running' && (
+                    <div className="shell-running" role="status">
+                      <ToolStatus state={toolState} />
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-          ) : (
-            <pre
-              style={{
-                margin: 0,
-                padding: '9px 12px',
-                color: 'var(--text-muted)',
-                fontSize: 'var(--font-mono-size, 15px)',
-                lineHeight: 1.5,
-                overflow: 'auto',
-                background: 'var(--tool-card-pane)',
-                borderTop: CARD_RULE,
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-all'
-              }}
-            >
-              <ToolCodeTokens
-                text={codemode ? codemode.code.replace(/\r/g, '').trimEnd() : inputStr}
-              />
-            </pre>
-          ))}
-
-        {/* ── Expanded: the calls a codemode script made ── */}
-        {expanded && codemode && (
-          <CodemodeCallList calls={codemode.calls} omitted={codemode.omitted} />
-        )}
-
-        {/* ── Result images — always visible, independent of the collapsed details ── */}
-        {resultImages.length > 0 && <ResultImages images={resultImages} />}
-
-        {/* ── Expanded: applied-patch split diff ── */}
-        {expanded && patchFiles && (
-          <div style={{ borderTop: CARD_RULE }}>
-            <SplitFilesView files={patchFiles} />
           </div>
-        )}
 
-        {/* ── Paired result — only shown when expanded ── */}
-        {expanded && result && patchFiles && isError && (
-          <PairedResult text={resultText ?? ''} isEmpty={resultIsEmpty} isError={isError} />
-        )}
-        {expanded &&
-          result &&
-          !patchFiles &&
-          !codemodeRunning &&
-          !(shellTool && toolState === 'running' && resultIsEmpty) &&
-          (resultDiff ? (
-            <PairedDiffResult diff={resultDiff} />
-          ) : (
-            (!resultIsEmpty || resultImages.length === 0) &&
-            (shellTail && !showAllOutput ? (
-              <ShellTailResult
-                text={shellTail.tail}
-                hiddenLines={shellTail.hiddenLines}
-                isError={isError}
-                onShowAll={() => setShowAllOutput(true)}
-              />
-            ) : (
-              <PairedResult text={resultText ?? ''} isEmpty={resultIsEmpty} isError={isError} />
-            ))
-          ))}
-
-        {/* back to the shell's tail after the whole output was shown. */}
-        {expanded && shellTail && showAllOutput && (
-          <ShellOutputFooter onShowLess={() => setShowAllOutput(false)} />
-        )}
-
-        {/* Keep execution feedback at the reading edge, after the output buffer. */}
-        {shellTool && expanded && toolState === 'running' && (
-          <div className="shell-running" role="status">
-            <ToolStatus state={toolState} />
-          </div>
-        )}
+          {/* ── Result images — always visible, independent of the collapsed details ── */}
+          {resultImages.length > 0 && <ResultImages images={resultImages} />}
+        </div>
       </div>
     </ToolCodeLanguageProvider>
   );
@@ -2008,7 +2052,7 @@ interface ResultDiff {
 
 function PairedDiffResult({ diff }: { diff: ResultDiff }) {
   return (
-    <div style={{ borderTop: CARD_RULE }}>
+    <div className="tool-card-pane" style={{ borderTop: CARD_RULE }}>
       <SplitPatchView text={diff.text} />
     </div>
   );
@@ -2046,6 +2090,7 @@ export function PatchDiffFiles({
 
   return (
     <div
+      className="tool-card-pane"
       style={{
         maxHeight: 560,
         overflowY: 'auto',
@@ -2268,6 +2313,7 @@ function PatchTextView({ text }: { text: string }) {
 
   return (
     <div
+      className="tool-card-pane"
       style={{
         maxHeight: 520,
         overflowY: 'auto',
@@ -2361,11 +2407,7 @@ function ShellTailResult({
 }) {
   const { t } = useI18n();
   return (
-    <div
-      style={{
-        borderTop: CARD_RULE
-      }}
-    >
+    <div className="tool-card-pane" style={{ borderTop: CARD_RULE }}>
       <button
         type="button"
         onClick={onShowAll}
@@ -2522,6 +2564,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function ResultImages({ images }: { images: ImageContent[] }) {
   return (
     <div
+      className="tool-card-pane"
       style={{
         display: 'flex',
         gap: 8,
@@ -2568,11 +2611,7 @@ function PairedResult({
 }) {
   const { t } = useI18n();
   return (
-    <div
-      style={{
-        borderTop: CARD_RULE
-      }}
-    >
+    <div className="tool-card-pane" style={{ borderTop: CARD_RULE }}>
       <pre
         style={{
           margin: 0,
@@ -3230,11 +3269,15 @@ function BashExecutionView({
         timestamp: message.timestamp
       };
 
-  if (!isPending && !isError) return null;
+  // A command the user ran itself keeps its live card, and folds it away when it
+  // ends: hold the card for the fade instead of cutting it off.
+  const { open: cardOpen, exiting: cardExiting } = useExitHold(isPending || isError);
+
+  if (!cardOpen) return null;
 
   return (
     <div style={{ margin: '6px 0' }}>
-      <ToolCallBlock block={block} result={result} executing={isPending} />
+      <ToolCallBlock block={block} result={result} executing={isPending} exiting={cardExiting} />
       {message.truncated && fullOutputUrl && (
         <div style={{ padding: '4px 10px', fontSize: 11, marginTop: -1 }}>
           {showFullButton && (

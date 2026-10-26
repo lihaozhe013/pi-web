@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { prefersReducedMotion } from '@/lib/motion';
 
 /**
  * The sidebar's two motions (components/SessionSidebar.tsx, app/sidebar.css):
@@ -22,15 +23,8 @@ export const SIDEBAR_MOTION_GRACE_MS = 120;
  */
 export type SidebarMotionPhase = 'in' | 'out' | null;
 
-/** The user asked for less motion: nothing moves, every change is instant. */
-export function prefersReducedMotion(): boolean {
-  if (typeof window === 'undefined') return false;
-  try {
-    return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
-  } catch {
-    return false;
-  }
-}
+/** Re-exported for the sidebar's tests: the helper is shared with other motions. */
+export { prefersReducedMotion };
 
 export interface SidebarMotion {
   phase: SidebarMotionPhase;

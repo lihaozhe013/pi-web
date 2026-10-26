@@ -29,7 +29,10 @@ function CallRow({ call }: { call: CodemodeCallView }) {
   const status = STATUS_STYLE[call.status];
   const duration = formatCodemodeDuration(call.durationMs);
   return (
-    <li style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+    <li
+      className="codemode-call"
+      style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}
+    >
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0 }}>
         <span
           role="img"
@@ -109,6 +112,7 @@ export function CodemodeCallList({
   const totalCost = codemodeTotalCost(calls);
   return (
     <div
+      className="tool-card-pane"
       style={{
         // the quiet card's whisper divider, matching every other pane
         // inside a tool card (CARD_RULE in MessageView.tsx).
