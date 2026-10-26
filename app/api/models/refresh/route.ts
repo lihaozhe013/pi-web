@@ -1,6 +1,6 @@
-import { shareModelCatalogRefresh } from "@/lib/model-catalog-refresh";
+import { shareModelCatalogRefresh } from '@/lib/model-catalog-refresh';
 
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
 /**
  * POST /api/models/refresh — fetch the remote provider catalogs now.
@@ -16,8 +16,8 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   let provider: string | undefined;
   try {
-    const body = await req.json() as { provider?: unknown };
-    if (typeof body?.provider === "string" && body.provider.trim()) {
+    const body = (await req.json()) as { provider?: unknown };
+    if (typeof body?.provider === 'string' && body.provider.trim()) {
       provider = body.provider.trim();
     }
   } catch {

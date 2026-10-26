@@ -1,8 +1,8 @@
-import { getAgentDir } from "@earendil-works/pi-coding-agent";
-import { readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
-import type { AgentUsage, SessionEntry } from "./types";
-import { withTranscriptNotices, type TranscriptNotice } from "./transcript-notices";
+import { getAgentDir } from '@earendil-works/pi-coding-agent';
+import { readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+import type { AgentUsage, SessionEntry } from './types';
+import { withTranscriptNotices, type TranscriptNotice } from './transcript-notices';
 
 // The notices pi's TUI shows when `showCacheMissNotices` is on (#1265), derived
 // from session entries so a reload, a reconnect or an older page shows the same
@@ -24,7 +24,7 @@ export interface NoticeModelLookup {
 }
 
 interface UsageMessage {
-  role: "assistant";
+  role: 'assistant';
   provider: string;
   model: string;
   timestamp: number;
@@ -48,32 +48,42 @@ export interface CacheMiss {
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function isUsage(value: unknown): value is AgentUsage {
-  return isRecord(value)
-    && typeof value.input === "number"
-    && typeof value.output === "number"
-    && typeof value.cacheRead === "number"
-    && typeof value.cacheWrite === "number"
-    && isRecord(value.cost);
+  return (
+    isRecord(value) &&
+    typeof value.input === 'number' &&
+    typeof value.output === 'number' &&
+    typeof value.cacheRead === 'number' &&
+    typeof value.cacheWrite === 'number' &&
+    isRecord(value.cost)
+  );
 }
 
 function assistantMessageOf(entry: SessionEntry): UsageMessage | undefined {
-  if (entry.type !== "message") return undefined;
+  if (entry.type !== 'message') return undefined;
   const message = entry.message as unknown as Record<string, unknown>;
-  if (message.role !== "assistant" || !isUsage(message.usage)) return undefined;
+  if (message.role !== 'assistant' || !isUsage(message.usage)) return undefined;
   return message as unknown as UsageMessage;
 }
 
-function detectMiss(prev: PreviousRequest | undefined, message: UsageMessage, models: NoticeModelLookup): CacheMiss | undefined {
+function detectMiss(
+  prev: PreviousRequest | undefined,
+  message: UsageMessage,
+  models: NoticeModelLookup
+): CacheMiss | undefined {
   const usage = message.usage;
   const promptTokens = usage.input + usage.cacheRead + usage.cacheWrite;
   // A zero-cache turn only counts when cache activity was reported before: on
   // cache-read-only providers that is a total miss, on providers that never
   // report caching it means nothing.
-  if (!prev || promptTokens <= 0 || (usage.cacheRead + usage.cacheWrite === 0 && !prev.reportedCache)) {
+  if (
+    !prev ||
+    promptTokens <= 0 ||
+    (usage.cacheRead + usage.cacheWrite === 0 && !prev.reportedCache)
+  ) {
     return undefined;
   }
   const missedTokens = Math.min(prev.promptTokens, promptTokens) - usage.cacheRead;
@@ -82,18 +92,22 @@ function detectMiss(prev: PreviousRequest | undefined, message: UsageMessage, mo
   // comes from this message's own cost breakdown.
   const paidTokens = usage.input + usage.cacheWrite;
   const paidPerToken = paidTokens > 0 ? (usage.cost.input + usage.cost.cacheWrite) / paidTokens : 0;
-  const readPerToken = usage.cacheRead > 0
-    ? usage.cost.cacheRead / usage.cacheRead
-    : (models.getModel(message.provider, message.model)?.cost?.cacheRead ?? 0) / 1_000_000;
+  const readPerToken =
+    usage.cacheRead > 0
+      ? usage.cost.cacheRead / usage.cacheRead
+      : (models.getModel(message.provider, message.model)?.cost?.cacheRead ?? 0) / 1_000_000;
   return {
     missedTokens,
     missedCost: missedTokens * Math.max(0, paidPerToken - readPerToken),
     idleMs: Math.max(0, message.timestamp - prev.timestamp),
-    modelChanged: `${message.provider}/${message.model}` !== prev.modelKey,
+    modelChanged: `${message.provider}/${message.model}` !== prev.modelKey
   };
 }
 
-function asPreviousRequest(message: UsageMessage, reportedCache: boolean): PreviousRequest | undefined {
+function asPreviousRequest(
+  message: UsageMessage,
+  reportedCache: boolean
+): PreviousRequest | undefined {
   const usage = message.usage;
   const promptTokens = usage.input + usage.cacheRead + usage.cacheWrite;
   if (promptTokens <= 0) return undefined;
@@ -101,7 +115,7 @@ function asPreviousRequest(message: UsageMessage, reportedCache: boolean): Previ
     promptTokens,
     modelKey: `${message.provider}/${message.model}`,
     timestamp: message.timestamp,
-    reportedCache: reportedCache || usage.cacheRead + usage.cacheWrite > 0,
+    reportedCache: reportedCache || usage.cacheRead + usage.cacheWrite > 0
   };
 }
 
@@ -111,18 +125,18 @@ function asPreviousRequest(message: UsageMessage, reportedCache: boolean): Previ
  */
 export function scanCacheMisses(
   entries: readonly SessionEntry[],
-  models: NoticeModelLookup,
+  models: NoticeModelLookup
 ): { prev: PreviousRequest | undefined; misses: Map<string, CacheMiss> } {
   let prev: PreviousRequest | undefined;
   const misses = new Map<string, CacheMiss>();
   for (const entry of entries) {
-    if (entry.type === "compaction" || entry.type === "branch_summary") {
+    if (entry.type === 'compaction' || entry.type === 'branch_summary') {
       // The context changed on purpose: the next prompt is new content, not
       // re-billed content. Model switches are not exempt.
       prev = undefined;
       continue;
     }
-    if (entry.type === "usage" && entry.kind === "cache_warm") {
+    if (entry.type === 'usage' && entry.kind === 'cache_warm') {
       if (!isUsage(entry.usage)) continue;
       const promptTokens = entry.usage.input + entry.usage.cacheRead + entry.usage.cacheWrite;
       if (promptTokens > 0) {
@@ -130,7 +144,7 @@ export function scanCacheMisses(
           promptTokens,
           modelKey: `${entry.provider}/${entry.model}`,
           timestamp: Date.parse(entry.timestamp),
-          reportedCache: true,
+          reportedCache: true
         };
       }
       continue;
@@ -147,12 +161,14 @@ export function scanCacheMisses(
 function cacheMissNotice(miss: CacheMiss): TranscriptNotice | undefined {
   if (miss.missedTokens < NOTICE_MIN_TOKENS && miss.missedCost < NOTICE_MIN_COST) return undefined;
   return {
-    kind: "cache_miss",
+    kind: 'cache_miss',
     missedTokens: miss.missedTokens,
     missedCost: miss.missedCost,
     ...(miss.modelChanged
       ? { modelChanged: true }
-      : miss.idleMs >= CACHE_TTL_MS ? { idleMinutes: Math.round(miss.idleMs / 60_000) } : {}),
+      : miss.idleMs >= CACHE_TTL_MS
+        ? { idleMinutes: Math.round(miss.idleMs / 60_000) }
+        : {})
   };
 }
 
@@ -161,48 +177,60 @@ export function countDroppedThinkingBlocks(message: unknown): number {
   if (!isRecord(message) || !Array.isArray(message.diagnostics)) return 0;
   let count = 0;
   for (const diagnostic of message.diagnostics) {
-    if (!isRecord(diagnostic) || diagnostic.type !== "anthropic_input_transformations") continue;
-    const transformations = isRecord(diagnostic.details) ? diagnostic.details.transformations : undefined;
+    if (!isRecord(diagnostic) || diagnostic.type !== 'anthropic_input_transformations') continue;
+    const transformations = isRecord(diagnostic.details)
+      ? diagnostic.details.transformations
+      : undefined;
     if (!Array.isArray(transformations)) continue;
-    count += transformations.filter((t) => isRecord(t) && t.type === "thinking_dropped").length;
+    count += transformations.filter((t) => isRecord(t) && t.type === 'thinking_dropped').length;
   }
   return count;
 }
 
 /** Shown only when more were dropped than for the previous response, as the TUI does. */
-function thinkingDroppedNotice(dropped: number, previousDropped: number): TranscriptNotice | undefined {
-  return dropped > previousDropped ? { kind: "thinking_dropped", count: dropped } : undefined;
+function thinkingDroppedNotice(
+  dropped: number,
+  previousDropped: number
+): TranscriptNotice | undefined {
+  return dropped > previousDropped ? { kind: 'thinking_dropped', count: dropped } : undefined;
 }
 
-function summaryCostNotice(source: "compaction" | "branch_summary", usage: unknown): TranscriptNotice | undefined {
+function summaryCostNotice(
+  source: 'compaction' | 'branch_summary',
+  usage: unknown
+): TranscriptNotice | undefined {
   if (!isUsage(usage)) return undefined;
   return {
-    kind: "summary_cost",
+    kind: 'summary_cost',
     source,
     tokens: usage.input + usage.output + usage.cacheRead + usage.cacheWrite,
-    cost: typeof usage.cost.total === "number" ? usage.cost.total : 0,
+    cost: typeof usage.cost.total === 'number' ? usage.cost.total : 0
   };
 }
 
 /** An entry the chat shows as a message of its own, which notices can follow. */
 function rendersStandalone(entry: SessionEntry): boolean {
   switch (entry.type) {
-    case "message": {
+    case 'message': {
       const role = (entry.message as { role?: string }).role;
-      return role !== "toolResult" && role !== "system";
+      return role !== 'toolResult' && role !== 'system';
     }
-    case "compaction":
+    case 'compaction':
       return true;
-    case "branch_summary":
+    case 'branch_summary':
       return Boolean(entry.summary);
-    case "custom_message":
+    case 'custom_message':
       return entry.display;
     default:
       return false;
   }
 }
 
-function pushNotice(map: Map<string, TranscriptNotice[]>, entryId: string, notice: TranscriptNotice | undefined): void {
+function pushNotice(
+  map: Map<string, TranscriptNotice[]>,
+  entryId: string,
+  notice: TranscriptNotice | undefined
+): void {
   if (!notice) return;
   const list = map.get(entryId);
   if (list) list.push(notice);
@@ -217,14 +245,18 @@ function pushNotice(map: Map<string, TranscriptNotice[]>, entryId: string, notic
 export function collectTranscriptNotices(
   entries: readonly SessionEntry[],
   models: NoticeModelLookup,
-  options: { leafId?: string | null } = {},
+  options: { leafId?: string | null } = {}
 ): Map<string, TranscriptNotice[]> {
   const notices = new Map<string, TranscriptNotice[]>();
   const byId = new Map<string, SessionEntry>();
   for (const entry of entries) byId.set(entry.id, entry);
-  const ancestor = (entry: SessionEntry, match: (candidate: SessionEntry) => boolean): SessionEntry | undefined => {
+  const ancestor = (
+    entry: SessionEntry,
+    match: (candidate: SessionEntry) => boolean
+  ): SessionEntry | undefined => {
     let current = entry.parentId ? byId.get(entry.parentId) : undefined;
-    while (current && !match(current)) current = current.parentId ? byId.get(current.parentId) : undefined;
+    while (current && !match(current))
+      current = current.parentId ? byId.get(current.parentId) : undefined;
     return current;
   };
   // Cache warming hangs on an ancestor that other branches share too, so it
@@ -232,7 +264,11 @@ export function collectTranscriptNotices(
   let onBranch: Set<string> | undefined;
   if (options.leafId) {
     onBranch = new Set();
-    for (let current = byId.get(options.leafId); current; current = current.parentId ? byId.get(current.parentId) : undefined) {
+    for (
+      let current = byId.get(options.leafId);
+      current;
+      current = current.parentId ? byId.get(current.parentId) : undefined
+    ) {
       onBranch.add(current.id);
     }
   }
@@ -240,36 +276,43 @@ export function collectTranscriptNotices(
   const { misses } = scanCacheMisses(entries, models);
   for (const entry of entries) {
     switch (entry.type) {
-      case "message": {
+      case 'message': {
         const message = assistantMessageOf(entry);
-        if (!message || message.stopReason === "aborted" || message.stopReason === "error") break;
+        if (!message || message.stopReason === 'aborted' || message.stopReason === 'error') break;
         const miss = misses.get(entry.id);
         if (miss) pushNotice(notices, entry.id, cacheMissNotice(miss));
         const dropped = countDroppedThinkingBlocks(message);
         if (dropped > 0) {
           const previous = ancestor(entry, (candidate) => Boolean(assistantMessageOf(candidate)));
-          const previousDropped = previous?.type === "message" ? countDroppedThinkingBlocks(previous.message) : 0;
+          const previousDropped =
+            previous?.type === 'message' ? countDroppedThinkingBlocks(previous.message) : 0;
           pushNotice(notices, entry.id, thinkingDroppedNotice(dropped, previousDropped));
         }
         break;
       }
-      case "usage": {
-        if (entry.kind !== "cache_warm" || !isUsage(entry.usage) || (onBranch && !onBranch.has(entry.id))) break;
+      case 'usage': {
+        if (
+          entry.kind !== 'cache_warm' ||
+          !isUsage(entry.usage) ||
+          (onBranch && !onBranch.has(entry.id))
+        )
+          break;
         const anchor = ancestor(entry, rendersStandalone);
         if (anchor) {
           pushNotice(notices, anchor.id, {
-            kind: "cache_warm",
-            cost: typeof entry.usage.cost.total === "number" ? entry.usage.cost.total : 0,
-            ...(entry.note ? { note: entry.note } : {}),
+            kind: 'cache_warm',
+            cost: typeof entry.usage.cost.total === 'number' ? entry.usage.cost.total : 0,
+            ...(entry.note ? { note: entry.note } : {})
           });
         }
         break;
       }
-      case "compaction":
-        pushNotice(notices, entry.id, summaryCostNotice("compaction", entry.usage));
+      case 'compaction':
+        pushNotice(notices, entry.id, summaryCostNotice('compaction', entry.usage));
         break;
-      case "branch_summary":
-        if (entry.summary) pushNotice(notices, entry.id, summaryCostNotice("branch_summary", entry.usage));
+      case 'branch_summary':
+        if (entry.summary)
+          pushNotice(notices, entry.id, summaryCostNotice('branch_summary', entry.usage));
         break;
     }
   }
@@ -285,15 +328,19 @@ export function collectLiveAssistantNotices(
   entries: readonly SessionEntry[],
   branch: readonly SessionEntry[],
   message: unknown,
-  models: NoticeModelLookup,
+  models: NoticeModelLookup
 ): TranscriptNotice[] {
-  if (!isRecord(message) || message.role !== "assistant" || !isUsage(message.usage)) return [];
-  if (message.stopReason === "aborted" || message.stopReason === "error") return [];
-  const isThis = (entry: SessionEntry) => entry.type === "message" && (entry.message as unknown) === message;
+  if (!isRecord(message) || message.role !== 'assistant' || !isUsage(message.usage)) return [];
+  if (message.stopReason === 'aborted' || message.stopReason === 'error') return [];
+  const isThis = (entry: SessionEntry) =>
+    entry.type === 'message' && (entry.message as unknown) === message;
   const assistant = message as unknown as UsageMessage;
   const notices: TranscriptNotice[] = [];
 
-  const { prev } = scanCacheMisses(entries.filter((entry) => !isThis(entry)), models);
+  const { prev } = scanCacheMisses(
+    entries.filter((entry) => !isThis(entry)),
+    models
+  );
   const miss = detectMiss(prev, assistant, models);
   const missNotice = miss ? cacheMissNotice(miss) : undefined;
   if (missNotice) notices.push(missNotice);
@@ -303,7 +350,7 @@ export function collectLiveAssistantNotices(
     let previousDropped = 0;
     for (let i = branch.length - 1; i >= 0; i--) {
       const entry = branch[i];
-      if (isThis(entry) || !assistantMessageOf(entry) || entry.type !== "message") continue;
+      if (isThis(entry) || !assistantMessageOf(entry) || entry.type !== 'message') continue;
       previousDropped = countDroppedThinkingBlocks(entry.message);
       break;
     }
@@ -340,24 +387,27 @@ function readSettingFile(path: string): boolean | undefined {
   if (cached?.stamp === stamp) return cached.value;
   let value: boolean | undefined;
   try {
-    const parsed: unknown = JSON.parse(readFileSync(path, "utf8").replace(/^\uFEFF/, ""));
+    const parsed: unknown = JSON.parse(readFileSync(path, 'utf8').replace(/^\uFEFF/, ''));
     const raw = isRecord(parsed) ? parsed.showCacheMissNotices : undefined;
-    value = typeof raw === "boolean" ? raw : undefined;
+    value = typeof raw === 'boolean' ? raw : undefined;
   } catch {
     // pi skips a file it cannot parse, keeping the other one.
     value = undefined;
   }
   settingCache.delete(path);
   settingCache.set(path, { stamp, value });
-  if (settingCache.size > SETTING_CACHE_LIMIT) settingCache.delete(settingCache.keys().next().value!);
+  if (settingCache.size > SETTING_CACHE_LIMIT)
+    settingCache.delete(settingCache.keys().next().value!);
   return value;
 }
 
 /** pi's `showCacheMissNotices` for a folder: project settings over global, off by default. */
 export function readShowCacheMissNotices(cwd: string, agentDir: string = getAgentDir()): boolean {
-  return readSettingFile(join(cwd, ".pi", "settings.json"))
-    ?? readSettingFile(join(agentDir, "settings.json"))
-    ?? false;
+  return (
+    readSettingFile(join(cwd, '.pi', 'settings.json')) ??
+    readSettingFile(join(agentDir, 'settings.json')) ??
+    false
+  );
 }
 
 /**
@@ -370,14 +420,22 @@ function sessionCacheReadPrices(entries: readonly SessionEntry[]): NoticeModelLo
   const perMillion = new Map<string, number>();
   for (const entry of entries) {
     const message = assistantMessageOf(entry);
-    if (!message || message.usage.cacheRead <= 0 || typeof message.usage.cost.cacheRead !== "number") continue;
-    perMillion.set(`${message.provider}/${message.model}`, message.usage.cost.cacheRead / message.usage.cacheRead * 1_000_000);
+    if (
+      !message ||
+      message.usage.cacheRead <= 0 ||
+      typeof message.usage.cost.cacheRead !== 'number'
+    )
+      continue;
+    perMillion.set(
+      `${message.provider}/${message.model}`,
+      (message.usage.cost.cacheRead / message.usage.cacheRead) * 1_000_000
+    );
   }
   return {
     getModel: (provider, modelId) => {
       const cacheRead = perMillion.get(`${provider}/${modelId}`);
       return cacheRead === undefined ? undefined : { cost: { cacheRead } };
-    },
+    }
   };
 }
 
@@ -385,10 +443,14 @@ function sessionCacheReadPrices(entries: readonly SessionEntry[]): NoticeModelLo
  * What the session itself paid for a cache read, then `models`: the live reply
  * and every later read of the file price a miss alike.
  */
-export function withSessionPrices(entries: readonly SessionEntry[], models?: NoticeModelLookup): NoticeModelLookup {
+export function withSessionPrices(
+  entries: readonly SessionEntry[],
+  models?: NoticeModelLookup
+): NoticeModelLookup {
   const fromSession = sessionCacheReadPrices(entries);
   return {
-    getModel: (provider, modelId) => fromSession.getModel(provider, modelId) ?? models?.getModel(provider, modelId),
+    getModel: (provider, modelId) =>
+      fromSession.getModel(provider, modelId) ?? models?.getModel(provider, modelId)
   };
 }
 
@@ -405,13 +467,17 @@ export function readSessionTranscriptNotices(options: {
   models?: NoticeModelLookup;
 }): Map<string, TranscriptNotice[]> | undefined {
   if (!options.cwd || !readShowCacheMissNotices(options.cwd)) return undefined;
-  return collectTranscriptNotices(options.entries, withSessionPrices(options.entries, options.models), { leafId: options.leafId });
+  return collectTranscriptNotices(
+    options.entries,
+    withSessionPrices(options.entries, options.models),
+    { leafId: options.leafId }
+  );
 }
 
 /** `context` with each message carrying the notices of its entry. */
 export function attachTranscriptNotices<T extends { messages: unknown[]; entryIds: string[] }>(
   context: T,
-  notices: Map<string, TranscriptNotice[]> | undefined,
+  notices: Map<string, TranscriptNotice[]> | undefined
 ): T {
   if (!notices || notices.size === 0) return context;
   let messages: unknown[] | undefined;

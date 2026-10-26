@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useEffect } from "react";
+import { useEffect } from 'react';
 
 // ---------------------------------------------------------------------------
 // Module-level registry — ChatWindow registers the abort handler here so that
@@ -26,11 +26,11 @@ export function registerAbortHandler(handler: (() => void) | null): void {
  * agent.
  */
 export function handleGlobalEscape(event: KeyboardEvent): boolean {
-  if (event.key !== "Escape" || event.defaultPrevented || !globalAbortHandler) return false;
+  if (event.key !== 'Escape' || event.defaultPrevented || !globalAbortHandler) return false;
 
   const tag = (event.target as HTMLElement | null)?.tagName;
   // Let textarea/input handle Esc internally (ChatInput menus / stop).
-  if (tag === "TEXTAREA" || tag === "INPUT") return false;
+  if (tag === 'TEXTAREA' || tag === 'INPUT') return false;
 
   event.preventDefault();
   globalAbortHandler();
@@ -57,8 +57,8 @@ export function isNewSessionShortcut(event: {
   altKey: boolean;
 }): boolean {
   if (!event.ctrlKey || !event.altKey) return false;
-  if (event.key.toLowerCase() === "n") return true;
-  return event.key === "Dead" && event.code === "KeyN";
+  if (event.key.toLowerCase() === 'n') return true;
+  return event.key === 'Dead' && event.code === 'KeyN';
 }
 
 // ---------------------------------------------------------------------------
@@ -86,15 +86,13 @@ interface UseGlobalKeyboardShortcutsOptions {
  * state that is local to that component. Nor is an Esc something nearer
  * already handled (see `handleGlobalEscape()`).
  */
-export function useGlobalKeyboardShortcuts(
-  options: UseGlobalKeyboardShortcutsOptions,
-): void {
+export function useGlobalKeyboardShortcuts(options: UseGlobalKeyboardShortcutsOptions): void {
   const { onNewSession, activeCwd } = options;
 
   useEffect(() => {
     const handler = (e: KeyboardEvent): void => {
       // ---- Esc: stop agent ----
-      if (e.key === "Escape") {
+      if (e.key === 'Escape') {
         handleGlobalEscape(e);
         return;
       }
@@ -107,7 +105,7 @@ export function useGlobalKeyboardShortcuts(
       }
     };
 
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
   }, [activeCwd, onNewSession]);
 }

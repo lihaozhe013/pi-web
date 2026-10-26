@@ -1,4 +1,4 @@
-import { useEffect, type RefObject } from "react";
+import { useEffect, type RefObject } from 'react';
 
 const HIDE_DELAY_MS = 500;
 
@@ -19,14 +19,14 @@ export function useScrollbarVisibility(ref: RefObject<HTMLElement | null>, enabl
     const show = () => {
       if (!element) return;
       clearHideTimer();
-      element.classList.add("scrollbar-visible");
+      element.classList.add('scrollbar-visible');
     };
     const hideSoon = () => {
       if (!element) return;
       clearHideTimer();
       hideTimer = setTimeout(() => {
         hideTimer = null;
-        element?.classList.remove("scrollbar-visible");
+        element?.classList.remove('scrollbar-visible');
       }, HIDE_DELAY_MS);
     };
     const onScroll = () => {
@@ -41,20 +41,20 @@ export function useScrollbarVisibility(ref: RefObject<HTMLElement | null>, enabl
         attachFrame = requestAnimationFrame(attach);
         return;
       }
-      element.addEventListener("pointerenter", show);
-      element.addEventListener("pointerleave", hideSoon);
-      element.addEventListener("scroll", onScroll);
+      element.addEventListener('pointerenter', show);
+      element.addEventListener('pointerleave', hideSoon);
+      element.addEventListener('scroll', onScroll);
     };
     attach();
 
     return () => {
       disposed = true;
       if (attachFrame !== null) cancelAnimationFrame(attachFrame);
-      element?.removeEventListener("pointerenter", show);
-      element?.removeEventListener("pointerleave", hideSoon);
-      element?.removeEventListener("scroll", onScroll);
+      element?.removeEventListener('pointerenter', show);
+      element?.removeEventListener('pointerleave', hideSoon);
+      element?.removeEventListener('scroll', onScroll);
       clearHideTimer();
-      element?.classList.remove("scrollbar-visible");
+      element?.classList.remove('scrollbar-visible');
     };
   }, [enabled, ref]);
 }

@@ -1,19 +1,16 @@
-import { NextResponse } from "next/server";
-import type { AgentSession } from "@earendil-works/pi-coding-agent";
-import { generateSessionTitle } from "@/lib/session-title";
-import { getRpcSession, startRpcSession } from "@/lib/rpc-manager";
-import { invalidateSessionListCache, resolveSessionPath } from "@/lib/session-reader";
+import { NextResponse } from 'next/server';
+import type { AgentSession } from '@earendil-works/pi-coding-agent';
+import { generateSessionTitle } from '@/lib/session-title';
+import { getRpcSession, startRpcSession } from '@/lib/rpc-manager';
+import { invalidateSessionListCache, resolveSessionPath } from '@/lib/session-reader';
 
-export async function POST(
-  _req: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
   try {
     const filePath = await resolveSessionPath(id);
     if (!filePath) {
-      return NextResponse.json({ error: "Session not found" }, { status: 404 });
+      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
     const existing = getRpcSession(id);
@@ -28,8 +25,8 @@ export async function POST(
 
     if (!session.isAlive()) {
       return NextResponse.json(
-        { error: "The session was closed while its title was being generated. Please try again." },
-        { status: 409 },
+        { error: 'The session was closed while its title was being generated. Please try again.' },
+        { status: 409 }
       );
     }
 
@@ -39,7 +36,7 @@ export async function POST(
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : String(error) },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

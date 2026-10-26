@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { CloseIcon } from "./SidebarIcons";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { CloseIcon } from './SidebarIcons';
 
 /**
  * The session sidebar's one-line toast: "Archived “…”" with Undo and View, or
@@ -64,7 +64,8 @@ function SidebarToastCard({ toast, dismissLabel, durationMs, onDismissRef }: Toa
   // `:hover` on whatever was tapped last, so it does not count there.)
   useLayoutEffect(() => {
     const card = cardRef.current;
-    if (card && window.matchMedia?.("(hover: hover)").matches && card.matches(":hover")) setHovered(true);
+    if (card && window.matchMedia?.('(hover: hover)').matches && card.matches(':hover'))
+      setHovered(true);
   }, []);
 
   // The countdown starts over whenever the pointer or focus leaves.
@@ -81,7 +82,7 @@ function SidebarToastCard({ toast, dismissLabel, durationMs, onDismissRef }: Toa
       // Only a mouse pauses it: a tap would leave it "hovered" until the next
       // tap elsewhere, and the toast would never go.
       onPointerEnter={(event) => {
-        if (event.pointerType === "mouse") setHovered(true);
+        if (event.pointerType === 'mouse') setHovered(true);
       }}
       onPointerLeave={() => setHovered(false)}
       onFocus={() => setFocused(true)}
@@ -95,7 +96,9 @@ function SidebarToastCard({ toast, dismissLabel, durationMs, onDismissRef }: Toa
           <span className="sidebar-toast-message-tail">{toast.tail}</span>
         </span>
       ) : (
-        <span className="sidebar-toast-message" title={toast.message}>{toast.message}</span>
+        <span className="sidebar-toast-message" title={toast.message}>
+          {toast.message}
+        </span>
       )}
       {toast.actions.map((action) => (
         <button
@@ -125,7 +128,12 @@ function SidebarToastCard({ toast, dismissLabel, durationMs, onDismissRef }: Toa
   );
 }
 
-export function SidebarToast({ toast, onDismiss, dismissLabel, durationMs = DEFAULT_TOAST_DURATION_MS }: SidebarToastProps): ReactNode {
+export function SidebarToast({
+  toast,
+  onDismiss,
+  dismissLabel,
+  durationMs = DEFAULT_TOAST_DURATION_MS
+}: SidebarToastProps): ReactNode {
   const onDismissRef = useRef(onDismiss);
   onDismissRef.current = onDismiss;
 

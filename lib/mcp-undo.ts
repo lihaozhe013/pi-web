@@ -1,5 +1,5 @@
-import { randomUUID } from "node:crypto";
-import type { McpScope } from "./api-types";
+import { randomUUID } from 'node:crypto';
+import type { McpScope } from './api-types';
 
 // What Settings › MCP's Undo needs after a Remove (ADR 0006: "Remove is
 // undoable for 60 seconds; the removed entry is held server-side and never
@@ -37,7 +37,7 @@ interface HeldRecord extends McpHeldRemoval {
   timer: ReturnType<typeof setTimeout>;
 }
 
-const STORE_KEY: symbol = Symbol.for("pi-web:mcp-undo");
+const STORE_KEY: symbol = Symbol.for('pi-web:mcp-undo');
 
 function records(): Map<string, HeldRecord> {
   const store = globalThis as Record<symbol, Map<string, HeldRecord> | undefined>;
@@ -57,7 +57,10 @@ function hold(removal: McpHeldRemoval, now: number): void {
     forget(oldestToken, oldest);
   }
   const record = { ...removal } as HeldRecord;
-  record.timer = setTimeout(() => forget(removal.token, record), Math.max(0, removal.expiresAt - now));
+  record.timer = setTimeout(
+    () => forget(removal.token, record),
+    Math.max(0, removal.expiresAt - now)
+  );
   // A pending undo never keeps the process alive.
   record.timer.unref?.();
   map.set(removal.token, record);
@@ -72,7 +75,7 @@ function release(record: HeldRecord): McpHeldRemoval {
 /** Holds a removed entry for `ttlMs` and returns the token that can undo it. */
 export function holdRemovedEntry(
   removed: McpRemovedEntry,
-  { now = Date.now(), ttlMs = MCP_UNDO_TTL_MS }: { now?: number; ttlMs?: number } = {},
+  { now = Date.now(), ttlMs = MCP_UNDO_TTL_MS }: { now?: number; ttlMs?: number } = {}
 ): { token: string; expiresAt: number } {
   const token = randomUUID();
   const expiresAt = now + ttlMs;

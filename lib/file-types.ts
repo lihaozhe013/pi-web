@@ -2,51 +2,51 @@ export const TEXT_PREVIEW_MAX_BYTES = 256 * 1024;
 export const IMAGE_PREVIEW_MAX_BYTES = 10 * 1024 * 1024;
 export const HTML_PREVIEW_MAX_BYTES = 10 * 1024 * 1024;
 
-export type DocumentPreviewKind = "pdf" | "docx";
+export type DocumentPreviewKind = 'pdf' | 'docx';
 
 export const IMAGE_EXT_TO_MIME: Record<string, string> = {
-  png: "image/png",
-  jpg: "image/jpeg",
-  jpeg: "image/jpeg",
-  gif: "image/gif",
-  webp: "image/webp",
-  svg: "image/svg+xml",
-  bmp: "image/bmp",
-  ico: "image/x-icon",
-  avif: "image/avif",
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  svg: 'image/svg+xml',
+  bmp: 'image/bmp',
+  ico: 'image/x-icon',
+  avif: 'image/avif'
 };
 
 export const AUDIO_EXT_TO_MIME: Record<string, string> = {
-  mp3: "audio/mpeg",
-  wav: "audio/wav",
-  ogg: "audio/ogg",
-  oga: "audio/ogg",
-  opus: "audio/ogg",
-  m4a: "audio/mp4",
-  aac: "audio/aac",
-  flac: "audio/flac",
-  weba: "audio/webm",
+  mp3: 'audio/mpeg',
+  wav: 'audio/wav',
+  ogg: 'audio/ogg',
+  oga: 'audio/ogg',
+  opus: 'audio/ogg',
+  m4a: 'audio/mp4',
+  aac: 'audio/aac',
+  flac: 'audio/flac',
+  weba: 'audio/webm'
 };
 
 export const VIDEO_EXT_TO_MIME: Record<string, string> = {
-  mp4: "video/mp4",
-  m4v: "video/mp4",
-  webm: "video/webm",
-  mov: "video/quicktime",
-  ogv: "video/ogg",
+  mp4: 'video/mp4',
+  m4v: 'video/mp4',
+  webm: 'video/webm',
+  mov: 'video/quicktime',
+  ogv: 'video/ogg'
 };
 
 export const DOCUMENT_EXT_TO_MIME: Record<DocumentPreviewKind, string> = {
-  pdf: "application/pdf",
-  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  pdf: 'application/pdf',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 };
 
 function getBaseName(filePath: string): string {
-  return filePath.replace(/\\/g, "/").split("/").pop() ?? "";
+  return filePath.replace(/\\/g, '/').split('/').pop() ?? '';
 }
 
 export function getFileExt(filePath: string): string {
-  return getBaseName(filePath).toLowerCase().split(".").pop() ?? "";
+  return getBaseName(filePath).toLowerCase().split('.').pop() ?? '';
 }
 
 export function getImageMime(filePath: string): string | null {
@@ -67,7 +67,7 @@ export function getDocumentMime(filePath: string): string | null {
 
 export function documentPreviewKind(filePath: string): DocumentPreviewKind | null {
   const ext = getFileExt(filePath);
-  if (ext === "pdf" || ext === "docx") return ext;
+  if (ext === 'pdf' || ext === 'docx') return ext;
   return null;
 }
 

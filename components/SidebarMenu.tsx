@@ -1,8 +1,18 @@
-"use client";
+'use client';
 
-import { Children, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type Ref, type SyntheticEvent } from "react";
-import { createPortal } from "react-dom";
-import { CheckIcon } from "./SidebarIcons";
+import {
+  Children,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+  type Ref,
+  type SyntheticEvent
+} from 'react';
+import { createPortal } from 'react-dom';
+import { CheckIcon } from './SidebarIcons';
 
 /**
  * The session sidebar's popup menu: a row's ⋯ or right-click menu, a project
@@ -42,7 +52,7 @@ export interface SidebarMenuSecondaryAction {
 
 export type SidebarMenuItem =
   | {
-      type: "item";
+      type: 'item';
       id: string;
       label: string;
       icon?: ReactNode;
@@ -67,16 +77,20 @@ export type SidebarMenuItem =
       secondary?: SidebarMenuSecondaryAction;
       onSelect: (event: SidebarMenuSelectEvent) => void;
     }
-  | { type: "separator"; id: string }
-  | { type: "header"; id: string; label: string }
+  | { type: 'separator'; id: string }
+  | { type: 'header'; id: string; label: string }
   /** Shown as given in the item's place (a classic menu's confirmation row); its buttons mark themselves as items. */
-  | { type: "custom"; id: string; content: ReactNode };
+  | { type: 'custom'; id: string; content: ReactNode };
 
 export type SidebarMenuAnchor =
-  | { kind: "point"; x: number; y: number }
-  | { kind: "rect"; rect: { left: number; top: number; right: number; bottom: number }; align: "start" | "end" };
+  | { kind: 'point'; x: number; y: number }
+  | {
+      kind: 'rect';
+      rect: { left: number; top: number; right: number; bottom: number };
+      align: 'start' | 'end';
+    };
 
-export type SidebarMenuCloseReason = "escape" | "outside" | "select" | "cancel";
+export type SidebarMenuCloseReason = 'escape' | 'outside' | 'select' | 'cancel';
 
 /**
  * A field above the items that narrows the menu's choices (the items with
@@ -136,9 +150,9 @@ export interface SidebarMenuProps {
   focusKey?: string;
 }
 
-type ActionItem = Extract<SidebarMenuItem, { type: "item" }>;
+type ActionItem = Extract<SidebarMenuItem, { type: 'item' }>;
 /** What activating an item or its secondary action needs. */
-type MenuAction = Pick<ActionItem, "disabled" | "onSelect">;
+type MenuAction = Pick<ActionItem, 'disabled' | 'onSelect'>;
 
 /** Distance the menu keeps from the edges of the visible viewport. */
 const MENU_MARGIN = 8;
@@ -146,13 +160,13 @@ const MENU_MARGIN = 8;
 const ANCHOR_GAP = 4;
 const DEFAULT_MENU_WIDTH = 208;
 
-const ITEM_SELECTOR = "[data-sidebar-menu-item]";
-const FILTER_SELECTOR = "[data-sidebar-menu-filter]";
+const ITEM_SELECTOR = '[data-sidebar-menu-item]';
+const FILTER_SELECTOR = '[data-sidebar-menu-filter]';
 /** The control that takes focus when the menu or its body shows (the filter, a confirmation's Cancel, the sheet's for `focusCancel`). */
-const AUTOFOCUS_SELECTOR = "[data-sidebar-menu-autofocus]";
-const FOCUSABLE_SELECTOR = "button, input, textarea, select, a[href], [tabindex]";
+const AUTOFOCUS_SELECTOR = '[data-sidebar-menu-autofocus]';
+const FOCUSABLE_SELECTOR = 'button, input, textarea, select, a[href], [tabindex]';
 /** A row of the session tree (components/SessionTree.tsx), where most openers sit. */
-const ROW_SELECTOR = "[data-row-key]";
+const ROW_SELECTOR = '[data-row-key]';
 
 export interface SidebarMenuViewport {
   left: number;
@@ -173,7 +187,7 @@ export function placeSidebarMenu(
   anchor: SidebarMenuAnchor,
   size: { width: number; height: number },
   viewport: SidebarMenuViewport,
-  margin = MENU_MARGIN,
+  margin = MENU_MARGIN
 ): { left: number; top: number } {
   const minLeft = viewport.left + margin;
   const minTop = viewport.top + margin;
@@ -181,19 +195,25 @@ export function placeSidebarMenu(
   const maxBottom = viewport.top + viewport.height - margin;
   let left: number;
   let top: number;
-  if (anchor.kind === "point") {
-    left = anchor.x + size.width > maxRight && anchor.x - size.width >= minLeft ? anchor.x - size.width : anchor.x;
-    top = anchor.y + size.height > maxBottom && anchor.y - size.height >= minTop ? anchor.y - size.height : anchor.y;
+  if (anchor.kind === 'point') {
+    left =
+      anchor.x + size.width > maxRight && anchor.x - size.width >= minLeft
+        ? anchor.x - size.width
+        : anchor.x;
+    top =
+      anchor.y + size.height > maxBottom && anchor.y - size.height >= minTop
+        ? anchor.y - size.height
+        : anchor.y;
   } else {
     const { rect } = anchor;
-    left = anchor.align === "end" ? rect.right - size.width : rect.left;
+    left = anchor.align === 'end' ? rect.right - size.width : rect.left;
     const below = rect.bottom + ANCHOR_GAP;
     const above = rect.top - ANCHOR_GAP - size.height;
     top = below + size.height > maxBottom && above >= minTop ? above : below;
   }
   return {
     left: Math.max(minLeft, Math.min(left, maxRight - size.width)),
-    top: Math.max(minTop, Math.min(top, maxBottom - size.height)),
+    top: Math.max(minTop, Math.min(top, maxBottom - size.height))
   };
 }
 
@@ -201,11 +221,20 @@ export function placeSidebarMenu(
  * The enabled item a typed letter activates: its `shortcut`, case-insensitive
  * (Shift+D still means D, and tells Delete to skip its confirmation).
  */
-export function findSidebarMenuShortcut(items: readonly SidebarMenuItem[] | undefined, key: string): ActionItem | null {
+export function findSidebarMenuShortcut(
+  items: readonly SidebarMenuItem[] | undefined,
+  key: string
+): ActionItem | null {
   if (!items || key.length !== 1) return null;
   const wanted = key.toLowerCase();
   for (const item of items) {
-    if (item.type === "item" && !item.disabled && item.shortcut && item.shortcut.toLowerCase() === wanted) return item;
+    if (
+      item.type === 'item' &&
+      !item.disabled &&
+      item.shortcut &&
+      item.shortcut.toLowerCase() === wanted
+    )
+      return item;
   }
   return null;
 }
@@ -219,11 +248,14 @@ export function hasCustomMenuBody(children: ReactNode): boolean {
 }
 
 function isChoice(item: SidebarMenuItem): boolean {
-  return item.type === "item" && item.checked !== undefined;
+  return item.type === 'item' && item.checked !== undefined;
 }
 
 /** Whether `items` have enough choices for a filter field. */
-export function sidebarMenuHasFilter(items: readonly SidebarMenuItem[] | undefined, minChoices = SIDEBAR_MENU_FILTER_MIN_CHOICES): boolean {
+export function sidebarMenuHasFilter(
+  items: readonly SidebarMenuItem[] | undefined,
+  minChoices = SIDEBAR_MENU_FILTER_MIN_CHOICES
+): boolean {
   return (items ?? []).filter(isChoice).length >= minChoices;
 }
 
@@ -231,11 +263,18 @@ export function sidebarMenuHasFilter(items: readonly SidebarMenuItem[] | undefin
  * The items a filter `query` leaves: the choices whose label, note or title
  * contains it (case-insensitive), and every item that is not a choice.
  */
-export function filterSidebarMenuItems(items: readonly SidebarMenuItem[], query: string): SidebarMenuItem[] {
+export function filterSidebarMenuItems(
+  items: readonly SidebarMenuItem[],
+  query: string
+): SidebarMenuItem[] {
   const wanted = query.trim().toLowerCase();
   if (!wanted) return [...items];
-  return items.filter((item) => item.type !== "item" || item.checked === undefined
-    || [item.label, item.note, item.title].some((text) => text?.toLowerCase().includes(wanted)));
+  return items.filter(
+    (item) =>
+      item.type !== 'item' ||
+      item.checked === undefined ||
+      [item.label, item.note, item.title].some((text) => text?.toLowerCase().includes(wanted))
+  );
 }
 
 /** A field the keys belong to: arrows move its caret, letters are typed into it. */
@@ -243,10 +282,20 @@ function isTextEntry(element: Element | null): boolean {
   if (!element) return false;
   if ((element as HTMLElement).isContentEditable) return true;
   const tag = element.tagName;
-  if (tag === "TEXTAREA" || tag === "SELECT") return true;
-  if (tag !== "INPUT") return false;
-  const type = ((element as HTMLInputElement).type || "text").toLowerCase();
-  return !["button", "checkbox", "radio", "range", "reset", "submit", "image", "color", "file"].includes(type);
+  if (tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  if (tag !== 'INPUT') return false;
+  const type = ((element as HTMLInputElement).type || 'text').toLowerCase();
+  return ![
+    'button',
+    'checkbox',
+    'radio',
+    'range',
+    'reset',
+    'submit',
+    'image',
+    'color',
+    'file'
+  ].includes(type);
 }
 
 /** Laid out: not display: none itself or inside something that is. Only such an element takes focus. */
@@ -256,7 +305,7 @@ function isRendered(element: HTMLElement): boolean {
 
 function isFocusable(element: HTMLElement): boolean {
   if ((element as HTMLButtonElement).disabled) return false;
-  if (element.getAttribute("aria-disabled") === "true") return false;
+  if (element.getAttribute('aria-disabled') === 'true') return false;
   return isRendered(element);
 }
 
@@ -289,12 +338,15 @@ function enabledItems(surface: HTMLElement): HTMLElement[] {
  * the custom body's first control.
  */
 function initialFocusTarget(surface: HTMLElement): HTMLElement | null {
-  const marked = Array.from(surface.querySelectorAll<HTMLElement>(AUTOFOCUS_SELECTOR)).find(isFocusable);
+  const marked = Array.from(surface.querySelectorAll<HTMLElement>(AUTOFOCUS_SELECTOR)).find(
+    isFocusable
+  );
   if (marked) return marked;
   const items = enabledItems(surface);
   if (items.length > 0) return items[0];
-  const controls = Array.from(surface.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
-    .filter((element) => element.tabIndex >= 0 && isFocusable(element));
+  const controls = Array.from(surface.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+    (element) => element.tabIndex >= 0 && isFocusable(element)
+  );
   return controls[0] ?? null;
 }
 
@@ -306,8 +358,9 @@ function initialFocusTarget(surface: HTMLElement): HTMLElement | null {
  * the list nothing else is marked, so the filter takes it again.
  */
 export function menuBodyFocusTarget(surface: HTMLElement): HTMLElement | null {
-  const marked = Array.from(surface.querySelectorAll<HTMLElement>(AUTOFOCUS_SELECTOR))
-    .filter((element) => !element.matches(FILTER_SELECTOR) && isFocusable(element));
+  const marked = Array.from(surface.querySelectorAll<HTMLElement>(AUTOFOCUS_SELECTOR)).filter(
+    (element) => !element.matches(FILTER_SELECTOR) && isFocusable(element)
+  );
   return marked[0] ?? initialFocusTarget(surface);
 }
 
@@ -318,8 +371,9 @@ export function menuBodyFocusTarget(surface: HTMLElement): HTMLElement | null {
  * menu, while a form inside one (or the sheet's Cancel) keeps its own order.
  */
 function tabLeavesSurface(surface: HTMLElement, active: Element, backwards: boolean): boolean {
-  const tabbables = Array.from(surface.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
-    .filter((element) => element !== active && element.tabIndex >= 0 && isFocusable(element));
+  const tabbables = Array.from(surface.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+    (element) => element !== active && element.tabIndex >= 0 && isFocusable(element)
+  );
   const direction = backwards ? Node.DOCUMENT_POSITION_PRECEDING : Node.DOCUMENT_POSITION_FOLLOWING;
   return !tabbables.some((element) => (active.compareDocumentPosition(element) & direction) !== 0);
 }
@@ -335,7 +389,7 @@ function swallowNextClickOn(element: HTMLElement): void {
   if (!view) return;
   let timer = 0;
   const stop = () => {
-    doc.removeEventListener("click", onClick, true);
+    doc.removeEventListener('click', onClick, true);
     view.clearTimeout(timer);
   };
   function onClick(event: MouseEvent) {
@@ -344,7 +398,7 @@ function swallowNextClickOn(element: HTMLElement): void {
     event.preventDefault();
     event.stopPropagation();
   }
-  doc.addEventListener("click", onClick, true);
+  doc.addEventListener('click', onClick, true);
   timer = view.setTimeout(stop, 1000);
 }
 
@@ -374,7 +428,7 @@ const isolateEvents = {
   onKeyUp: stopReactPropagation,
   onFocus: stopReactPropagation,
   onBlur: stopReactPropagation,
-  onContextMenu: stopContextMenu,
+  onContextMenu: stopContextMenu
 };
 
 export interface SidebarMenuSurfaceProps {
@@ -394,30 +448,44 @@ export interface SidebarMenuSurfaceProps {
   footer?: ReactNode;
   surfaceRef?: Ref<HTMLDivElement>;
   onActivate: (action: MenuAction, shiftKey: boolean) => void;
-  onClose: (reason: "outside" | "cancel") => void;
+  onClose: (reason: 'outside' | 'cancel') => void;
 }
 
 /**
  * Enter is taken on the button rather than left to its click, which would
  * not say whether Shift was held.
  */
-function activateOnEnter(action: MenuAction, onActivate: SidebarMenuSurfaceProps["onActivate"]) {
+function activateOnEnter(action: MenuAction, onActivate: SidebarMenuSurfaceProps['onActivate']) {
   return (event: ReactKeyboardEvent) => {
-    if (event.key !== "Enter" || event.nativeEvent.isComposing || event.keyCode === 229) return;
+    if (event.key !== 'Enter' || event.nativeEvent.isComposing || event.keyCode === 229) return;
     event.preventDefault();
     onActivate(action, event.shiftKey);
   };
 }
 
-function MenuItemButton({ item, onActivate }: { item: ActionItem; onActivate: SidebarMenuSurfaceProps["onActivate"] }) {
+function MenuItemButton({
+  item,
+  onActivate
+}: {
+  item: ActionItem;
+  onActivate: SidebarMenuSurfaceProps['onActivate'];
+}) {
   const choice = item.checked !== undefined;
   const className = [
-    "sidebar-menu-item",
-    choice ? "is-choice" : "",
-    item.danger ? "is-danger" : "",
-    item.checked ? "is-checked" : "",
-  ].filter(Boolean).join(" ");
-  const labelClassName = ["sidebar-menu-label", item.mono ? "is-mono" : "", item.path ? "is-path" : ""].filter(Boolean).join(" ");
+    'sidebar-menu-item',
+    choice ? 'is-choice' : '',
+    item.danger ? 'is-danger' : '',
+    item.checked ? 'is-checked' : ''
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const labelClassName = [
+    'sidebar-menu-label',
+    item.mono ? 'is-mono' : '',
+    item.path ? 'is-path' : ''
+  ]
+    .filter(Boolean)
+    .join(' ');
   let trailing: ReactNode = null;
   if (item.disabled && item.disabledReason) {
     trailing = <span className="sidebar-menu-note">{item.disabledReason}</span>;
@@ -429,7 +497,7 @@ function MenuItemButton({ item, onActivate }: { item: ActionItem; onActivate: Si
   const button = (
     <button
       type="button"
-      role={choice ? "menuitemradio" : "menuitem"}
+      role={choice ? 'menuitemradio' : 'menuitem'}
       aria-checked={choice ? item.checked : undefined}
       aria-disabled={item.disabled ? true : undefined}
       aria-keyshortcuts={item.shortcut && !item.disabled ? item.shortcut.toUpperCase() : undefined}
@@ -441,7 +509,7 @@ function MenuItemButton({ item, onActivate }: { item: ActionItem; onActivate: Si
       onKeyDown={activateOnEnter(item, onActivate)}
     >
       <span className="sidebar-menu-icon">
-        {choice ? (item.checked ? <CheckIcon size={13} /> : null) : item.icon}
+        {choice ? item.checked ? <CheckIcon size={13} /> : null : item.icon}
       </span>
       <span className={labelClassName}>{item.path ? <span>{item.label}</span> : item.label}</span>
       {item.badge}
@@ -451,7 +519,7 @@ function MenuItemButton({ item, onActivate }: { item: ActionItem; onActivate: Si
   const secondary = item.secondary;
   if (!secondary) return button;
   return (
-    <div className={choice ? "sidebar-menu-row is-choice" : "sidebar-menu-row"} role="none">
+    <div className={choice ? 'sidebar-menu-row is-choice' : 'sidebar-menu-row'} role="none">
       {button}
       <button
         type="button"
@@ -461,7 +529,7 @@ function MenuItemButton({ item, onActivate }: { item: ActionItem; onActivate: Si
         tabIndex={-1}
         title={secondary.label}
         data-sidebar-menu-item=""
-        className={secondary.danger ? "sidebar-menu-secondary is-danger" : "sidebar-menu-secondary"}
+        className={secondary.danger ? 'sidebar-menu-secondary is-danger' : 'sidebar-menu-secondary'}
         onClick={(event) => onActivate(secondary, event.shiftKey)}
         onKeyDown={activateOnEnter(secondary, onActivate)}
       >
@@ -481,7 +549,7 @@ export function SidebarMenuSurface({
   title,
   items,
   filter,
-  filterQuery = "",
+  filterQuery = '',
   onFilterQueryChange,
   children,
   cancelLabel,
@@ -491,21 +559,35 @@ export function SidebarMenuSurface({
   footer,
   surfaceRef,
   onActivate,
-  onClose,
+  onClose
 }: SidebarMenuSurfaceProps) {
   const custom = hasCustomMenuBody(children);
   const hasFooter = !custom && hasCustomMenuBody(footer);
-  const filtered = filter !== undefined && !custom && sidebarMenuHasFilter(items, filter.minChoices);
-  const shown = filtered ? filterSidebarMenuItems(items ?? [], filterQuery) : items ?? [];
+  const filtered =
+    filter !== undefined && !custom && sidebarMenuHasFilter(items, filter.minChoices);
+  const shown = filtered ? filterSidebarMenuItems(items ?? [], filterQuery) : (items ?? []);
   const list = shown.map((item) => {
-    if (item.type === "separator") return <div key={item.id} className="sidebar-menu-separator" role="separator" />;
-    if (item.type === "header") return <div key={item.id} className="sidebar-menu-header" role="presentation">{item.label}</div>;
-    if (item.type === "custom") return <div key={item.id} className="sidebar-menu-custom" role="none">{item.content}</div>;
+    if (item.type === 'separator')
+      return <div key={item.id} className="sidebar-menu-separator" role="separator" />;
+    if (item.type === 'header')
+      return (
+        <div key={item.id} className="sidebar-menu-header" role="presentation">
+          {item.label}
+        </div>
+      );
+    if (item.type === 'custom')
+      return (
+        <div key={item.id} className="sidebar-menu-custom" role="none">
+          {item.content}
+        </div>
+      );
     return <MenuItemButton key={item.id} item={item} onActivate={onActivate} />;
   });
   // A menu holds only its items: the field and what it found stand before
   // the list, a footer after it, inside a dialog (the sheet is one already).
-  const body = custom ? children : filtered || hasFooter ? (
+  const body = custom ? (
+    children
+  ) : filtered || hasFooter ? (
     <>
       {/* On a phone the field takes no focus by itself: the keyboard would cover the sheet. */}
       {filtered && (
@@ -518,28 +600,34 @@ export function SidebarMenuSurface({
             autoComplete="off"
             spellCheck={false}
             data-sidebar-menu-filter=""
-            data-sidebar-menu-autofocus={sheet ? undefined : ""}
+            data-sidebar-menu-autofocus={sheet ? undefined : ''}
             onChange={(event) => onFilterQueryChange?.(event.target.value)}
           />
         </div>
       )}
       {filtered && (
         <div role="status">
-          {filterQuery.trim() && !shown.some(isChoice) && <div className="sidebar-menu-empty">{filter.emptyLabel}</div>}
+          {filterQuery.trim() && !shown.some(isChoice) && (
+            <div className="sidebar-menu-empty">{filter.emptyLabel}</div>
+          )}
         </div>
       )}
-      <div role="menu" aria-label={ariaLabel}>{list}</div>
+      <div role="menu" aria-label={ariaLabel}>
+        {list}
+      </div>
       {hasFooter && footer}
     </>
-  ) : list;
-  const menuRole = custom || filtered || hasFooter ? undefined : "menu";
+  ) : (
+    list
+  );
+  const menuRole = custom || filtered || hasFooter ? undefined : 'menu';
 
   if (!sheet) {
     return (
       <div
         ref={surfaceRef}
-        className={classic ? "sidebar-menu is-classic" : "sidebar-menu"}
-        role={menuRole ?? "dialog"}
+        className={classic ? 'sidebar-menu is-classic' : 'sidebar-menu'}
+        role={menuRole ?? 'dialog'}
         aria-label={ariaLabel}
         style={{ width }}
         {...isolateEvents}
@@ -553,15 +641,31 @@ export function SidebarMenuSurface({
     <div className="sidebar-sheet-layer" {...isolateEvents}>
       {/* The backdrop takes the tap that closes the sheet, so it reaches neither the
           drawer's own backdrop (which would close the sidebar) nor a row. */}
-      <div className="sidebar-sheet-backdrop" aria-hidden="true" onClick={() => onClose("outside")} />
-      <div ref={surfaceRef} className="sidebar-sheet" role="dialog" aria-modal="true" aria-label={ariaLabel}>
+      <div
+        className="sidebar-sheet-backdrop"
+        aria-hidden="true"
+        onClick={() => onClose('outside')}
+      />
+      <div
+        ref={surfaceRef}
+        className="sidebar-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-label={ariaLabel}
+      >
         {title ? <div className="sidebar-sheet-title">{title}</div> : null}
-        <div className="sidebar-sheet-body" role={menuRole} aria-label={menuRole ? ariaLabel : undefined}>{body}</div>
+        <div
+          className="sidebar-sheet-body"
+          role={menuRole}
+          aria-label={menuRole ? ariaLabel : undefined}
+        >
+          {body}
+        </div>
         <button
           type="button"
           className="sidebar-sheet-cancel"
-          data-sidebar-menu-autofocus={focusCancel ? "" : undefined}
-          onClick={() => onClose("cancel")}
+          data-sidebar-menu-autofocus={focusCancel ? '' : undefined}
+          onClick={() => onClose('cancel')}
         >
           {cancelLabel}
         </button>
@@ -586,12 +690,12 @@ export function SidebarMenu({
   width,
   classic = false,
   footer,
-  focusKey = "",
+  focusKey = ''
 }: SidebarMenuProps) {
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   // The one piece of state the menu keeps: its filter field's text, for one
   // opening of one body.
-  const [filterQuery, setFilterQuery] = useState("");
+  const [filterQuery, setFilterQuery] = useState('');
   const filterQueryRef = useRef(filterQuery);
   filterQueryRef.current = filterQuery;
   const surfaceRef = useRef<HTMLDivElement | null>(null);
@@ -611,13 +715,18 @@ export function SidebarMenu({
 
   const visible = open && portalTarget !== null && (sheet || anchor !== null);
   const custom = hasCustomMenuBody(children);
-  const anchorKey = anchor ? JSON.stringify(anchor) : "";
+  const anchorKey = anchor ? JSON.stringify(anchor) : '';
 
   const activate = (item: MenuAction, shiftKey: boolean) => {
     if (item.disabled) return;
     let keepOpen = false;
-    item.onSelect({ shiftKey, keepOpen: () => { keepOpen = true; } });
-    if (!keepOpen) onCloseRef.current("select");
+    item.onSelect({
+      shiftKey,
+      keepOpen: () => {
+        keepOpen = true;
+      }
+    });
+    if (!keepOpen) onCloseRef.current('select');
   };
   const activateRef = useRef(activate);
   activateRef.current = activate;
@@ -631,31 +740,35 @@ export function SidebarMenu({
       const current = anchorRef.current;
       if (!current) return;
       const rect = surface.getBoundingClientRect();
-      const { left, top } = placeSidebarMenu(current, { width: rect.width, height: rect.height }, {
-        left: viewport?.offsetLeft ?? 0,
-        top: viewport?.offsetTop ?? 0,
-        width: viewport?.width ?? window.innerWidth,
-        height: viewport?.height ?? window.innerHeight,
-      });
+      const { left, top } = placeSidebarMenu(
+        current,
+        { width: rect.width, height: rect.height },
+        {
+          left: viewport?.offsetLeft ?? 0,
+          top: viewport?.offsetTop ?? 0,
+          width: viewport?.width ?? window.innerWidth,
+          height: viewport?.height ?? window.innerHeight
+        }
+      );
       surface.style.left = `${left}px`;
       surface.style.top = `${top}px`;
     };
     position();
-    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(position);
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(position);
     observer?.observe(surface);
-    window.addEventListener("resize", position);
-    viewport?.addEventListener("resize", position);
-    viewport?.addEventListener("scroll", position);
+    window.addEventListener('resize', position);
+    viewport?.addEventListener('resize', position);
+    viewport?.addEventListener('scroll', position);
     return () => {
       observer?.disconnect();
-      window.removeEventListener("resize", position);
-      viewport?.removeEventListener("resize", position);
-      viewport?.removeEventListener("scroll", position);
+      window.removeEventListener('resize', position);
+      viewport?.removeEventListener('resize', position);
+      viewport?.removeEventListener('scroll', position);
     };
   }, [visible, sheet, anchorKey, custom]);
 
   useEffect(() => {
-    setFilterQuery("");
+    setFilterQuery('');
   }, [visible, custom]);
 
   // Focus moves into the menu when it opens, and again when its body is
@@ -672,7 +785,9 @@ export function SidebarMenu({
     }
     const opening = !openedRef.current;
     openedRef.current = true;
-    (opening ? initialFocusTarget(surface) : menuBodyFocusTarget(surface))?.focus({ preventScroll: true });
+    (opening ? initialFocusTarget(surface) : menuBodyFocusTarget(surface))?.focus({
+      preventScroll: true
+    });
   }, [visible, sheet, custom, focusKey]);
 
   // On close, focus returns to the opener unless the user put it elsewhere.
@@ -704,41 +819,49 @@ export function SidebarMenu({
     const onKeyDown = (event: KeyboardEvent) => {
       const surface = surfaceRef.current;
       if (!surface || event.isComposing || event.keyCode === 229) return;
-      if (event.key === "Escape") {
+      if (event.key === 'Escape') {
         event.preventDefault();
         event.stopPropagation();
         // A filter with text in it is cleared first; the next Escape closes.
         const field = surface.querySelector<HTMLElement>(FILTER_SELECTOR);
         if (field && filterQueryRef.current) {
-          setFilterQuery("");
+          setFilterQuery('');
           field.focus({ preventScroll: true });
           return;
         }
-        onCloseRef.current("escape");
+        onCloseRef.current('escape');
         return;
       }
       const target = event.target instanceof Element ? event.target : null;
       const inside = target !== null && surface.contains(target);
-      const onPage = target === null || target === document.body || target === document.documentElement;
+      const onPage =
+        target === null || target === document.body || target === document.documentElement;
       if (!inside && !onPage) return;
-      if (event.key === "Tab") {
+      if (event.key === 'Tab') {
         // No focus trap: Tab out of the menu closes it, and focus goes on from the opener.
-        if (!inside || tabLeavesSurface(surface, target as Element, event.shiftKey)) onCloseRef.current("outside");
+        if (!inside || tabLeavesSurface(surface, target as Element, event.shiftKey))
+          onCloseRef.current('outside');
         return;
       }
       // The filter field keeps its letters and caret keys; Up and Down go on to the items.
-      const leavesFilter = (event.key === "ArrowDown" || event.key === "ArrowUp") && target?.matches(FILTER_SELECTOR);
+      const leavesFilter =
+        (event.key === 'ArrowDown' || event.key === 'ArrowUp') && target?.matches(FILTER_SELECTOR);
       if (inside && isTextEntry(target) && !leavesFilter) return;
-      if (event.key === "ArrowDown" || event.key === "ArrowUp" || event.key === "Home" || event.key === "End") {
+      if (
+        event.key === 'ArrowDown' ||
+        event.key === 'ArrowUp' ||
+        event.key === 'Home' ||
+        event.key === 'End'
+      ) {
         const list = enabledItems(surface);
         if (list.length === 0) return;
         event.preventDefault();
         event.stopPropagation();
         const index = target ? list.indexOf(target as HTMLElement) : -1;
         let next: number;
-        if (event.key === "Home") next = 0;
-        else if (event.key === "End") next = list.length - 1;
-        else if (event.key === "ArrowDown") next = index < 0 ? 0 : (index + 1) % list.length;
+        if (event.key === 'Home') next = 0;
+        else if (event.key === 'End') next = list.length - 1;
+        else if (event.key === 'ArrowDown') next = index < 0 ? 0 : (index + 1) % list.length;
         else next = index < 0 ? list.length - 1 : (index - 1 + list.length) % list.length;
         list[next].focus({ preventScroll: false });
         return;
@@ -750,8 +873,8 @@ export function SidebarMenu({
       event.stopPropagation();
       activateRef.current(item, event.shiftKey);
     };
-    document.addEventListener("keydown", onKeyDown, true);
-    return () => document.removeEventListener("keydown", onKeyDown, true);
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => document.removeEventListener('keydown', onKeyDown, true);
   }, [visible, custom]);
 
   // A press anywhere else closes a desktop menu and goes on to whatever it was
@@ -764,11 +887,12 @@ export function SidebarMenu({
       const target = event.target instanceof Node ? event.target : null;
       if (!surface || (target && surface.contains(target))) return;
       const opener = returnFocusToRef.current;
-      if (opener && target && event.button === 0 && opener.contains(target)) swallowNextClickOn(opener);
-      onCloseRef.current("outside");
+      if (opener && target && event.button === 0 && opener.contains(target))
+        swallowNextClickOn(opener);
+      onCloseRef.current('outside');
     };
-    document.addEventListener("pointerdown", onPointerDown, true);
-    return () => document.removeEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener('pointerdown', onPointerDown, true);
+    return () => document.removeEventListener('pointerdown', onPointerDown, true);
   }, [visible, sheet]);
 
   if (!visible || !portalTarget) return null;
@@ -793,6 +917,6 @@ export function SidebarMenu({
     >
       {children}
     </SidebarMenuSurface>,
-    portalTarget,
+    portalTarget
   );
 }

@@ -30,7 +30,7 @@ export function takeHighlightBudget(chars: number): boolean {
 
 function whenIdle(run: () => void): void {
   // Safari has no requestIdleCallback.
-  if (typeof window !== "undefined" && typeof window.requestIdleCallback === "function") {
+  if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
     window.requestIdleCallback(run, { timeout: 500 });
   } else {
     setTimeout(run, FALLBACK_IDLE_DELAY_MS);

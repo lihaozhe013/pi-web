@@ -36,10 +36,12 @@ export interface ActivationEvent {
  * and the browser decide.
  */
 export function isPlainActivation(event: ActivationEvent): boolean {
-  return !event.defaultPrevented
-    && event.button === 0
-    && !event.ctrlKey
-    && !event.metaKey
-    && !event.shiftKey
-    && !event.altKey;
+  return (
+    !event.defaultPrevented &&
+    event.button === 0 &&
+    !event.ctrlKey &&
+    !event.metaKey &&
+    !event.shiftKey &&
+    !event.altKey
+  );
 }

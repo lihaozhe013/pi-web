@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { useI18n } from "@/hooks/useI18n";
-import type { NewSessionContext, NewSessionTarget } from "@/lib/new-session-context";
-import { focusIfLost } from "@/lib/stacked-dialog";
-import { useEffect, useRef } from "react";
-import { ProjectPicker, type ProjectControl, type ProjectPickerHandle } from "./ProjectPicker";
+import { useI18n } from '@/hooks/useI18n';
+import type { NewSessionContext, NewSessionTarget } from '@/lib/new-session-context';
+import { focusIfLost } from '@/lib/stacked-dialog';
+import { useEffect, useRef } from 'react';
+import { ProjectPicker, type ProjectControl, type ProjectPickerHandle } from './ProjectPicker';
 
 /** The bar's project control. A move names the one it came from, which takes focus in the bar that replaces this one. */
 export type NewSessionContextControl = ProjectControl;
@@ -22,7 +22,6 @@ interface Props {
   onUseDefaultDirectory: () => void;
   /** "Open another project…": the folder picker, which hands its folder to `onPick`. */
   onOpenFolder: (opener: HTMLElement | null) => void;
-
 }
 
 /** The selected directory above a fresh composer; moves preserve its draft. */
@@ -33,7 +32,7 @@ export function NewSessionContextBar({
   onInitialFocusDone,
   onPick,
   onUseDefaultDirectory,
-  onOpenFolder,
+  onOpenFolder
 }: Props) {
   const { t } = useI18n();
   const pickerRef = useRef<ProjectPickerHandle>(null);
@@ -49,7 +48,7 @@ export function NewSessionContextBar({
     initialFocusRef.current = null;
     onInitialFocusDoneRef.current();
     const picker = pickerRef.current;
-    focusIfLost(document, picker?.button("project") ?? null);
+    focusIfLost(document, picker?.button('project') ?? null);
   }, []);
 
   return (
@@ -59,7 +58,7 @@ export function NewSessionContextBar({
         layout="inline"
         context={context}
         mobile={mobile}
-        label={t("workspace.newSessionContext")}
+        label={t('workspace.newSessionContext')}
         onPick={onPick}
         onUseDefaultDirectory={onUseDefaultDirectory}
         onOpenFolder={onOpenFolder}

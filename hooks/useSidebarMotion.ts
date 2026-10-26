@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 /**
  * The sidebar's two motions (components/SessionSidebar.tsx, app/sidebar.css):
@@ -20,13 +20,13 @@ export const SIDEBAR_MOTION_GRACE_MS = 120;
  * "in": what moves is arriving (the files unfolding, the archive view
  * opening); "out": it is leaving (the files folding, the archive closing).
  */
-export type SidebarMotionPhase = "in" | "out" | null;
+export type SidebarMotionPhase = 'in' | 'out' | null;
 
 /** The user asked for less motion: nothing moves, every change is instant. */
 export function prefersReducedMotion(): boolean {
-  if (typeof window === "undefined") return false;
+  if (typeof window === 'undefined') return false;
   try {
-    return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+    return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
   } catch {
     return false;
   }
@@ -35,7 +35,7 @@ export function prefersReducedMotion(): boolean {
 export interface SidebarMotion {
   phase: SidebarMotionPhase;
   /** A change the user made that should move: never a restore, a drag or a layout switch. */
-  start: (phase: "in" | "out") => void;
+  start: (phase: 'in' | 'out') => void;
   /** Its element's end event. */
   end: () => void;
 }
@@ -59,18 +59,21 @@ export function useSidebarMotion(): SidebarMotion {
     clearTimer();
     setPhase(null);
   }, [clearTimer]);
-  const start = useCallback((next: "in" | "out") => {
-    clearTimer();
-    if (prefersReducedMotion()) {
-      setPhase(null);
-      return;
-    }
-    setPhase(next);
-    timerRef.current = setTimeout(() => {
-      timerRef.current = null;
-      setPhase(null);
-    }, SIDEBAR_MOTION_MS + SIDEBAR_MOTION_GRACE_MS);
-  }, [clearTimer]);
+  const start = useCallback(
+    (next: 'in' | 'out') => {
+      clearTimer();
+      if (prefersReducedMotion()) {
+        setPhase(null);
+        return;
+      }
+      setPhase(next);
+      timerRef.current = setTimeout(() => {
+        timerRef.current = null;
+        setPhase(null);
+      }, SIDEBAR_MOTION_MS + SIDEBAR_MOTION_GRACE_MS);
+    },
+    [clearTimer]
+  );
   useEffect(() => clearTimer, [clearTimer]);
   return { phase, start, end };
 }
@@ -89,13 +92,13 @@ export interface FilesFoldState {
 
 /** Still (phase null), what shows is what showed before the motion: the body hidden iff folded. */
 export function filesFoldState(collapsed: boolean, phase: SidebarMotionPhase): FilesFoldState {
-  const folding = collapsed && phase === "out";
-  const unfolding = !collapsed && phase === "in";
+  const folding = collapsed && phase === 'out';
+  const unfolding = !collapsed && phase === 'in';
   return {
     bodyHidden: collapsed && !folding,
     bodyInert: folding,
     moving: folding || unfolding,
-    open: !collapsed && !unfolding,
+    open: !collapsed && !unfolding
   };
 }
 
@@ -110,18 +113,18 @@ export interface ArchiveViewState {
   /** Inert on its way out: nothing in it is clicked twice. */
   archiveInert: boolean;
   /** The archive view's animation (app/sidebar.css). */
-  archiveClass: "is-entering" | "is-leaving" | null;
+  archiveClass: 'is-entering' | 'is-leaving' | null;
 }
 
 /** Still (phase null), what shows is what showed before the motion: the archive alone while open, the tree alone after. */
 export function archiveViewState(open: boolean, phase: SidebarMotionPhase): ArchiveViewState {
-  const entering = open && phase === "in";
-  const leaving = !open && phase === "out";
+  const entering = open && phase === 'in';
+  const leaving = !open && phase === 'out';
   return {
     mainHidden: open && !entering,
     mainInert: entering,
     archiveMounted: open || leaving,
     archiveInert: leaving,
-    archiveClass: entering ? "is-entering" : leaving ? "is-leaving" : null,
+    archiveClass: entering ? 'is-entering' : leaving ? 'is-leaving' : null
   };
 }

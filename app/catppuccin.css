@@ -2,8 +2,8 @@
    Mauve accent (Latte slightly deepened for AA); base/mantle surfaces.
    Keep html specificity above html.dark,
    and data-theme selectors so Settings previews work in any active theme. */
-html[data-theme="catppuccin-latte"],
-[data-theme="catppuccin-latte"] {
+html[data-theme='catppuccin-latte'],
+[data-theme='catppuccin-latte'] {
   color-scheme: light;
   --bg: #eff1f5;
   --bg-panel: #e6e9ef;
@@ -19,11 +19,11 @@ html[data-theme="catppuccin-latte"],
   --user-bg: #e6e9ef;
   --assistant-bg: #eff1f5;
   --tool-bg: #e6e9ef;
-  --bg-subtle: rgba(76,79,105,0.04);
+  --bg-subtle: rgba(76, 79, 105, 0.04);
 }
 
-html[data-theme="catppuccin-frappe"],
-[data-theme="catppuccin-frappe"] {
+html[data-theme='catppuccin-frappe'],
+[data-theme='catppuccin-frappe'] {
   color-scheme: dark;
   --bg: #303446;
   --bg-panel: #292c3c;
@@ -39,11 +39,11 @@ html[data-theme="catppuccin-frappe"],
   --user-bg: #292c3c;
   --assistant-bg: #303446;
   --tool-bg: #292c3c;
-  --bg-subtle: rgba(198,208,245,0.04);
+  --bg-subtle: rgba(198, 208, 245, 0.04);
 }
 
-html[data-theme="catppuccin-macchiato"],
-[data-theme="catppuccin-macchiato"] {
+html[data-theme='catppuccin-macchiato'],
+[data-theme='catppuccin-macchiato'] {
   color-scheme: dark;
   --bg: #24273a;
   --bg-panel: #1e2030;
@@ -59,11 +59,11 @@ html[data-theme="catppuccin-macchiato"],
   --user-bg: #363a4f;
   --assistant-bg: #24273a;
   --tool-bg: #1e2030;
-  --bg-subtle: rgba(202,211,245,0.04);
+  --bg-subtle: rgba(202, 211, 245, 0.04);
 }
 
-html[data-theme="catppuccin-mocha"],
-[data-theme="catppuccin-mocha"] {
+html[data-theme='catppuccin-mocha'],
+[data-theme='catppuccin-mocha'] {
   color-scheme: dark;
   --bg: #1e1e2e;
   --bg-panel: #181825;
@@ -79,19 +79,19 @@ html[data-theme="catppuccin-mocha"],
   --user-bg: #313244;
   --assistant-bg: #1e1e2e;
   --tool-bg: #181825;
-  --bg-subtle: rgba(205,214,244,0.04);
+  --bg-subtle: rgba(205, 214, 244, 0.04);
 }
 
 /* Full theme names need more room than the standard five-column swatches.
    Two tiles per row, with no changes to the existing theme grid. */
-.settings-theme-option:has(input[value^="catppuccin-"]) {
+.settings-theme-option:has(input[value^='catppuccin-']) {
   grid-column: span 7;
 }
-.settings-theme-option:has(input[value="catppuccin-latte"]),
-.settings-theme-option:has(input[value="catppuccin-macchiato"]) {
+.settings-theme-option:has(input[value='catppuccin-latte']),
+.settings-theme-option:has(input[value='catppuccin-macchiato']) {
   grid-column: 1 / span 8;
 }
-.settings-theme-option:has(input[value^="catppuccin-"]) .settings-theme-name {
+.settings-theme-option:has(input[value^='catppuccin-']) .settings-theme-name {
   padding: 2px 4px;
   line-height: 1.2;
   text-align: center;

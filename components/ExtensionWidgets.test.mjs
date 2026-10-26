@@ -1,36 +1,32 @@
-import assert from "node:assert/strict";
-import test from "node:test";
-import { createJiti } from "jiti";
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { createJiti } from 'jiti';
 
 const jiti = createJiti(import.meta.url, {
-  jsx: { runtime: "automatic" },
-  tsconfigPaths: true,
+  jsx: { runtime: 'automatic' },
+  tsconfigPaths: true
 });
-const React = await jiti.import("react");
-const { renderToStaticMarkup } = await jiti.import("react-dom/server");
+const React = await jiti.import('react');
+const { renderToStaticMarkup } = await jiti.import('react-dom/server');
 const {
   DEFAULT_EXPANDED_WIDGET_LINES,
   ExtensionWidgets,
   formatExtensionWidgetContent,
   getNextExpandedWidgetKey,
   getUpdatedExtensionWidgetKeys,
-  snapshotExtensionWidgetContents,
-} = await jiti.import("./ExtensionWidgets.tsx");
-const { I18nProvider } = await jiti.import("@/hooks/useI18n");
+  snapshotExtensionWidgetContents
+} = await jiti.import('./ExtensionWidgets.tsx');
+const { I18nProvider } = await jiti.import('@/hooks/useI18n');
 
 function renderWidgets(props) {
   return renderToStaticMarkup(
-    React.createElement(
-      I18nProvider,
-      null,
-      React.createElement(ExtensionWidgets, props),
-    ),
+    React.createElement(I18nProvider, null, React.createElement(ExtensionWidgets, props))
   );
 }
 
-test("renders short extension widgets without a truncation marker", () => {
+test('renders short extension widgets without a truncation marker', () => {
   const html = renderWidgets({
-    widgets: [{ key: "short", lines: ["first", "second"], placement: "aboveEditor" }],
+    widgets: [{ key: 'short', lines: ['first', 'second'], placement: 'aboveEditor' }]
   });
 
   assert.match(html, /first\nsecond/);
@@ -40,13 +36,10 @@ test("renders short extension widgets without a truncation marker", () => {
   assert.doesNotMatch(html, /[\u2191\u2193]/);
 });
 
-test("collapses long widgets by default", () => {
-  const lines = Array.from(
-    { length: 12 },
-    (_, index) => `line-${index + 1}`,
-  );
+test('collapses long widgets by default', () => {
+  const lines = Array.from({ length: 12 }, (_, index) => `line-${index + 1}`);
   const html = renderWidgets({
-    widgets: [{ key: "long", lines, placement: "belowEditor" }],
+    widgets: [{ key: 'long', lines, placement: 'belowEditor' }]
   });
 
   assert.ok(lines.length > DEFAULT_EXPANDED_WIDGET_LINES);
@@ -58,11 +51,8 @@ test("collapses long widgets by default", () => {
   assert.doesNotMatch(html, /line-12/);
 });
 
-test("keeps all widget lines available for the scrollable expanded panel", () => {
-  const lines = Array.from(
-    { length: 12 },
-    (_, index) => `line-${index + 1}`,
-  );
+test('keeps all widget lines available for the scrollable expanded panel', () => {
+  const lines = Array.from({ length: 12 }, (_, index) => `line-${index + 1}`);
   const content = formatExtensionWidgetContent(lines);
 
   assert.match(content, /line-10/);
@@ -70,25 +60,25 @@ test("keeps all widget lines available for the scrollable expanded panel", () =>
   assert.doesNotMatch(content, /widget truncated/);
 });
 
-test("keeps compact widgets expanded by default", () => {
+test('keeps compact widgets expanded by default', () => {
   const lines = Array.from(
     { length: DEFAULT_EXPANDED_WIDGET_LINES },
-    (_, index) => `line-${index + 1}`,
+    (_, index) => `line-${index + 1}`
   );
   const html = renderWidgets({
-    widgets: [{ key: "compact", lines, placement: "aboveEditor" }],
+    widgets: [{ key: 'compact', lines, placement: 'aboveEditor' }]
   });
 
   assert.match(html, /aria-expanded="true"/);
   assert.match(html, /<pre/);
 });
 
-test("expands at most one compact widget", () => {
+test('expands at most one compact widget', () => {
   const html = renderWidgets({
     widgets: [
-      { key: "first", lines: ["one", "two"], placement: "aboveEditor" },
-      { key: "second", lines: ["three", "four"], placement: "belowEditor" },
-    ],
+      { key: 'first', lines: ['one', 'two'], placement: 'aboveEditor' },
+      { key: 'second', lines: ['three', 'four'], placement: 'belowEditor' }
+    ]
   });
 
   assert.equal((html.match(/aria-expanded="true"/g) ?? []).length, 1);
@@ -97,38 +87,38 @@ test("expands at most one compact widget", () => {
   assert.doesNotMatch(html, /aria-labelledby="[^"]*trigger-1"/);
 });
 
-test("switching widgets closes the previously expanded widget", () => {
-  assert.equal(getNextExpandedWidgetKey(null, "first"), "first");
-  assert.equal(getNextExpandedWidgetKey("first", "second"), "second");
-  assert.equal(getNextExpandedWidgetKey("second", "second"), null);
+test('switching widgets closes the previously expanded widget', () => {
+  assert.equal(getNextExpandedWidgetKey(null, 'first'), 'first');
+  assert.equal(getNextExpandedWidgetKey('first', 'second'), 'second');
+  assert.equal(getNextExpandedWidgetKey('second', 'second'), null);
 });
 
-test("detects only existing widgets whose line content changed", () => {
+test('detects only existing widgets whose line content changed', () => {
   const previous = snapshotExtensionWidgetContents([
-    { key: "changed", lines: ["one"], placement: "aboveEditor" },
-    { key: "same", lines: ["ready"], placement: "belowEditor" },
-    { key: "removed", lines: ["gone"], placement: "belowEditor" },
+    { key: 'changed', lines: ['one'], placement: 'aboveEditor' },
+    { key: 'same', lines: ['ready'], placement: 'belowEditor' },
+    { key: 'removed', lines: ['gone'], placement: 'belowEditor' }
   ]);
   const next = snapshotExtensionWidgetContents([
-    { key: "same", lines: ["ready"], placement: "aboveEditor" },
-    { key: "changed", lines: ["one", "two"], placement: "belowEditor" },
-    { key: "added", lines: ["new"], placement: "aboveEditor" },
+    { key: 'same', lines: ['ready'], placement: 'aboveEditor' },
+    { key: 'changed', lines: ['one', 'two'], placement: 'belowEditor' },
+    { key: 'added', lines: ['new'], placement: 'aboveEditor' }
   ]);
 
-  assert.deepEqual(getUpdatedExtensionWidgetKeys(previous, next), ["changed"]);
+  assert.deepEqual(getUpdatedExtensionWidgetKeys(previous, next), ['changed']);
   assert.deepEqual(getUpdatedExtensionWidgetKeys(null, next), []);
 });
 
-test("compares widget lines without delimiter collisions", () => {
-  const previous = new Map([["status", ["one", "two"]]]);
-  const next = new Map([["status", ["one\ntwo"]]]);
+test('compares widget lines without delimiter collisions', () => {
+  const previous = new Map([['status', ['one', 'two']]]);
+  const next = new Map([['status', ['one\ntwo']]]);
 
-  assert.deepEqual(getUpdatedExtensionWidgetKeys(previous, next), ["status"]);
+  assert.deepEqual(getUpdatedExtensionWidgetKeys(previous, next), ['status']);
 });
 
-test("keeps one-line widgets compact but expandable", () => {
+test('keeps one-line widgets compact but expandable', () => {
   const html = renderWidgets({
-    widgets: [{ key: "single-line-widget", lines: ["ready"], placement: "belowEditor" }],
+    widgets: [{ key: 'single-line-widget', lines: ['ready'], placement: 'belowEditor' }]
   });
 
   assert.match(html, /extension-widget-triggers/);
@@ -147,9 +137,9 @@ test("keeps one-line widgets compact but expandable", () => {
   assert.doesNotMatch(html, /<pre/);
 });
 
-test("keeps empty widgets non-interactive", () => {
+test('keeps empty widgets non-interactive', () => {
   const html = renderWidgets({
-    widgets: [{ key: "empty-widget", lines: [], placement: "aboveEditor" }],
+    widgets: [{ key: 'empty-widget', lines: [], placement: 'aboveEditor' }]
   });
 
   assert.match(html, /<div class="extension-widget-trigger/);

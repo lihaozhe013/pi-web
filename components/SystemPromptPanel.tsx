@@ -8,17 +8,17 @@ interface Props {
 
 export function SystemPromptPanel({ loading, prompt, translate }: Props) {
   return (
-    <section className="system-prompt-panel" aria-label={translate("system.prompt")}>
+    <section className="system-prompt-panel" aria-label={translate('system.prompt')}>
       <div className="system-prompt-scroll">
         {prompt ? (
           <div className="system-prompt-text">{prompt}</div>
         ) : (
           <div className="system-prompt-empty">
-            {prompt === ""
-              ? translate("system.empty")
+            {prompt === ''
+              ? translate('system.empty')
               : loading
-                ? translate("system.loading")
-                : translate("system.load")}
+                ? translate('system.loading')
+                : translate('system.load')}
           </div>
         )}
       </div>

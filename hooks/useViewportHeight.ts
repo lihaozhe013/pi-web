@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useEffect } from "react";
+import { useEffect } from 'react';
 
 interface ViewportHeightState {
   hasFocusedEditable: boolean;
@@ -26,7 +26,7 @@ export function shouldUseVisualViewportHeight({
   hasFocusedEditable,
   innerHeight,
   viewportHeight,
-  viewportScale,
+  viewportScale
 }: ViewportHeightState): boolean {
   if (!hasFocusedEditable) return false;
   const scale = viewportScale > 0 ? viewportScale : 1;
@@ -37,10 +37,12 @@ function hasFocusedEditableElement(): boolean {
   const activeElement = document.activeElement;
   if (!(activeElement instanceof HTMLElement)) return false;
 
-  return activeElement.isContentEditable
-    || activeElement.tagName === "INPUT"
-    || activeElement.tagName === "SELECT"
-    || activeElement.tagName === "TEXTAREA";
+  return (
+    activeElement.isContentEditable ||
+    activeElement.tagName === 'INPUT' ||
+    activeElement.tagName === 'SELECT' ||
+    activeElement.tagName === 'TEXTAREA'
+  );
 }
 
 // WebKit reports the shrunken visual viewport only once the keyboard animation
@@ -71,15 +73,15 @@ export function useViewportHeight(): void {
         hasFocusedEditable: hasFocusedEditableElement(),
         innerHeight: window.innerHeight,
         viewportHeight: viewport.height,
-        viewportScale: viewport.scale,
+        viewportScale: viewport.scale
       });
       if (keyboardOpen) {
-        root.style.setProperty("--app-viewport-height", `${viewport.height}px`);
+        root.style.setProperty('--app-viewport-height', `${viewport.height}px`);
         // CSS collapses secondary composer chrome while typing so the few
         // hundred pixels above the keyboard go to the conversation.
-        root.dataset.keyboardOpen = "true";
+        root.dataset.keyboardOpen = 'true';
       } else {
-        root.style.removeProperty("--app-viewport-height");
+        root.style.removeProperty('--app-viewport-height');
         delete root.dataset.keyboardOpen;
       }
 
@@ -133,34 +135,34 @@ export function useViewportHeight(): void {
     };
 
     scheduleUpdate();
-    viewport.addEventListener("resize", scheduleUpdate);
-    viewport.addEventListener("scroll", scheduleUpdate);
-    window.addEventListener("resize", scheduleUpdate);
-    window.addEventListener("focusin", scheduleUpdate);
-    window.addEventListener("focusout", scheduleUpdate);
-    window.addEventListener("pageshow", scheduleUpdate);
-    document.addEventListener("compositionstart", onEditableActivity);
-    document.addEventListener("compositionupdate", onEditableActivity);
-    document.addEventListener("compositionend", onEditableActivity);
-    document.addEventListener("input", onEditableActivity);
-    document.addEventListener("keyup", onEditableActivity);
+    viewport.addEventListener('resize', scheduleUpdate);
+    viewport.addEventListener('scroll', scheduleUpdate);
+    window.addEventListener('resize', scheduleUpdate);
+    window.addEventListener('focusin', scheduleUpdate);
+    window.addEventListener('focusout', scheduleUpdate);
+    window.addEventListener('pageshow', scheduleUpdate);
+    document.addEventListener('compositionstart', onEditableActivity);
+    document.addEventListener('compositionupdate', onEditableActivity);
+    document.addEventListener('compositionend', onEditableActivity);
+    document.addEventListener('input', onEditableActivity);
+    document.addEventListener('keyup', onEditableActivity);
 
     return () => {
-      viewport.removeEventListener("resize", scheduleUpdate);
-      viewport.removeEventListener("scroll", scheduleUpdate);
-      window.removeEventListener("resize", scheduleUpdate);
-      window.removeEventListener("focusin", scheduleUpdate);
-      window.removeEventListener("focusout", scheduleUpdate);
-      window.removeEventListener("pageshow", scheduleUpdate);
-      document.removeEventListener("compositionstart", onEditableActivity);
-      document.removeEventListener("compositionupdate", onEditableActivity);
-      document.removeEventListener("compositionend", onEditableActivity);
-      document.removeEventListener("input", onEditableActivity);
-      document.removeEventListener("keyup", onEditableActivity);
+      viewport.removeEventListener('resize', scheduleUpdate);
+      viewport.removeEventListener('scroll', scheduleUpdate);
+      window.removeEventListener('resize', scheduleUpdate);
+      window.removeEventListener('focusin', scheduleUpdate);
+      window.removeEventListener('focusout', scheduleUpdate);
+      window.removeEventListener('pageshow', scheduleUpdate);
+      document.removeEventListener('compositionstart', onEditableActivity);
+      document.removeEventListener('compositionupdate', onEditableActivity);
+      document.removeEventListener('compositionend', onEditableActivity);
+      document.removeEventListener('input', onEditableActivity);
+      document.removeEventListener('keyup', onEditableActivity);
       if (frameId !== null) window.cancelAnimationFrame(frameId);
       for (const timer of settleTimers) window.clearTimeout(timer);
       settleTimers.clear();
-      root.style.removeProperty("--app-viewport-height");
+      root.style.removeProperty('--app-viewport-height');
       delete root.dataset.keyboardOpen;
     };
   }, []);

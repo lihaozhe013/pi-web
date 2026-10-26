@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ReactNode } from 'react';
 
 /**
  * Small stroke icons for the session sidebar: rows, group headers, menus and
@@ -15,7 +15,13 @@ export interface SidebarIconProps {
   label?: string;
 }
 
-function SidebarIcon({ size = 13, className, label, strokeWidth = 2, children }: SidebarIconProps & { strokeWidth?: number; children: ReactNode }) {
+function SidebarIcon({
+  size = 13,
+  className,
+  label,
+  strokeWidth = 2,
+  children
+}: SidebarIconProps & { strokeWidth?: number; children: ReactNode }) {
   return (
     <svg
       width={size}
@@ -27,7 +33,7 @@ function SidebarIcon({ size = 13, className, label, strokeWidth = 2, children }:
       strokeLinecap="round"
       strokeLinejoin="round"
       className={className}
-      {...(label ? { role: "img", "aria-label": label } : { "aria-hidden": true })}
+      {...(label ? { role: 'img', 'aria-label': label } : { 'aria-hidden': true })}
     >
       {children}
     </svg>
@@ -35,7 +41,11 @@ function SidebarIcon({ size = 13, className, label, strokeWidth = 2, children }:
 }
 
 export function PlusIcon(props: SidebarIconProps) {
-  return <SidebarIcon {...props}><path d="M12 5v14M5 12h14" /></SidebarIcon>;
+  return (
+    <SidebarIcon {...props}>
+      <path d="M12 5v14M5 12h14" />
+    </SidebarIcon>
+  );
 }
 
 /** Horizontal dots: the "⋯" of a row or group. */
@@ -94,8 +104,15 @@ export function PinOffIcon(props: SidebarIconProps) {
  * firm as their bold label. Elsewhere (menus, the archive's Back, the
  * pickers) it keeps the stroke of the icons beside it.
  */
-export function ChevronIcon({ strokeWidth, ...props }: SidebarIconProps & { strokeWidth?: number }) {
-  return <SidebarIcon {...props} strokeWidth={strokeWidth}><path d="m9 6 6 6-6 6" /></SidebarIcon>;
+export function ChevronIcon({
+  strokeWidth,
+  ...props
+}: SidebarIconProps & { strokeWidth?: number }) {
+  return (
+    <SidebarIcon {...props} strokeWidth={strokeWidth}>
+      <path d="m9 6 6 6-6 6" />
+    </SidebarIcon>
+  );
 }
 
 export function BranchIcon(props: SidebarIconProps) {
@@ -145,29 +162,53 @@ export function TrashIcon(props: SidebarIconProps) {
 }
 
 export function PencilIcon(props: SidebarIconProps) {
-  return <SidebarIcon {...props}><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /></SidebarIcon>;
+  return (
+    <SidebarIcon {...props}>
+      <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+    </SidebarIcon>
+  );
 }
 
 /** Filled dot: "mark as unread". */
 export function DotIcon(props: SidebarIconProps) {
-  return <SidebarIcon {...props}><circle cx="12" cy="12" r="4.5" fill="currentColor" stroke="none" /></SidebarIcon>;
+  return (
+    <SidebarIcon {...props}>
+      <circle cx="12" cy="12" r="4.5" fill="currentColor" stroke="none" />
+    </SidebarIcon>
+  );
 }
 
 /** Hollow dot: "mark as read". */
 export function DotOutlineIcon(props: SidebarIconProps) {
-  return <SidebarIcon {...props}><circle cx="12" cy="12" r="4.5" /></SidebarIcon>;
+  return (
+    <SidebarIcon {...props}>
+      <circle cx="12" cy="12" r="4.5" />
+    </SidebarIcon>
+  );
 }
 
 export function CheckIcon(props: SidebarIconProps) {
-  return <SidebarIcon {...props}><path d="M20 6 9 17l-5-5" /></SidebarIcon>;
+  return (
+    <SidebarIcon {...props}>
+      <path d="M20 6 9 17l-5-5" />
+    </SidebarIcon>
+  );
 }
 
 export function CloseIcon(props: SidebarIconProps) {
-  return <SidebarIcon {...props}><path d="M18 6 6 18M6 6l12 12" /></SidebarIcon>;
+  return (
+    <SidebarIcon {...props}>
+      <path d="M18 6 6 18M6 6l12 12" />
+    </SidebarIcon>
+  );
 }
 
 export function FolderIcon(props: SidebarIconProps) {
-  return <SidebarIcon {...props}><path d="M3 8a2 2 0 0 1 2-2h3.4l1.9 1.9H19a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" /></SidebarIcon>;
+  return (
+    <SidebarIcon {...props}>
+      <path d="M3 8a2 2 0 0 1 2-2h3.4l1.9 1.9H19a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+    </SidebarIcon>
+  );
 }
 
 export function FolderPlusIcon(props: SidebarIconProps) {
@@ -237,7 +278,11 @@ export function EyeIcon(props: SidebarIconProps) {
 }
 
 export function MessageIcon(props: SidebarIconProps) {
-  return <SidebarIcon {...props}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></SidebarIcon>;
+  return (
+    <SidebarIcon {...props}>
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </SidebarIcon>
+  );
 }
 
 /**
@@ -246,7 +291,11 @@ export function MessageIcon(props: SidebarIconProps) {
  */
 export function SpinnerIcon({ className, ...props }: SidebarIconProps) {
   return (
-    <SidebarIcon {...props} strokeWidth={2.8} className={className ? `sidebar-spin ${className}` : "sidebar-spin"}>
+    <SidebarIcon
+      {...props}
+      strokeWidth={2.8}
+      className={className ? `sidebar-spin ${className}` : 'sidebar-spin'}
+    >
       <path d="M21 12a9 9 0 1 1-3.8-7.4" />
     </SidebarIcon>
   );

@@ -1,4 +1,4 @@
-import type { McpConfigFieldRef } from "./api-types";
+import type { McpConfigFieldRef } from './api-types';
 
 // Which values of an `mcp.json` entry pi resolves before it connects, and the
 // PI_WEB_PASSWORD rule over them. Client-safe, with no runtime imports: the
@@ -7,7 +7,7 @@ import type { McpConfigFieldRef } from "./api-types";
 // (re-exported by `lib/mcp-transport.ts`), so a change to which fields pi
 // resolves is made once.
 
-export const WEB_PASSWORD_VARIABLE = "PI_WEB_PASSWORD";
+export const WEB_PASSWORD_VARIABLE = 'PI_WEB_PASSWORD';
 
 export interface McpResolvedConfigValue extends McpConfigFieldRef {
   value: string;
@@ -20,12 +20,14 @@ export interface McpConfigValueParsers {
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function stringEntries(value: unknown): [string, string][] {
   return isRecord(value)
-    ? Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === "string")
+    ? Object.entries(value).filter(
+        (entry): entry is [string, string] => typeof entry[1] === 'string'
+      )
     : [];
 }
 
@@ -38,16 +40,17 @@ function stringEntries(value: unknown): [string, string][] {
  */
 export function resolvedConfigValues(config: unknown): McpResolvedConfigValue[] {
   if (!isRecord(config)) return [];
-  if (!("url" in config)) {
-    return stringEntries(config.env).map(([name, value]) => ({ kind: "env", name, value }));
+  if (!('url' in config)) {
+    return stringEntries(config.env).map(([name, value]) => ({ kind: 'env', name, value }));
   }
   const values: McpResolvedConfigValue[] = stringEntries(config.headers).map(([name, value]) => ({
-    kind: "header",
+    kind: 'header',
     name,
-    value,
+    value
   }));
   const clientSecret = isRecord(config.oauth) ? config.oauth.clientSecret : undefined;
-  if (typeof clientSecret === "string") values.push({ kind: "oauth-client-secret", value: clientSecret });
+  if (typeof clientSecret === 'string')
+    values.push({ kind: 'oauth-client-secret', value: clientSecret });
   return values;
 }
 
@@ -59,11 +62,16 @@ export function resolvedConfigValues(config: unknown): McpResolvedConfigValue[] 
  * the variable without a `$` reference, so any mention counts; the SDK still
  * runs it with this process's whole environment.
  */
-export function findWebPasswordField(config: unknown, parsers: McpConfigValueParsers): McpConfigFieldRef | undefined {
+export function findWebPasswordField(
+  config: unknown,
+  parsers: McpConfigValueParsers
+): McpConfigFieldRef | undefined {
   for (const { value, ...field } of resolvedConfigValues(config)) {
     const references = parsers.isCommandConfigValue(value)
       ? value.toUpperCase().includes(WEB_PASSWORD_VARIABLE)
-      : parsers.getConfigValueEnvVarNames(value).some((name) => name.toUpperCase() === WEB_PASSWORD_VARIABLE);
+      : parsers
+          .getConfigValueEnvVarNames(value)
+          .some((name) => name.toUpperCase() === WEB_PASSWORD_VARIABLE);
     if (references) return field;
   }
   return undefined;

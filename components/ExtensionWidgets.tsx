@@ -1,26 +1,26 @@
-"use client";
+'use client';
 
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { useI18n } from "@/hooks/useI18n";
-import { AnsiText } from "@/components/AnsiText";
-import type { ExtensionWidgetItem } from "@/lib/types";
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useI18n } from '@/hooks/useI18n';
+import { AnsiText } from '@/components/AnsiText';
+import type { ExtensionWidgetItem } from '@/lib/types';
 
 export const DEFAULT_EXPANDED_WIDGET_LINES = 3;
 export const WIDGET_UPDATE_IDLE_MS = 1100;
 
 export function formatExtensionWidgetContent(lines: string[]): string {
-  return lines.join("\n");
+  return lines.join('\n');
 }
 
 export function snapshotExtensionWidgetContents(
-  widgets: ExtensionWidgetItem[],
+  widgets: ExtensionWidgetItem[]
 ): Map<string, string[]> {
   return new Map(widgets.map((widget) => [widget.key, [...widget.lines]]));
 }
 
 export function getUpdatedExtensionWidgetKeys(
   previous: ReadonlyMap<string, readonly string[]> | null,
-  next: ReadonlyMap<string, readonly string[]>,
+  next: ReadonlyMap<string, readonly string[]>
 ): string[] {
   if (!previous) return [];
   return Array.from(next, ([key, lines]) => {
@@ -33,15 +33,17 @@ export function getUpdatedExtensionWidgetKeys(
 }
 
 function getDefaultExpandedWidgetKey(widgets: ExtensionWidgetItem[]): string | null {
-  return widgets.find((widget) => {
-    const lineCount = widget.lines.length;
-    return lineCount > 1 && lineCount <= DEFAULT_EXPANDED_WIDGET_LINES;
-  })?.key ?? null;
+  return (
+    widgets.find((widget) => {
+      const lineCount = widget.lines.length;
+      return lineCount > 1 && lineCount <= DEFAULT_EXPANDED_WIDGET_LINES;
+    })?.key ?? null
+  );
 }
 
 export function getNextExpandedWidgetKey(
   currentKey: string | null,
-  requestedKey: string,
+  requestedKey: string
 ): string | null {
   return currentKey === requestedKey ? null : requestedKey;
 }
@@ -50,24 +52,27 @@ export function getNextExpandedWidgetKey(
  * `children` (the status line) joins the triggers in one row, so the whole row
  * scrolls sideways together; the expanded panel stays above it, out of the scroll.
  */
-export function ExtensionWidgets({ widgets, children }: { widgets: ExtensionWidgetItem[]; children?: ReactNode }) {
+export function ExtensionWidgets({
+  widgets,
+  children
+}: {
+  widgets: ExtensionWidgetItem[];
+  children?: ReactNode;
+}) {
   const { t } = useI18n();
   const idPrefix = useId();
   const previousContentsRef = useRef<Map<string, string[]> | null>(null);
   const updateClearTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
-  const [expandedWidgetKey, setExpandedWidgetKey] = useState<string | null>(
-    () => getDefaultExpandedWidgetKey(widgets),
+  const [expandedWidgetKey, setExpandedWidgetKey] = useState<string | null>(() =>
+    getDefaultExpandedWidgetKey(widgets)
   );
   const [updatingWidgetKeys, setUpdatingWidgetKeys] = useState<ReadonlySet<string>>(
-    () => new Set(),
+    () => new Set()
   );
 
   useEffect(() => {
     const nextContents = snapshotExtensionWidgetContents(widgets);
-    const updatedKeys = getUpdatedExtensionWidgetKeys(
-      previousContentsRef.current,
-      nextContents,
-    );
+    const updatedKeys = getUpdatedExtensionWidgetKeys(previousContentsRef.current, nextContents);
     previousContentsRef.current = nextContents;
 
     for (const [key, timer] of updateClearTimersRef.current) {
@@ -79,39 +84,42 @@ export function ExtensionWidgets({ widgets, children }: { widgets: ExtensionWidg
     setUpdatingWidgetKeys((current) => {
       const next = new Set(Array.from(current).filter((key) => nextContents.has(key)));
       for (const key of updatedKeys) next.add(key);
-      if (
-        next.size === current.size
-        && Array.from(next).every((key) => current.has(key))
-      ) return current;
+      if (next.size === current.size && Array.from(next).every((key) => current.has(key)))
+        return current;
       return next;
     });
 
     for (const key of updatedKeys) {
       const currentTimer = updateClearTimersRef.current.get(key);
       if (currentTimer) clearTimeout(currentTimer);
-      updateClearTimersRef.current.set(key, setTimeout(() => {
-        updateClearTimersRef.current.delete(key);
-        setUpdatingWidgetKeys((current) => {
-          if (!current.has(key)) return current;
-          const next = new Set(current);
-          next.delete(key);
-          return next;
-        });
-      }, WIDGET_UPDATE_IDLE_MS));
+      updateClearTimersRef.current.set(
+        key,
+        setTimeout(() => {
+          updateClearTimersRef.current.delete(key);
+          setUpdatingWidgetKeys((current) => {
+            if (!current.has(key)) return current;
+            const next = new Set(current);
+            next.delete(key);
+            return next;
+          });
+        }, WIDGET_UPDATE_IDLE_MS)
+      );
     }
   }, [widgets]);
 
-  useEffect(() => () => {
-    for (const timer of updateClearTimersRef.current.values()) clearTimeout(timer);
-    updateClearTimersRef.current.clear();
-  }, []);
+  useEffect(
+    () => () => {
+      for (const timer of updateClearTimersRef.current.values()) clearTimeout(timer);
+      updateClearTimersRef.current.clear();
+    },
+    []
+  );
 
   if (widgets.length === 0) return null;
 
-  const expandedWidget = widgets.find((widget) => (
-    widget.key === expandedWidgetKey
-    && widget.lines.length > 0
-  ));
+  const expandedWidget = widgets.find(
+    (widget) => widget.key === expandedWidgetKey && widget.lines.length > 0
+  );
 
   const toggleWidget = (widget: ExtensionWidgetItem) => {
     setExpandedWidgetKey((current) => getNextExpandedWidgetKey(current, widget.key));
@@ -143,19 +151,19 @@ export function ExtensionWidgets({ widgets, children }: { widgets: ExtensionWidg
         </div>
       )}
       <div className="extension-status-row">
-        <div className="extension-widget-triggers" aria-label={t("chat.extensionWidgets")}>
+        <div className="extension-widget-triggers" aria-label={t('chat.extensionWidgets')}>
           {widgets.map((widget, index) => {
             const expandable = widget.lines.length > 0;
             const expanded = expandable && widget.key === expandedWidget?.key;
             const updating = updatingWidgetKeys.has(widget.key);
             const lineCountLabel = t(
-              widget.lines.length === 1 ? "chat.extensionWidgetLine" : "chat.extensionWidgetLines",
-              { count: widget.lines.length },
+              widget.lines.length === 1 ? 'chat.extensionWidgetLine' : 'chat.extensionWidgetLines',
+              { count: widget.lines.length }
             );
             const placementLabel = t(
-              widget.placement === "belowEditor"
-                ? "chat.extensionWidgetBelow"
-                : "chat.extensionWidgetAbove",
+              widget.placement === 'belowEditor'
+                ? 'chat.extensionWidgetBelow'
+                : 'chat.extensionWidgetAbove'
             );
             const triggerId = `${idPrefix}-trigger-${index}`;
             const panelId = `${idPrefix}-panel-${index}`;
@@ -168,14 +176,10 @@ export function ExtensionWidgets({ widgets, children }: { widgets: ExtensionWidg
                     viewBox="0 0 8 6"
                     width="8"
                     height="6"
-                    data-direction={widget.placement === "belowEditor" ? "down" : "up"}
+                    data-direction={widget.placement === 'belowEditor' ? 'down' : 'up'}
                     focusable="false"
                   >
-                    <path
-                      d={widget.placement === "belowEditor"
-                        ? "M0 0h8L4 6z"
-                        : "M4 0l4 6H0z"}
-                    />
+                    <path d={widget.placement === 'belowEditor' ? 'M0 0h8L4 6z' : 'M4 0l4 6H0z'} />
                   </svg>
                 </span>
                 <span className="extension-widget-key">{widget.key}</span>
@@ -187,11 +191,11 @@ export function ExtensionWidgets({ widgets, children }: { widgets: ExtensionWidg
                 key={widget.key}
                 id={triggerId}
                 type="button"
-                className={`extension-widget-trigger${expanded ? " is-expanded" : ""}${updating ? " is-updating" : ""}`}
+                className={`extension-widget-trigger${expanded ? ' is-expanded' : ''}${updating ? ' is-updating' : ''}`}
                 aria-controls={panelId}
                 aria-expanded={expanded}
                 aria-label={`${placementLabel}: ${widget.key}, ${lineCountLabel}`}
-                title={`${widget.key} - ${placementLabel} - ${expanded ? t("i18n.collapse") : t("i18n.expand")}`}
+                title={`${widget.key} - ${placementLabel} - ${expanded ? t('i18n.collapse') : t('i18n.expand')}`}
                 onClick={() => toggleWidget(widget)}
               >
                 {content}
@@ -199,7 +203,7 @@ export function ExtensionWidgets({ widgets, children }: { widgets: ExtensionWidg
             ) : (
               <div
                 key={widget.key}
-                className={`extension-widget-trigger${updating ? " is-updating" : ""}`}
+                className={`extension-widget-trigger${updating ? ' is-updating' : ''}`}
                 aria-label={`${placementLabel}: ${widget.key}, ${lineCountLabel}`}
                 title={`${widget.key} - ${placementLabel}`}
               >

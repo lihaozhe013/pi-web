@@ -27,8 +27,8 @@ export function computeSessionTotalActiveMs(entries: readonly TimingEntry[]): nu
     const timestamp = Date.parse(entry.timestamp);
     if (!Number.isFinite(timestamp)) continue;
 
-    const role = entry.type === "message" ? entry.message?.role : undefined;
-    if (role === "user" || role === "bashExecution") {
+    const role = entry.type === 'message' ? entry.message?.role : undefined;
+    if (role === 'user' || role === 'bashExecution') {
       previousTimestamp = timestamp;
       continue;
     }
@@ -43,13 +43,18 @@ export function computeSessionTotalActiveMs(entries: readonly TimingEntry[]): nu
 }
 
 function isTimingEntry(type: string): boolean {
-  return type === "message"
-    || type === "compaction"
-    || type === "branch_summary"
-    || type === "custom_message";
+  return (
+    type === 'message' ||
+    type === 'compaction' ||
+    type === 'branch_summary' ||
+    type === 'custom_message'
+  );
 }
 
-const activeMsBySession = new WeakMap<TimingEntriesSource, { entryCount: number; lastEntryId: string | undefined; totalActiveMs: number }>();
+const activeMsBySession = new WeakMap<
+  TimingEntriesSource,
+  { entryCount: number; lastEntryId: string | undefined; totalActiveMs: number }
+>();
 
 /**
  * `computeSessionTotalActiveMs()` over a live session manager, reused until the

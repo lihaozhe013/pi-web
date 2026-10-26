@@ -1,5 +1,5 @@
 export interface NoticeTextPart {
-  kind: "text" | "art";
+  kind: 'text' | 'art';
   text: string;
 }
 
@@ -16,7 +16,7 @@ const BLOCK_ELEMENT_RE = /[▀-▟]/;
  */
 export function splitNoticeText(message: string): NoticeTextPart[] {
   const parts: NoticeTextPart[] = [];
-  const push = (kind: NoticeTextPart["kind"], text: string) => {
+  const push = (kind: NoticeTextPart['kind'], text: string) => {
     if (!text) return;
     const last = parts[parts.length - 1];
     if (last?.kind === kind) last.text += text;
@@ -24,10 +24,10 @@ export function splitNoticeText(message: string): NoticeTextPart[] {
   };
 
   let previousIsArt = false;
-  message.split("\n").forEach((line, index) => {
+  message.split('\n').forEach((line, index) => {
     const isArt = BLOCK_ELEMENT_RE.test(line);
-    if (index > 0) push(isArt && previousIsArt ? "art" : "text", "\n");
-    push(isArt ? "art" : "text", line);
+    if (index > 0) push(isArt && previousIsArt ? 'art' : 'text', '\n');
+    push(isArt ? 'art' : 'text', line);
     previousIsArt = isArt;
   });
   return parts;

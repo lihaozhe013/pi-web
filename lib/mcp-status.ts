@@ -1,5 +1,5 @@
-import type { McpHostInactiveInfo, McpScope, McpServerInfo, McpServerStatus } from "./api-types";
-import { samePath } from "./paths";
+import type { McpHostInactiveInfo, McpScope, McpServerInfo, McpServerStatus } from './api-types';
+import { samePath } from './paths';
 
 // The last known connection state of each `mcp.json` entry, for the status
 // dots of Settings › MCP (ADR 0006). GET /api/mcp reads files only and never
@@ -29,7 +29,7 @@ export const MCP_STATUS_MAX_RECORDS = 500;
 // The shape changed from one record per entry, and a dev server keeps
 // globalThis across hot reloads: a new name, so the old map is never read as
 // the new one.
-const STORE_KEY: symbol = Symbol.for("pi-web:mcp-status:by-config");
+const STORE_KEY: symbol = Symbol.for('pi-web:mcp-status:by-config');
 
 /** Which entry a status is about: its scope, the file that defines it (as the panel names it), and its name. */
 export interface McpStatusEntry {
@@ -63,7 +63,11 @@ export function mcpStatusKey(entry: McpStatusEntry): string {
  * content (a writer behind the file, or ahead of the listing) is held beside
  * it, and whichever the file holds is shown.
  */
-export function recordMcpStatus(entry: McpStatusEntry, configKey: string, status: McpServerStatus): void {
+export function recordMcpStatus(
+  entry: McpStatusEntry,
+  configKey: string,
+  status: McpServerStatus
+): void {
   const map = records();
   const key = mcpStatusKey(entry);
   const held = map.get(key) ?? new Map<string, McpServerStatus>();
@@ -74,7 +78,10 @@ export function recordMcpStatus(entry: McpStatusEntry, configKey: string, status
   held.set(configKey, status);
   map.set(key, held);
   for (let count = recordCount(map); count > MCP_STATUS_MAX_RECORDS; count--) {
-    const [oldestKey, oldest] = map.entries().next().value as [string, Map<string, McpServerStatus>];
+    const [oldestKey, oldest] = map.entries().next().value as [
+      string,
+      Map<string, McpServerStatus>
+    ];
     oldest.delete(oldest.keys().next().value as string);
     if (oldest.size === 0) map.delete(oldestKey);
   }
@@ -85,7 +92,10 @@ export function recordMcpStatus(entry: McpStatusEntry, configKey: string, status
  * Records made for other content are stale: they are dropped, so a changed
  * entry reads as untested, and still does once it is changed back.
  */
-export function readMcpStatus(entry: McpStatusEntry, configKey: string): McpServerStatus | undefined {
+export function readMcpStatus(
+  entry: McpStatusEntry,
+  configKey: string
+): McpServerStatus | undefined {
   const map = records();
   const key = mcpStatusKey(entry);
   const held = map.get(key);
@@ -104,13 +114,13 @@ export function readMcpStatus(entry: McpStatusEntry, configKey: string): McpServ
  */
 export function withMcpStatuses(
   servers: McpServerInfo[],
-  readFiles: readonly { scope: McpScope; path: string }[],
+  readFiles: readonly { scope: McpScope; path: string }[]
 ): McpServerInfo[] {
   const map = records();
   const listed = new Set(servers.map(mcpStatusKey));
   const read = new Set(readFiles.map((file) => `${file.scope}\0${file.path}\0`));
   for (const key of [...map.keys()]) {
-    const fileKey = key.slice(0, key.lastIndexOf("\0") + 1);
+    const fileKey = key.slice(0, key.lastIndexOf('\0') + 1);
     if (read.has(fileKey) && !listed.has(key)) map.delete(key);
   }
   return servers.map((server) => {
@@ -120,7 +130,11 @@ export function withMcpStatuses(
 }
 
 /** Whether the record held for `entry` as it read `configKey` is `status` itself: what one writer wrote and nobody has replaced since. */
-export function isCurrentMcpStatus(entry: McpStatusEntry, configKey: string, status: McpServerStatus): boolean {
+export function isCurrentMcpStatus(
+  entry: McpStatusEntry,
+  configKey: string,
+  status: McpServerStatus
+): boolean {
   return records().get(mcpStatusKey(entry))?.get(configKey) === status;
 }
 
@@ -130,7 +144,11 @@ export function isCurrentMcpStatus(entry: McpStatusEntry, configKey: string, sta
  * longer sees, which nothing would otherwise replace. A record someone wrote
  * since stays.
  */
-export function forgetMcpStatus(entry: McpStatusEntry, configKey: string, status: McpServerStatus): boolean {
+export function forgetMcpStatus(
+  entry: McpStatusEntry,
+  configKey: string,
+  status: McpServerStatus
+): boolean {
   if (!isCurrentMcpStatus(entry, configKey, status)) return false;
   const map = records();
   const key = mcpStatusKey(entry);
@@ -146,7 +164,12 @@ export function forgetMcpStatus(entry: McpStatusEntry, configKey: string, status
  * report (a connection it has closed since). A record someone wrote since
  * stays, and is the latest word.
  */
-export function replaceMcpStatus(entry: McpStatusEntry, configKey: string, status: McpServerStatus, next: McpServerStatus): boolean {
+export function replaceMcpStatus(
+  entry: McpStatusEntry,
+  configKey: string,
+  status: McpServerStatus,
+  next: McpServerStatus
+): boolean {
   if (!isCurrentMcpStatus(entry, configKey, status)) return false;
   recordMcpStatus(entry, configKey, next);
   return true;
@@ -179,7 +202,7 @@ export function clearMcpStatuses(): void {
 /** Sessions held at once; the least recently written goes first. */
 export const MCP_INACTIVE_HOSTS_MAX = 100;
 
-const INACTIVE_HOSTS_KEY: symbol = Symbol.for("pi-web:mcp-inactive-hosts");
+const INACTIVE_HOSTS_KEY: symbol = Symbol.for('pi-web:mcp-inactive-hosts');
 
 function inactiveHosts(): Map<string, McpHostInactiveInfo> {
   const store = globalThis as Record<symbol, Map<string, McpHostInactiveInfo> | undefined>;

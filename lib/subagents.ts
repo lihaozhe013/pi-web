@@ -1,26 +1,30 @@
-import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
-import { getAgentDir, type LoadExtensionsResult } from "@earendil-works/pi-coding-agent";
-import { dump as stringifyYaml } from "js-yaml";
-import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync } from "fs";
-import { basename, dirname, join, resolve } from "path";
-import { parseFrontmatter } from "./frontmatter";
-import { parseNpmSource } from "./npm-source";
-import { writePrivateFileAtomicSync } from "./atomic-file";
-import { isExistingPathWithinRoots } from "./path-security";
-import { disabledBuiltInSubagents } from "./subagent-settings";
-import { PRESET_READ_ONLY } from "./tool-presets";
-import type { SessionEntry, SubagentSessionStatus } from "./types";
+import type { ThinkingLevel } from '@earendil-works/pi-agent-core';
+import { getAgentDir, type LoadExtensionsResult } from '@earendil-works/pi-coding-agent';
+import { dump as stringifyYaml } from 'js-yaml';
+import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync } from 'fs';
+import { basename, dirname, join, resolve } from 'path';
+import { parseFrontmatter } from './frontmatter';
+import { parseNpmSource } from './npm-source';
+import { writePrivateFileAtomicSync } from './atomic-file';
+import { isExistingPathWithinRoots } from './path-security';
+import { disabledBuiltInSubagents } from './subagent-settings';
+import { PRESET_READ_ONLY } from './tool-presets';
+import type { SessionEntry, SubagentSessionStatus } from './types';
 
-export const SUBAGENT_META_TYPE = "pi-web:subagent";
-export const SUBAGENT_STATUS_TYPE = "pi-web:subagent-status";
-export const SUBAGENT_RESULT_TYPE = "pi-web:subagent-result";
-export const SUBAGENT_CONTROL_TOOL_NAMES = ["Agent", "get_subagent_result", "steer_subagent"] as const;
+export const SUBAGENT_META_TYPE = 'pi-web:subagent';
+export const SUBAGENT_STATUS_TYPE = 'pi-web:subagent-status';
+export const SUBAGENT_RESULT_TYPE = 'pi-web:subagent-result';
+export const SUBAGENT_CONTROL_TOOL_NAMES = [
+  'Agent',
+  'get_subagent_result',
+  'steer_subagent'
+] as const;
 
 export type SubagentStatus = SubagentSessionStatus;
-export type SubagentCodemode = "inherit" | "on" | "off";
-export type SubagentMcp = "on" | "off";
-export type SubagentScope = "builtin" | "global" | "workspace" | "project";
-export type SubagentWritableScope = Extract<SubagentScope, "global" | "project">;
+export type SubagentCodemode = 'inherit' | 'on' | 'off';
+export type SubagentMcp = 'on' | 'off';
+export type SubagentScope = 'builtin' | 'global' | 'workspace' | 'project';
+export type SubagentWritableScope = Extract<SubagentScope, 'global' | 'project'>;
 
 export interface SubagentProfile {
   name: string;
@@ -46,9 +50,9 @@ export interface SubagentProfile {
   maxTurns?: number;
   inheritContext: boolean;
   runInBackground: boolean;
-  promptMode: "replace" | "append";
+  promptMode: 'replace' | 'append';
   color?: string;
-  isolation?: "worktree" | "off";
+  isolation?: 'worktree' | 'off';
   persistSession?: boolean;
   enabled: boolean;
   scope: SubagentScope;
@@ -100,7 +104,7 @@ export interface SubagentSessionResources {
 
 export interface SubagentResultMetadata {
   version: 1;
-  status: Exclude<SubagentStatus, "starting" | "running" | "queued" | "interrupted">;
+  status: Exclude<SubagentStatus, 'starting' | 'running' | 'queued' | 'interrupted'>;
   completedAt: string;
   result?: string;
   error?: string;
@@ -111,7 +115,7 @@ export interface SubagentResultMetadata {
 
 export interface SubagentStatusMetadata {
   version: 1;
-  status: Extract<SubagentStatus, "queued" | "running">;
+  status: Extract<SubagentStatus, 'queued' | 'running'>;
 }
 
 export interface SubagentRunInfo {
@@ -137,13 +141,21 @@ export interface SubagentRunInfo {
   resumed?: boolean;
 }
 
-const DEFAULT_TOOLS = ["read", "bash", "edit", "write", "grep", "find", "ls"];
+const DEFAULT_TOOLS = ['read', 'bash', 'edit', 'write', 'grep', 'find', 'ls'];
 const BUILTIN_TOOLS = new Set(DEFAULT_TOOLS);
 // `powershell` is platform-added by resolveShellTools and therefore is absent from
 // profile parsing's portable allow-list, but valid historical snapshots may contain it.
-const SNAPSHOT_BUILTIN_TOOLS = new Set([...BUILTIN_TOOLS, "powershell"]);
+const SNAPSHOT_BUILTIN_TOOLS = new Set([...BUILTIN_TOOLS, 'powershell']);
 const SUBAGENT_CONTROL_TOOLS = new Set<string>(SUBAGENT_CONTROL_TOOL_NAMES);
-const THINKING_LEVELS = new Set<ThinkingLevel>(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
+const THINKING_LEVELS = new Set<ThinkingLevel>([
+  'off',
+  'minimal',
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+  'max'
+]);
 
 /**
  * Frontmatter keys the web UI owns. Everything else in a profile file belongs to
@@ -153,23 +165,23 @@ const THINKING_LEVELS = new Set<ThinkingLevel>(["off", "minimal", "low", "medium
  * `exclude_extensions` was lost and an opt-out became an opt-in.
  */
 const MANAGED_FRONTMATTER_KEYS = new Set([
-  "description",
-  "display_name",
-  "tools",
-  "load_skills",
-  "load_extensions",
-  "codemode",
-  "mcp",
-  "enabled",
-  "inherit_context",
-  "run_in_background",
-  "model",
-  "thinking",
-  "max_turns",
-  "prompt_mode",
-  "color",
-  "isolation",
-  "persist_session",
+  'description',
+  'display_name',
+  'tools',
+  'load_skills',
+  'load_extensions',
+  'codemode',
+  'mcp',
+  'enabled',
+  'inherit_context',
+  'run_in_background',
+  'model',
+  'thinking',
+  'max_turns',
+  'prompt_mode',
+  'color',
+  'isolation',
+  'persist_session'
 ]);
 
 const FRONTMATTER_OPEN_RE = /^(?:\uFEFF)?---[ \t]*(?:\r\n|\n|\r)/;
@@ -179,93 +191,96 @@ const FRONTMATTER_OPEN_RE = /^(?:\uFEFF)?---[ \t]*(?:\r\n|\n|\r)/;
  * the aliases `skills` / `extensions`, which also accept a whitelist. Aliases are
  * carried through by `unmanagedFrontmatter` and only rewritten once we own them.
  */
-const OWNED_ALIAS_VALUES = new Set(["none", "all", "true", "false"]);
+const OWNED_ALIAS_VALUES = new Set(['none', 'all', 'true', 'false']);
 
 function parseCodemode(value: unknown): SubagentCodemode {
-  if (value === "on" || value === true) return "on";
-  if (value === "inherit") return "inherit";
-  return "off";
+  if (value === 'on' || value === true) return 'on';
+  if (value === 'inherit') return 'inherit';
+  return 'off';
 }
 
 function validateSavedCodemode(value: unknown): SubagentCodemode {
-  if (value === undefined || value === "inherit" || value === "on" || value === "off") {
-    return value === undefined ? "off" : value;
+  if (value === undefined || value === 'inherit' || value === 'on' || value === 'off') {
+    return value === undefined ? 'off' : value;
   }
-  throw new Error("codemode must be one of: inherit, on, off");
+  throw new Error('codemode must be one of: inherit, on, off');
 }
 
 function parseMcp(value: unknown): SubagentMcp {
-  return value === "on" || value === true ? "on" : "off";
+  return value === 'on' || value === true ? 'on' : 'off';
 }
 
 /** Undefined when the request names none (an older client): the save then keeps the file's value. */
 function validateSavedMcp(value: unknown): SubagentMcp | undefined {
-  if (value === undefined || value === "on" || value === "off") return value;
-  throw new Error("mcp must be one of: on, off");
+  if (value === undefined || value === 'on' || value === 'off') return value;
+  throw new Error('mcp must be one of: on, off');
 }
 
 const BUILTIN_PROFILES: SubagentProfile[] = [
   {
-    name: "general-purpose",
-    displayName: "General purpose",
-    description: "Handle a focused implementation or investigation task",
-    systemPrompt: "Work autonomously on the delegated task. Keep the final answer concise and include important files, decisions, and remaining risks.",
+    name: 'general-purpose',
+    displayName: 'General purpose',
+    description: 'Handle a focused implementation or investigation task',
+    systemPrompt:
+      'Work autonomously on the delegated task. Keep the final answer concise and include important files, decisions, and remaining risks.',
     tools: DEFAULT_TOOLS,
     loadSkills: false,
     loadExtensions: false,
-    codemode: "off",
-    mcp: "off",
-    promptMode: "append",
+    codemode: 'off',
+    mcp: 'off',
+    promptMode: 'append',
     inheritContext: false,
     runInBackground: false,
     enabled: true,
-    scope: "builtin",
+    scope: 'builtin'
   },
   {
-    name: "explore",
-    displayName: "Explore",
-    description: "Quickly inspect a codebase without modifying it",
-    systemPrompt: "Explore the codebase to answer the delegated question. Do not modify files. Report concrete findings with file paths and relevant symbols.",
+    name: 'explore',
+    displayName: 'Explore',
+    description: 'Quickly inspect a codebase without modifying it',
+    systemPrompt:
+      'Explore the codebase to answer the delegated question. Do not modify files. Report concrete findings with file paths and relevant symbols.',
     tools: [...PRESET_READ_ONLY],
     loadSkills: false,
     loadExtensions: false,
-    codemode: "off",
-    mcp: "off",
-    promptMode: "append",
+    codemode: 'off',
+    mcp: 'off',
+    promptMode: 'append',
     inheritContext: false,
     runInBackground: false,
     enabled: true,
-    scope: "builtin",
+    scope: 'builtin'
   },
   {
-    name: "plan",
-    displayName: "Plan",
-    description: "Design an implementation plan without modifying files",
-    systemPrompt: "Produce an implementation-ready plan for the delegated task. Inspect the repository as needed, do not modify files, and call out dependencies, risks, and verification steps.",
+    name: 'plan',
+    displayName: 'Plan',
+    description: 'Design an implementation plan without modifying files',
+    systemPrompt:
+      'Produce an implementation-ready plan for the delegated task. Inspect the repository as needed, do not modify files, and call out dependencies, risks, and verification steps.',
     tools: [...PRESET_READ_ONLY],
     loadSkills: false,
     loadExtensions: false,
-    codemode: "off",
-    mcp: "off",
-    promptMode: "append",
+    codemode: 'off',
+    mcp: 'off',
+    promptMode: 'append',
     inheritContext: false,
     runInBackground: false,
     enabled: true,
-    scope: "builtin",
-  },
+    scope: 'builtin'
+  }
 ];
 
 function stringValue(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
 function booleanValue(value: unknown, fallback: boolean): boolean {
-  return typeof value === "boolean" ? value : fallback;
+  return typeof value === 'boolean' ? value : fallback;
 }
 
 function resourceBoolean(value: unknown, fallback: boolean): boolean {
-  if (typeof value === "boolean") return value;
-  return Array.isArray(value) || typeof value === "string" ? true : fallback;
+  if (typeof value === 'boolean') return value;
+  return Array.isArray(value) || typeof value === 'string' ? true : fallback;
 }
 
 /**
@@ -274,11 +289,19 @@ function resourceBoolean(value: unknown, fallback: boolean): boolean {
  * comma must not make the whole profile unreadable.
  */
 export function subagentNameList(value: unknown): string[] {
-  const items: unknown[] = Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : [];
-  return [...new Set(items
-    .filter((item): item is string => typeof item === "string")
-    .map((item) => item.trim())
-    .filter(Boolean))];
+  const items: unknown[] = Array.isArray(value)
+    ? value
+    : typeof value === 'string'
+      ? value.split(',')
+      : [];
+  return [
+    ...new Set(
+      items
+        .filter((item): item is string => typeof item === 'string')
+        .map((item) => item.trim())
+        .filter(Boolean)
+    )
+  ];
 }
 
 /**
@@ -288,7 +311,8 @@ export function subagentNameList(value: unknown): string[] {
  */
 function profileNameList(value: unknown): string[] | undefined {
   if (Array.isArray(value)) return subagentNameList(value);
-  if (typeof value !== "string" || OWNED_ALIAS_VALUES.has(value.trim().toLowerCase())) return undefined;
+  if (typeof value !== 'string' || OWNED_ALIAS_VALUES.has(value.trim().toLowerCase()))
+    return undefined;
   const names = subagentNameList(value);
   return names.length > 0 ? names : undefined;
 }
@@ -296,28 +320,25 @@ function profileNameList(value: unknown): string[] | undefined {
 /** An `extensions:` list; `*` in it loads every extension, as in pi-subagents. */
 function profileExtensions(value: unknown): string[] | undefined {
   const names = profileNameList(value);
-  return names?.includes("*") ? undefined : names;
+  return names?.includes('*') ? undefined : names;
 }
 
 /** `load_skills` / `load_extensions`, else the alias, where `none` and `false` switch it off. */
 function profileResourceSwitch(value: unknown, fallback: boolean): boolean {
-  if (typeof value === "string" && ["none", "false"].includes(value.trim().toLowerCase())) return false;
+  if (typeof value === 'string' && ['none', 'false'].includes(value.trim().toLowerCase()))
+    return false;
   return resourceBoolean(value, fallback);
 }
 
 function stringList(value: unknown): string[] {
-  const values = Array.isArray(value)
-    ? value
-    : typeof value === "string"
-      ? value.split(",")
-      : [];
+  const values = Array.isArray(value) ? value : typeof value === 'string' ? value.split(',') : [];
   return values.map((item) => String(item).trim()).filter(Boolean);
 }
 
 function parseTools(value: unknown, fallback: string[]): string[] {
   const tools = stringList(value);
-  if (tools.includes("none")) return [];
-  if (tools.includes("all") || tools.includes("*")) return [...DEFAULT_TOOLS];
+  if (tools.includes('none')) return [];
+  if (tools.includes('all') || tools.includes('*')) return [...DEFAULT_TOOLS];
   if (tools.length === 0) return [...fallback];
   return [...new Set(tools.filter((tool) => BUILTIN_TOOLS.has(tool)))];
 }
@@ -327,17 +348,17 @@ function rawToolValues(value: unknown): string[] {
 }
 
 function parseExtensionToolSelectors(value: unknown): string[] {
-  return [...new Set(rawToolValues(value).filter((tool) => tool.toLowerCase().startsWith("ext:")))];
+  return [...new Set(rawToolValues(value).filter((tool) => tool.toLowerCase().startsWith('ext:')))];
 }
 
 /** Read existing frontmatter without allowing malformed metadata to be overwritten. */
 function readStoredFrontmatter(filePath: string): Record<string, unknown> {
   if (!existsSync(filePath)) return {};
-  const source = readFileSync(filePath, "utf8");
+  const source = readFileSync(filePath, 'utf8');
   const { data } = parseFrontmatter(source);
   if (data) return data;
   if (FRONTMATTER_OPEN_RE.test(source)) {
-    throw new Error("Cannot save agent profile: existing frontmatter is invalid");
+    throw new Error('Cannot save agent profile: existing frontmatter is invalid');
   }
   return {};
 }
@@ -356,9 +377,14 @@ function unmanagedFrontmatter(stored: Record<string, unknown>): Record<string, u
  * another runtime's `ext:<name>` selectors on every save — carry them through.
  */
 function composeToolsField(tools: string[], storedTools: unknown): string {
-  const selectors = stringList(storedTools).filter((tool) => tool.toLowerCase().startsWith("ext:"));
-  const combined = [...tools, ...selectors.filter((selector) => !tools.some((tool) => tool.toLowerCase() === selector.toLowerCase()))];
-  return combined.length > 0 ? combined.join(", ") : "none";
+  const selectors = stringList(storedTools).filter((tool) => tool.toLowerCase().startsWith('ext:'));
+  const combined = [
+    ...tools,
+    ...selectors.filter(
+      (selector) => !tools.some((tool) => tool.toLowerCase() === selector.toLowerCase())
+    )
+  ];
+  return combined.length > 0 ? combined.join(', ') : 'none';
 }
 
 /**
@@ -370,21 +396,23 @@ function syncFlagAlias(
   frontmatter: Record<string, unknown>,
   alias: string,
   storedValue: unknown,
-  flag: boolean,
+  flag: boolean
 ): void {
-  const owned = storedValue === undefined
-    || typeof storedValue === "boolean"
-    || (typeof storedValue === "string" && OWNED_ALIAS_VALUES.has(storedValue.trim().toLowerCase()));
+  const owned =
+    storedValue === undefined ||
+    typeof storedValue === 'boolean' ||
+    (typeof storedValue === 'string' && OWNED_ALIAS_VALUES.has(storedValue.trim().toLowerCase()));
   if (owned) frontmatter[alias] = flag;
 }
 function parseProfileFile(filePath: string, scope: SubagentScope): SubagentProfile | null {
   try {
-    const source = readFileSync(filePath, "utf8");
+    const source = readFileSync(filePath, 'utf8');
     const { data, rest } = parseFrontmatter(source);
-    const name = stringValue(data?.name) ?? basename(filePath, ".md");
+    const name = stringValue(data?.name) ?? basename(filePath, '.md');
     if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(name)) return null;
     const thinkingValue = stringValue(data?.thinking) as ThinkingLevel | undefined;
-    const maxTurnsValue = typeof data?.max_turns === "number" ? Math.floor(data.max_turns) : undefined;
+    const maxTurnsValue =
+      typeof data?.max_turns === 'number' ? Math.floor(data.max_turns) : undefined;
     const tools = parseTools(data?.tools, DEFAULT_TOOLS);
     const codemode = parseCodemode(data?.codemode);
     const skills = profileNameList(data?.skills);
@@ -396,16 +424,15 @@ function parseProfileFile(filePath: string, scope: SubagentScope): SubagentProfi
     // must never be the only gate.
     const disallowedExtensionTools = parseExtensionToolSelectors(data?.disallowed_tools);
     const deniedKeys = new Set(
-      disallowedExtensionTools.map((tool) => normalizeExtensionSelector(tool).toLowerCase()),
+      disallowedExtensionTools.map((tool) => normalizeExtensionSelector(tool).toLowerCase())
     );
     const extensionSelectors = parseExtensionToolSelectors(data?.tools);
-    const extensionTools = extensionSelectors
-      .filter((tool) => {
-        const allowed = normalizeExtensionSelector(tool).toLowerCase();
-        return ![...deniedKeys].some((denied) => (
-          denied === "*" || allowed === denied || allowed.startsWith(`${denied}/`)
-        ));
-      });
+    const extensionTools = extensionSelectors.filter((tool) => {
+      const allowed = normalizeExtensionSelector(tool).toLowerCase();
+      return ![...deniedKeys].some(
+        (denied) => denied === '*' || allowed === denied || allowed.startsWith(`${denied}/`)
+      );
+    });
     return {
       name,
       displayName: stringValue(data?.display_name) ?? name,
@@ -417,7 +444,10 @@ function parseProfileFile(filePath: string, scope: SubagentScope): SubagentProfi
       ...(skills !== undefined ? { skills } : {}),
       ...(extensions !== undefined ? { extensions } : {}),
       loadSkills: profileResourceSwitch(data?.load_skills ?? data?.skills, false),
-      loadExtensions: profileResourceSwitch(data?.load_extensions ?? data?.extensions, extensionSelectors.length > 0),
+      loadExtensions: profileResourceSwitch(
+        data?.load_extensions ?? data?.extensions,
+        extensionSelectors.length > 0
+      ),
       codemode,
       mcp: parseMcp(data?.mcp),
       ...(stringValue(data?.model) ? { model: stringValue(data?.model) } : {}),
@@ -425,13 +455,17 @@ function parseProfileFile(filePath: string, scope: SubagentScope): SubagentProfi
       ...(maxTurnsValue && maxTurnsValue > 0 ? { maxTurns: maxTurnsValue } : {}),
       inheritContext: booleanValue(data?.inherit_context, false),
       runInBackground: booleanValue(data?.run_in_background, false),
-      promptMode: data?.prompt_mode === "replace" ? "replace" : "append",
+      promptMode: data?.prompt_mode === 'replace' ? 'replace' : 'append',
       ...(stringValue(data?.color) ? { color: stringValue(data?.color) } : {}),
-      ...(data?.isolation === "worktree" || data?.isolation === "off" ? { isolation: data.isolation } : {}),
-      ...(typeof data?.persist_session === "boolean" ? { persistSession: data.persist_session } : {}),
+      ...(data?.isolation === 'worktree' || data?.isolation === 'off'
+        ? { isolation: data.isolation }
+        : {}),
+      ...(typeof data?.persist_session === 'boolean'
+        ? { persistSession: data.persist_session }
+        : {}),
       enabled: booleanValue(data?.enabled, true),
       scope,
-      filePath,
+      filePath
     };
   } catch {
     return null;
@@ -444,18 +478,18 @@ function isProjectProfilePathAllowed(cwd: string, target: string): boolean {
 
 function readProfileDirectory(dir: string, scope: SubagentScope, cwd: string): SubagentProfile[] {
   if (!existsSync(dir)) return [];
-  if (scope !== "global" && !isProjectProfilePathAllowed(cwd, dir)) return [];
+  if (scope !== 'global' && !isProjectProfilePathAllowed(cwd, dir)) return [];
   return readdirSync(dir, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.md'))
     .map((entry) => parseProfileFile(join(dir, entry.name), scope))
     .filter((profile): profile is SubagentProfile => profile !== null);
 }
 
-function profileDirectories(cwd: string): Array<[string, Exclude<SubagentScope, "builtin">]> {
+function profileDirectories(cwd: string): Array<[string, Exclude<SubagentScope, 'builtin'>]> {
   return [
-    [join(getAgentDir(), "agents"), "global"],
-    [join(resolve(cwd), ".agents", "agents"), "workspace"],
-    [join(resolve(cwd), ".pi", "agents"), "project"],
+    [join(getAgentDir(), 'agents'), 'global'],
+    [join(resolve(cwd), '.agents', 'agents'), 'workspace'],
+    [join(resolve(cwd), '.pi', 'agents'), 'project']
   ];
 }
 
@@ -470,7 +504,7 @@ function builtInProfiles(): SubagentProfile[] {
   return BUILTIN_PROFILES.map((profile) => ({
     ...profile,
     tools: [...profile.tools],
-    enabled: !disabled.has(profile.name.toLowerCase()),
+    enabled: !disabled.has(profile.name.toLowerCase())
   }));
 }
 
@@ -487,41 +521,45 @@ export function listSubagentProfiles(cwd: string): SubagentProfile[] {
   // A same-name file replaces the built-in outright, its own `enabled` included.
   const byName = new Map(builtInProfiles().map((profile) => [profile.name.toLowerCase(), profile]));
   for (const [dir, scope] of profileDirectories(cwd)) {
-    for (const profile of readProfileDirectory(dir, scope, cwd)) byName.set(profile.name.toLowerCase(), profile);
+    for (const profile of readProfileDirectory(dir, scope, cwd))
+      byName.set(profile.name.toLowerCase(), profile);
   }
   return [...byName.values()].sort((a, b) => a.displayName.localeCompare(b.displayName));
 }
 
 export function resolveSubagentProfile(cwd: string, name: string): SubagentProfile | undefined {
-  return listSubagentProfiles(cwd).find((profile) => profile.name.toLowerCase() === name.trim().toLowerCase() && profile.enabled);
+  return listSubagentProfiles(cwd).find(
+    (profile) => profile.name.toLowerCase() === name.trim().toLowerCase() && profile.enabled
+  );
 }
 
 function assertProfileName(name: string): string {
   const normalized = name.trim();
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(normalized)) {
-    throw new Error("Agent name may contain only letters, numbers, dots, underscores, and hyphens");
+    throw new Error('Agent name may contain only letters, numbers, dots, underscores, and hyphens');
   }
   return normalized;
 }
 
 function writableProfileDirectory(cwd: string, scope: SubagentWritableScope): string {
-  if (scope === "global") return join(getAgentDir(), "agents");
-  if (scope === "project") return join(resolve(cwd), ".pi", "agents");
-  throw new Error("Agent scope must be global or project");
+  if (scope === 'global') return join(getAgentDir(), 'agents');
+  if (scope === 'project') return join(resolve(cwd), '.pi', 'agents');
+  throw new Error('Agent scope must be global or project');
 }
 
 function assertWritableProfileDirectory(cwd: string, scope: SubagentWritableScope): string {
   const dir = writableProfileDirectory(cwd, scope);
-  if (scope === "global") return dir;
+  if (scope === 'global') return dir;
 
   let existingAncestor = dir;
   while (!existsSync(existingAncestor)) {
     const parent = dirname(existingAncestor);
-    if (parent === existingAncestor) throw new Error("Agent profile directory is outside the project root");
+    if (parent === existingAncestor)
+      throw new Error('Agent profile directory is outside the project root');
     existingAncestor = parent;
   }
   if (!isProjectProfilePathAllowed(cwd, existingAncestor)) {
-    throw new Error("Agent profile directory is outside the project root");
+    throw new Error('Agent profile directory is outside the project root');
   }
   return dir;
 }
@@ -529,7 +567,7 @@ function assertWritableProfileDirectory(cwd: string, scope: SubagentWritableScop
 export function saveSubagentProfile(
   cwd: string,
   scope: SubagentWritableScope,
-  profile: Omit<SubagentProfile, "scope" | "filePath">,
+  profile: Omit<SubagentProfile, 'scope' | 'filePath'>
 ): SubagentProfile {
   const name = assertProfileName(profile.name);
   const tools = [...new Set(profile.tools.filter((tool) => BUILTIN_TOOLS.has(tool)))];
@@ -537,12 +575,14 @@ export function saveSubagentProfile(
   if (profile.thinking && !THINKING_LEVELS.has(profile.thinking)) {
     throw new Error(`Invalid thinking level: ${profile.thinking}`);
   }
-  if (profile.maxTurns !== undefined && (!Number.isFinite(profile.maxTurns) || profile.maxTurns < 0)) {
-    throw new Error("Max turns must be a non-negative number");
+  if (
+    profile.maxTurns !== undefined &&
+    (!Number.isFinite(profile.maxTurns) || profile.maxTurns < 0)
+  ) {
+    throw new Error('Max turns must be a non-negative number');
   }
-  const maxTurns = profile.maxTurns && profile.maxTurns > 0
-    ? Math.floor(profile.maxTurns)
-    : undefined;
+  const maxTurns =
+    profile.maxTurns && profile.maxTurns > 0 ? Math.floor(profile.maxTurns) : undefined;
   const displayName = profile.displayName.trim() || name;
   const description = profile.description.trim() || name;
   const systemPrompt = profile.systemPrompt.trim();
@@ -551,11 +591,11 @@ export function saveSubagentProfile(
   const loadExtensions = profile.loadExtensions === true;
   const codemode = validateSavedCodemode(profile.codemode);
   const requestedMcp = validateSavedMcp(profile.mcp);
-  const promptMode = profile.promptMode === "replace" ? "replace" : "append";
+  const promptMode = profile.promptMode === 'replace' ? 'replace' : 'append';
   const dir = assertWritableProfileDirectory(cwd, scope);
   mkdirSync(dir, { recursive: true });
-  if (scope === "project" && !isProjectProfilePathAllowed(cwd, dir)) {
-    throw new Error("Agent profile directory is outside the project root");
+  if (scope === 'project' && !isProjectProfilePathAllowed(cwd, dir)) {
+    throw new Error('Agent profile directory is outside the project root');
   }
   const filePath = join(dir, `${name}.md`);
   const stored = readStoredFrontmatter(filePath);
@@ -568,23 +608,27 @@ export function saveSubagentProfile(
     load_extensions: loadExtensions,
     codemode,
     // Written once on, or once the file names it; profiles that never used MCP stay without the key.
-    ...(mcp === "on" || stored.mcp !== undefined ? { mcp } : {}),
+    ...(mcp === 'on' || stored.mcp !== undefined ? { mcp } : {}),
     enabled: profile.enabled,
     inherit_context: profile.inheritContext,
     run_in_background: profile.runInBackground,
-    prompt_mode: promptMode,
+    prompt_mode: promptMode
   };
-  const skills = profile.skills === undefined ? profileNameList(stored.skills) : subagentNameList(profile.skills);
+  const skills =
+    profile.skills === undefined
+      ? profileNameList(stored.skills)
+      : subagentNameList(profile.skills);
   if (skills !== undefined) {
     const storedSkills = profileNameList(stored.skills);
-    managed.skills = storedSkills !== undefined && JSON.stringify(storedSkills) === JSON.stringify(skills)
-      ? stored.skills
-      : skills;
+    managed.skills =
+      storedSkills !== undefined && JSON.stringify(storedSkills) === JSON.stringify(skills)
+        ? stored.skills
+        : skills;
   } else {
-    syncFlagAlias(managed, "skills", stored.skills, loadSkills);
+    syncFlagAlias(managed, 'skills', stored.skills, loadSkills);
   }
   // The panel has no editor for an `extensions:` list, so the file's own list always stays.
-  syncFlagAlias(managed, "extensions", stored.extensions, loadExtensions);
+  syncFlagAlias(managed, 'extensions', stored.extensions, loadExtensions);
   const extensions = profileExtensions(stored.extensions);
   if (model) managed.model = model;
   if (profile.thinking) managed.thinking = profile.thinking;
@@ -620,26 +664,33 @@ export function saveSubagentProfile(
     ...(profile.isolation ? { isolation: profile.isolation } : {}),
     ...(profile.persistSession !== undefined ? { persistSession: profile.persistSession } : {}),
     scope,
-    filePath,
+    filePath
   };
 }
 
-export function deleteSubagentProfile(cwd: string, scope: SubagentWritableScope, name: string): void {
+export function deleteSubagentProfile(
+  cwd: string,
+  scope: SubagentWritableScope,
+  name: string
+): void {
   const safeName = assertProfileName(name);
   const filePath = join(assertWritableProfileDirectory(cwd, scope), `${safeName}.md`);
   if (existsSync(filePath)) unlinkSync(filePath);
 }
 
-export function saveProjectSubagentProfile(cwd: string, profile: Omit<SubagentProfile, "scope" | "filePath">): SubagentProfile {
-  return saveSubagentProfile(cwd, "project", profile);
+export function saveProjectSubagentProfile(
+  cwd: string,
+  profile: Omit<SubagentProfile, 'scope' | 'filePath'>
+): SubagentProfile {
+  return saveSubagentProfile(cwd, 'project', profile);
 }
 
 export function deleteProjectSubagentProfile(cwd: string, name: string): void {
-  deleteSubagentProfile(cwd, "project", name);
+  deleteSubagentProfile(cwd, 'project', name);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 type ValidSubagentMetadataData = Record<string, unknown> & {
@@ -649,49 +700,62 @@ type ValidSubagentMetadataData = Record<string, unknown> & {
 };
 
 function subagentMetadataData(entries: readonly SessionEntry[]): ValidSubagentMetadataData | null {
-  const metaEntry = entries.find((entry) => entry.type === "custom" && entry.customType === SUBAGENT_META_TYPE);
-  if (!metaEntry || metaEntry.type !== "custom" || !isRecord(metaEntry.data)) return null;
+  const metaEntry = entries.find(
+    (entry) => entry.type === 'custom' && entry.customType === SUBAGENT_META_TYPE
+  );
+  if (!metaEntry || metaEntry.type !== 'custom' || !isRecord(metaEntry.data)) return null;
   const data = metaEntry.data;
-  if (data.version !== 1 || typeof data.parentSessionId !== "string" || typeof data.parentSessionPath !== "string") return null;
+  if (
+    data.version !== 1 ||
+    typeof data.parentSessionId !== 'string' ||
+    typeof data.parentSessionPath !== 'string'
+  )
+    return null;
   return data as ValidSubagentMetadataData;
 }
 
 export function hasSubagentResourceSnapshot(entries: readonly SessionEntry[]): boolean {
-  return entries.some((entry) =>
-    entry.type === "custom"
-    && entry.customType === SUBAGENT_META_TYPE
-    && isRecord(entry.data)
-    && "resourceSnapshot" in entry.data
+  return entries.some(
+    (entry) =>
+      entry.type === 'custom' &&
+      entry.customType === SUBAGENT_META_TYPE &&
+      isRecord(entry.data) &&
+      'resourceSnapshot' in entry.data
   );
 }
 
 /** Restore the isolated prompt and tool scope used by a persisted subagent session. */
 export function readSubagentSessionResources(
-  entries: readonly SessionEntry[],
+  entries: readonly SessionEntry[]
 ): SubagentSessionResources | null {
   const data = subagentMetadataData(entries);
   if (!data) return null;
   const snapshot = data.resourceSnapshot;
   // A malformed list narrows to what it names, never back to the whole catalog.
-  const skills = isRecord(snapshot) && "skills" in snapshot ? subagentNameList(snapshot.skills) : undefined;
-  const extensions = isRecord(snapshot) && "extensions" in snapshot ? subagentNameList(snapshot.extensions) : undefined;
+  const skills =
+    isRecord(snapshot) && 'skills' in snapshot ? subagentNameList(snapshot.skills) : undefined;
+  const extensions =
+    isRecord(snapshot) && 'extensions' in snapshot
+      ? subagentNameList(snapshot.extensions)
+      : undefined;
   const loadSkills = isRecord(snapshot) && snapshot.loadSkills === true;
   const loadExtensions = isRecord(snapshot) && snapshot.loadExtensions === true;
   const codemode = isRecord(snapshot) && snapshot.codemode === true;
   const mcp = isRecord(snapshot) && snapshot.mcp === true;
   if (
-    isRecord(snapshot)
-    && snapshot.version === 1
-    && Array.isArray(snapshot.appendSystemPrompt)
-    && snapshot.appendSystemPrompt.every((item) => typeof item === "string")
-    && (!("codemode" in snapshot) || typeof snapshot.codemode === "boolean")
-    && (!("mcp" in snapshot) || typeof snapshot.mcp === "boolean")
-    && Array.isArray(snapshot.tools)
-    && snapshot.tools.every((item) =>
-      typeof item === "string"
-      && item.length > 0
-      && !SUBAGENT_CONTROL_TOOLS.has(item)
-      && ((item === "codemode" && codemode) || SNAPSHOT_BUILTIN_TOOLS.has(item) || loadExtensions)
+    isRecord(snapshot) &&
+    snapshot.version === 1 &&
+    Array.isArray(snapshot.appendSystemPrompt) &&
+    snapshot.appendSystemPrompt.every((item) => typeof item === 'string') &&
+    (!('codemode' in snapshot) || typeof snapshot.codemode === 'boolean') &&
+    (!('mcp' in snapshot) || typeof snapshot.mcp === 'boolean') &&
+    Array.isArray(snapshot.tools) &&
+    snapshot.tools.every(
+      (item) =>
+        typeof item === 'string' &&
+        item.length > 0 &&
+        !SUBAGENT_CONTROL_TOOLS.has(item) &&
+        ((item === 'codemode' && codemode) || SNAPSHOT_BUILTIN_TOOLS.has(item) || loadExtensions)
     )
   ) {
     return {
@@ -703,8 +767,12 @@ export function readSubagentSessionResources(
       loadExtensions,
       ...(codemode ? { codemode: true as const } : {}),
       ...(mcp ? { mcp: true as const } : {}),
-      ...(loadExtensions && snapshot.allExtensionTools === true ? { allExtensionTools: true as const } : {}),
-      ...(typeof snapshot.exactSystemPrompt === "string" ? { exactSystemPrompt: snapshot.exactSystemPrompt } : {}),
+      ...(loadExtensions && snapshot.allExtensionTools === true
+        ? { allExtensionTools: true as const }
+        : {}),
+      ...(typeof snapshot.exactSystemPrompt === 'string'
+        ? { exactSystemPrompt: snapshot.exactSystemPrompt }
+        : {})
     };
   }
   return null;
@@ -712,18 +780,34 @@ export function readSubagentSessionResources(
 
 export function withSubagentExtensionTools(
   profileTools: readonly string[],
-  extensionToolNames: Iterable<string>,
+  extensionToolNames: Iterable<string>
 ): string[] {
-  return [...new Set([
-    ...profileTools,
-    ...[...extensionToolNames].filter((name) => !SUBAGENT_CONTROL_TOOLS.has(name)),
-  ])];
+  return [
+    ...new Set([
+      ...profileTools,
+      ...[...extensionToolNames].filter((name) => !SUBAGENT_CONTROL_TOOLS.has(name))
+    ])
+  ];
 }
 
 /** Every tool the SDK builds in (its `allToolNames`, which the package does not export). */
-export const SDK_BUILTIN_TOOLS: readonly string[] = ["read", "bash", "powershell", "edit", "write", "grep", "find", "ls"];
+export const SDK_BUILTIN_TOOLS: readonly string[] = [
+  'read',
+  'bash',
+  'powershell',
+  'edit',
+  'write',
+  'grep',
+  'find',
+  'ls'
+];
 /** MCP tools by the SDK's `isMcpToolName()`: `mcp__*` and its three resource tools. */
-const MCP_TOOL_PATTERNS = ["mcp__*", "list_mcp_resources", "list_mcp_resource_templates", "read_mcp_resource"];
+const MCP_TOOL_PATTERNS = [
+  'mcp__*',
+  'list_mcp_resources',
+  'list_mcp_resource_templates',
+  'read_mcp_resource'
+];
 
 /**
  * The SDK tool options of a child, shared by spawn and reopen. A `tools` allowlist is fixed when
@@ -733,36 +817,43 @@ const MCP_TOOL_PATTERNS = ["mcp__*", "list_mcp_resources", "list_mcp_resource_te
  * (`noTools: "builtin"`) and the rest excluded, so no extension can switch them on. `ext:`
  * selectors keep the allowlist, since the SDK admits tools by name, not by source.
  */
-export function subagentToolOptions(resources: { tools: readonly string[]; allExtensionTools?: boolean; mcp?: boolean }) {
+export function subagentToolOptions(resources: {
+  tools: readonly string[];
+  allExtensionTools?: boolean;
+  mcp?: boolean;
+}) {
   const excludeTools: string[] = [...SUBAGENT_CONTROL_TOOL_NAMES];
   if (!resources.allExtensionTools && resources.mcp) {
     // MCP tools register as their servers connect, long after the allowlist is fixed, so it
     // admits them by name; `createSubagentMcpPolicyExtension()` keeps out those of extensions the
     // profile did not select. Without Code mode, `codemode` servers register as `deferred`,
     // which only `tool_search` declares to the model.
-    const discovery = resources.tools.includes("codemode") ? [] : ["tool_search"];
-    return { tools: [...new Set([...resources.tools, ...discovery, ...MCP_TOOL_PATTERNS])], excludeTools };
+    const discovery = resources.tools.includes('codemode') ? [] : ['tool_search'];
+    return {
+      tools: [...new Set([...resources.tools, ...discovery, ...MCP_TOOL_PATTERNS])],
+      excludeTools
+    };
   }
   if (!resources.allExtensionTools) {
     // An allowlist that names no MCP tool keeps every MCP tool registered for codemode scripts
     // and tool_search, as pi's `--tools` does, so a script could reach one an extension the
     // profile did not select registers. A child's allowlist is its whole scope: exclude them.
-    const namesMcp = resources.tools.some((name) => name.startsWith("mcp__"));
+    const namesMcp = resources.tools.some((name) => name.startsWith('mcp__'));
     return {
       tools: [...resources.tools],
       excludeTools: namesMcp
         ? excludeTools
-        : [...excludeTools, ...MCP_TOOL_PATTERNS.filter((name) => !resources.tools.includes(name))],
+        : [...excludeTools, ...MCP_TOOL_PATTERNS.filter((name) => !resources.tools.includes(name))]
     };
   }
   const builtins = resources.tools.filter((name) => SDK_BUILTIN_TOOLS.includes(name));
   // Code mode registers inactive (`defaultActive: false`), so a child that has it names it too.
-  const added = resources.tools.includes("codemode") ? [...builtins, "codemode"] : builtins;
+  const added = resources.tools.includes('codemode') ? [...builtins, 'codemode'] : builtins;
   return {
-    noTools: "builtin" as const,
+    noTools: 'builtin' as const,
     // Only `+name` entries: they add to the default selection instead of forming an allowlist.
     ...(added.length > 0 ? { tools: added.map((name) => `+${name}`) } : {}),
-    excludeTools: [...excludeTools, ...SDK_BUILTIN_TOOLS.filter((name) => !builtins.includes(name))],
+    excludeTools: [...excludeTools, ...SDK_BUILTIN_TOOLS.filter((name) => !builtins.includes(name))]
   };
 }
 
@@ -778,15 +869,18 @@ interface SubagentExtensionLike {
  * allow list and the deny list so the two cannot disagree on what a selector means.
  */
 function normalizeExtensionSelector(selector: string): string {
-  const body = selector.slice(4).trim().replace(/\/+$/, "");
-  return body.endsWith("/*") ? body.slice(0, -2) : body;
+  const body = selector.slice(4).trim().replace(/\/+$/, '');
+  return body.endsWith('/*') ? body.slice(0, -2) : body;
 }
 
-function extensionPathParts(extension: SubagentExtensionLike): { parentDir: string; baseName: string } {
-  const segments = extension.path.replaceAll("\\", "/").split("/");
+function extensionPathParts(extension: SubagentExtensionLike): {
+  parentDir: string;
+  baseName: string;
+} {
+  const segments = extension.path.replaceAll('\\', '/').split('/');
   return {
     parentDir: segments.at(-2) ?? extension.path,
-    baseName: (segments.at(-1) ?? "").replace(/\.[^.]+$/, ""),
+    baseName: (segments.at(-1) ?? '').replace(/\.[^.]+$/, '')
   };
 }
 
@@ -799,7 +893,7 @@ function extensionPathParts(extension: SubagentExtensionLike): { parentDir: stri
 function extensionSourceKey(extension: SubagentExtensionLike): string {
   const info = extension.sourceInfo;
   const source = info?.source?.trim();
-  return source && info?.origin === "package" ? source : extension.path;
+  return source && info?.origin === 'package' ? source : extension.path;
 }
 
 /**
@@ -813,10 +907,10 @@ function extensionCandidateNames(extension: SubagentExtensionLike): string[] {
   const { parentDir, baseName } = extensionPathParts(extension);
   const names = [parentDir, baseName];
   const info = extension.sourceInfo;
-  if (info?.origin === "package") {
-    const source = (info.source ?? "").trim();
+  if (info?.origin === 'package') {
+    const source = (info.source ?? '').trim();
     const packageName = parseNpmSource(source)?.name ?? source;
-    names.push(packageName, packageName.replace(/^@[^/]+\//, ""));
+    names.push(packageName, packageName.replace(/^@[^/]+\//, ''));
   }
   return [...new Set(names.map((name) => name.toLowerCase()).filter(Boolean))];
 }
@@ -828,7 +922,9 @@ function extensionCandidateNames(extension: SubagentExtensionLike): string[] {
  * a selector for one of them would otherwise grant tools from unrelated extensions. Several
  * files of the `same` source may share a name — they are one unit, not a collision.
  */
-function extensionNameOwners(extensions: readonly SubagentExtensionLike[]): Map<string, Set<string>> {
+function extensionNameOwners(
+  extensions: readonly SubagentExtensionLike[]
+): Map<string, Set<string>> {
   const owners = new Map<string, Set<string>>();
   for (const extension of extensions) {
     const owner = extensionSourceKey(extension);
@@ -855,7 +951,7 @@ interface ExtensionSelectorMatch {
  */
 function resolveExtensionSelector(
   selector: string,
-  addressableNames: Iterable<string>,
+  addressableNames: Iterable<string>
 ): ExtensionSelectorMatch | null {
   const lower = selector.toLowerCase();
   let best: string | undefined;
@@ -871,45 +967,52 @@ function resolveExtensionSelector(
 export function selectSubagentExtensionTools(
   extensions: Iterable<SubagentExtensionLike>,
   selectors: readonly string[],
-  deniedSelectors: readonly string[] = [],
+  deniedSelectors: readonly string[] = []
 ): string[] {
-  const normalizeAll = (values: readonly string[]) => values
-    .filter((selector) => selector.toLowerCase().startsWith("ext:"))
-    .map((selector) => normalizeExtensionSelector(selector))
-    .filter(Boolean);
+  const normalizeAll = (values: readonly string[]) =>
+    values
+      .filter((selector) => selector.toLowerCase().startsWith('ext:'))
+      .map((selector) => normalizeExtensionSelector(selector))
+      .filter(Boolean);
   const wanted = normalizeAll(selectors);
   const denied = normalizeAll(deniedSelectors);
   if (wanted.length === 0) return [];
   const loaded = [...extensions];
   const owners = extensionNameOwners(loaded);
-  const addressable = new Set([...owners].filter(([, claimed]) => claimed.size === 1).map(([name]) => name));
-  const everyExtension = wanted.includes("*");
-  const denyEveryExtension = denied.includes("*");
+  const addressable = new Set(
+    [...owners].filter(([, claimed]) => claimed.size === 1).map(([name]) => name)
+  );
+  const everyExtension = wanted.includes('*');
+  const denyEveryExtension = denied.includes('*');
   // Allow and deny are resolved with the *same* candidate names, so a deny written with one
   // alias (`ext:codegraph`) also covers a grant written with another (`ext:@scope/pkg/tool`).
-  const resolveAll = (values: readonly string[]) => values.flatMap((selector) => {
-    if (selector === "*") return [];
-    const match = resolveExtensionSelector(selector, addressable);
-    return match === null ? [] : [match];
-  });
+  const resolveAll = (values: readonly string[]) =>
+    values.flatMap((selector) => {
+      if (selector === '*') return [];
+      const match = resolveExtensionSelector(selector, addressable);
+      return match === null ? [] : [match];
+    });
   const matches = resolveAll(wanted);
   const denials = resolveAll(denied);
 
   const selected: string[] = [];
   for (const extension of loaded) {
     const toolNames = [...extension.tools.keys()];
-    const owned = new Set(extensionCandidateNames(extension).filter((name) => addressable.has(name)));
+    const owned = new Set(
+      extensionCandidateNames(extension).filter((name) => addressable.has(name))
+    );
     const ownedMatches = matches.filter((match) => owned.has(match.name));
     if (!everyExtension && ownedMatches.length === 0) continue;
     const ownedDenials = denials.filter((match) => owned.has(match.name));
-    const covers = (match: ExtensionSelectorMatch, toolName: string) => (
-      match.toolName === undefined || match.toolName === toolName
+    const covers = (match: ExtensionSelectorMatch, toolName: string) =>
+      match.toolName === undefined || match.toolName === toolName;
+    selected.push(
+      ...toolNames.filter((toolName) => {
+        const granted = everyExtension || ownedMatches.some((match) => covers(match, toolName));
+        if (!granted || denyEveryExtension) return false;
+        return !ownedDenials.some((match) => covers(match, toolName));
+      })
     );
-    selected.push(...toolNames.filter((toolName) => {
-      const granted = everyExtension || ownedMatches.some((match) => covers(match, toolName));
-      if (!granted || denyEveryExtension) return false;
-      return !ownedDenials.some((match) => covers(match, toolName));
-    }));
   }
   return [...new Set(selected)];
 }
@@ -927,17 +1030,26 @@ export function scopeSubagentExtensions(names: readonly string[]) {
   const wanted = new Set(names.map((name) => name.toLowerCase()));
   return (base: LoadExtensionsResult): LoadExtensionsResult => {
     const owners = extensionNameOwners(base.extensions);
-    const extensions = base.extensions.filter((extension) => (
-      extension.path.startsWith("<inline:")
-      || SUBAGENT_MCP_EXTENSION_PATHS.includes(extension.path)
-      || extensionCandidateNames(extension).some((name) => wanted.has(name) && owners.get(name)?.size === 1)
-    ));
+    const extensions = base.extensions.filter(
+      (extension) =>
+        extension.path.startsWith('<inline:') ||
+        SUBAGENT_MCP_EXTENSION_PATHS.includes(extension.path) ||
+        extensionCandidateNames(extension).some(
+          (name) => wanted.has(name) && owners.get(name)?.size === 1
+        )
+    );
     const kept = new Set(extensions.map((extension) => extension.path));
     const { runtime } = base;
     // Registrations queued by a dropped extension's factory would still reach the model runtime.
-    runtime.pendingProviderRegistrations = runtime.pendingProviderRegistrations.filter((item) => kept.has(item.extensionPath));
-    runtime.pendingNativeProviderRegistrations = runtime.pendingNativeProviderRegistrations.filter((item) => kept.has(item.extensionPath));
-    runtime.pendingVirtualModelRegistrations = runtime.pendingVirtualModelRegistrations.filter((item) => kept.has(item.extensionPath));
+    runtime.pendingProviderRegistrations = runtime.pendingProviderRegistrations.filter((item) =>
+      kept.has(item.extensionPath)
+    );
+    runtime.pendingNativeProviderRegistrations = runtime.pendingNativeProviderRegistrations.filter(
+      (item) => kept.has(item.extensionPath)
+    );
+    runtime.pendingVirtualModelRegistrations = runtime.pendingVirtualModelRegistrations.filter(
+      (item) => kept.has(item.extensionPath)
+    );
     return { ...base, extensions };
   };
 }
@@ -948,55 +1060,83 @@ export function scopeSubagentExtensions(names: readonly string[]) {
  * host and the read-only policy recognise (`lib/mcp-command.ts`). Their factories come from
  * `createSubagentMcpExtensions()`.
  */
-export const SUBAGENT_MCP_EXTENSION_PATHS: readonly string[] = ["builtin:tool-search", "builtin:mcp"];
+export const SUBAGENT_MCP_EXTENSION_PATHS: readonly string[] = [
+  'builtin:tool-search',
+  'builtin:mcp'
+];
 
 /** The extension half of a child's resource loader options, shared by spawn and reopen. */
-export function subagentExtensionLoaderOptions(resources: { loadExtensions: boolean; extensions?: readonly string[]; mcp?: boolean }) {
+export function subagentExtensionLoaderOptions(resources: {
+  loadExtensions: boolean;
+  extensions?: readonly string[];
+  mcp?: boolean;
+}) {
   return {
     noExtensions: !resources.loadExtensions,
     ...(resources.mcp ? { additionalExtensionPaths: [...SUBAGENT_MCP_EXTENSION_PATHS] } : {}),
     ...(resources.loadExtensions && resources.extensions !== undefined
       ? { extensionsOverride: scopeSubagentExtensions(resources.extensions) }
-      : {}),
+      : {})
   };
 }
 
-export function readSubagentRun(entries: readonly SessionEntry[], sessionId: string, sessionPath: string): SubagentRunInfo | null {
+export function readSubagentRun(
+  entries: readonly SessionEntry[],
+  sessionId: string,
+  sessionPath: string
+): SubagentRunInfo | null {
   const data = subagentMetadataData(entries);
   if (!data) return null;
-  const lifecycleEntry = [...entries].reverse().find((entry) =>
-    entry.type === "custom" && (entry.customType === SUBAGENT_RESULT_TYPE || entry.customType === SUBAGENT_STATUS_TYPE)
-  );
-  const resultEntry = lifecycleEntry?.type === "custom" && lifecycleEntry.customType === SUBAGENT_RESULT_TYPE
-    ? lifecycleEntry
-    : undefined;
-  const result = resultEntry?.type === "custom" && isRecord(resultEntry.data) ? resultEntry.data : undefined;
-  const statusEntry = lifecycleEntry?.type === "custom" && lifecycleEntry.customType === SUBAGENT_STATUS_TYPE
-    ? lifecycleEntry
-    : undefined;
-  const statusData = statusEntry?.type === "custom" && isRecord(statusEntry.data) ? statusEntry.data : undefined;
-  const persistedStatus = result && (result.status === "completed" || result.status === "failed" || result.status === "aborted")
-    ? result.status
-    : statusData?.version === 1 && (statusData.status === "queued" || statusData.status === "running")
-      ? statusData.status
-      : "interrupted";
+  const lifecycleEntry = [...entries]
+    .reverse()
+    .find(
+      (entry) =>
+        entry.type === 'custom' &&
+        (entry.customType === SUBAGENT_RESULT_TYPE || entry.customType === SUBAGENT_STATUS_TYPE)
+    );
+  const resultEntry =
+    lifecycleEntry?.type === 'custom' && lifecycleEntry.customType === SUBAGENT_RESULT_TYPE
+      ? lifecycleEntry
+      : undefined;
+  const result =
+    resultEntry?.type === 'custom' && isRecord(resultEntry.data) ? resultEntry.data : undefined;
+  const statusEntry =
+    lifecycleEntry?.type === 'custom' && lifecycleEntry.customType === SUBAGENT_STATUS_TYPE
+      ? lifecycleEntry
+      : undefined;
+  const statusData =
+    statusEntry?.type === 'custom' && isRecord(statusEntry.data) ? statusEntry.data : undefined;
+  const persistedStatus =
+    result &&
+    (result.status === 'completed' || result.status === 'failed' || result.status === 'aborted')
+      ? result.status
+      : statusData?.version === 1 &&
+          (statusData.status === 'queued' || statusData.status === 'running')
+        ? statusData.status
+        : 'interrupted';
   return {
     sessionId,
     sessionPath,
     parentSessionId: data.parentSessionId,
-    parentToolCallId: typeof data.parentToolCallId === "string" ? data.parentToolCallId : "",
-    profile: typeof data.profile === "string" ? data.profile : "general-purpose",
-    description: typeof data.description === "string" ? data.description : "Subagent",
-    task: typeof data.task === "string" ? data.task : "",
+    parentToolCallId: typeof data.parentToolCallId === 'string' ? data.parentToolCallId : '',
+    profile: typeof data.profile === 'string' ? data.profile : 'general-purpose',
+    description: typeof data.description === 'string' ? data.description : 'Subagent',
+    task: typeof data.task === 'string' ? data.task : '',
     runInBackground: data.runInBackground === true,
     status: persistedStatus,
-    createdAt: typeof data.createdAt === "string" ? data.createdAt : "",
-    ...(result && typeof result.completedAt === "string" ? { completedAt: result.completedAt } : {}),
-    ...(result && typeof result.result === "string" ? { result: result.result } : {}),
-    ...(result && typeof result.error === "string" ? { error: result.error } : {}),
-    ...(typeof data.worktreePath === "string" ? { worktreePath: data.worktreePath } : {}),
-    ...(typeof data.worktreeBranch === "string" ? { worktreeBranch: data.worktreeBranch } : {}),
-    ...(result && typeof result.worktreeCleanupError === "string" ? { worktreeCleanupError: result.worktreeCleanupError } : {}),
-    ...(result && typeof result.worktreeExists === "boolean" ? { worktreeExists: result.worktreeExists } : {}),
+    createdAt: typeof data.createdAt === 'string' ? data.createdAt : '',
+    ...(result && typeof result.completedAt === 'string'
+      ? { completedAt: result.completedAt }
+      : {}),
+    ...(result && typeof result.result === 'string' ? { result: result.result } : {}),
+    ...(result && typeof result.error === 'string' ? { error: result.error } : {}),
+    ...(typeof data.worktreePath === 'string' ? { worktreePath: data.worktreePath } : {}),
+    ...(typeof data.worktreeBranch === 'string' ? { worktreeBranch: data.worktreeBranch } : {}),
+    ...(result && typeof result.worktreeCleanupError === 'string'
+      ? { worktreeCleanupError: result.worktreeCleanupError }
+      : {}),
+    ...(result && typeof result.worktreeExists === 'boolean'
+      ? { worktreeExists: result.worktreeExists }
+      : {})
   };
 }

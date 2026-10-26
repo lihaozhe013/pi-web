@@ -1,9 +1,13 @@
-import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
-import type { ModelRuntime } from "@earendil-works/pi-coding-agent";
-import { invalidateModelsCache } from "./models-cache";
-import { resolveVisibleModels, selectInitialModelScope, type InitialModelScopeOptions } from "./model-scope";
+import type { ThinkingLevel } from '@earendil-works/pi-agent-core';
+import type { ModelRuntime } from '@earendil-works/pi-coding-agent';
+import { invalidateModelsCache } from './models-cache';
+import {
+  resolveVisibleModels,
+  selectInitialModelScope,
+  type InitialModelScopeOptions
+} from './model-scope';
 
-type RuntimeModel = Awaited<ReturnType<ModelRuntime["getAvailable"]>>[number];
+type RuntimeModel = Awaited<ReturnType<ModelRuntime['getAvailable']>>[number];
 
 /**
  * Models of every provider seen in any ModelRuntime of this process, by provider.
@@ -51,22 +55,30 @@ export function deferredProviderModels(runtime: ModelRuntime): RuntimeModel[] {
 export function withDeferredProviderModels(runtime: ModelRuntime): ModelRuntime {
   return new Proxy(runtime, {
     get(target, property, receiver) {
-      if (property === "getAvailable") {
-        return async (...args: Parameters<ModelRuntime["getAvailable"]>) => {
+      if (property === 'getAvailable') {
+        return async (...args: Parameters<ModelRuntime['getAvailable']>) => {
           const [providerId] = args;
-          const deferred = deferredProviderModels(target).filter((model) => !providerId || model.provider === providerId);
-          return [...await target.getAvailable(...args), ...deferred];
+          const deferred = deferredProviderModels(target).filter(
+            (model) => !providerId || model.provider === providerId
+          );
+          return [...(await target.getAvailable(...args)), ...deferred];
         };
       }
       const value = Reflect.get(target, property, receiver);
-      return typeof value === "function" ? value.bind(target) : value;
-    },
+      return typeof value === 'function' ? value.bind(target) : value;
+    }
   });
 }
 
 /** A remembered model whose provider this runtime has not registered yet. */
-export function findDeferredModel(runtime: ModelRuntime, provider: string, modelId: string): RuntimeModel | undefined {
-  return deferredProviderModels(runtime).find((model) => model.provider === provider && model.id === modelId);
+export function findDeferredModel(
+  runtime: ModelRuntime,
+  provider: string,
+  modelId: string
+): RuntimeModel | undefined {
+  return deferredProviderModels(runtime).find(
+    (model) => model.provider === provider && model.id === modelId
+  );
 }
 
 /**
@@ -80,17 +92,23 @@ export function findDeferredModel(runtime: ModelRuntime, provider: string, model
 export async function findDeferredStartupModel(
   runtime: ModelRuntime,
   enabledModels: string[] | undefined,
-  options: Omit<InitialModelScopeOptions, "thinkingLevel">,
+  options: Omit<InitialModelScopeOptions, 'thinkingLevel'>
 ): Promise<{ model: RuntimeModel; thinkingLevelPin?: ThinkingLevel } | undefined> {
   if (deferredProviderModels(runtime).length === 0) return undefined;
   let selected: ReturnType<typeof selectInitialModelScope>;
   try {
-    selected = selectInitialModelScope(await resolveVisibleModels(withDeferredProviderModels(runtime), enabledModels), options);
+    selected = selectInitialModelScope(
+      await resolveVisibleModels(withDeferredProviderModels(runtime), enabledModels),
+      options
+    );
   } catch {
     // A requested model out of scope, or an entry ambiguous only once deferred models count
     // (a bare id two providers share).
     return undefined;
   }
-  const model = selected.model && findDeferredModel(runtime, selected.model.provider, selected.model.id);
-  return model ? { model, ...(selected.thinkingLevel ? { thinkingLevelPin: selected.thinkingLevel } : {}) } : undefined;
+  const model =
+    selected.model && findDeferredModel(runtime, selected.model.provider, selected.model.id);
+  return model
+    ? { model, ...(selected.thinkingLevel ? { thinkingLevelPin: selected.thinkingLevel } : {}) }
+    : undefined;
 }

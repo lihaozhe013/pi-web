@@ -5,28 +5,37 @@
 
 export type TranscriptNotice =
   /** An assistant response re-billed prompt tokens a cache should have served. */
-  | { kind: "cache_miss"; missedTokens: number; missedCost: number; idleMinutes?: number; modelChanged?: boolean }
+  | {
+      kind: 'cache_miss';
+      missedTokens: number;
+      missedCost: number;
+      idleMinutes?: number;
+      modelChanged?: boolean;
+    }
   /** Billed prompt-cache warming outside model context (`usage` entry, `kind: "cache_warm"`). */
-  | { kind: "cache_warm"; cost: number; note?: string }
+  | { kind: 'cache_warm'; cost: number; note?: string }
   /** What a compaction or branch summary billed. */
-  | { kind: "summary_cost"; source: "compaction" | "branch_summary"; tokens: number; cost: number }
+  | { kind: 'summary_cost'; source: 'compaction' | 'branch_summary'; tokens: number; cost: number }
   /** Anthropic dropped thinking blocks from the request (pi's `thinking_dropped` input transformation). */
-  | { kind: "thinking_dropped"; count: number };
+  | { kind: 'thinking_dropped'; count: number };
 
 /** The property a chat message carries its notices in; never part of pi's message. */
-export const TRANSCRIPT_NOTICES_KEY = "transcriptNotices";
+export const TRANSCRIPT_NOTICES_KEY = 'transcriptNotices';
 
 export type WithTranscriptNotices<T> = T & { [TRANSCRIPT_NOTICES_KEY]?: TranscriptNotice[] };
 
 /** The notices a chat message carries; empty for one without. */
 export function getTranscriptNotices(message: unknown): TranscriptNotice[] {
-  if (typeof message !== "object" || message === null) return [];
+  if (typeof message !== 'object' || message === null) return [];
   const notices = (message as Record<string, unknown>)[TRANSCRIPT_NOTICES_KEY];
-  return Array.isArray(notices) ? notices as TranscriptNotice[] : [];
+  return Array.isArray(notices) ? (notices as TranscriptNotice[]) : [];
 }
 
 /** A copy of `message` carrying `notices`; the message itself when there are none. */
-export function withTranscriptNotices<T extends object>(message: T, notices: readonly TranscriptNotice[] | undefined): T {
+export function withTranscriptNotices<T extends object>(
+  message: T,
+  notices: readonly TranscriptNotice[] | undefined
+): T {
   if (!notices || notices.length === 0) return message;
   return { ...message, [TRANSCRIPT_NOTICES_KEY]: [...notices] };
 }
@@ -47,7 +56,7 @@ export function formatNoticeCost(cost: number): string | undefined {
 
 /** The TUI's cache-warming cost: six decimals, trailing zeros past the third dropped. */
 export function formatCacheWarmCost(cost: number): string {
-  return `$${cost.toFixed(6).replace(/(\.\d{3}\d*?)0+$/, "$1")}`;
+  return `$${cost.toFixed(6).replace(/(\.\d{3}\d*?)0+$/, '$1')}`;
 }
 
 export interface CacheMissSummary {
@@ -61,7 +70,7 @@ export function summarizeCacheMisses(messages: readonly unknown[]): CacheMissSum
   let summary: CacheMissSummary | undefined;
   for (const message of messages) {
     for (const notice of getTranscriptNotices(message)) {
-      if (notice.kind !== "cache_miss") continue;
+      if (notice.kind !== 'cache_miss') continue;
       summary ??= { count: 0, missedTokens: 0, missedCost: 0 };
       summary.count += 1;
       summary.missedTokens += notice.missedTokens;

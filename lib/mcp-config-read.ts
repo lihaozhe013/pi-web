@@ -1,6 +1,16 @@
-import { closeSync, constants, existsSync, fstatSync, lstatSync, openSync, readFileSync, readSync, realpathSync } from "node:fs";
-import { join, resolve } from "node:path";
-import { CONFIG_DIR_NAME, type McpServerConfig } from "@earendil-works/pi-coding-agent";
+import {
+  closeSync,
+  constants,
+  existsSync,
+  fstatSync,
+  lstatSync,
+  openSync,
+  readFileSync,
+  readSync,
+  realpathSync
+} from 'node:fs';
+import { join, resolve } from 'node:path';
+import { CONFIG_DIR_NAME, type McpServerConfig } from '@earendil-works/pi-coding-agent';
 import type {
   CodemodeSandboxStatus,
   McpAvailability,
@@ -13,16 +23,16 @@ import type {
   McpScope,
   McpServerInfo,
   McpTransportKind,
-  McpVariableReference,
-} from "./api-types";
+  McpVariableReference
+} from './api-types';
 import {
   isMcpDisabledByOperator,
   MCP_DISABLE_VARIABLE,
   peekCodemodeSandbox,
   readBuiltinExtensionSwitches,
   type BuiltinExtensionName,
-  type BuiltinExtensionSwitch,
-} from "./builtin-extensions";
+  type BuiltinExtensionSwitch
+} from './builtin-extensions';
 import {
   CODEMODE_INLINE_BUDGET_DEFAULT,
   CODEMODE_INLINE_BUDGET_MAX,
@@ -30,20 +40,24 @@ import {
   readCodemodeSettings,
   readProjectCodemodeInlineBudget,
   readProjectCodemodeMode,
-  readProjectCodemodeOverride,
-} from "./codemode-settings";
-import { getGlobalSettingsPath } from "./global-settings-file";
-import { mcpConfigKey, mcpEntryConfigKey } from "./mcp-config-key";
-import { jsonErrorMessage } from "./mcp-json-error";
-import { isMcpOverrideEntry, MCP_OVERRIDE_KEYS, mcpOverrideRefusal } from "./mcp-override";
-import { maskArgs, maskCommand, maskUrl } from "./mcp-secrets";
-import { mcpOAuthStoreKeys } from "./mcp-sign-out";
-import { readMcpHostInactive, withMcpStatuses } from "./mcp-status";
-import { findWebPasswordField, resolvedConfigValues, WEB_PASSWORD_VARIABLE } from "./mcp-transport";
-import { samePath } from "./paths";
-import { hasParentDirectorySegment, isPathWithinRoots, resolveRealRoots } from "./path-security";
-import { loadPiSdkInternals, type PiSdkInternals } from "./pi-sdk-internals";
-import { freshFolderTrustBreadth, getProjectTrustStatus, hasTrustRelevantEntries } from "./project-trust";
+  readProjectCodemodeOverride
+} from './codemode-settings';
+import { getGlobalSettingsPath } from './global-settings-file';
+import { mcpConfigKey, mcpEntryConfigKey } from './mcp-config-key';
+import { jsonErrorMessage } from './mcp-json-error';
+import { isMcpOverrideEntry, MCP_OVERRIDE_KEYS, mcpOverrideRefusal } from './mcp-override';
+import { maskArgs, maskCommand, maskUrl } from './mcp-secrets';
+import { mcpOAuthStoreKeys } from './mcp-sign-out';
+import { readMcpHostInactive, withMcpStatuses } from './mcp-status';
+import { findWebPasswordField, resolvedConfigValues, WEB_PASSWORD_VARIABLE } from './mcp-transport';
+import { samePath } from './paths';
+import { hasParentDirectorySegment, isPathWithinRoots, resolveRealRoots } from './path-security';
+import { loadPiSdkInternals, type PiSdkInternals } from './pi-sdk-internals';
+import {
+  freshFolderTrustBreadth,
+  getProjectTrustStatus,
+  hasTrustRelevantEntries
+} from './project-trust';
 
 // What Settings › MCP and the trust dialog list (ADR 0006): the entries of the
 // global `mcp.json` and of a project's `.pi/mcp.json`, read from the files
@@ -61,15 +75,15 @@ import { freshFolderTrustBreadth, getProjectTrustStatus, hasTrustRelevantEntries
 
 export type McpConfigReadInternals = Pick<
   PiSdkInternals,
-  "validateMcpServerConfig" | "isCommandConfigValue" | "getConfigValueEnvVarNames"
+  'validateMcpServerConfig' | 'isCommandConfigValue' | 'getConfigValueEnvVarNames'
 >;
 
 export function globalMcpConfigPath(agentDir: string): string {
-  return join(agentDir, "mcp.json");
+  return join(agentDir, 'mcp.json');
 }
 
 export function projectMcpConfigPath(cwd: string): string {
-  return join(cwd, CONFIG_DIR_NAME, "mcp.json");
+  return join(cwd, CONFIG_DIR_NAME, 'mcp.json');
 }
 
 // `configKey`, which statuses are compared against: an HMAC of the entry's
@@ -94,7 +108,7 @@ export const MCP_PROJECT_MAX_SERVERS = 200;
 const OPEN_FLAGS = constants.O_RDONLY | (constants.O_NONBLOCK || 0) | (constants.O_NOFOLLOW || 0);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function errorMessage(error: unknown): string {
@@ -113,14 +127,23 @@ function realPathOr(path: string): string {
   }
 }
 
-function problem(info: McpConfigFileInfo, reason: McpConfigFileProblem["reason"], error: string): void {
+function problem(
+  info: McpConfigFileInfo,
+  reason: McpConfigFileProblem['reason'],
+  error: string
+): void {
   info.problems.push({ reason, error });
 }
 
 /** What reading a resolved path gave: the text and the file's permission bits, or why it was not read. */
 export type ResolvedConfigFileRead =
   | { ok: true; text: string; mode: number }
-  | { ok: false; reason: Extract<McpConfigFileProblem["reason"], "not-a-file" | "too-large" | "unreadable">; error: string; code?: string };
+  | {
+      ok: false;
+      reason: Extract<McpConfigFileProblem['reason'], 'not-a-file' | 'too-large' | 'unreadable'>;
+      error: string;
+      code?: string;
+    };
 
 /**
  * Read the file at `realPath`, which has no link left in it: opened once
@@ -128,15 +151,19 @@ export type ResolvedConfigFileRead =
  * then checked through what was opened. A FIFO or a device is never read.
  * The `mcp.json` writer (`lib/mcp-config-file.ts`) reads through this too.
  */
-export function readResolvedConfigFile(realPath: string, maxBytes: number | undefined): ResolvedConfigFileRead {
+export function readResolvedConfigFile(
+  realPath: string,
+  maxBytes: number | undefined
+): ResolvedConfigFileRead {
   let fd: number | undefined;
   try {
     fd = openSync(realPath, OPEN_FLAGS);
     const stats = fstatSync(fd);
     const mode = stats.mode & 0o777;
-    if (!stats.isFile()) return { ok: false, reason: "not-a-file", error: "not a regular file" };
-    if (maxBytes === undefined) return { ok: true, text: readFileSync(fd, "utf8"), mode };
-    if (stats.size > maxBytes) return { ok: false, reason: "too-large", error: `larger than ${maxBytes} bytes` };
+    if (!stats.isFile()) return { ok: false, reason: 'not-a-file', error: 'not a regular file' };
+    if (maxBytes === undefined) return { ok: true, text: readFileSync(fd, 'utf8'), mode };
+    if (stats.size > maxBytes)
+      return { ok: false, reason: 'too-large', error: `larger than ${maxBytes} bytes` };
     // One byte past the limit: a file still growing past it is not parsed.
     const limit = maxBytes + 1;
     const chunks: Buffer[] = [];
@@ -148,17 +175,27 @@ export function readResolvedConfigFile(realPath: string, maxBytes: number | unde
       chunks.push(chunk.subarray(0, read));
       length += read;
     }
-    if (length > maxBytes) return { ok: false, reason: "too-large", error: `larger than ${maxBytes} bytes` };
-    return { ok: true, text: Buffer.concat(chunks, length).toString("utf8"), mode };
+    if (length > maxBytes)
+      return { ok: false, reason: 'too-large', error: `larger than ${maxBytes} bytes` };
+    return { ok: true, text: Buffer.concat(chunks, length).toString('utf8'), mode };
   } catch (error) {
     const code = errorCode(error);
-    return { ok: false, reason: "unreadable", error: errorMessage(error), ...(code ? { code } : {}) };
+    return {
+      ok: false,
+      reason: 'unreadable',
+      error: errorMessage(error),
+      ...(code ? { code } : {})
+    };
   } finally {
     if (fd !== undefined) closeSync(fd);
   }
 }
 
-function readResolvedFile(realPath: string, info: McpConfigFileInfo, maxBytes: number | undefined): string | undefined {
+function readResolvedFile(
+  realPath: string,
+  info: McpConfigFileInfo,
+  maxBytes: number | undefined
+): string | undefined {
   const read = readResolvedConfigFile(realPath, maxBytes);
   info.exists = true;
   if (read.ok) return read.text;
@@ -172,18 +209,18 @@ function readResolvedFile(realPath: string, info: McpConfigFileInfo, maxBytes: n
  */
 function readGlobalFile(agentDir: string): { info: McpConfigFileInfo; text?: string } {
   const path = globalMcpConfigPath(agentDir);
-  const info: McpConfigFileInfo = { scope: "global", path, exists: false, problems: [] };
+  const info: McpConfigFileInfo = { scope: 'global', path, exists: false, problems: [] };
   let realPath: string;
   try {
     realPath = realpathSync(path);
   } catch (error) {
-    if (errorCode(error) !== "ENOENT") {
+    if (errorCode(error) !== 'ENOENT') {
       info.exists = true;
-      problem(info, "unreadable", errorMessage(error));
+      problem(info, 'unreadable', errorMessage(error));
     }
     return { info };
   }
-  if (!samePath(realPath, join(realPathOr(agentDir), "mcp.json"))) info.realPath = realPath;
+  if (!samePath(realPath, join(realPathOr(agentDir), 'mcp.json'))) info.realPath = realPath;
   return { info, text: readResolvedFile(realPath, info, undefined) };
 }
 
@@ -197,14 +234,17 @@ function readGlobalFile(agentDir: string): { info: McpConfigFileInfo; text?: str
  */
 /** Where a project's `.pi/mcp.json` leads under the link rule, before anything is read from it. */
 export type ProjectMcpConfigLocation =
-  | { kind: "found"; path: string; realPath: string }
-  | { kind: "missing"; path: string }
+  | { kind: 'found'; path: string; realPath: string }
+  | { kind: 'missing'; path: string }
   | {
-      kind: "refused";
+      kind: 'refused';
       path: string;
       /** Where the link leads, when it leads somewhere. */
       realPath?: string;
-      reason: Extract<McpConfigFileProblem["reason"], "link-dangling" | "link-outside" | "unreadable">;
+      reason: Extract<
+        McpConfigFileProblem['reason'],
+        'link-dangling' | 'link-outside' | 'unreadable'
+      >;
       error: string;
     };
 
@@ -223,21 +263,38 @@ function isSymbolicLink(path: string): boolean {
  * link is refused rather than taken for a missing file. Settings › MCP reads,
  * and `lib/mcp-config-file.ts` writes, only what this lets through.
  */
-export function locateProjectMcpConfig(cwd: string, allowedRoots: Set<string>): ProjectMcpConfigLocation {
+export function locateProjectMcpConfig(
+  cwd: string,
+  allowedRoots: Set<string>
+): ProjectMcpConfigLocation {
   const path = projectMcpConfigPath(cwd);
-  if (hasParentDirectorySegment(path)) return { kind: "refused", path, reason: "unreadable", error: "the path has a .. segment" };
+  if (hasParentDirectorySegment(path))
+    return { kind: 'refused', path, reason: 'unreadable', error: 'the path has a .. segment' };
   let realPath: string;
   try {
     realPath = realpathSync(path);
   } catch (error) {
-    if (isSymbolicLink(path)) return { kind: "refused", path, reason: "link-dangling", error: "a symbolic link to nothing" };
-    if (errorCode(error) !== "ENOENT") return { kind: "refused", path, reason: "unreadable", error: errorMessage(error) };
-    return { kind: "missing", path };
+    if (isSymbolicLink(path))
+      return {
+        kind: 'refused',
+        path,
+        reason: 'link-dangling',
+        error: 'a symbolic link to nothing'
+      };
+    if (errorCode(error) !== 'ENOENT')
+      return { kind: 'refused', path, reason: 'unreadable', error: errorMessage(error) };
+    return { kind: 'missing', path };
   }
   if (!isPathWithinRoots(realPath, resolveRealRoots(allowedRoots))) {
-    return { kind: "refused", path, realPath, reason: "link-outside", error: "a symbolic link outside the folders Pi Web may read" };
+    return {
+      kind: 'refused',
+      path,
+      realPath,
+      reason: 'link-outside',
+      error: 'a symbolic link outside the folders Pi Web may read'
+    };
   }
-  return { kind: "found", path, realPath };
+  return { kind: 'found', path, realPath };
 }
 
 /**
@@ -248,35 +305,56 @@ export function locateProjectMcpConfig(cwd: string, allowedRoots: Set<string>): 
  */
 export function projectMcpConfigCreatePath(
   cwd: string,
-  allowedRoots: Set<string>,
-): { ok: true; realPath: string } | { ok: false; reason: "link-dangling" | "link-outside" | "unreadable"; error: string } {
+  allowedRoots: Set<string>
+):
+  | { ok: true; realPath: string }
+  | { ok: false; reason: 'link-dangling' | 'link-outside' | 'unreadable'; error: string } {
   const dir = join(cwd, CONFIG_DIR_NAME);
-  if (hasParentDirectorySegment(dir)) return { ok: false, reason: "unreadable", error: "the path has a .. segment" };
+  if (hasParentDirectorySegment(dir))
+    return { ok: false, reason: 'unreadable', error: 'the path has a .. segment' };
   let realDir: string;
   try {
     realDir = realpathSync(dir);
   } catch (error) {
-    if (isSymbolicLink(dir)) return { ok: false, reason: "link-dangling", error: "a symbolic link to nothing" };
-    if (errorCode(error) !== "ENOENT") return { ok: false, reason: "unreadable", error: errorMessage(error) };
+    if (isSymbolicLink(dir))
+      return { ok: false, reason: 'link-dangling', error: 'a symbolic link to nothing' };
+    if (errorCode(error) !== 'ENOENT')
+      return { ok: false, reason: 'unreadable', error: errorMessage(error) };
     try {
       realDir = join(realpathSync(cwd), CONFIG_DIR_NAME);
     } catch (cwdError) {
-      return { ok: false, reason: "unreadable", error: errorMessage(cwdError) };
+      return { ok: false, reason: 'unreadable', error: errorMessage(cwdError) };
     }
   }
   if (!isPathWithinRoots(realDir, resolveRealRoots(allowedRoots))) {
-    return { ok: false, reason: "link-outside", error: "a symbolic link outside the folders Pi Web may read" };
+    return {
+      ok: false,
+      reason: 'link-outside',
+      error: 'a symbolic link outside the folders Pi Web may read'
+    };
   }
-  return { ok: true, realPath: join(realDir, "mcp.json") };
+  return { ok: true, realPath: join(realDir, 'mcp.json') };
 }
 
-function readProjectFile(cwd: string, allowedRoots: Set<string>): { info: McpConfigFileInfo; text?: string } {
+function readProjectFile(
+  cwd: string,
+  allowedRoots: Set<string>
+): { info: McpConfigFileInfo; text?: string } {
   const location = locateProjectMcpConfig(cwd, allowedRoots);
-  const info: McpConfigFileInfo = { scope: "project", path: location.path, exists: false, problems: [] };
-  if (location.kind === "missing") return { info };
+  const info: McpConfigFileInfo = {
+    scope: 'project',
+    path: location.path,
+    exists: false,
+    problems: []
+  };
+  if (location.kind === 'missing') return { info };
   const realPath = location.realPath;
-  if (realPath !== undefined && !samePath(realPath, join(realPathOr(cwd), CONFIG_DIR_NAME, "mcp.json"))) info.realPath = realPath;
-  if (location.kind === "refused") {
+  if (
+    realPath !== undefined &&
+    !samePath(realPath, join(realPathOr(cwd), CONFIG_DIR_NAME, 'mcp.json'))
+  )
+    info.realPath = realPath;
+  if (location.kind === 'refused') {
     info.exists = true;
     problem(info, location.reason, location.error);
     return { info };
@@ -291,20 +369,25 @@ function parseConfigText(info: McpConfigFileInfo, text: string): [name: string, 
     // No byte-order mark is stripped: the SDK does not strip one either.
     parsed = JSON.parse(text);
   } catch (error) {
-    problem(info, "unparsable", jsonErrorMessage(error, text));
+    problem(info, 'unparsable', jsonErrorMessage(error, text));
     return [];
   }
   if (!isRecord(parsed) || (parsed.mcpServers !== undefined && !isRecord(parsed.mcpServers))) {
-    problem(info, "invalid-shape", 'expected an object with an "mcpServers" object');
+    problem(info, 'invalid-shape', 'expected an object with an "mcpServers" object');
     return [];
   }
-  if (typeof parsed.autoEnableCodemode === "boolean") info.autoEnableCodemode = parsed.autoEnableCodemode;
+  if (typeof parsed.autoEnableCodemode === 'boolean')
+    info.autoEnableCodemode = parsed.autoEnableCodemode;
   else if (parsed.autoEnableCodemode !== undefined) {
-    problem(info, "auto-enable-codemode-invalid", "autoEnableCodemode must be a boolean");
+    problem(info, 'auto-enable-codemode-invalid', 'autoEnableCodemode must be a boolean');
   }
   const entries = Object.entries(isRecord(parsed.mcpServers) ? parsed.mcpServers : {});
-  if (info.scope === "project" && entries.length > MCP_PROJECT_MAX_SERVERS) {
-    problem(info, "too-many-servers", `declares ${entries.length} servers, more than ${MCP_PROJECT_MAX_SERVERS}`);
+  if (info.scope === 'project' && entries.length > MCP_PROJECT_MAX_SERVERS) {
+    problem(
+      info,
+      'too-many-servers',
+      `declares ${entries.length} servers, more than ${MCP_PROJECT_MAX_SERVERS}`
+    );
     return [];
   }
   return entries;
@@ -320,16 +403,19 @@ type McpAuthState = Map<string, { signedIn: boolean }>;
  * server is reported either way.
  */
 function readAuthState(agentDir: string): McpAuthState | undefined {
-  const path = join(agentDir, "mcp-auth.json");
+  const path = join(agentDir, 'mcp-auth.json');
   const state: McpAuthState = new Map();
   if (!existsSync(path)) return state;
   try {
-    const text = readFileSync(path, "utf8");
+    const text = readFileSync(path, 'utf8');
     if (!text.trim()) return state;
     const parsed: unknown = JSON.parse(text);
     if (!isRecord(parsed)) return state;
     for (const [key, value] of Object.entries(parsed)) {
-      state.set(key, { signedIn: isRecord(value) && isRecord(value.tokens) && typeof value.tokens.access_token === "string" });
+      state.set(key, {
+        signedIn:
+          isRecord(value) && isRecord(value.tokens) && typeof value.tokens.access_token === 'string'
+      });
     }
     return state;
   } catch {
@@ -343,7 +429,11 @@ function readAuthState(agentDir: string): McpAuthState | undefined {
  * alone (which the first server of the URL to connect takes over). Sign out
  * removes that record, whatever it holds (`McpOAuthCredentialStore.remove()`).
  */
-function authStateOf(state: McpAuthState, name: string, url: string): { signedIn: boolean; stored: boolean } | undefined {
+function authStateOf(
+  state: McpAuthState,
+  name: string,
+  url: string
+): { signedIn: boolean; stored: boolean } | undefined {
   let keys: { key: string; legacyKey: string };
   try {
     keys = mcpOAuthStoreKeys(name, url);
@@ -364,15 +454,23 @@ function authStateOf(state: McpAuthState, name: string, url: string): { signedIn
  * never connects, so it gets the validator's reading instead: a legacy SSE
  * entry has no transport.
  */
-function transportOf(config: Record<string, unknown>, refused: boolean): McpTransportKind | undefined {
+function transportOf(
+  config: Record<string, unknown>,
+  refused: boolean
+): McpTransportKind | undefined {
   if (refused) {
     const { type } = config;
-    if (typeof config.url === "string" && (type === undefined || type === "http" || type === "streamable-http")) return "http";
-    if (typeof config.command === "string" && (type === undefined || type === "stdio")) return "stdio";
+    if (
+      typeof config.url === 'string' &&
+      (type === undefined || type === 'http' || type === 'streamable-http')
+    )
+      return 'http';
+    if (typeof config.command === 'string' && (type === undefined || type === 'stdio'))
+      return 'stdio';
     return undefined;
   }
-  if ("url" in config) return "http";
-  if ("command" in config) return "stdio";
+  if ('url' in config) return 'http';
+  if ('command' in config) return 'stdio';
   return undefined;
 }
 
@@ -422,13 +520,13 @@ function describeServer(
   value: unknown,
   scope: McpScope,
   sourcePath: string,
-  { internals, authState, revealProjectCommands }: DescribeContext,
+  { internals, authState, revealProjectCommands }: DescribeContext
 ): DescribedServer {
   const validation = internals?.validateMcpServerConfig(name, value);
   const config: Record<string, unknown> = isRecord(value) ? value : {};
   // `mcpConfigKey()` is total; should it ever throw, the entry is listed as one pi refuses,
   // rather than the whole file (and the global one with it) failing to list.
-  let configKey = "";
+  let configKey = '';
   let keyError: string | undefined;
   try {
     configKey = mcpEntryConfigKey(value, validation);
@@ -447,48 +545,59 @@ function describeServer(
     usesOAuth: false,
     commandFields: [],
     variableReferences: [],
-    masked: false,
+    masked: false
   };
-  if (typeof validation === "string") info.invalidError = validation;
+  if (typeof validation === 'string') info.invalidError = validation;
   if (!isRecord(value)) info.notAnObject = true;
-  const transport = transportOf(config, typeof validation === "string");
+  const transport = transportOf(config, typeof validation === 'string');
   if (transport) info.transport = transport;
-  if (validation !== undefined && typeof validation !== "string") {
+  if (validation !== undefined && typeof validation !== 'string') {
     // The validator's copy, with `codemode-deferred` read as the `codemode` it now means.
     const validated = validation as McpServerConfig;
-    info.exposure = validated.exposure ?? "codemode";
+    info.exposure = validated.exposure ?? 'codemode';
     const overrides = validated.toolExposure ? Object.keys(validated.toolExposure).length : 0;
     if (overrides > 0) info.toolExposureCount = overrides;
   }
-  if (typeof config.description === "string" && config.description.trim()) info.description = config.description;
+  if (typeof config.description === 'string' && config.description.trim())
+    info.description = config.description;
 
   // Masking hides what looks like a secret by shape and by position (any value after `--token`),
   // which the author of the entry chooses. For a repository nobody has trusted yet, that would let
   // it hide the very command trusting the folder runs (`npx -y •••`), so it is shown as written.
-  const revealCommand = scope === "project" && revealProjectCommands;
-  if (typeof config.command === "string") {
-    const command = revealCommand ? { value: config.command, masked: false } : maskCommand(config.command);
+  const revealCommand = scope === 'project' && revealProjectCommands;
+  if (typeof config.command === 'string') {
+    const command = revealCommand
+      ? { value: config.command, masked: false }
+      : maskCommand(config.command);
     info.command = command.value;
     info.masked ||= command.masked;
   }
   if (Array.isArray(config.args)) {
-    const strings = config.args.filter((arg): arg is string => typeof arg === "string");
+    const strings = config.args.filter((arg): arg is string => typeof arg === 'string');
     const args = revealCommand ? { args: strings, masked: false } : maskArgs(strings);
     info.args = args.args;
     info.masked ||= args.masked;
   }
-  if (typeof config.cwd === "string") info.cwd = config.cwd;
-  if (typeof config.url === "string") {
+  if (typeof config.cwd === 'string') info.cwd = config.cwd;
+  if (typeof config.url === 'string') {
     const url = maskUrl(config.url);
     info.url = url.value;
     info.masked ||= url.masked;
   }
   // The SDK's rule (runtime.js usesOAuth): `url` present, no `auth` and no Authorization header.
-  if (transport === "http" && isRecord(config.auth) && typeof config.auth.provider === "string" && config.auth.provider) {
+  if (
+    transport === 'http' &&
+    isRecord(config.auth) &&
+    typeof config.auth.provider === 'string' &&
+    config.auth.provider
+  ) {
     info.authProvider = config.auth.provider;
   }
-  info.usesOAuth = transport === "http" && !config.auth && !info.headerNames.some((header) => header.toLowerCase() === "authorization");
-  if (info.usesOAuth && authState && typeof config.url === "string") {
+  info.usesOAuth =
+    transport === 'http' &&
+    !config.auth &&
+    !info.headerNames.some((header) => header.toLowerCase() === 'authorization');
+  if (info.usesOAuth && authState && typeof config.url === 'string') {
     const stored = authStateOf(authState, name, config.url);
     if (stored) {
       info.signedIn = stored.signedIn;
@@ -498,33 +607,42 @@ function describeServer(
 
   // Without the SDK's parser, a leading `!` is all that marks a command, and any
   // mention of the password counts, as it does for a command.
-  const isCommand = internals ? (text: string) => internals.isCommandConfigValue(text) : (text: string) => text.startsWith("!");
+  const isCommand = internals
+    ? (text: string) => internals.isCommandConfigValue(text)
+    : (text: string) => text.startsWith('!');
   const values = resolvedConfigValues(config);
   info.commandFields = values.filter((field) => isCommand(field.value)).map(fieldRef);
   // Named, never expanded: these are the host's variables the entry hands to
   // its process or sends to its URL, which the trust dialog has to show.
-  const variableNames = internals ? (text: string) => internals.getConfigValueEnvVarNames(text) : templateVariableNames;
+  const variableNames = internals
+    ? (text: string) => internals.getConfigValueEnvVarNames(text)
+    : templateVariableNames;
   info.variableReferences = values
     .filter((field) => !isCommand(field.value))
-    .map((field): McpVariableReference => ({ ...fieldRef(field), variables: variableNames(field.value) }))
+    .map((field): McpVariableReference => ({
+      ...fieldRef(field),
+      variables: variableNames(field.value)
+    }))
     .filter((reference) => reference.variables.length > 0);
   const webPasswordField = internals
     ? findWebPasswordField(config, internals)
     : values.find((field) => field.value.toUpperCase().includes(WEB_PASSWORD_VARIABLE));
   if (webPasswordField) info.webPasswordField = fieldRef(webPasswordField);
 
-  const sendsProviderToken = "url" in config && Boolean(config.auth);
+  const sendsProviderToken = 'url' in config && Boolean(config.auth);
   const described = {
     info,
     sendsProviderToken,
     value,
-    ...(validation !== undefined && typeof validation !== "string" ? { config: validation as McpServerConfig } : {}),
+    ...(validation !== undefined && typeof validation !== 'string'
+      ? { config: validation as McpServerConfig }
+      : {})
   };
   if (keyError !== undefined) {
     info.invalidError ??= keyError;
     return { ...described, loads: false };
   }
-  return { ...described, loads: internals ? typeof validation !== "string" : isRecord(value) };
+  return { ...described, loads: internals ? typeof validation !== 'string' : isRecord(value) };
 }
 
 /**
@@ -541,25 +659,28 @@ function describeOverride(
   value: Record<string, unknown>,
   base: DescribedServer | undefined,
   sourcePath: string,
-  context: DescribeContext,
+  context: DescribeContext
 ): DescribedServer {
   const keys = MCP_OVERRIDE_KEYS.filter((key) => Object.hasOwn(value, key));
   const refused = mcpOverrideRefusal(name, value, base !== undefined);
   if (refused !== undefined || base === undefined) {
-    const described = describeServer(name, value, "project", sourcePath, context);
+    const described = describeServer(name, value, 'project', sourcePath, context);
     described.info.invalidError = refused;
     described.info.override = { keys };
     return { ...described, loads: false };
   }
   const merged = { ...(base.config ?? (isRecord(base.value) ? base.value : {})), ...value };
-  const described = describeServer(name, merged, "project", sourcePath, { ...context, revealProjectCommands: false });
+  const described = describeServer(name, merged, 'project', sourcePath, {
+    ...context,
+    revealProjectCommands: false
+  });
   described.info.override = { keys };
   return described;
 }
 
 /** The namespace pi gives a server's tools (`mcpNamespace()`): `mcp__<name>`, `-` as `_`. */
 function mcpNamespace(name: string): string {
-  return `mcp__${name.replace(/-/g, "_")}`;
+  return `mcp__${name.replace(/-/g, '_')}`;
 }
 
 /**
@@ -577,13 +698,15 @@ function refuseAsLoaderDoes(described: DescribedServer[]): void {
   for (const server of described) {
     if (!server.loads || server.info.override) continue;
     const { info } = server;
-    const clash = [...loaded].find((other) => other !== info.name && mcpNamespace(other) === mcpNamespace(info.name));
+    const clash = [...loaded].find(
+      (other) => other !== info.name && mcpNamespace(other) === mcpNamespace(info.name)
+    );
     if (clash !== undefined) {
       info.invalidError = `server "${info.name}" conflicts with "${clash}"`;
       server.loads = false;
       continue;
     }
-    if (info.scope === "project" && server.sendsProviderToken) {
+    if (info.scope === 'project' && server.sendsProviderToken) {
       info.invalidError = `server "${info.name}": auth is only allowed in the global mcp.json`;
       server.loads = false;
       continue;
@@ -612,11 +735,14 @@ export interface McpConfigRead {
   servers: McpServerInfo[];
 }
 
-function describeConfigs(options: McpConfigReadOptions): { files: McpConfigFileInfo[]; described: DescribedServer[] } {
+function describeConfigs(options: McpConfigReadOptions): {
+  files: McpConfigFileInfo[];
+  described: DescribedServer[];
+} {
   const context: DescribeContext = {
     internals: options.internals,
     authState: readAuthState(options.agentDir),
-    revealProjectCommands: options.projectUntrusted === true,
+    revealProjectCommands: options.projectUntrusted === true
   };
   const files: McpConfigFileInfo[] = [];
   const described: DescribedServer[] = [];
@@ -624,20 +750,24 @@ function describeConfigs(options: McpConfigReadOptions): { files: McpConfigFileI
   files.push(global.info);
   if (global.text !== undefined) {
     for (const [name, value] of parseConfigText(global.info, global.text)) {
-      described.push(describeServer(name, value, "global", global.info.path, context));
+      described.push(describeServer(name, value, 'global', global.info.path, context));
     }
   }
   if (options.internals) refuseAsLoaderDoes(described);
   if (options.project) {
     // The global entries the SDK loaded before it reads the project file: what an override changes.
-    const loadedGlobals = new Map(described.filter((server) => server.loads).map((server) => [server.info.name, server]));
+    const loadedGlobals = new Map(
+      described.filter((server) => server.loads).map((server) => [server.info.name, server])
+    );
     const project = readProjectFile(options.project.cwd, options.project.allowedRoots);
     files.push(project.info);
     if (project.text !== undefined) {
       for (const [name, value] of parseConfigText(project.info, project.text)) {
-        described.push(isRecord(value) && isMcpOverrideEntry(value)
-          ? describeOverride(name, value, loadedGlobals.get(name), project.info.path, context)
-          : describeServer(name, value, "project", project.info.path, context));
+        described.push(
+          isRecord(value) && isMcpOverrideEntry(value)
+            ? describeOverride(name, value, loadedGlobals.get(name), project.info.path, context)
+            : describeServer(name, value, 'project', project.info.path, context)
+        );
       }
     }
     if (options.internals) refuseAsLoaderDoes(described);
@@ -645,12 +775,16 @@ function describeConfigs(options: McpConfigReadOptions): { files: McpConfigFileI
   // A project entry the SDK loads replaces the global one of its name once the
   // project is trusted, or with an override changes it; an invalid one is
   // skipped and leaves the global in place.
-  const projectEntries = described.filter(({ info, loads }) => info.scope === "project" && loads);
-  const projectNames = new Set(projectEntries.filter(({ info }) => !info.override).map(({ info }) => info.name));
-  const overrideNames = new Set(projectEntries.filter(({ info }) => info.override).map(({ info }) => info.name));
+  const projectEntries = described.filter(({ info, loads }) => info.scope === 'project' && loads);
+  const projectNames = new Set(
+    projectEntries.filter(({ info }) => !info.override).map(({ info }) => info.name)
+  );
+  const overrideNames = new Set(
+    projectEntries.filter(({ info }) => info.override).map(({ info }) => info.name)
+  );
   const shadowedNames = new Set<string>();
   for (const { info } of described) {
-    if (info.scope !== "global") continue;
+    if (info.scope !== 'global') continue;
     if (projectNames.has(info.name)) {
       info.shadowedByProject = true;
       shadowedNames.add(info.name);
@@ -658,7 +792,7 @@ function describeConfigs(options: McpConfigReadOptions): { files: McpConfigFileI
     if (overrideNames.has(info.name)) info.overriddenByProject = true;
   }
   for (const { info } of described) {
-    if (info.scope === "project" && shadowedNames.has(info.name)) info.replacesGlobal = true;
+    if (info.scope === 'project' && shadowedNames.has(info.name)) info.replacesGlobal = true;
   }
   return { files, described };
 }
@@ -681,11 +815,16 @@ export interface McpServerDefinition {
 }
 
 /** Entry `name` of `scope` as the listing reads it, with the config a session would connect; undefined when not listed. */
-export function readMcpServerDefinition(options: McpConfigReadOptions & { scope: McpScope; name: string }): McpServerDefinition | undefined {
-  const found = describeConfigs(options).described
-    .find(({ info }) => info.scope === options.scope && info.name === options.name);
+export function readMcpServerDefinition(
+  options: McpConfigReadOptions & { scope: McpScope; name: string }
+): McpServerDefinition | undefined {
+  const found = describeConfigs(options).described.find(
+    ({ info }) => info.scope === options.scope && info.name === options.name
+  );
   if (!found) return undefined;
-  return found.info.invalidError === undefined && found.config ? { info: found.info, config: found.config } : { info: found.info };
+  return found.info.invalidError === undefined && found.config
+    ? { info: found.info, config: found.config }
+    : { info: found.info };
 }
 
 /** One entry as its file holds it, for a route that connects it; never sent to the browser. */
@@ -700,7 +839,8 @@ export type McpServerEntryRead =
   | {
       ok: false;
       /** A problem of the file (its servers are not listed), or `server-missing`. */
-      reason: Exclude<McpConfigFileProblem["reason"], "auto-enable-codemode-invalid"> | "server-missing";
+      reason:
+        Exclude<McpConfigFileProblem['reason'], 'auto-enable-codemode-invalid'> | 'server-missing';
       error: string;
       path: string;
     };
@@ -718,18 +858,25 @@ export function readMcpServerEntry(options: {
   project?: { cwd: string; allowedRoots: Set<string> };
 }): McpServerEntryRead {
   const { scope, name, project } = options;
-  if (scope === "project" && !project) throw new Error("a project entry needs the project");
-  const { info, text } = scope === "global" || !project
-    ? readGlobalFile(options.agentDir)
-    : readProjectFile(project.cwd, project.allowedRoots);
+  if (scope === 'project' && !project) throw new Error('a project entry needs the project');
+  const { info, text } =
+    scope === 'global' || !project
+      ? readGlobalFile(options.agentDir)
+      : readProjectFile(project.cwd, project.allowedRoots);
   const entries = text === undefined ? [] : parseConfigText(info, text);
   for (const problem of info.problems) {
-    if (problem.reason !== "auto-enable-codemode-invalid") {
+    if (problem.reason !== 'auto-enable-codemode-invalid') {
       return { ok: false, reason: problem.reason, error: problem.error, path: info.path };
     }
   }
   const found = entries.find(([entryName]) => entryName === name);
-  if (!found) return { ok: false, reason: "server-missing", error: `${info.path} does not define MCP server "${name}"`, path: info.path };
+  if (!found)
+    return {
+      ok: false,
+      reason: 'server-missing',
+      error: `${info.path} does not define MCP server "${name}"`,
+      path: info.path
+    };
   return { ok: true, value: found[1], sourcePath: info.path };
 }
 
@@ -763,11 +910,11 @@ export async function readProjectMcpServers(options: {
     agentDir: options.agentDir,
     project: { cwd: options.cwd, allowedRoots: options.allowedRoots },
     internals: internals.ok ? internals : undefined,
-    projectUntrusted: !projectTrustedByDecision(options.cwd, options.agentDir),
+    projectUntrusted: !projectTrustedByDecision(options.cwd, options.agentDir)
   });
-  const file = files.find((info) => info.scope === "project");
-  if (!file) throw new Error("the project file was not read");
-  return { file, servers: servers.filter((server) => server.scope === "project") };
+  const file = files.find((info) => info.scope === 'project');
+  if (!file) throw new Error('the project file was not read');
+  return { file, servers: servers.filter((server) => server.scope === 'project') };
 }
 
 // ---------------------------------------------------------------------------
@@ -777,25 +924,29 @@ export async function readProjectMcpServers(options: {
 function mcpAvailability(
   environment: NodeJS.ProcessEnv,
   internals: Awaited<ReturnType<typeof loadPiSdkInternals>>,
-  mcpSwitch: BuiltinExtensionSwitch | undefined,
+  mcpSwitch: BuiltinExtensionSwitch | undefined
 ): McpAvailability {
   if (isMcpDisabledByOperator(environment)) {
-    return { available: false, reason: "operator-disabled", error: `${MCP_DISABLE_VARIABLE} is set` };
+    return {
+      available: false,
+      reason: 'operator-disabled',
+      error: `${MCP_DISABLE_VARIABLE} is set`
+    };
   }
   if (!internals.ok) {
     return {
       available: false,
-      reason: "internals-unavailable",
+      reason: 'internals-unavailable',
       error: "Pi Web cannot load the SDK's MCP modules",
-      detail: internals.reason,
+      detail: internals.reason
     };
   }
   if (mcpSwitch && !mcpSwitch.enabled) {
     return {
       available: false,
-      reason: "builtin-disabled",
-      error: "the extensions setting turns builtin:mcp off",
-      ...(mcpSwitch.settingsPath ? { settingsPath: mcpSwitch.settingsPath } : {}),
+      reason: 'builtin-disabled',
+      error: 'the extensions setting turns builtin:mcp off',
+      ...(mcpSwitch.settingsPath ? { settingsPath: mcpSwitch.settingsPath } : {})
     };
   }
   return { available: true };
@@ -811,14 +962,14 @@ function mcpAvailability(
 async function codemodeInfo(
   agentDir: string,
   codemodeSwitch: BuiltinExtensionSwitch | undefined,
-  trustedCwd: string | undefined,
+  trustedCwd: string | undefined
 ): Promise<McpCodemodeInfo> {
   const peek = await peekCodemodeSandbox();
   const sandbox: CodemodeSandboxStatus = !peek.checked
-    ? { state: "not-checked" }
+    ? { state: 'not-checked' }
     : peek.available
-      ? { state: "available" }
-      : { state: "unavailable", error: peek.reason };
+      ? { state: 'available' }
+      : { state: 'unavailable', error: peek.reason };
   const info: McpCodemodeInfo = { sandbox, builtinDisabled: codemodeSwitch?.enabled === false };
   if (codemodeSwitch?.settingsPath) info.builtinSettingsPath = codemodeSwitch.settingsPath;
   // What the global `extensions` alone say, which is what Always on, a global setting, depends on.
@@ -831,7 +982,8 @@ async function codemodeInfo(
   } catch (error) {
     info.preferenceError = errorMessage(error);
   }
-  const projectOverride = trustedCwd === undefined ? undefined : readProjectCodemodeOverride(trustedCwd);
+  const projectOverride =
+    trustedCwd === undefined ? undefined : readProjectCodemodeOverride(trustedCwd);
   if (projectOverride) info.projectOverride = projectOverride;
   // Read on its own: a malformed defaultTools leaves the codemode object readable, and the other way round.
   try {
@@ -840,8 +992,14 @@ async function codemodeInfo(
     info.mode = { ...mode, settingsPath };
     const projectMode = trustedCwd === undefined ? undefined : readProjectCodemodeMode(trustedCwd);
     if (projectMode) info.mode.projectOverride = projectMode;
-    info.inlineBudget = { ...inlineBudget, settingsPath, default: CODEMODE_INLINE_BUDGET_DEFAULT, max: CODEMODE_INLINE_BUDGET_MAX };
-    const projectBudget = trustedCwd === undefined ? undefined : readProjectCodemodeInlineBudget(trustedCwd);
+    info.inlineBudget = {
+      ...inlineBudget,
+      settingsPath,
+      default: CODEMODE_INLINE_BUDGET_DEFAULT,
+      max: CODEMODE_INLINE_BUDGET_MAX
+    };
+    const projectBudget =
+      trustedCwd === undefined ? undefined : readProjectCodemodeInlineBudget(trustedCwd);
     if (projectBudget) info.inlineBudget.projectOverride = projectBudget;
   } catch (error) {
     info.modeError = errorMessage(error);
@@ -850,7 +1008,7 @@ async function codemodeInfo(
   return info;
 }
 
-function withHostInactive(cwd: string | undefined): Pick<McpResponse, "hostInactive"> {
+function withHostInactive(cwd: string | undefined): Pick<McpResponse, 'hostInactive'> {
   const hostInactive = readMcpHostInactive(cwd);
   return hostInactive ? { hostInactive } : {};
 }
@@ -885,12 +1043,20 @@ export async function readMcpOverview(options: McpOverviewOptions): Promise<McpR
     // A fresh folder: adding a project server trusts it in the same step, unless that would trust too
     // much, or a link to nothing where the SDK looks would need trust later. The same checks, in the
     // same order, as trustFreshFolderAndWrite(), so the pane never offers a step the route refuses.
-    if (trust && !trust.requiresTrust && trust.decision === null && trust.decisionError === undefined) {
-      const breadth = freshFolderTrustBreadth(project.cwd, { agentDir, knownFolders: project.allowedRoots });
+    if (
+      trust &&
+      !trust.requiresTrust &&
+      trust.decision === null &&
+      trust.decisionError === undefined
+    ) {
+      const breadth = freshFolderTrustBreadth(project.cwd, {
+        agentDir,
+        knownFolders: project.allowedRoots
+      });
       projectInfo.trustFolder = breadth
-        ? { allowed: false, reason: "trust-too-broad", breadth }
+        ? { allowed: false, reason: 'trust-too-broad', breadth }
         : hasTrustRelevantEntries(project.cwd)
-          ? { allowed: false, reason: "folder-not-fresh" }
+          ? { allowed: false, reason: 'folder-not-fresh' }
           : { allowed: true };
     }
   }
@@ -903,30 +1069,42 @@ export async function readMcpOverview(options: McpOverviewOptions): Promise<McpR
     switches = await readBuiltinExtensionSwitches({
       agentDir,
       cwd: project?.cwd,
-      projectTrusted: projectSettingsLoad,
+      projectTrusted: projectSettingsLoad
     });
   } catch (error) {
     // A settings file that cannot be read leaves the built-ins as the session would find them: on.
-    console.warn(`[pi-web] cannot read the extensions settings for Settings › MCP: ${errorMessage(error)}`);
+    console.warn(
+      `[pi-web] cannot read the extensions settings for Settings › MCP: ${errorMessage(error)}`
+    );
   }
   const { files, servers } = readMcpServerConfigs({
     agentDir,
     project,
     internals: internals.ok ? internals : undefined,
     // The panel's rule for a project's servers being read (`trust.decision === true`).
-    projectUntrusted: projectInfo?.trust?.decision !== true,
+    projectUntrusted: projectInfo?.trust?.decision !== true
   });
   // A file whose servers are all listed: statuses of names it no longer defines can go.
-  const listedFiles = files.filter((file) => !file.problems.some((item) => item.reason !== "auto-enable-codemode-invalid"));
+  const listedFiles = files.filter(
+    (file) => !file.problems.some((item) => item.reason !== 'auto-enable-codemode-invalid')
+  );
   return {
     mcp: mcpAvailability(environment, internals, switches?.mcp),
-    codemode: await codemodeInfo(agentDir, switches?.codemode, project && projectSettingsLoad ? project.cwd : undefined),
+    codemode: await codemodeInfo(
+      agentDir,
+      switches?.codemode,
+      project && projectSettingsLoad ? project.cwd : undefined
+    ),
     files,
     servers: withMcpStatuses(servers, listedFiles),
-    ...(switches?.["tool-search"].enabled === false
-      ? { toolSearchDisabled: switches["tool-search"].settingsPath ? { settingsPath: switches["tool-search"].settingsPath } : {} }
+    ...(switches?.['tool-search'].enabled === false
+      ? {
+          toolSearchDisabled: switches['tool-search'].settingsPath
+            ? { settingsPath: switches['tool-search'].settingsPath }
+            : {}
+        }
       : {}),
     ...(projectInfo ? { project: projectInfo } : {}),
-    ...withHostInactive(project?.cwd),
+    ...withHostInactive(project?.cwd)
   };
 }

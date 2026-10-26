@@ -3,7 +3,7 @@ const ANSI_ESCAPE_AT_START_RE = /^\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~]|\][^\x07]
 const TUI_CURSOR_MARKER_RE = /\x1B_pi:c\x07/g;
 
 export function stripAnsi(text: string): string {
-  return text.replace(TUI_CURSOR_MARKER_RE, "").replace(ANSI_ESCAPE_RE, "");
+  return text.replace(TUI_CURSOR_MARKER_RE, '').replace(ANSI_ESCAPE_RE, '');
 }
 
 function visibleCharPositions(text: string): Array<{ start: number; end: number; char: string }> {
@@ -40,7 +40,7 @@ function firstVisibleChar(text: string): string | undefined {
 function lastNonSpaceVisibleCharIndex(text: string): number {
   const positions = visibleCharPositions(text);
   for (let i = positions.length - 1; i >= 0; i--) {
-    if (positions[i].char.trim() !== "") return i;
+    if (positions[i].char.trim() !== '') return i;
   }
   return -1;
 }
@@ -50,7 +50,7 @@ function trimEndVisibleSpaces(text: string): string {
   while (true) {
     const positions = visibleCharPositions(next);
     const last = positions[positions.length - 1];
-    if (!last || last.char.trim() !== "") return next;
+    if (!last || last.char.trim() !== '') return next;
     next = next.slice(0, last.start) + next.slice(last.end);
   }
 }
@@ -60,27 +60,29 @@ export function normalizeCustomPanelLines(lines: string[]): string[] {
   const normalized: string[] = [];
 
   for (const rawLine of lines) {
-    const lineWithoutCursor = rawLine.replace(TUI_CURSOR_MARKER_RE, "");
+    const lineWithoutCursor = rawLine.replace(TUI_CURSOR_MARKER_RE, '');
     const plain = stripAnsi(lineWithoutCursor).trimEnd();
     if (horizontalFrameLine.test(plain)) continue;
 
     let line = lineWithoutCursor;
     const first = firstVisibleChar(line);
-    if (first === "│" || first === "┃") {
+    if (first === '│' || first === '┃') {
       line = removeVisibleCharAt(line, 0);
-      if (firstVisibleChar(line) === " ") line = removeVisibleCharAt(line, 0);
+      if (firstVisibleChar(line) === ' ') line = removeVisibleCharAt(line, 0);
     }
 
     const rightBorderIndex = lastNonSpaceVisibleCharIndex(line);
-    const rightBorder = rightBorderIndex >= 0 ? visibleCharPositions(line)[rightBorderIndex]?.char : undefined;
-    if (rightBorder === "│" || rightBorder === "┃") {
+    const rightBorder =
+      rightBorderIndex >= 0 ? visibleCharPositions(line)[rightBorderIndex]?.char : undefined;
+    if (rightBorder === '│' || rightBorder === '┃') {
       line = removeVisibleCharAt(line, rightBorderIndex);
     }
 
     normalized.push(trimEndVisibleSpaces(line));
   }
 
-  while (normalized.length > 0 && stripAnsi(normalized[0]).trim() === "") normalized.shift();
-  while (normalized.length > 0 && stripAnsi(normalized[normalized.length - 1]).trim() === "") normalized.pop();
+  while (normalized.length > 0 && stripAnsi(normalized[0]).trim() === '') normalized.shift();
+  while (normalized.length > 0 && stripAnsi(normalized[normalized.length - 1]).trim() === '')
+    normalized.pop();
   return normalized.length ? normalized : lines;
 }

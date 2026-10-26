@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useLayoutEffect, useState } from "react";
-import type { StreamingState, StreamingStore } from "@/lib/streaming-message";
+import { useLayoutEffect, useState } from 'react';
+import type { StreamingState, StreamingStore } from '@/lib/streaming-message';
 
 /**
  * One value of the streaming store; the component re-renders only when that
@@ -11,7 +11,10 @@ import type { StreamingState, StreamingStore } from "@/lib/streaming-message";
  * chunk on its own, while state updates let React batch the chunks that land
  * before it renders, and each render parses the reply's last block again.
  */
-export function useStreamingSelector<T>(store: StreamingStore, select: (state: StreamingState) => T): T {
+export function useStreamingSelector<T>(
+  store: StreamingStore,
+  select: (state: StreamingState) => T
+): T {
   const [value, setValue] = useState(() => select(store.getState()));
   useLayoutEffect(() => {
     const update = () => setValue(select(store.getState()));
@@ -23,5 +26,6 @@ export function useStreamingSelector<T>(store: StreamingStore, select: (state: S
 }
 
 export const selectIsStreaming = (state: StreamingState) => state.isStreaming;
-export const selectHasStreamingContent = (state: StreamingState) => Boolean(state.streamingMessage?.content.length);
+export const selectHasStreamingContent = (state: StreamingState) =>
+  Boolean(state.streamingMessage?.content.length);
 export const selectStreamingMessage = (state: StreamingState) => state.streamingMessage;

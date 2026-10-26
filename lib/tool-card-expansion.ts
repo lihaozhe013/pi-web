@@ -3,18 +3,28 @@
  * Explicit choices continue to take precedence over these lifecycle defaults.
  */
 
-import { isWriteToolName, isEditToolName, isApplyPatchToolName, isShellToolName } from "./tool-names";
+import {
+  isWriteToolName,
+  isEditToolName,
+  isApplyPatchToolName,
+  isShellToolName
+} from './tool-names';
 
 /** How many trailing lines of a shell result stay visible while the rest waits. */
 export const SHELL_OUTPUT_TAIL_LINES = 16;
 
-
-export type ToolState = "pending" | "running" | "success" | "error";
+export type ToolState = 'pending' | 'running' | 'success' | 'error';
 
 /** Defaults are derived every render, never stored as a user's explicit choice. */
-export function isToolCardExpandedByDefault(toolName: string, state: ToolState = "pending"): boolean {
-  return isWriteToolName(toolName) || isEditToolName(toolName)
-    || (state === "running" && (isShellToolName(toolName) || isApplyPatchToolName(toolName)));
+export function isToolCardExpandedByDefault(
+  toolName: string,
+  state: ToolState = 'pending'
+): boolean {
+  return (
+    isWriteToolName(toolName) ||
+    isEditToolName(toolName) ||
+    (state === 'running' && (isShellToolName(toolName) || isApplyPatchToolName(toolName)))
+  );
 }
 
 /**
@@ -24,10 +34,11 @@ export function isToolCardExpandedByDefault(toolName: string, state: ToolState =
  */
 export function shellOutputTail(text: string): { tail: string; hiddenLines: number } | null {
   if (!text) return null;
-  const lines = text.split("\n");
+  const lines = text.split('\n');
   // A trailing newline ends the last line, it does not start another.
-  const lineCount = lines.length > 0 && lines[lines.length - 1] === "" ? lines.length - 1 : lines.length;
+  const lineCount =
+    lines.length > 0 && lines[lines.length - 1] === '' ? lines.length - 1 : lines.length;
   if (lineCount <= SHELL_OUTPUT_TAIL_LINES) return null;
   const hiddenLines = lineCount - SHELL_OUTPUT_TAIL_LINES;
-  return { tail: lines.slice(hiddenLines).join("\n"), hiddenLines };
+  return { tail: lines.slice(hiddenLines).join('\n'), hiddenLines };
 }

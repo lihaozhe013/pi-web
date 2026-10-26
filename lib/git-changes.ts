@@ -1,35 +1,31 @@
-import { execFile } from "child_process";
-import fs from "fs";
-import path from "path";
-import { promisify } from "util";
-import { TEXT_PREVIEW_MAX_BYTES } from "./file-types";
-import type {
-  GitFileDiffResponse,
-  GitFileStatus,
-  GitStatusResponse,
-} from "./git-types";
-import {
-  classifyGitStatus,
-  parseGitPorcelainV1,
-  type GitPorcelainEntry,
-} from "./git-status";
+import { execFile } from 'child_process';
+import fs from 'fs';
+import path from 'path';
+import { promisify } from 'util';
+import { TEXT_PREVIEW_MAX_BYTES } from './file-types';
+import type { GitFileDiffResponse, GitFileStatus, GitStatusResponse } from './git-types';
+import { classifyGitStatus, parseGitPorcelainV1, type GitPorcelainEntry } from './git-status';
 
 const execFileAsync = promisify(execFile);
 const GIT_TIMEOUT_MS = 10_000;
 const GIT_STATUS_MAX_BUFFER = 8 * 1024 * 1024;
 
-async function git(cwd: string, args: string[], maxBuffer = GIT_STATUS_MAX_BUFFER): Promise<string> {
-  const { stdout } = await execFileAsync("git", ["-C", cwd, ...args], {
+async function git(
+  cwd: string,
+  args: string[],
+  maxBuffer = GIT_STATUS_MAX_BUFFER
+): Promise<string> {
+  const { stdout } = await execFileAsync('git', ['-C', cwd, ...args], {
     timeout: GIT_TIMEOUT_MS,
     maxBuffer,
-    env: { ...process.env, LC_ALL: "C" },
+    env: { ...process.env, LC_ALL: 'C' }
   });
   return stdout;
 }
 
 async function findRepositoryRoot(cwd: string): Promise<string | null> {
   try {
-    return (await git(cwd, ["rev-parse", "--show-toplevel"])).trim() || null;
+    return (await git(cwd, ['rev-parse', '--show-toplevel'])).trim() || null;
   } catch {
     return null;
   }
@@ -37,48 +33,51 @@ async function findRepositoryRoot(cwd: string): Promise<string | null> {
 
 function isWithinPath(parent: string, target: string): boolean {
   const relative = path.relative(path.resolve(parent), path.resolve(target));
-  return relative === "" || (!relative.startsWith(`..${path.sep}`) && relative !== ".." && !path.isAbsolute(relative));
+  return (
+    relative === '' ||
+    (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative))
+  );
 }
 
 function toGitPath(filePath: string): string {
-  return filePath.split(path.sep).join("/");
+  return filePath.split(path.sep).join('/');
 }
 
 async function readStatusEntries(
   repositoryRoot: string,
-  gitConfig: readonly string[] = [],
+  gitConfig: readonly string[] = []
 ): Promise<GitPorcelainEntry[]> {
   const output = await git(repositoryRoot, [
     ...gitConfig,
-    "status",
-    "--porcelain=v1",
-    "-z",
-    "--untracked-files=all",
+    'status',
+    '--porcelain=v1',
+    '-z',
+    '--untracked-files=all'
   ]);
   return parseGitPorcelainV1(output);
 }
 
 async function readTrackedLineStats(
   repositoryRoot: string,
-  cwd: string,
+  cwd: string
 ): Promise<{ additions: number; deletions: number }> {
   const relativeCwd = toGitPath(path.relative(repositoryRoot, cwd));
-  const pathspec = relativeCwd || ".";
+  const pathspec = relativeCwd || '.';
   try {
     const output = await git(repositoryRoot, [
-      "diff",
-      "--no-color",
-      "--no-ext-diff",
-      "--numstat",
-      "HEAD",
-      "--",
-      pathspec,
+      'diff',
+      '--no-color',
+      '--no-ext-diff',
+      '--numstat',
+      'HEAD',
+      '--',
+      pathspec
     ]);
     let additions = 0;
     let deletions = 0;
     for (const line of output.split(/\r?\n/)) {
       if (!line) continue;
-      const [added, deleted] = line.split("\t", 2);
+      const [added, deleted] = line.split('\t', 2);
       const addedCount = Number(added);
       const deletedCount = Number(deleted);
       if (Number.isInteger(addedCount)) additions += addedCount;
@@ -96,8 +95,8 @@ function countUntrackedTextLines(filePath: string): number {
     if (!stat.isFile() || stat.size > TEXT_PREVIEW_MAX_BYTES) return 0;
     const content = fs.readFileSync(filePath);
     if (hasNullByte(content) || content.length === 0) return 0;
-    const text = content.toString("utf8");
-    return text.endsWith("\n") ? text.split("\n").length - 1 : text.split("\n").length;
+    const text = content.toString('utf8');
+    return text.endsWith('\n') ? text.split('\n').length - 1 : text.split('\n').length;
   } catch {
     return 0;
   }
@@ -111,28 +110,31 @@ export async function getGitStatus(cwd: string): Promise<GitStatusResponse> {
       repositoryRoot: null,
       files: [],
       additions: 0,
-      deletions: 0,
+      deletions: 0
     };
   }
 
   const [entries, trackedLineStats] = await Promise.all([
     readStatusEntries(repositoryRoot),
-    readTrackedLineStats(repositoryRoot, cwd),
+    readTrackedLineStats(repositoryRoot, cwd)
   ]);
   const files = entries.flatMap((entry): GitFileStatus[] => {
     const filePath = path.resolve(repositoryRoot, entry.path);
     if (!isWithinPath(cwd, filePath)) return [];
     const classified = classifyGitStatus(entry);
-    return [{
-      filePath,
-      ...classified,
-      indexStatus: entry.indexStatus,
-      worktreeStatus: entry.worktreeStatus,
-    }];
+    return [
+      {
+        filePath,
+        ...classified,
+        indexStatus: entry.indexStatus,
+        worktreeStatus: entry.worktreeStatus
+      }
+    ];
   });
   const untrackedAdditions = files.reduce(
-    (total, file) => total + (file.status === "untracked" ? countUntrackedTextLines(file.filePath) : 0),
-    0,
+    (total, file) =>
+      total + (file.status === 'untracked' ? countUntrackedTextLines(file.filePath) : 0),
+    0
   );
 
   return {
@@ -140,7 +142,7 @@ export async function getGitStatus(cwd: string): Promise<GitStatusResponse> {
     repositoryRoot,
     files,
     additions: trackedLineStats.additions + untrackedAdditions,
-    deletions: trackedLineStats.deletions,
+    deletions: trackedLineStats.deletions
   };
 }
 
@@ -149,43 +151,36 @@ function hasNullByte(content: Buffer): boolean {
 }
 
 function createAddedFilePatch(gitPath: string, content: string): string {
-  const hasTrailingNewline = content.endsWith("\n");
-  const lines = content.split("\n");
+  const hasTrailingNewline = content.endsWith('\n');
+  const lines = content.split('\n');
   if (hasTrailingNewline) lines.pop();
-  const body = lines.map((line) => `+${line}`).join("\n");
-  const noNewlineMarker = !hasTrailingNewline && lines.length > 0
-    ? "\n\\ No newline at end of file"
-    : "";
+  const body = lines.map((line) => `+${line}`).join('\n');
+  const noNewlineMarker =
+    !hasTrailingNewline && lines.length > 0 ? '\n\\ No newline at end of file' : '';
   return [
     `diff --git a/${gitPath} b/${gitPath}`,
-    "new file mode 100644",
-    "--- /dev/null",
+    'new file mode 100644',
+    '--- /dev/null',
     `+++ b/${gitPath}`,
     `@@ -0,0 +1,${lines.length} @@`,
-    `${body}${noNewlineMarker}`,
-  ].join("\n");
+    `${body}${noNewlineMarker}`
+  ].join('\n');
 }
 
 async function createTrackedFilePatch(
   repositoryRoot: string,
   relativePath: string,
   originalPath?: string,
-  gitConfig: readonly string[] = [],
+  gitConfig: readonly string[] = []
 ): Promise<string | null> {
-  const paths = originalPath && originalPath !== relativePath
-    ? [originalPath, relativePath]
-    : [relativePath];
+  const paths =
+    originalPath && originalPath !== relativePath ? [originalPath, relativePath] : [relativePath];
   try {
-    return await git(repositoryRoot, [
-      ...gitConfig,
-      "diff",
-      "--no-color",
-      "--no-ext-diff",
-      "--unified=3",
-      "HEAD",
-      "--",
-      ...paths,
-    ], TEXT_PREVIEW_MAX_BYTES * 4);
+    return await git(
+      repositoryRoot,
+      [...gitConfig, 'diff', '--no-color', '--no-ext-diff', '--unified=3', 'HEAD', '--', ...paths],
+      TEXT_PREVIEW_MAX_BYTES * 4
+    );
   } catch {
     return null;
   }
@@ -211,7 +206,7 @@ export async function getGitFileDiff(cwd: string, filePath: string): Promise<Git
   // file in another checkout (one nested in the cwd, say) must not run its hook,
   // as expanding that folder in the file tree does not (lib/file-tree-visibility.ts);
   // the cwd's own repository keeps its fsmonitor.
-  const gitConfig = isWithinPath(repositoryRoot, cwd) ? [] : ["-c", "core.fsmonitor=false"];
+  const gitConfig = isWithinPath(repositoryRoot, cwd) ? [] : ['-c', 'core.fsmonitor=false'];
 
   const resolvedFilePath = path.resolve(filePath);
   const relativePath = toGitPath(path.relative(repositoryRoot, resolvedFilePath));
@@ -220,9 +215,14 @@ export async function getGitFileDiff(cwd: string, filePath: string): Promise<Git
   if (!entry) return { supported: false };
 
   const { status } = classifyGitStatus(entry);
-  if (status === "deleted") {
-    const patch = await createTrackedFilePatch(repositoryRoot, relativePath, entry.originalPath, gitConfig);
-    if (!patch?.includes("\n@@ ")) return { supported: false };
+  if (status === 'deleted') {
+    const patch = await createTrackedFilePatch(
+      repositoryRoot,
+      relativePath,
+      entry.originalPath,
+      gitConfig
+    );
+    if (!patch?.includes('\n@@ ')) return { supported: false };
     return { supported: true, status, patch };
   }
 
@@ -236,21 +236,26 @@ export async function getGitFileDiff(cwd: string, filePath: string): Promise<Git
 
   const currentBuffer = fs.readFileSync(resolvedFilePath);
   if (hasNullByte(currentBuffer)) return { supported: false };
-  const newContent = currentBuffer.toString("utf8");
+  const newContent = currentBuffer.toString('utf8');
 
   let patch: string;
-  if (status === "untracked") {
+  if (status === 'untracked') {
     patch = createAddedFilePatch(relativePath, newContent);
   } else {
-    const trackedPatch = await createTrackedFilePatch(repositoryRoot, relativePath, entry.originalPath, gitConfig);
+    const trackedPatch = await createTrackedFilePatch(
+      repositoryRoot,
+      relativePath,
+      entry.originalPath,
+      gitConfig
+    );
     if (trackedPatch === null) {
-      if (status !== "added") return { supported: false };
+      if (status !== 'added') return { supported: false };
       patch = createAddedFilePatch(relativePath, newContent);
     } else {
       patch = trackedPatch;
     }
   }
 
-  if (!patch.includes("\n@@ ")) return { supported: false };
+  if (!patch.includes('\n@@ ')) return { supported: false };
   return { supported: true, status, patch };
 }

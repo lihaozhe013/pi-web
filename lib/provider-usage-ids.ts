@@ -1,14 +1,14 @@
 export const PROVIDER_USAGE_IDS = [
-  "openai-codex",
-  "deepseek",
-  "openrouter",
-  "moonshotai",
-  "moonshotai-cn",
-  "minimax",
-  "minimax-cn",
-  "vercel-ai-gateway",
-  "opencode-go",
-  "kimi-coding",
+  'openai-codex',
+  'deepseek',
+  'openrouter',
+  'moonshotai',
+  'moonshotai-cn',
+  'minimax',
+  'minimax-cn',
+  'vercel-ai-gateway',
+  'opencode-go',
+  'kimi-coding'
 ] as const;
 
 export type ProviderUsageId = (typeof PROVIDER_USAGE_IDS)[number];

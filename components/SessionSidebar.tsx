@@ -1,35 +1,113 @@
-"use client";
+'use client';
 
-import { useI18n } from "@/hooks/useI18n";
-import { useIsMobile } from "@/hooks/useIsMobile";
-import { useSessionUiState } from "@/hooks/useSessionUiState";
-import { archiveViewState, useSidebarMotion } from "@/hooks/useSidebarMotion";
-import { mergeProjectChoices, newSessionContextKey, newSessionTargetForProject, projectForCwd, withProjectAlias, type NewSessionContext, type NewSessionOptions, type NewSessionTarget } from "@/lib/new-session-context";
-import { getRecentProjects } from "@/lib/project-groups";
-import { listSessionFamilies, type SessionFamily } from "@/lib/session-family";
-import { splitBeforeForkSuffix } from "@/lib/session-fork-name";
-import { newSessionDeepLink, sessionDeepLink } from "@/lib/session-links";
-import { dispatchSessionRowContextMenu } from "@/lib/session-row-context-menu";
-import { adjacentProjectMove, archivedFamilyIds, buildArchiveRows, buildSessionTree, effectiveGroupExpansion, familiesToArchive, familiesToDelete, familyIds, forgetKeptOpenGroups, forgetShownMoreOfFolded, isFamilyArchived, isGroupExpanded, keepOutgoingGroupOpen, nextProjectKeysToRecord, PINNED_MORE_KEY, showLessFamilies, showMoreFamilies, type SidebarProject, type SidebarRow, } from "@/lib/session-tree";
-import { chunkForSessionUiRequests, MAX_PROJECT_ORDER_KEYS, MAX_SESSION_UI_IDS_PER_REQUEST, type ProjectMovePosition, type SessionUiStateRequest, } from "@/lib/session-ui-state-shared";
-import { deleteProjectSessions, forkFailureMessage, projectNameMenuEntries, projectRenameRequest, sessionMenuEntries, type SessionMenuActionId, } from "@/lib/sidebar-actions";
-import { forgetRetiredSidebarKeys, loadArchiveCollapsed, loadGroupExpansion, loadPinnedCollapsed, saveArchiveCollapsed, saveGroupExpansion, savePinnedCollapsed } from "@/lib/sidebar-prefs";
-import { focusIfLost, type FocusDocument } from "@/lib/stacked-dialog";
-import type { SessionInfo } from "@/lib/types";
-import { workspaceKeyOf } from "@/lib/workspace-memory";
-import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode, type UIEvent as ReactUIEvent, type Ref, type RefObject } from "react";
-import { DirectoryPicker } from "./DirectoryPicker";
-import { PiWebTitle } from "./PiWebTitle";
-import { SessionSearch } from "./SessionSearch";
-import { sessionRowTitle, SessionTree, type SessionTreeReveal } from "./SessionTree";
-import { ArchiveIcon, ChevronIcon, DotIcon, DotOutlineIcon, ForkIcon, MoreIcon, OpenInNewTabIcon, PencilIcon, PinIcon, PinOffIcon, PlusIcon, RestoreIcon, SearchIcon, TrashIcon } from "./SidebarIcons";
-import { SidebarMenu, type SidebarMenuAnchor, type SidebarMenuItem } from "./SidebarMenu";
-import { SidebarToast, type SidebarToastAction, type SidebarToastData } from "./SidebarToast";
+import { useI18n } from '@/hooks/useI18n';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { useSessionUiState } from '@/hooks/useSessionUiState';
+import { archiveViewState, useSidebarMotion } from '@/hooks/useSidebarMotion';
+import {
+  mergeProjectChoices,
+  newSessionContextKey,
+  newSessionTargetForProject,
+  projectForCwd,
+  withProjectAlias,
+  type NewSessionContext,
+  type NewSessionOptions,
+  type NewSessionTarget
+} from '@/lib/new-session-context';
+import { getRecentProjects } from '@/lib/project-groups';
+import { listSessionFamilies, type SessionFamily } from '@/lib/session-family';
+import { splitBeforeForkSuffix } from '@/lib/session-fork-name';
+import { newSessionDeepLink, sessionDeepLink } from '@/lib/session-links';
+import { dispatchSessionRowContextMenu } from '@/lib/session-row-context-menu';
+import {
+  adjacentProjectMove,
+  archivedFamilyIds,
+  buildArchiveRows,
+  buildSessionTree,
+  effectiveGroupExpansion,
+  familiesToArchive,
+  familiesToDelete,
+  familyIds,
+  forgetKeptOpenGroups,
+  forgetShownMoreOfFolded,
+  isFamilyArchived,
+  isGroupExpanded,
+  keepOutgoingGroupOpen,
+  nextProjectKeysToRecord,
+  PINNED_MORE_KEY,
+  showLessFamilies,
+  showMoreFamilies,
+  type SidebarProject,
+  type SidebarRow
+} from '@/lib/session-tree';
+import {
+  chunkForSessionUiRequests,
+  MAX_PROJECT_ORDER_KEYS,
+  MAX_SESSION_UI_IDS_PER_REQUEST,
+  type ProjectMovePosition,
+  type SessionUiStateRequest
+} from '@/lib/session-ui-state-shared';
+import {
+  deleteProjectSessions,
+  forkFailureMessage,
+  projectNameMenuEntries,
+  projectRenameRequest,
+  sessionMenuEntries,
+  type SessionMenuActionId
+} from '@/lib/sidebar-actions';
+import {
+  forgetRetiredSidebarKeys,
+  loadArchiveCollapsed,
+  loadGroupExpansion,
+  loadPinnedCollapsed,
+  saveArchiveCollapsed,
+  saveGroupExpansion,
+  savePinnedCollapsed
+} from '@/lib/sidebar-prefs';
+import { focusIfLost, type FocusDocument } from '@/lib/stacked-dialog';
+import type { SessionInfo } from '@/lib/types';
+import { workspaceKeyOf } from '@/lib/workspace-memory';
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+  type UIEvent as ReactUIEvent,
+  type Ref,
+  type RefObject
+} from 'react';
+import { DirectoryPicker } from './DirectoryPicker';
+import { PiWebTitle } from './PiWebTitle';
+import { SessionSearch } from './SessionSearch';
+import { sessionRowTitle, SessionTree, type SessionTreeReveal } from './SessionTree';
+import {
+  ArchiveIcon,
+  ChevronIcon,
+  DotIcon,
+  DotOutlineIcon,
+  ForkIcon,
+  MoreIcon,
+  OpenInNewTabIcon,
+  PencilIcon,
+  PinIcon,
+  PinOffIcon,
+  PlusIcon,
+  RestoreIcon,
+  SearchIcon,
+  TrashIcon
+} from './SidebarIcons';
+import { SidebarMenu, type SidebarMenuAnchor, type SidebarMenuItem } from './SidebarMenu';
+import { SidebarToast, type SidebarToastAction, type SidebarToastData } from './SidebarToast';
 
 function sessionListUrl(summary: boolean, force: boolean): string {
-  if (summary) return "/api/sessions?summary=1";
-  if (force) return "/api/sessions?force=1";
-  return "/api/sessions";
+  if (summary) return '/api/sessions?summary=1';
+  if (force) return '/api/sessions?force=1';
+  return '/api/sessions';
 }
 
 /** How a pick in the sidebar opens a session. */
@@ -40,9 +118,20 @@ export interface SelectSessionOptions {
 
 interface Props {
   selectedSessionId: string | null;
-  onSelectSession: (session: SessionInfo, isRestore?: boolean, entryId?: string, blockIndex?: number, options?: SelectSessionOptions) => void;
+  onSelectSession: (
+    session: SessionInfo,
+    isRestore?: boolean,
+    entryId?: string,
+    blockIndex?: number,
+    options?: SelectSessionOptions
+  ) => void;
   /** projectKey: the target's project identity when it is known (a group's "+", the composer's bar). */
-  onNewSession?: (sessionId: string, cwd: string, projectKey?: string | null, options?: NewSessionOptions) => void;
+  onNewSession?: (
+    sessionId: string,
+    cwd: string,
+    projectKey?: string | null,
+    options?: NewSessionOptions
+  ) => void;
   /** What the bar above a fresh composer moves through (`SessionSidebarControl`). */
   controlRef?: Ref<SessionSidebarControl>;
   /** The sidebar's cwd as the bar above a fresh composer shows it; reported when that changes. */
@@ -58,7 +147,7 @@ interface Props {
   onCwdChange?: (
     cwd: string | null,
     projectRoot?: string | null,
-    projectKey?: string | null,
+    projectKey?: string | null
   ) => void;
   /** Fired when a session that is not currently selected finishes running.
    *  Lets the app play a cross-workspace completion tone. */
@@ -80,7 +169,10 @@ export interface SessionSidebarControl {
    * decides whether to start there. Focus goes back to `returnFocusTo` when
    * the picker closes without moving the composer.
    */
-  openFolderForNewSession(onPicked: (target: NewSessionTarget) => void, returnFocusTo: HTMLElement | null): void;
+  openFolderForNewSession(
+    onPicked: (target: NewSessionTarget) => void,
+    returnFocusTo: HTMLElement | null
+  ): void;
   /** "Use default directory": today's ~/pi-cwd folder, validated as the folder picker's, goes to `onPicked`. */
   openDefaultDirectoryForNewSession(onPicked: (target: NewSessionTarget) => void): void;
 }
@@ -96,7 +188,7 @@ interface ValidatedProject {
   key: string;
 }
 
-type SessionRow = Extract<SidebarRow, { kind: "session" }>;
+type SessionRow = Extract<SidebarRow, { kind: 'session' }>;
 
 /**
  * The one popup menu of the sidebar; kept here, above the virtualized rows.
@@ -104,16 +196,34 @@ type SessionRow = Extract<SidebarRow, { kind: "session" }>;
  * sessions", an archive header's "Delete all", the archive bar's two).
  */
 type SidebarMenuState =
-  | { kind: "row"; row: SessionRow; anchor: SidebarMenuAnchor; opener: HTMLElement | null }
-  | { kind: "group"; project: SidebarProject; olderCount: number; anchor: SidebarMenuAnchor; opener: HTMLElement; askDelete?: boolean }
-  | { kind: "archive-group"; project: SidebarProject; anchor: SidebarMenuAnchor; opener: HTMLElement; askDelete?: boolean }
-  | { kind: "archive"; anchor: SidebarMenuAnchor; opener: HTMLElement; askDelete?: ArchiveDeleteScope };
+  | { kind: 'row'; row: SessionRow; anchor: SidebarMenuAnchor; opener: HTMLElement | null }
+  | {
+      kind: 'group';
+      project: SidebarProject;
+      olderCount: number;
+      anchor: SidebarMenuAnchor;
+      opener: HTMLElement;
+      askDelete?: boolean;
+    }
+  | {
+      kind: 'archive-group';
+      project: SidebarProject;
+      anchor: SidebarMenuAnchor;
+      opener: HTMLElement;
+      askDelete?: boolean;
+    }
+  | {
+      kind: 'archive';
+      anchor: SidebarMenuAnchor;
+      opener: HTMLElement;
+      askDelete?: ArchiveDeleteScope;
+    };
 
 /** The archive bar's deletes: every archived session, or those archived over 30 days ago. */
-type ArchiveDeleteScope = "all" | "old";
+type ArchiveDeleteScope = 'all' | 'old';
 
-const UNREAD_SESSIONS_STORAGE_KEY = "pi-web:unread-session-ids";
-const LAST_CUSTOM_CWD_STORAGE_KEY = "pi-web:last-custom-cwd";
+const UNREAD_SESSIONS_STORAGE_KEY = 'pi-web:unread-session-ids';
+const LAST_CUSTOM_CWD_STORAGE_KEY = 'pi-web:last-custom-cwd';
 const RUNNING_SESSIONS_POLL_MS = 2500;
 const SESSION_DETAILS_HYDRATION_DELAY_MS = 750;
 /** "Archive sessions older than 7 days" in a project's menu. */
@@ -123,44 +233,54 @@ const ARCHIVED_DELETE_AFTER_MS = 30 * 24 * 60 * 60 * 1000;
 const TOAST_TITLE_MAX = 28;
 
 const SESSION_ACTION_LABEL_KEYS: Record<SessionMenuActionId, string> = {
-  "open-new-tab": "sidebar.openInNewTab",
-  pin: "sidebar.pin",
-  unpin: "sidebar.unpin",
-  rename: "sidebar.rename",
-  fork: "sidebar.fork",
-  "mark-read": "sidebar.markRead",
-  "mark-unread": "sidebar.markUnread",
-  archive: "sidebar.archive",
-  unarchive: "sidebar.unarchive",
-  delete: "sidebar.delete",
+  'open-new-tab': 'sidebar.openInNewTab',
+  pin: 'sidebar.pin',
+  unpin: 'sidebar.unpin',
+  rename: 'sidebar.rename',
+  fork: 'sidebar.fork',
+  'mark-read': 'sidebar.markRead',
+  'mark-unread': 'sidebar.markUnread',
+  archive: 'sidebar.archive',
+  unarchive: 'sidebar.unarchive',
+  delete: 'sidebar.delete'
 };
 
 function sessionActionIcon(id: SessionMenuActionId): ReactNode {
   switch (id) {
-    case "open-new-tab": return <OpenInNewTabIcon />;
-    case "pin": return <PinIcon />;
-    case "unpin": return <PinOffIcon />;
-    case "rename": return <PencilIcon />;
-    case "fork": return <ForkIcon />;
-    case "mark-read": return <DotOutlineIcon />;
-    case "mark-unread": return <DotIcon />;
-    case "archive": return <ArchiveIcon />;
-    case "unarchive": return <RestoreIcon />;
-    case "delete": return <TrashIcon />;
+    case 'open-new-tab':
+      return <OpenInNewTabIcon />;
+    case 'pin':
+      return <PinIcon />;
+    case 'unpin':
+      return <PinOffIcon />;
+    case 'rename':
+      return <PencilIcon />;
+    case 'fork':
+      return <ForkIcon />;
+    case 'mark-read':
+      return <DotOutlineIcon />;
+    case 'mark-unread':
+      return <DotIcon />;
+    case 'archive':
+      return <ArchiveIcon />;
+    case 'unarchive':
+      return <RestoreIcon />;
+    case 'delete':
+      return <TrashIcon />;
   }
 }
 
 function loadLastCustomCwd(): string {
-  if (typeof window === "undefined") return "";
+  if (typeof window === 'undefined') return '';
   try {
-    return window.localStorage.getItem(LAST_CUSTOM_CWD_STORAGE_KEY) ?? "";
+    return window.localStorage.getItem(LAST_CUSTOM_CWD_STORAGE_KEY) ?? '';
   } catch {
-    return "";
+    return '';
   }
 }
 
 function saveLastCustomCwd(cwd: string): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem(LAST_CUSTOM_CWD_STORAGE_KEY, cwd);
   } catch {
@@ -172,7 +292,8 @@ function parseUnreadSessionIds(raw: string | null): Set<string> {
   if (!raw) return new Set();
   try {
     const parsed = JSON.parse(raw) as unknown;
-    if (Array.isArray(parsed)) return new Set(parsed.filter((id): id is string => typeof id === "string"));
+    if (Array.isArray(parsed))
+      return new Set(parsed.filter((id): id is string => typeof id === 'string'));
   } catch {
     // A malformed value (an interrupted write, another client) means no markers.
   }
@@ -180,7 +301,7 @@ function parseUnreadSessionIds(raw: string | null): Set<string> {
 }
 
 function loadUnreadSessionIds(): Set<string> {
-  if (typeof window === "undefined") return new Set();
+  if (typeof window === 'undefined') return new Set();
   try {
     return parseUnreadSessionIds(window.localStorage.getItem(UNREAD_SESSIONS_STORAGE_KEY));
   } catch {
@@ -189,7 +310,7 @@ function loadUnreadSessionIds(): Set<string> {
 }
 
 function saveUnreadSessionIds(ids: Set<string>): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === 'undefined') return;
   try {
     if (ids.size === 0) window.localStorage.removeItem(UNREAD_SESSIONS_STORAGE_KEY);
     else window.localStorage.setItem(UNREAD_SESSIONS_STORAGE_KEY, JSON.stringify([...ids]));
@@ -215,7 +336,7 @@ export function sameIdsOr(previous: Set<string>, ids: readonly string[]): Set<st
 /** Temporary id for a session that does not exist yet: pi is spawned lazily
  *  when the user sends the first message, so no backend call is needed. */
 function createTempSessionId(): string {
-  return typeof crypto.randomUUID === "function"
+  return typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()
     : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
 }
@@ -232,7 +353,12 @@ function shortTitle(title: string, max: number): string {
  */
 function focusIfHidden(target: HTMLElement | null): void {
   const active = document.activeElement;
-  if (target && active instanceof HTMLElement && active !== document.body && (active.getClientRects().length === 0 || active.closest("[inert]") !== null)) {
+  if (
+    target &&
+    active instanceof HTMLElement &&
+    active !== document.body &&
+    (active.getClientRects().length === 0 || active.closest('[inert]') !== null)
+  ) {
     target.focus({ preventScroll: true });
     return;
   }
@@ -241,9 +367,16 @@ function focusIfHidden(target: HTMLElement | null): void {
 
 /** The key nearest `key` in its group that is still enabled, the next one first. */
 export function nearestEnabledKey(key: Element): HTMLButtonElement | null {
-  const enabled = (element: Element | null): element is HTMLButtonElement => element?.tagName === "BUTTON" && !(element as HTMLButtonElement).disabled;
-  for (let next = key.nextElementSibling; next; next = next.nextElementSibling) if (enabled(next)) return next;
-  for (let previous = key.previousElementSibling; previous; previous = previous.previousElementSibling) if (enabled(previous)) return previous;
+  const enabled = (element: Element | null): element is HTMLButtonElement =>
+    element?.tagName === 'BUTTON' && !(element as HTMLButtonElement).disabled;
+  for (let next = key.nextElementSibling; next; next = next.nextElementSibling)
+    if (enabled(next)) return next;
+  for (
+    let previous = key.previousElementSibling;
+    previous;
+    previous = previous.previousElementSibling
+  )
+    if (enabled(previous)) return previous;
   return null;
 }
 
@@ -256,7 +389,11 @@ export function nearestEnabledKey(key: Element): HTMLButtonElement | null {
  * focusIfLost covers). Focus the user put elsewhere stays. Returns whether
  * it moved focus.
  */
-export function handOffDisabledKeyFocus(doc: FocusDocument, key: Element, fallback: HTMLElement | null): boolean {
+export function handOffDisabledKeyFocus(
+  doc: FocusDocument,
+  key: Element,
+  fallback: HTMLElement | null
+): boolean {
   const target = nearestEnabledKey(key) ?? fallback;
   if (!target || doc.activeElement !== key) return focusIfLost(doc, target);
   target.focus({ preventScroll: true });
@@ -276,7 +413,7 @@ function useHeaderFit(ref: RefObject<HTMLElement | null>, labels: string): () =>
   const fit = useCallback(() => {
     const header = ref.current;
     if (!header) return;
-    for (const level of ["0", "1", "2"]) {
+    for (const level of ['0', '1', '2']) {
       header.dataset.fit = level;
       if (header.scrollWidth <= header.clientWidth) return;
     }
@@ -293,12 +430,33 @@ function useHeaderFit(ref: RefObject<HTMLElement | null>, labels: string): () =>
 }
 
 /** A menu placed below (or above) a button, lined up with one of its edges. */
-function buttonAnchor(element: HTMLElement, align: "start" | "end"): SidebarMenuAnchor {
+function buttonAnchor(element: HTMLElement, align: 'start' | 'end'): SidebarMenuAnchor {
   const rect = element.getBoundingClientRect();
-  return { kind: "rect", rect: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom }, align };
+  return {
+    kind: 'rect',
+    rect: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom },
+    align
+  };
 }
 
-export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSession, controlRef, onNewSessionContextChange, initialSessionId, initialSessionLinked, skipInitialProjectSelection, onInitialRestoreDone, refreshKey, onSessionDeleted, selectedCwd: selectedCwdProp, onCwdChange, onBackgroundTaskDone, onRunningSessionIdsChange, onSessionsChange }: Props) {
+export function SessionSidebar({
+  selectedSessionId,
+  onSelectSession,
+  onNewSession,
+  controlRef,
+  onNewSessionContextChange,
+  initialSessionId,
+  initialSessionLinked,
+  skipInitialProjectSelection,
+  onInitialRestoreDone,
+  refreshKey,
+  onSessionDeleted,
+  selectedCwd: selectedCwdProp,
+  onCwdChange,
+  onBackgroundTaskDone,
+  onRunningSessionIdsChange,
+  onSessionsChange
+}: Props) {
   const { t } = useI18n();
   const isMobile = useIsMobile();
   const [allSessions, setAllSessions] = useState<SessionInfo[]>([]);
@@ -313,16 +471,20 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   const [error, setError] = useState<string | null>(null);
   const [selectedCwd, setSelectedCwd] = useState<string | null>(null);
   // Directory selection from the session list or a fresh composer.
-  const [customPathOpen, setCustomPathOpen] = useState<false | "project" | "new-session">(false);
+  const [customPathOpen, setCustomPathOpen] = useState<false | 'project' | 'new-session'>(false);
   const [customPathValue, setCustomPathValue] = useState(loadLastCustomCwd);
   const [customPathError, setCustomPathError] = useState<string | null>(null);
   const [customPathValidating, setCustomPathValidating] = useState(false);
   const [validatedProject, setValidatedProject] = useState<ValidatedProject | null>(null);
   const [sessionSearchOpen, setSessionSearchOpen] = useState(false);
-  const [sessionSearchQuery, setSessionSearchQuery] = useState("");
+  const [sessionSearchQuery, setSessionSearchQuery] = useState('');
   const [runningSessionIds, setRunningSessionIds] = useState<Set<string>>(() => new Set());
-  const [awaitingInputSessionIds, setAwaitingInputSessionIds] = useState<Set<string>>(() => new Set());
-  const [unreadSessionIds, setUnreadSessionIds] = useState<Set<string>>(() => loadUnreadSessionIds());
+  const [awaitingInputSessionIds, setAwaitingInputSessionIds] = useState<Set<string>>(
+    () => new Set()
+  );
+  const [unreadSessionIds, setUnreadSessionIds] = useState<Set<string>>(() =>
+    loadUnreadSessionIds()
+  );
   const previousRunningSessionIdsRef = useRef<Set<string>>(new Set());
   const currentSuppressedCompletionSessionIdsRef = useRef<Set<string>>(new Set());
   const previousSuppressedCompletionSessionIdsRef = useRef<Set<string>>(new Set());
@@ -347,13 +509,20 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   // when the user folds or goes in or out, never on a restore, a drag, keys,
   // a resize or a layout switch, and not at all under reduced motion. The
   // current values tell a change from a repeat, which starts nothing.
-  const { phase: archivePhase, start: startArchiveMotion, end: endArchiveMotion } = useSidebarMotion();
+  const {
+    phase: archivePhase,
+    start: startArchiveMotion,
+    end: endArchiveMotion
+  } = useSidebarMotion();
   const archiveViewRef = useRef(archiveView);
   archiveViewRef.current = archiveView;
-  const setArchiveView = useCallback((open: boolean) => {
-    if (open !== archiveViewRef.current) startArchiveMotion(open ? "in" : "out");
-    setArchiveViewState(open);
-  }, [startArchiveMotion]);
+  const setArchiveView = useCallback(
+    (open: boolean) => {
+      if (open !== archiveViewRef.current) startArchiveMotion(open ? 'in' : 'out');
+      setArchiveViewState(open);
+    },
+    [startArchiveMotion]
+  );
   const archiveMotion = archiveViewState(archiveView, archivePhase);
   // Row states that must survive virtualization live here, not in the rows.
   const [renamingRootId, setRenamingRootId] = useState<string | null>(null);
@@ -376,10 +545,13 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   selectedSessionIdRef.current = selectedSessionId;
   const [toast, setToast] = useState<SidebarToastData | null>(null);
   const toastIdRef = useRef(0);
-  const showToast = useCallback((message: string, actions: SidebarToastAction[] = [], tail?: string) => {
-    toastIdRef.current += 1;
-    setToast({ id: toastIdRef.current, message, ...(tail ? { tail } : {}), actions });
-  }, []);
+  const showToast = useCallback(
+    (message: string, actions: SidebarToastAction[] = [], tail?: string) => {
+      toastIdRef.current += 1;
+      setToast({ id: toastIdRef.current, message, ...(tail ? { tail } : {}), actions });
+    },
+    []
+  );
   const [uiWriteFailures, setUiWriteFailures] = useState(0);
   const shownUiWriteFailuresRef = useRef(0);
   const contextMenuFocusRef = useRef<HTMLElement | null>(null);
@@ -412,7 +584,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     error: uiStateError,
     apply: applyUiStateRequest,
     snapshot: snapshotUiState,
-    noteRevision: noteUiRevision,
+    noteRevision: noteUiRevision
   } = useSessionUiState();
 
   const headerRef = useRef<HTMLDivElement>(null);
@@ -440,10 +612,10 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     try {
       if (showLoading) setLoading(true);
       const res = await fetch(sessionListUrl(summary, force), {
-        cache: "no-store",
+        cache: 'no-store'
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json() as {
+      const data = (await res.json()) as {
         sessions: SessionInfo[];
         sessionListVersion: number;
         runningSessionIds?: string[];
@@ -458,17 +630,19 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
       // lightweight poll is live, a slow session-list fetch cannot overwrite it.
       if (!runningPollAuthoritativeRef.current) {
         currentSuppressedCompletionSessionIdsRef.current = new Set(
-          data.completionNotificationSuppressedSessionIds ?? [],
+          data.completionNotificationSuppressedSessionIds ?? []
         );
         setRunningSessionIds((previous) => sameIdsOr(previous, data.runningSessionIds ?? []));
-        setAwaitingInputSessionIds((previous) => sameIdsOr(previous, data.awaitingInputSessionIds ?? []));
+        setAwaitingInputSessionIds((previous) =>
+          sameIdsOr(previous, data.awaitingInputSessionIds ?? [])
+        );
       }
       // Drop markers for deleted sessions and for subagents, whose completion
       // is intentionally silent even if an older client marked them unread.
       const unreadEligibleIds = new Set(
         data.sessions
-          .filter((session) => session.relation?.kind !== "subagent")
-          .map((session) => session.id),
+          .filter((session) => session.relation?.kind !== 'subagent')
+          .map((session) => session.id)
       );
       setUnreadSessionIds((prev) => {
         if (prev.size === 0) return prev;
@@ -534,8 +708,8 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
       if (event.key !== null && event.key !== UNREAD_SESSIONS_STORAGE_KEY) return;
       setUnreadSessionIds((prev) => sameIdsOr(prev, [...parseUnreadSessionIds(event.newValue)]));
     };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
   }, []);
 
   useEffect(() => {
@@ -550,22 +724,22 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
 
     const schedule = () => {
       clearTimer();
-      if (stopped || document.visibilityState !== "visible") return;
+      if (stopped || document.visibilityState !== 'visible') return;
       timer = setTimeout(() => void poll(), RUNNING_SESSIONS_POLL_MS);
     };
 
     const poll = async () => {
-      if (stopped || document.visibilityState !== "visible") return;
+      if (stopped || document.visibilityState !== 'visible') return;
       const current = new AbortController();
       controller?.abort();
       controller = current;
       try {
-        const res = await fetch("/api/agent/running", {
-          cache: "no-store",
-          signal: current.signal,
+        const res = await fetch('/api/agent/running', {
+          cache: 'no-store',
+          signal: current.signal
         });
         if (!res.ok) return;
-        const data = await res.json() as {
+        const data = (await res.json()) as {
           sessionListVersion: number;
           runningSessionIds?: string[];
           awaitingInputSessionIds?: string[];
@@ -575,10 +749,12 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
         if (stopped || controller !== current) return;
         runningPollAuthoritativeRef.current = true;
         currentSuppressedCompletionSessionIdsRef.current = new Set(
-          data.completionNotificationSuppressedSessionIds ?? [],
+          data.completionNotificationSuppressedSessionIds ?? []
         );
         setRunningSessionIds((previous) => sameIdsOr(previous, data.runningSessionIds ?? []));
-        setAwaitingInputSessionIds((previous) => sameIdsOr(previous, data.awaitingInputSessionIds ?? []));
+        setAwaitingInputSessionIds((previous) =>
+          sameIdsOr(previous, data.awaitingInputSessionIds ?? [])
+        );
         // Pins and archive changed in another window: reload them.
         noteUiRevision(data.sessionUiStateRevision);
         if (data.sessionListVersion !== sessionListVersionRef.current) {
@@ -594,7 +770,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     };
 
     const onVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
+      if (document.visibilityState === 'visible') {
         void poll();
         return;
       }
@@ -604,12 +780,12 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     };
 
     void poll();
-    document.addEventListener("visibilitychange", onVisibilityChange);
+    document.addEventListener('visibilitychange', onVisibilityChange);
     return () => {
       stopped = true;
       clearTimer();
       controller?.abort();
-      document.removeEventListener("visibilitychange", onVisibilityChange);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, [loadSessions, noteUiRevision]);
 
@@ -623,14 +799,17 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
 
   useEffect(() => {
     const previous = previousRunningSessionIdsRef.current;
-    const completedInBackground = [...previous].filter((id) => !runningSessionIds.has(id) && id !== selectedSessionId);
+    const completedInBackground = [...previous].filter(
+      (id) => !runningSessionIds.has(id) && id !== selectedSessionId
+    );
     const knownSubagentIds = new Set(
       allSessions
-        .filter((session) => session.relation?.kind === "subagent")
-        .map((session) => session.id),
+        .filter((session) => session.relation?.kind === 'subagent')
+        .map((session) => session.id)
     );
     const completedWithNotifications = completedInBackground.filter(
-      (id) => !previousSuppressedCompletionSessionIdsRef.current.has(id) && !knownSubagentIds.has(id),
+      (id) =>
+        !previousSuppressedCompletionSessionIdsRef.current.has(id) && !knownSubagentIds.has(id)
     );
     const newlyRunning = [...runningSessionIds].filter((id) => !previous.has(id));
 
@@ -643,7 +822,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
       });
     }
     const hasUnlistedRunningSession = newlyRunning.some(
-      (id) => !allSessions.some((session) => session.id === id),
+      (id) => !allSessions.some((session) => session.id === id)
     );
     // Not forced: a run's agent_end has already invalidated the server's list,
     // and a forced rescan here, in every tab not showing that session, bumped
@@ -658,8 +837,8 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     previousRunningSessionIdsRef.current = runningSessionIds;
     previousSuppressedCompletionSessionIdsRef.current = new Set(
       [...runningSessionIds].filter(
-        (id) => currentSuppressedCompletionSessionIdsRef.current.has(id) || knownSubagentIds.has(id),
-      ),
+        (id) => currentSuppressedCompletionSessionIdsRef.current.has(id) || knownSubagentIds.has(id)
+      )
     );
   }, [runningSessionIds, selectedSessionId, allSessions, loadSessions, onBackgroundTaskDone]);
 
@@ -676,9 +855,13 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   const restoredRef = useRef(false);
 
   /** Resolve both display root and stable identity from server-provided data. */
-  const projectFor = useCallback((cwd: string | null): ProjectSelection | null => (
-    cwd ? projectForCwd(cwd, { validated: validatedProject, listing: null, sessions: allSessions }) : null
-  ), [validatedProject, allSessions]);
+  const projectFor = useCallback(
+    (cwd: string | null): ProjectSelection | null =>
+      cwd
+        ? projectForCwd(cwd, { validated: validatedProject, listing: null, sessions: allSessions })
+        : null,
+    [validatedProject, allSessions]
+  );
 
   // Resolve the selected directory into its stable session group.
   const selectedProject = useMemo(() => projectFor(selectedCwd), [projectFor, selectedCwd]);
@@ -692,11 +875,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     const previous = lastNotifiedProjectRef.current;
     if (previous?.cwd === selectedCwd && previous.key === (project?.key ?? null)) return;
     lastNotifiedProjectRef.current = { cwd: selectedCwd, key: project?.key ?? null };
-    onCwdChange?.(
-      selectedCwd,
-      project?.root ?? null,
-      project?.key ?? null,
-    );
+    onCwdChange?.(selectedCwd, project?.root ?? null, project?.key ?? null);
   }, [selectedCwd, onCwdChange, projectFor]);
 
   // Follow the directory of the selected conversation.
@@ -728,113 +907,147 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
         }
         // Session not found — notify parent so it can show the placeholder
         onInitialRestoreDone?.();
-        if (initialSessionLinked) showToast(t("sidebar.sessionNotFound"));
+        if (initialSessionLinked) showToast(t('sidebar.sessionNotFound'));
       }
       const projects = getRecentProjects(allSessions);
       if (projects.length > 0) setSelectedCwd(projects[0].root);
     }
-  }, [allSessions, selectedCwd, initialSessionId, initialSessionLinked, skipInitialProjectSelection, onSelectSession, onInitialRestoreDone, showToast, t]);
+  }, [
+    allSessions,
+    selectedCwd,
+    initialSessionId,
+    initialSessionLinked,
+    skipInitialProjectSelection,
+    onSelectSession,
+    onInitialRestoreDone,
+    showToast,
+    t
+  ]);
 
   // `purpose`: who asked, the folder picker's opener by default ("Use default directory" names its own).
-  const commitCustomPath = useCallback(async (candidate?: string, { remember = true, purpose = customPathOpen } = {}) => {
-    const path = (candidate ?? customPathValue).trim();
-    if (!path || customPathValidating) return;
+  const commitCustomPath = useCallback(
+    async (candidate?: string, { remember = true, purpose = customPathOpen } = {}) => {
+      const path = (candidate ?? customPathValue).trim();
+      if (!path || customPathValidating) return;
 
-    setCustomPathValidating(true);
-    setCustomPathError(null);
-    try {
-      const res = await fetch("/api/cwd/validate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cwd: path }),
-      });
-      const data = await res.json().catch(() => ({})) as {
-        cwd?: string;
-        projectRoot?: string;
-        projectKey?: string;
-        error?: string;
-      };
-      if (!res.ok || data.error || !data.cwd || !data.projectRoot || !data.projectKey) {
-        setCustomPathError(data.error ?? `HTTP ${res.status}`);
-        return;
+      setCustomPathValidating(true);
+      setCustomPathError(null);
+      try {
+        const res = await fetch('/api/cwd/validate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cwd: path })
+        });
+        const data = (await res.json().catch(() => ({}))) as {
+          cwd?: string;
+          projectRoot?: string;
+          projectKey?: string;
+          error?: string;
+        };
+        if (!res.ok || data.error || !data.cwd || !data.projectRoot || !data.projectKey) {
+          setCustomPathError(data.error ?? `HTTP ${res.status}`);
+          return;
+        }
+        if (remember) {
+          saveLastCustomCwd(data.cwd);
+          setCustomPathValue(data.cwd);
+        }
+        setCustomPathOpen(false);
+        if (purpose === 'new-session') {
+          // The composer's bar asked: the shell decides whether its fresh
+          // composer moves there, and the sidebar's cwd moves only with it.
+          const pick = folderPickRef.current;
+          const opener = folderReturnFocusRef.current;
+          folderPickRef.current = null;
+          folderReturnFocusRef.current = null;
+          pick?.({ cwd: data.cwd, projectKey: data.projectKey, projectRoot: data.projectRoot });
+          // Not moved (the folder in use): the bar's control takes focus back.
+          focusAfterCommit(() => (opener?.isConnected ? opener : null));
+          return;
+        }
+        setValidatedProject({
+          cwd: data.cwd,
+          root: data.projectRoot,
+          key: data.projectKey
+        });
+        setSelectedCwd(data.cwd);
+      } catch (e) {
+        setCustomPathError(e instanceof Error ? e.message : String(e));
+      } finally {
+        setCustomPathValidating(false);
       }
-      if (remember) {
-        saveLastCustomCwd(data.cwd);
-        setCustomPathValue(data.cwd);
+    },
+    [customPathOpen, customPathValue, customPathValidating, focusAfterCommit]
+  );
+  const handleDefaultCwd = useCallback(
+    async (purpose: 'project' | 'new-session' = 'project') => {
+      try {
+        const res = await fetch('/api/default-cwd', { method: 'POST' });
+        const data = (await res.json()) as { cwd?: string; error?: string };
+        // Select it like any other directory, so validation, project identity and
+        // the file allow-list all go through /api/cwd/validate. It is not a path
+        // the user typed, so the custom-path picker does not remember it.
+        if (data.cwd) await commitCustomPath(data.cwd, { remember: false, purpose });
+      } catch {
+        // ignore
       }
-      setCustomPathOpen(false);
-      if (purpose === "new-session") {
-        // The composer's bar asked: the shell decides whether its fresh
-        // composer moves there, and the sidebar's cwd moves only with it.
-        const pick = folderPickRef.current;
-        const opener = folderReturnFocusRef.current;
-        folderPickRef.current = null;
-        folderReturnFocusRef.current = null;
-        pick?.({ cwd: data.cwd, projectKey: data.projectKey, projectRoot: data.projectRoot });
-        // Not moved (the folder in use): the bar's control takes focus back.
-        focusAfterCommit(() => (opener?.isConnected ? opener : null));
-        return;
-      }
-      setValidatedProject({
-        cwd: data.cwd,
-        root: data.projectRoot,
-        key: data.projectKey,
-      });
-      setSelectedCwd(data.cwd);
-    } catch (e) {
-      setCustomPathError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setCustomPathValidating(false);
-    }
-  }, [customPathOpen, customPathValue, customPathValidating, focusAfterCommit]);
-  const handleDefaultCwd = useCallback(async (purpose: "project" | "new-session" = "project") => {
-    try {
-      const res = await fetch("/api/default-cwd", { method: "POST" });
-      const data = await res.json() as { cwd?: string; error?: string };
-      // Select it like any other directory, so validation, project identity and
-      // the file allow-list all go through /api/cwd/validate. It is not a path
-      // the user typed, so the custom-path picker does not remember it.
-      if (data.cwd) await commitCustomPath(data.cwd, { remember: false, purpose });
-    } catch {
-      // ignore
-    }
-  }, [commitCustomPath]);
+    },
+    [commitCustomPath]
+  );
   // The composer's bar asks through the handle, which is made once.
   const handleDefaultCwdRef = useRef(handleDefaultCwd);
   handleDefaultCwdRef.current = handleDefaultCwd;
 
   // Select the conversation and its directory together.
-  const handleSelectSessionFromList = useCallback((s: SessionInfo, entryId?: string, blockIndex?: number, options?: SelectSessionOptions) => {
-    setAllSessions((current) => current.some((session) => session.id === s.id) ? current : [s, ...current]);
-    if (s.cwd) setSelectedCwd(s.cwd);
-    onSelectSession(s, false, entryId, blockIndex, options);
-  }, [onSelectSession]);
+  const handleSelectSessionFromList = useCallback(
+    (s: SessionInfo, entryId?: string, blockIndex?: number, options?: SelectSessionOptions) => {
+      setAllSessions((current) =>
+        current.some((session) => session.id === s.id) ? current : [s, ...current]
+      );
+      if (s.cwd) setSelectedCwd(s.cwd);
+      onSelectSession(s, false, entryId, blockIndex, options);
+    },
+    [onSelectSession]
+  );
 
   // Adopt directory identity before notifying the shell.
-  const startNewSessionIn = useCallback(({ cwd, projectKey, projectRoot, carryComposer }: NewSessionTarget) => {
-    // A worktree without sessions has no other source of identity yet.
-    if (projectKey && projectRoot) setValidatedProject({ cwd, root: projectRoot, key: projectKey });
-    setSelectedCwd(cwd);
-    onNewSession?.(createTempSessionId(), cwd, projectKey, carryComposer ? { carryComposer: true } : undefined);
-  }, [onNewSession]);
+  const startNewSessionIn = useCallback(
+    ({ cwd, projectKey, projectRoot, carryComposer }: NewSessionTarget) => {
+      // A worktree without sessions has no other source of identity yet.
+      if (projectKey && projectRoot)
+        setValidatedProject({ cwd, root: projectRoot, key: projectKey });
+      setSelectedCwd(cwd);
+      onNewSession?.(
+        createTempSessionId(),
+        cwd,
+        projectKey,
+        carryComposer ? { carryComposer: true } : undefined
+      );
+    },
+    [onNewSession]
+  );
   // The handle below is made once: it calls the newest closure.
   const startNewSessionInRef = useRef(startNewSessionIn);
   startNewSessionInRef.current = startNewSessionIn;
 
-  useImperativeHandle(controlRef, () => ({
-    startNewSessionIn: (target) => startNewSessionInRef.current(target),
-    openFolderForNewSession: (onPicked, returnFocusTo) => {
-      folderPickRef.current = onPicked;
-      folderReturnFocusRef.current = returnFocusTo;
-      setCustomPathError(null);
-      setCustomPathOpen("new-session");
-    },
-    openDefaultDirectoryForNewSession: (onPicked) => {
-      folderPickRef.current = onPicked;
-      folderReturnFocusRef.current = null;
-      void handleDefaultCwdRef.current("new-session");
-    },
-  }), []);
+  useImperativeHandle(
+    controlRef,
+    () => ({
+      startNewSessionIn: (target) => startNewSessionInRef.current(target),
+      openFolderForNewSession: (onPicked, returnFocusTo) => {
+        folderPickRef.current = onPicked;
+        folderReturnFocusRef.current = returnFocusTo;
+        setCustomPathError(null);
+        setCustomPathOpen('new-session');
+      },
+      openDefaultDirectoryForNewSession: (onPicked) => {
+        folderPickRef.current = onPicked;
+        folderReturnFocusRef.current = null;
+        void handleDefaultCwdRef.current('new-session');
+      }
+    }),
+    []
+  );
 
   // Header "+": a new session in the sidebar's current cwd (worktree).
   const handleNewSession = useCallback(() => {
@@ -847,7 +1060,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   const sessionFamilies = useMemo(() => listSessionFamilies(allSessions), [allSessions]);
   const familyByRootId = useMemo(
     () => new Map(sessionFamilies.map((family) => [family.root.id, family])),
-    [sessionFamilies],
+    [sessionFamilies]
   );
 
   // Every session id of an archived family (search tags them), and how many
@@ -869,50 +1082,84 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   const currentProjectKey = selectedProject?.key ?? null;
   const currentProjectRoot = selectedProject?.root ?? null;
   const currentProject = useMemo(
-    () => (currentProjectKey && currentProjectRoot ? { key: currentProjectKey, root: currentProjectRoot } : null),
-    [currentProjectKey, currentProjectRoot],
+    () =>
+      currentProjectKey && currentProjectRoot
+        ? { key: currentProjectKey, root: currentProjectRoot }
+        : null,
+    [currentProjectKey, currentProjectRoot]
   );
   // What the tree shows and every toggle reads: the saved choices over the
   // groups kept open for the page. Writes go to the saved choices alone
   // (saveGroupChoices).
   const shownGroupExpansion = useMemo(
     () => effectiveGroupExpansion(groupExpansion, keptOpenGroups),
-    [groupExpansion, keptOpenGroups],
+    [groupExpansion, keptOpenGroups]
   );
-  const model = useMemo(() => buildSessionTree({
-    sessions: allSessions,
-    uiState,
-    runningIds: runningSessionIds,
-    awaitingIds: awaitingInputSessionIds,
-    unreadIds: unreadSessionIds,
-    selectedSessionId,
-    currentProject,
-    groupExpansion: shownGroupExpansion,
-    moreShown,
-    pinnedCollapsed,
-  }), [allSessions, uiState, runningSessionIds, awaitingInputSessionIds, unreadSessionIds, selectedSessionId, currentProject, shownGroupExpansion, moreShown, pinnedCollapsed]);
+  const model = useMemo(
+    () =>
+      buildSessionTree({
+        sessions: allSessions,
+        uiState,
+        runningIds: runningSessionIds,
+        awaitingIds: awaitingInputSessionIds,
+        unreadIds: unreadSessionIds,
+        selectedSessionId,
+        currentProject,
+        groupExpansion: shownGroupExpansion,
+        moreShown,
+        pinnedCollapsed
+      }),
+    [
+      allSessions,
+      uiState,
+      runningSessionIds,
+      awaitingInputSessionIds,
+      unreadSessionIds,
+      selectedSessionId,
+      currentProject,
+      shownGroupExpansion,
+      moreShown,
+      pinnedCollapsed
+    ]
+  );
   // Built while the archive view is rendered, its way out included: it
   // leaves as it was, not empty.
   const archiveMounted = archiveMotion.archiveMounted;
   const archiveCollapsedSet = useMemo(() => new Set(archiveCollapsed), [archiveCollapsed]);
-  const archiveRows = useMemo(() => (archiveMounted ? buildArchiveRows({
-    sessions: allSessions,
-    uiState,
-    runningIds: runningSessionIds,
-    awaitingIds: awaitingInputSessionIds,
-    unreadIds: unreadSessionIds,
-    selectedSessionId,
-    currentProject,
-    collapsed: archiveCollapsedSet,
-  }) : []), [archiveMounted, allSessions, uiState, runningSessionIds, awaitingInputSessionIds, unreadSessionIds, selectedSessionId, currentProject, archiveCollapsedSet]);
+  const archiveRows = useMemo(
+    () =>
+      archiveMounted
+        ? buildArchiveRows({
+            sessions: allSessions,
+            uiState,
+            runningIds: runningSessionIds,
+            awaitingIds: awaitingInputSessionIds,
+            unreadIds: unreadSessionIds,
+            selectedSessionId,
+            currentProject,
+            collapsed: archiveCollapsedSet
+          })
+        : [],
+    [
+      archiveMounted,
+      allSessions,
+      uiState,
+      runningSessionIds,
+      awaitingInputSessionIds,
+      unreadSessionIds,
+      selectedSessionId,
+      currentProject,
+      archiveCollapsedSet
+    ]
+  );
   // The archive's projects, top to bottom, folded or not.
   const archiveGroups = useMemo(
-    () => archiveRows.flatMap((row) => (row.kind === "archive-group" ? [row] : [])),
-    [archiveRows],
+    () => archiveRows.flatMap((row) => (row.kind === 'archive-group' ? [row] : [])),
+    [archiveRows]
   );
   const projectByKey = useMemo(
     () => new Map(model.projects.map((project) => [project.key, project])),
-    [model.projects],
+    [model.projects]
   );
 
   // The project order is saved as projects turn up: a project without a place
@@ -934,11 +1181,22 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     if (loading || !uiStateSynced || !sessionDetailsLoaded) return;
     if (storedOrderLength >= MAX_PROJECT_ORDER_KEYS) return;
     const recorded = recordedOrderKeysRef.current;
-    const keys = nextProjectKeysToRecord(projectKeysToRecord, recorded, MAX_SESSION_UI_IDS_PER_REQUEST);
+    const keys = nextProjectKeysToRecord(
+      projectKeysToRecord,
+      recorded,
+      MAX_SESSION_UI_IDS_PER_REQUEST
+    );
     if (keys.length === 0) return;
     for (const key of keys) recorded.add(key);
-    void applyUiStateRequest({ action: "add-projects", keys });
-  }, [applyUiStateRequest, loading, projectKeysToRecord, sessionDetailsLoaded, storedOrderLength, uiStateSynced]);
+    void applyUiStateRequest({ action: 'add-projects', keys });
+  }, [
+    applyUiStateRequest,
+    loading,
+    projectKeysToRecord,
+    sessionDetailsLoaded,
+    storedOrderLength,
+    uiStateSynced
+  ]);
 
   // Every project in the groups' order, then those with sessions but no
   // group (all of them archived, or pinned while the project is not): the
@@ -947,7 +1205,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   const projectNames = uiState.projectNames;
   const projectChoiceList = useMemo(
     () => mergeProjectChoices(model.projects, recentProjects, projectNames),
-    [model.projects, recentProjects, projectNames],
+    [model.projects, recentProjects, projectNames]
   );
 
   // Report directory choices to the fresh composer.
@@ -958,7 +1216,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
       project: withProjectAlias(selectedProject, projectNames),
       worktrees: null,
       currentWorktreePath: null,
-      projects: projectChoiceList,
+      projects: projectChoiceList
     };
   }, [selectedCwd, selectedProject, projectChoiceList, projectNames]);
   const newSessionContextRef = useRef(newSessionContext);
@@ -985,53 +1243,66 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   // it replaces what the page kept open for them.
   // A group it folds also drops its "show more" window: opened again, it
   // shows its first rows only.
-  const saveGroupChoices = useCallback((next: Readonly<Record<string, boolean>>, keys: readonly string[] | null) => {
-    setGroupExpansion(next);
-    saveGroupExpansion(next);
-    setKeptOpenGroups((kept) => forgetKeptOpenGroups(kept, keys));
-    setMoreShown((shown) => forgetShownMoreOfFolded(shown, next, keys));
-  }, []);
+  const saveGroupChoices = useCallback(
+    (next: Readonly<Record<string, boolean>>, keys: readonly string[] | null) => {
+      setGroupExpansion(next);
+      saveGroupExpansion(next);
+      setKeptOpenGroups((kept) => forgetKeptOpenGroups(kept, keys));
+      setMoreShown((shown) => forgetShownMoreOfFolded(shown, next, keys));
+    },
+    []
+  );
 
   /**
    * The selected tab: focus has somewhere to go when the control it was on is
    * gone. With the files below the sessions there are no tabs (their refs are
    * null): the toolbar row's search button, always there and enabled.
    */
-  const selectedTabButton = useCallback(
-    () => searchButtonRef.current,
-    [],
-  );
+  const selectedTabButton = useCallback(() => searchButtonRef.current, []);
 
   // A family's row where the tree shows it now (pinned, in its group, or in
   // the open archive view), else the selected tab.
-  const familyRowButton = useCallback((rootId: string): HTMLElement | null => {
-    const panel = sessionsPanelRef.current;
-    for (const context of ["pinned", "group", "archive"]) {
-      const key = CSS.escape(`session:${context}:${rootId}`);
-      const button = panel?.querySelector<HTMLElement>(`[data-row-key="${key}"] .session-tree-main`);
-      if (button && button.getClientRects().length > 0) return button;
-    }
-    return selectedTabButton();
-  }, [selectedTabButton]);
+  const familyRowButton = useCallback(
+    (rootId: string): HTMLElement | null => {
+      const panel = sessionsPanelRef.current;
+      for (const context of ['pinned', 'group', 'archive']) {
+        const key = CSS.escape(`session:${context}:${rootId}`);
+        const button = panel?.querySelector<HTMLElement>(
+          `[data-row-key="${key}"] .session-tree-main`
+        );
+        if (button && button.getClientRects().length > 0) return button;
+      }
+      return selectedTabButton();
+    },
+    [selectedTabButton]
+  );
 
   // A project's group header (its toggle), else the selected tab.
-  const groupHeaderButton = useCallback((projectKey: string): HTMLElement | null => {
-    const key = CSS.escape(`group:${projectKey}`);
-    const button = sessionsPanelRef.current?.querySelector<HTMLElement>(`[data-row-key="${key}"] .session-tree-group-toggle`);
-    return button && button.getClientRects().length > 0 ? button : selectedTabButton();
-  }, [selectedTabButton]);
+  const groupHeaderButton = useCallback(
+    (projectKey: string): HTMLElement | null => {
+      const key = CSS.escape(`group:${projectKey}`);
+      const button = sessionsPanelRef.current?.querySelector<HTMLElement>(
+        `[data-row-key="${key}"] .session-tree-group-toggle`
+      );
+      return button && button.getClientRects().length > 0 ? button : selectedTabButton();
+    },
+    [selectedTabButton]
+  );
 
   // Pin and archive changes apply at once and are saved in the background; a
   // refused save rolls back (useSessionUiState) and says why in a toast.
-  const applyUiState = useCallback(async (request: SessionUiStateRequest) => {
-    const ok = await applyUiStateRequest(request);
-    if (!ok) setUiWriteFailures((count) => count + 1);
-    return ok;
-  }, [applyUiStateRequest]);
+  const applyUiState = useCallback(
+    async (request: SessionUiStateRequest) => {
+      const ok = await applyUiStateRequest(request);
+      if (!ok) setUiWriteFailures((count) => count + 1);
+      return ok;
+    },
+    [applyUiStateRequest]
+  );
   useEffect(() => {
     if (uiWriteFailures === shownUiWriteFailuresRef.current) return;
     shownUiWriteFailuresRef.current = uiWriteFailures;
-    showToast(t("sidebar.uiStateFailed", { error: uiStateError ?? "" }));
+    showToast(t('sidebar.uiStateFailed', { error: uiStateError ?? '' }));
   }, [uiWriteFailures, uiStateError, showToast, t]);
 
   // A drop, or Move up/down: the project goes next to another of its band.
@@ -1041,22 +1312,30 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   // show. The moved group is then scrolled into view (a drop past a tall
   // group, a keyboard move); kept mounted until then, it is still there for
   // the menu to give focus back to.
-  const moveProject = useCallback((projectKey: string, anchorKey: string, position: ProjectMovePosition) => {
-    const project = projectByKey.get(projectKey);
-    const anchor = projectByKey.get(anchorKey);
-    // Pinned or unpinned in another window meanwhile: a move never crosses bands.
-    if (!project || !anchor || project === anchor || project.pinned !== anchor.pinned) return;
-    const add = model.unorderedKeysByBand[project.pinned ? "pinned" : "other"].slice(-MAX_SESSION_UI_IDS_PER_REQUEST);
-    void applyUiState({ action: "move-project", projectKey, anchorKey, position, add });
-    treeRevealIdRef.current += 1;
-    setTreeReveal({ id: treeRevealIdRef.current, at: Date.now(), rowKey: `group:${projectKey}` });
-  }, [applyUiState, model.unorderedKeysByBand, projectByKey]);
+  const moveProject = useCallback(
+    (projectKey: string, anchorKey: string, position: ProjectMovePosition) => {
+      const project = projectByKey.get(projectKey);
+      const anchor = projectByKey.get(anchorKey);
+      // Pinned or unpinned in another window meanwhile: a move never crosses bands.
+      if (!project || !anchor || project === anchor || project.pinned !== anchor.pinned) return;
+      const add = model.unorderedKeysByBand[project.pinned ? 'pinned' : 'other'].slice(
+        -MAX_SESSION_UI_IDS_PER_REQUEST
+      );
+      void applyUiState({ action: 'move-project', projectKey, anchorKey, position, add });
+      treeRevealIdRef.current += 1;
+      setTreeReveal({ id: treeRevealIdRef.current, at: Date.now(), rowKey: `group:${projectKey}` });
+    },
+    [applyUiState, model.unorderedKeysByBand, projectByKey]
+  );
 
   const rememberScroll = useCallback((event: ReactUIEvent<HTMLDivElement>) => {
-    if (event.target instanceof Element) panelScrollTopsRef.current.set(event.target, event.target.scrollTop);
+    if (event.target instanceof Element)
+      panelScrollTopsRef.current.set(event.target, event.target.scrollTop);
   }, []);
   useLayoutEffect(() => {
-    for (const element of sessionsPanelRef.current?.querySelectorAll<HTMLElement>(".session-tree-scroll") ?? []) {
+    for (const element of sessionsPanelRef.current?.querySelectorAll<HTMLElement>(
+      '.session-tree-scroll'
+    ) ?? []) {
       const saved = panelScrollTopsRef.current.get(element);
       if (saved !== undefined) element.scrollTop = saved;
     }
@@ -1065,20 +1344,28 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   // With `projectKey` (a group menu's "View archived") that project's header
   // goes to the top of the archive, unfolded if it was; the other projects
   // stay as they were.
-  const openArchiveView = useCallback((projectKey?: string) => {
-    setMenu(null);
-    setArchiveView(true);
-    // Search results would cover it.
-    setSessionSearchOpen(false);
-    if (projectKey === undefined) return;
-    if (archiveCollapsed.includes(projectKey)) {
-      const next = archiveCollapsed.filter((key) => key !== projectKey);
-      setArchiveCollapsed(next);
-      saveArchiveCollapsed(next);
-    }
-    treeRevealIdRef.current += 1;
-    setArchiveReveal({ id: treeRevealIdRef.current, at: Date.now(), rowKey: `archive:${projectKey}`, block: "start" });
-  }, [archiveCollapsed, setArchiveView]);
+  const openArchiveView = useCallback(
+    (projectKey?: string) => {
+      setMenu(null);
+      setArchiveView(true);
+      // Search results would cover it.
+      setSessionSearchOpen(false);
+      if (projectKey === undefined) return;
+      if (archiveCollapsed.includes(projectKey)) {
+        const next = archiveCollapsed.filter((key) => key !== projectKey);
+        setArchiveCollapsed(next);
+        saveArchiveCollapsed(next);
+      }
+      treeRevealIdRef.current += 1;
+      setArchiveReveal({
+        id: treeRevealIdRef.current,
+        at: Date.now(),
+        rowKey: `archive:${projectKey}`,
+        block: 'start'
+      });
+    },
+    [archiveCollapsed, setArchiveView]
+  );
 
   // Opening the archive hides the tree that held focus (the footer link, a
   // menu's opener, the toast's View) and Back removes the archive's own
@@ -1098,17 +1385,21 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
       focusIfHidden(archiveBackRef.current);
       return;
     }
-    const footer = sessionsPanelRef.current?.querySelector<HTMLElement>('[data-row-key="footer-archived"] button');
+    const footer = sessionsPanelRef.current?.querySelector<HTMLElement>(
+      '[data-row-key="footer-archived"] button'
+    );
     const target = footer && footer.getClientRects().length > 0 ? footer : selectedTabButton();
     focusIfHidden(target);
     if (target && document.activeElement === target) archiveCloseFocusRef.current = target;
   }, [archiveView, selectedTabButton]);
 
-
   // A session family's pin and archive flags live on its root session.
-  const setFamilyPinned = useCallback((family: SessionFamily, pinned: boolean) => {
-    void applyUiState({ action: "set", ids: [family.root.id], pinned });
-  }, [applyUiState]);
+  const setFamilyPinned = useCallback(
+    (family: SessionFamily, pinned: boolean) => {
+      void applyUiState({ action: 'set', ids: [family.root.id], pinned });
+    },
+    [applyUiState]
+  );
 
   const markFamilyRead = useCallback((family: SessionFamily, read: boolean) => {
     setUnreadSessionIds((prev) => {
@@ -1136,87 +1427,115 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     });
   }, []);
 
-  const archiveFamilies = useCallback((families: readonly SessionFamily[]) => {
-    const archivable = families.filter((family) => !family.root.transient);
-    if (archivable.length === 0) return;
-    const snapshot = snapshotUiState(archivable.map((family) => family.root.id));
-    // Archived means dealt with: its unread markers go, and Undo brings them back.
-    const memberIds = archivable.flatMap((family) => familyIds(family));
-    const unreadBefore = memberIds.filter((id) => unreadSessionIds.has(id));
-    // A request carries at most MAX_SESSION_UI_IDS_PER_REQUEST families, so a
-    // big "Archive sessions older than 7 days" goes in parts; the write queue
-    // of useSessionUiState keeps them, and an Undo after them, in order.
-    for (const part of chunkForSessionUiRequests(archivable)) {
-      const ids = part.map((family) => family.root.id);
-      void applyUiState({ action: "set", ids, archived: true }).then((ok) => {
-        // A refused part is back in the tree (rolled back): so are its markers.
-        if (ok || unreadBefore.length === 0) return;
-        const partIds = new Set(part.flatMap((family) => familyIds(family)));
-        restoreUnread(unreadBefore.filter((id) => partIds.has(id)));
-      });
-    }
-    if (unreadBefore.length > 0) {
-      setUnreadSessionIds((prev) => {
-        const next = new Set(prev);
-        for (const id of memberIds) next.delete(id);
-        return next;
-      });
-    }
-    const message = archivable.length === 1
-      ? t("sidebar.archivedToast", { title: shortTitle(sessionRowTitle(archivable[0].root), TOAST_TITLE_MAX) })
-      : t("sidebar.archivedManyToast", { count: archivable.length });
-    showToast(message, [
-      {
-        id: "undo",
-        label: t("sidebar.undo"),
-        onClick: () => {
-          for (const entries of chunkForSessionUiRequests(snapshot)) {
-            void applyUiState({ action: "restore", entries });
+  const archiveFamilies = useCallback(
+    (families: readonly SessionFamily[]) => {
+      const archivable = families.filter((family) => !family.root.transient);
+      if (archivable.length === 0) return;
+      const snapshot = snapshotUiState(archivable.map((family) => family.root.id));
+      // Archived means dealt with: its unread markers go, and Undo brings them back.
+      const memberIds = archivable.flatMap((family) => familyIds(family));
+      const unreadBefore = memberIds.filter((id) => unreadSessionIds.has(id));
+      // A request carries at most MAX_SESSION_UI_IDS_PER_REQUEST families, so a
+      // big "Archive sessions older than 7 days" goes in parts; the write queue
+      // of useSessionUiState keeps them, and an Undo after them, in order.
+      for (const part of chunkForSessionUiRequests(archivable)) {
+        const ids = part.map((family) => family.root.id);
+        void applyUiState({ action: 'set', ids, archived: true }).then((ok) => {
+          // A refused part is back in the tree (rolled back): so are its markers.
+          if (ok || unreadBefore.length === 0) return;
+          const partIds = new Set(part.flatMap((family) => familyIds(family)));
+          restoreUnread(unreadBefore.filter((id) => partIds.has(id)));
+        });
+      }
+      if (unreadBefore.length > 0) {
+        setUnreadSessionIds((prev) => {
+          const next = new Set(prev);
+          for (const id of memberIds) next.delete(id);
+          return next;
+        });
+      }
+      const message =
+        archivable.length === 1
+          ? t('sidebar.archivedToast', {
+              title: shortTitle(sessionRowTitle(archivable[0].root), TOAST_TITLE_MAX)
+            })
+          : t('sidebar.archivedManyToast', { count: archivable.length });
+      showToast(message, [
+        {
+          id: 'undo',
+          label: t('sidebar.undo'),
+          onClick: () => {
+            for (const entries of chunkForSessionUiRequests(snapshot)) {
+              void applyUiState({ action: 'restore', entries });
+            }
+            restoreUnread(unreadBefore);
+            // The toast held focus; the first family back in the tree takes it.
+            focusAfterCommit(() => familyRowButton(archivable[0].root.id));
           }
-          restoreUnread(unreadBefore);
-          // The toast held focus; the first family back in the tree takes it.
-          focusAfterCommit(() => familyRowButton(archivable[0].root.id));
         },
-      },
-      { id: "view", label: t("sidebar.viewArchive"), onClick: () => openArchiveView() },
-    ]);
-  }, [applyUiState, focusAfterCommit, familyRowButton, openArchiveView, restoreUnread, showToast, snapshotUiState, t, unreadSessionIds]);
+        { id: 'view', label: t('sidebar.viewArchive'), onClick: () => openArchiveView() }
+      ]);
+    },
+    [
+      applyUiState,
+      focusAfterCommit,
+      familyRowButton,
+      openArchiveView,
+      restoreUnread,
+      showToast,
+      snapshotUiState,
+      t,
+      unreadSessionIds
+    ]
+  );
 
   // The row's archive button. A running family would come straight back, so
   // it is not archived (the row offers no button for it either).
-  const archiveFamily = useCallback((family: SessionFamily) => {
-    if (familyIds(family).some((id) => runningSessionIds.has(id))) return;
-    archiveFamilies([family]);
-  }, [archiveFamilies, runningSessionIds]);
+  const archiveFamily = useCallback(
+    (family: SessionFamily) => {
+      if (familyIds(family).some((id) => runningSessionIds.has(id))) return;
+      archiveFamilies([family]);
+    },
+    [archiveFamilies, runningSessionIds]
+  );
 
   // Out of the archive: one row's Restore, or an archive menu's Restore all
   // (in parts, as a bulk archive goes; Undo after them, in order).
-  const restoreFamilies = useCallback((families: readonly SessionFamily[]) => {
-    if (families.length === 0) return;
-    const ids = families.map((family) => family.root.id);
-    const snapshot = snapshotUiState(ids);
-    for (const part of chunkForSessionUiRequests(ids)) {
-      void applyUiState({ action: "set", ids: part, archived: false });
-    }
-    const message = families.length === 1
-      ? t("sidebar.restoredToast", { title: shortTitle(sessionRowTitle(families[0].root), TOAST_TITLE_MAX) })
-      : t("sidebar.restoredManyToast", { count: families.length });
-    showToast(message, [
-      {
-        id: "undo",
-        label: t("sidebar.undo"),
-        onClick: () => {
-          for (const entries of chunkForSessionUiRequests(snapshot)) {
-            void applyUiState({ action: "restore", entries });
+  const restoreFamilies = useCallback(
+    (families: readonly SessionFamily[]) => {
+      if (families.length === 0) return;
+      const ids = families.map((family) => family.root.id);
+      const snapshot = snapshotUiState(ids);
+      for (const part of chunkForSessionUiRequests(ids)) {
+        void applyUiState({ action: 'set', ids: part, archived: false });
+      }
+      const message =
+        families.length === 1
+          ? t('sidebar.restoredToast', {
+              title: shortTitle(sessionRowTitle(families[0].root), TOAST_TITLE_MAX)
+            })
+          : t('sidebar.restoredManyToast', { count: families.length });
+      showToast(message, [
+        {
+          id: 'undo',
+          label: t('sidebar.undo'),
+          onClick: () => {
+            for (const entries of chunkForSessionUiRequests(snapshot)) {
+              void applyUiState({ action: 'restore', entries });
+            }
+            // Back in the archive view if it is open; else the tab takes focus.
+            focusAfterCommit(() => familyRowButton(families[0].root.id));
           }
-          // Back in the archive view if it is open; else the tab takes focus.
-          focusAfterCommit(() => familyRowButton(families[0].root.id));
-        },
-      },
-    ]);
-  }, [applyUiState, familyRowButton, focusAfterCommit, showToast, snapshotUiState, t]);
+        }
+      ]);
+    },
+    [applyUiState, familyRowButton, focusAfterCommit, showToast, snapshotUiState, t]
+  );
 
-  const restoreFamily = useCallback((family: SessionFamily) => restoreFamilies([family]), [restoreFamilies]);
+  const restoreFamily = useCallback(
+    (family: SessionFamily) => restoreFamilies([family]),
+    [restoreFamilies]
+  );
 
   const startRename = useCallback((family: SessionFamily) => {
     if (family.root.transient) return;
@@ -1224,27 +1543,30 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     setRenamingRootId(family.root.id);
   }, []);
 
-  const commitRename = useCallback(async (family: SessionFamily, renameValue: string) => {
-    const session = family.root;
-    const title = sessionRowTitle(session);
-    const name = renameValue.trim();
-    setRenamingRootId((current) => (current === session.id ? null : current));
-    // No-op when unchanged: the fallback title (first message / id) isn't a
-    // real stored name, so don't persist it as one. (The rename input seeds
-    // from the same collapsed first message, so an untouched rename of a
-    // skill-invoked session stays a no-op instead of persisting raw XML.)
-    if (renameValue === title || name === (session.name ?? "")) return;
-    try {
-      await fetch(`/api/sessions/${encodeURIComponent(session.id)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
-      });
-      void loadSessions();
-    } catch {
-      // ignore
-    }
-  }, [loadSessions]);
+  const commitRename = useCallback(
+    async (family: SessionFamily, renameValue: string) => {
+      const session = family.root;
+      const title = sessionRowTitle(session);
+      const name = renameValue.trim();
+      setRenamingRootId((current) => (current === session.id ? null : current));
+      // No-op when unchanged: the fallback title (first message / id) isn't a
+      // real stored name, so don't persist it as one. (The rename input seeds
+      // from the same collapsed first message, so an untouched rename of a
+      // skill-invoked session stays a no-op instead of persisting raw XML.)
+      if (renameValue === title || name === (session.name ?? '')) return;
+      try {
+        await fetch(`/api/sessions/${encodeURIComponent(session.id)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name })
+        });
+        void loadSessions();
+      } catch {
+        // ignore
+      }
+    },
+    [loadSessions]
+  );
 
   // A project's display name is pi-web's own (the UI state file): renaming
   // it never selects the project, nor moves, pins or folds its group. The
@@ -1253,40 +1575,52 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     setRenamingProjectKey(project.key);
   }, []);
 
-  const endProjectRename = useCallback((projectKey: string) => {
-    setRenamingProjectKey((current) => (current === projectKey ? null : current));
-    focusAfterCommit(() => groupHeaderButton(projectKey));
-  }, [focusAfterCommit, groupHeaderButton]);
+  const endProjectRename = useCallback(
+    (projectKey: string) => {
+      setRenamingProjectKey((current) => (current === projectKey ? null : current));
+      focusAfterCommit(() => groupHeaderButton(projectKey));
+    },
+    [focusAfterCommit, groupHeaderButton]
+  );
 
-  const commitProjectRename = useCallback((project: SidebarProject, value: string) => {
-    endProjectRename(project.key);
-    const request = projectRenameRequest(project, value);
-    if (request) void applyUiState(request);
-  }, [applyUiState, endProjectRename]);
+  const commitProjectRename = useCallback(
+    (project: SidebarProject, value: string) => {
+      endProjectRename(project.key);
+      const request = projectRenameRequest(project, value);
+      if (request) void applyUiState(request);
+    },
+    [applyUiState, endProjectRename]
+  );
 
-  const performDelete = useCallback(async (family: SessionFamily) => {
-    const session = family.root;
-    if (session.transient) return;
-    setConfirmDeleteRootId((current) => (current === session.id ? null : current));
-    try {
-      // The server deletes the family's subagent sessions with it.
-      await fetch(`/api/sessions/${encodeURIComponent(session.id)}`, { method: "DELETE" });
-      onSessionDeleted?.(session.id);
-      void loadSessions();
-    } catch {
-      // The row stays; the next refresh shows what happened.
-    }
-  }, [loadSessions, onSessionDeleted]);
+  const performDelete = useCallback(
+    async (family: SessionFamily) => {
+      const session = family.root;
+      if (session.transient) return;
+      setConfirmDeleteRootId((current) => (current === session.id ? null : current));
+      try {
+        // The server deletes the family's subagent sessions with it.
+        await fetch(`/api/sessions/${encodeURIComponent(session.id)}`, { method: 'DELETE' });
+        onSessionDeleted?.(session.id);
+        void loadSessions();
+      } catch {
+        // The row stays; the next refresh shows what happened.
+      }
+    },
+    [loadSessions, onSessionDeleted]
+  );
 
   // Only Shift skips the confirmation (Shift+click, Shift+Enter or Shift+D in the menu).
-  const requestDelete = useCallback((family: SessionFamily, shiftKey: boolean) => {
-    if (shiftKey) {
-      void performDelete(family);
-    } else {
-      setRenamingRootId(null);
-      setConfirmDeleteRootId(family.root.id);
-    }
-  }, [performDelete]);
+  const requestDelete = useCallback(
+    (family: SessionFamily, shiftKey: boolean) => {
+      if (shiftKey) {
+        void performDelete(family);
+      } else {
+        setRenamingRootId(null);
+        setConfirmDeleteRootId(family.root.id);
+      }
+    },
+    [performDelete]
+  );
 
   // Fork (the row menu's F): the server copies the family's current branch
   // into a new session beside it (POST /api/sessions/[id]/fork) and leaves
@@ -1304,7 +1638,9 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     archiveCloseFocusRef.current = null;
     if (archiveView) {
       // The main tree's saved position would be put back over the reveal.
-      const main = sessionsPanelRef.current?.querySelector(".sidebar-sessions-view .session-tree-scroll");
+      const main = sessionsPanelRef.current?.querySelector(
+        '.sidebar-sessions-view .session-tree-scroll'
+      );
       if (main) panelScrollTopsRef.current.delete(main);
       setArchiveView(false);
     }
@@ -1316,7 +1652,9 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
       next[groupKey] = true;
       saveGroupChoices(next, [groupKey]);
     }
-    handleSelectSessionFromList(forked, undefined, undefined, { keepSidebarOpen: fromRowKey !== null });
+    handleSelectSessionFromList(forked, undefined, undefined, {
+      keepSidebarOpen: fromRowKey !== null
+    });
     // The route invalidated the list: the next load has the copy.
     void loadSessions();
     const fromRow = fromRowKey ? `[data-row-key="${CSS.escape(fromRowKey)}"]` : null;
@@ -1325,7 +1663,9 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
       id: treeRevealIdRef.current,
       at: Date.now(),
       rowKey: `session:group:${forked.id}`,
-      takeFocusFrom: (active) => (fromRow !== null && active.closest(fromRow) !== null) || active === archiveCloseFocusRef.current,
+      takeFocusFrom: (active) =>
+        (fromRow !== null && active.closest(fromRow) !== null) ||
+        active === archiveCloseFocusRef.current
     });
   };
   const openForkedRef = useRef(openForked);
@@ -1334,50 +1674,76 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   // One fork per session at a time: F again on a session whose fork is under
   // way does nothing; another session's Fork goes ahead.
   const forkingIdsRef = useRef(new Set<string>());
-  const forkFamily = useCallback(async (row: SessionRow) => {
-    const source = row.family.root;
-    if (source.transient || forkingIdsRef.current.has(source.id)) return;
-    forkingIdsRef.current.add(source.id);
-    const selectedAtClick = selectedSessionIdRef.current;
-    try {
-      const res = await fetch(`/api/sessions/${encodeURIComponent(source.id)}/fork`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: "{}",
-      });
-      const data = await res.json().catch(() => ({})) as { session?: SessionInfo; code?: string; error?: string };
-      if (!res.ok || !data.session) {
-        const { key, params } = forkFailureMessage(data.code, data.error ?? `HTTP ${res.status}`);
-        showToast(t(key, params));
-        // Deleted elsewhere (the pi CLI, another window): its row goes.
-        if (data.code === "not_found") void loadSessions();
-        return;
+  const forkFamily = useCallback(
+    async (row: SessionRow) => {
+      const source = row.family.root;
+      if (source.transient || forkingIdsRef.current.has(source.id)) return;
+      forkingIdsRef.current.add(source.id);
+      const selectedAtClick = selectedSessionIdRef.current;
+      try {
+        const res = await fetch(`/api/sessions/${encodeURIComponent(source.id)}/fork`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{}'
+        });
+        const data = (await res.json().catch(() => ({}))) as {
+          session?: SessionInfo;
+          code?: string;
+          error?: string;
+        };
+        if (!res.ok || !data.session) {
+          const { key, params } = forkFailureMessage(data.code, data.error ?? `HTTP ${res.status}`);
+          showToast(t(key, params));
+          // Deleted elsewhere (the pi CLI, another window): its row goes.
+          if (data.code === 'not_found') void loadSessions();
+          return;
+        }
+        const forked = data.session;
+        // The copy's name ends in the suffix that tells it from its source: the
+        // toast's ellipsis cuts the name before it, never the suffix. A copy
+        // left unnamed (its source had no title) is cut as other toasts are.
+        const title = sessionRowTitle(forked);
+        const { head: message, tail } = splitBeforeForkSuffix(
+          t('sidebar.forkedToast', { title }),
+          title
+        ) ?? {
+          head: t('sidebar.forkedToast', { title: shortTitle(title, TOAST_TITLE_MAX) }),
+          tail: undefined
+        };
+        if (selectedSessionIdRef.current !== selectedAtClick) {
+          // Another session was opened meanwhile: the user stays there. The
+          // copy waits in its group, unread (so it shows beyond the group's
+          // limit), and the toast offers to open it.
+          setAllSessions((current) =>
+            current.some((session) => session.id === forked.id) ? current : [forked, ...current]
+          );
+          setUnreadSessionIds((prev) => new Set(prev).add(forked.id));
+          void loadSessions();
+          showToast(
+            message,
+            [
+              {
+                id: 'open',
+                label: t('sidebar.open'),
+                onClick: () => openForkedRef.current(forked, null)
+              }
+            ],
+            tail
+          );
+          return;
+        }
+        openForkedRef.current(forked, row.key);
+        showToast(message, [], tail);
+      } catch (error) {
+        showToast(
+          t('sidebar.forkFailed', { error: error instanceof Error ? error.message : String(error) })
+        );
+      } finally {
+        forkingIdsRef.current.delete(source.id);
       }
-      const forked = data.session;
-      // The copy's name ends in the suffix that tells it from its source: the
-      // toast's ellipsis cuts the name before it, never the suffix. A copy
-      // left unnamed (its source had no title) is cut as other toasts are.
-      const title = sessionRowTitle(forked);
-      const { head: message, tail } = splitBeforeForkSuffix(t("sidebar.forkedToast", { title }), title)
-        ?? { head: t("sidebar.forkedToast", { title: shortTitle(title, TOAST_TITLE_MAX) }), tail: undefined };
-      if (selectedSessionIdRef.current !== selectedAtClick) {
-        // Another session was opened meanwhile: the user stays there. The
-        // copy waits in its group, unread (so it shows beyond the group's
-        // limit), and the toast offers to open it.
-        setAllSessions((current) => (current.some((session) => session.id === forked.id) ? current : [forked, ...current]));
-        setUnreadSessionIds((prev) => new Set(prev).add(forked.id));
-        void loadSessions();
-        showToast(message, [{ id: "open", label: t("sidebar.open"), onClick: () => openForkedRef.current(forked, null) }], tail);
-        return;
-      }
-      openForkedRef.current(forked, row.key);
-      showToast(message, [], tail);
-    } catch (error) {
-      showToast(t("sidebar.forkFailed", { error: error instanceof Error ? error.message : String(error) }));
-    } finally {
-      forkingIdsRef.current.delete(source.id);
-    }
-  }, [loadSessions, showToast, t]);
+    },
+    [loadSessions, showToast, t]
+  );
 
   // Open in new tab (the row menu's T): the row's session in a browser tab of
   // its own, by the same link its title carries. This tab's selection, cwd and
@@ -1388,87 +1754,148 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   // browser returns null whether the tab opened or not.
   const openFamilyInNewTab = useCallback((family: SessionFamily) => {
     if (family.root.transient) return;
-    window.open(sessionDeepLink(family.root.id), "_blank", "noopener,noreferrer");
+    window.open(sessionDeepLink(family.root.id), '_blank', 'noopener,noreferrer');
   }, []);
 
   const runSessionAction = (id: SessionMenuActionId, row: SessionRow, shiftKey: boolean) => {
     const { family } = row;
     switch (id) {
-      case "open-new-tab": openFamilyInNewTab(family); break;
-      case "pin": setFamilyPinned(family, true); break;
-      case "unpin": setFamilyPinned(family, false); break;
-      case "rename": startRename(family); break;
-      case "fork": void forkFamily(row); break;
-      case "mark-read": markFamilyRead(family, true); break;
-      case "mark-unread": markFamilyRead(family, false); break;
-      case "archive": archiveFamily(family); break;
-      case "unarchive": restoreFamily(family); break;
-      case "delete": requestDelete(family, shiftKey); break;
+      case 'open-new-tab':
+        openFamilyInNewTab(family);
+        break;
+      case 'pin':
+        setFamilyPinned(family, true);
+        break;
+      case 'unpin':
+        setFamilyPinned(family, false);
+        break;
+      case 'rename':
+        startRename(family);
+        break;
+      case 'fork':
+        void forkFamily(row);
+        break;
+      case 'mark-read':
+        markFamilyRead(family, true);
+        break;
+      case 'mark-unread':
+        markFamilyRead(family, false);
+        break;
+      case 'archive':
+        archiveFamily(family);
+        break;
+      case 'unarchive':
+        restoreFamily(family);
+        break;
+      case 'delete':
+        requestDelete(family, shiftKey);
+        break;
     }
   };
 
-  const openRowMenu = useCallback((row: SessionRow, anchor: SidebarMenuAnchor, opener: HTMLElement | null) => {
-    if (row.status.transient) return;
-    setMenu({ kind: "row", row, anchor, opener });
-  }, []);
+  const openRowMenu = useCallback(
+    (row: SessionRow, anchor: SidebarMenuAnchor, opener: HTMLElement | null) => {
+      if (row.status.transient) return;
+      setMenu({ kind: 'row', row, anchor, opener });
+    },
+    []
+  );
 
   // Right-click: an extension listening for the downstream event (a pi-web
   // integration) claims the row first; only an unclaimed event opens the
   // built-in menu. A transient row has nothing to offer, so the browser's own
   // menu stays.
-  const handleContextMenu = useCallback((row: SessionRow, event: ReactMouseEvent) => {
-    const session = row.family.root;
-    if (session.id === renamingRootId || session.id === confirmDeleteRootId) return;
-    if (dispatchSessionRowContextMenu({
-      id: session.id,
-      path: session.path,
-      cwd: session.cwd,
-      name: session.name,
-      clientX: event.clientX,
-      clientY: event.clientY,
-      refresh: () => { void loadSessions(); },
-    })) {
+  const handleContextMenu = useCallback(
+    (row: SessionRow, event: ReactMouseEvent) => {
+      const session = row.family.root;
+      if (session.id === renamingRootId || session.id === confirmDeleteRootId) return;
+      if (
+        dispatchSessionRowContextMenu({
+          id: session.id,
+          path: session.path,
+          cwd: session.cwd,
+          name: session.name,
+          clientX: event.clientX,
+          clientY: event.clientY,
+          refresh: () => {
+            void loadSessions();
+          }
+        })
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      if (session.transient) return;
       event.preventDefault();
-      event.stopPropagation();
-      return;
-    }
-    if (session.transient) return;
-    event.preventDefault();
-    const rowElement = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
-    // The keyboard's context-menu key reports no pointer position.
-    const anchor: SidebarMenuAnchor = event.clientX === 0 && event.clientY === 0 && rowElement
-      ? buttonAnchor(rowElement, "start")
-      : { kind: "point", x: event.clientX, y: event.clientY };
-    // Focus goes back into the row it came from (the keyboard case). An
-    // element elsewhere (the composer) is not made the menu's opener, whose
-    // next click the menu would take as "close"; it gets focus back after.
-    const active = document.activeElement;
-    const inRow = active instanceof HTMLElement && rowElement !== null && rowElement.contains(active);
-    contextMenuFocusRef.current = !inRow && active instanceof HTMLElement && active !== document.body ? active : null;
-    openRowMenu(row, anchor, inRow ? active : null);
-  }, [confirmDeleteRootId, loadSessions, openRowMenu, renamingRootId]);
+      const rowElement = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+      // The keyboard's context-menu key reports no pointer position.
+      const anchor: SidebarMenuAnchor =
+        event.clientX === 0 && event.clientY === 0 && rowElement
+          ? buttonAnchor(rowElement, 'start')
+          : { kind: 'point', x: event.clientX, y: event.clientY };
+      // Focus goes back into the row it came from (the keyboard case). An
+      // element elsewhere (the composer) is not made the menu's opener, whose
+      // next click the menu would take as "close"; it gets focus back after.
+      const active = document.activeElement;
+      const inRow =
+        active instanceof HTMLElement && rowElement !== null && rowElement.contains(active);
+      contextMenuFocusRef.current =
+        !inRow && active instanceof HTMLElement && active !== document.body ? active : null;
+      openRowMenu(row, anchor, inRow ? active : null);
+    },
+    [confirmDeleteRootId, loadSessions, openRowMenu, renamingRootId]
+  );
 
-  const treeSelectionInput = useMemo(() => ({
-    sessions: allSessions,
-    uiState,
-    runningIds: runningSessionIds,
-    awaitingIds: awaitingInputSessionIds,
-    unreadIds: unreadSessionIds,
-    selectedSessionId,
-  }), [allSessions, uiState, runningSessionIds, awaitingInputSessionIds, unreadSessionIds, selectedSessionId]);
+  const treeSelectionInput = useMemo(
+    () => ({
+      sessions: allSessions,
+      uiState,
+      runningIds: runningSessionIds,
+      awaitingIds: awaitingInputSessionIds,
+      unreadIds: unreadSessionIds,
+      selectedSessionId
+    }),
+    [
+      allSessions,
+      uiState,
+      runningSessionIds,
+      awaitingInputSessionIds,
+      unreadSessionIds,
+      selectedSessionId
+    ]
+  );
 
-  const handleGroupMenu = useCallback((project: SidebarProject, opener: HTMLElement) => {
-    const olderCount = familiesToArchive(treeSelectionInput, project.key, ARCHIVE_OLDER_THAN_MS, Date.now()).length;
-    setMenu({ kind: "group", project, olderCount, anchor: buttonAnchor(opener, "end"), opener });
-  }, [treeSelectionInput]);
+  const handleGroupMenu = useCallback(
+    (project: SidebarProject, opener: HTMLElement) => {
+      const olderCount = familiesToArchive(
+        treeSelectionInput,
+        project.key,
+        ARCHIVE_OLDER_THAN_MS,
+        Date.now()
+      ).length;
+      setMenu({ kind: 'group', project, olderCount, anchor: buttonAnchor(opener, 'end'), opener });
+    },
+    [treeSelectionInput]
+  );
 
-  const archiveOlderSessions = useCallback((project: SidebarProject) => {
-    const ids = familiesToArchive(treeSelectionInput, project.key, ARCHIVE_OLDER_THAN_MS, Date.now());
-    archiveFamilies(ids.flatMap((id) => {
-      const family = familyByRootId.get(id);
-      return family ? [family] : [];
-    }));
-  }, [archiveFamilies, familyByRootId, treeSelectionInput]);
+  const archiveOlderSessions = useCallback(
+    (project: SidebarProject) => {
+      const ids = familiesToArchive(
+        treeSelectionInput,
+        project.key,
+        ARCHIVE_OLDER_THAN_MS,
+        Date.now()
+      );
+      archiveFamilies(
+        ids.flatMap((id) => {
+          const family = familyByRootId.get(id);
+          return family ? [family] : [];
+        })
+      );
+    },
+    [archiveFamilies, familyByRootId, treeSelectionInput]
+  );
 
   // A project's "Delete all sessions…" (and the archive's deletes): the menu
   // turns into its question, focus on Cancel (the sheet's on a phone), so
@@ -1477,83 +1904,129 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   // ones kept (the server also keeps one that started since); toasts say how
   // it went. One run per project (or archive scope) at a time.
   const askProjectDelete = useCallback((projectKey: string, askDelete: boolean) => {
-    setMenu((current) => (current?.kind === "group" && current.project.key === projectKey ? { ...current, askDelete } : current));
+    setMenu((current) =>
+      current?.kind === 'group' && current.project.key === projectKey
+        ? { ...current, askDelete }
+        : current
+    );
   }, []);
 
   const deletingRunsRef = useRef(new Set<string>());
-  const deleteFamilyIds = useCallback(async (runKey: string, ids: readonly string[], focusTarget: () => HTMLElement | null) => {
-    setMenu(null);
-    if (ids.length === 0 || deletingRunsRef.current.has(runKey)) return;
-    deletingRunsRef.current.add(runKey);
-    showToast(t("sidebar.deletingSessions"));
-    try {
-      const outcome = await deleteProjectSessions(ids, fetch);
-      for (const id of outcome.deleted) onSessionDeleted?.(id);
-      // A group goes with its last session (in the tree, unless it is
-      // current or pinned): focus that fell to the page with it moves on.
-      void loadSessions().then(() => focusAfterCommit(focusTarget));
-      if (outcome.error !== null) {
-        showToast(t("sidebar.deleteFailed", { error: outcome.error }));
-        return;
+  const deleteFamilyIds = useCallback(
+    async (runKey: string, ids: readonly string[], focusTarget: () => HTMLElement | null) => {
+      setMenu(null);
+      if (ids.length === 0 || deletingRunsRef.current.has(runKey)) return;
+      deletingRunsRef.current.add(runKey);
+      showToast(t('sidebar.deletingSessions'));
+      try {
+        const outcome = await deleteProjectSessions(ids, fetch);
+        for (const id of outcome.deleted) onSessionDeleted?.(id);
+        // A group goes with its last session (in the tree, unless it is
+        // current or pinned): focus that fell to the page with it moves on.
+        void loadSessions().then(() => focusAfterCommit(focusTarget));
+        if (outcome.error !== null) {
+          showToast(t('sidebar.deleteFailed', { error: outcome.error }));
+          return;
+        }
+        const count = outcome.deletedRoots.length;
+        const parts = [
+          count === 1 ? t('sidebar.deletedOneToast') : t('sidebar.deletedManyToast', { count })
+        ];
+        if (outcome.running.length > 0)
+          parts.push(t('sidebar.keptRunningToast', { count: outcome.running.length }));
+        showToast(parts.join(' · '));
+      } finally {
+        deletingRunsRef.current.delete(runKey);
       }
-      const count = outcome.deletedRoots.length;
-      const parts = [count === 1 ? t("sidebar.deletedOneToast") : t("sidebar.deletedManyToast", { count })];
-      if (outcome.running.length > 0) parts.push(t("sidebar.keptRunningToast", { count: outcome.running.length }));
-      showToast(parts.join(" · "));
-    } finally {
-      deletingRunsRef.current.delete(runKey);
-    }
-  }, [focusAfterCommit, loadSessions, onSessionDeleted, showToast, t]);
+    },
+    [focusAfterCommit, loadSessions, onSessionDeleted, showToast, t]
+  );
 
-  const deleteAllProjectSessions = useCallback((project: SidebarProject) => {
-    const { ids } = familiesToDelete(treeSelectionInput, project.key);
-    void deleteFamilyIds(`project:${project.key}`, ids, () => groupHeaderButton(project.key));
-  }, [deleteFamilyIds, groupHeaderButton, treeSelectionInput]);
+  const deleteAllProjectSessions = useCallback(
+    (project: SidebarProject) => {
+      const { ids } = familiesToDelete(treeSelectionInput, project.key);
+      void deleteFamilyIds(`project:${project.key}`, ids, () => groupHeaderButton(project.key));
+    },
+    [deleteFamilyIds, groupHeaderButton, treeSelectionInput]
+  );
 
   // The archive's own menus: a project header's ⋯ (Restore all, Delete
   // all…) and the bar's (fold every project, Restore all, the two deletes).
   // Their counts are live; Restore and Delete take what is archived when
   // chosen. An archived family never runs, so nothing is kept back.
   // A project's archive header (its toggle), else the archive's Back, else the selected tab.
-  const archiveHeaderButton = useCallback((projectKey: string | null): HTMLElement | null => {
-    const key = projectKey === null ? null : CSS.escape(`archive:${projectKey}`);
-    const button = key === null ? null : sessionsPanelRef.current?.querySelector<HTMLElement>(`[data-row-key="${key}"] .session-tree-group-toggle`);
-    if (button && button.getClientRects().length > 0) return button;
-    const back = archiveBackRef.current;
-    return back && back.getClientRects().length > 0 ? back : selectedTabButton();
-  }, [selectedTabButton]);
+  const archiveHeaderButton = useCallback(
+    (projectKey: string | null): HTMLElement | null => {
+      const key = projectKey === null ? null : CSS.escape(`archive:${projectKey}`);
+      const button =
+        key === null
+          ? null
+          : sessionsPanelRef.current?.querySelector<HTMLElement>(
+              `[data-row-key="${key}"] .session-tree-group-toggle`
+            );
+      if (button && button.getClientRects().length > 0) return button;
+      const back = archiveBackRef.current;
+      return back && back.getClientRects().length > 0 ? back : selectedTabButton();
+    },
+    [selectedTabButton]
+  );
 
-  const familiesOf = useCallback((ids: readonly string[]) => ids.flatMap((id) => {
-    const family = familyByRootId.get(id);
-    return family ? [family] : [];
-  }), [familyByRootId]);
+  const familiesOf = useCallback(
+    (ids: readonly string[]) =>
+      ids.flatMap((id) => {
+        const family = familyByRootId.get(id);
+        return family ? [family] : [];
+      }),
+    [familyByRootId]
+  );
 
   const handleArchiveGroupMenu = useCallback((project: SidebarProject, opener: HTMLElement) => {
-    setMenu({ kind: "archive-group", project, anchor: buttonAnchor(opener, "end"), opener });
+    setMenu({ kind: 'archive-group', project, anchor: buttonAnchor(opener, 'end'), opener });
   }, []);
 
   const openArchiveMenu = useCallback((opener: HTMLElement) => {
-    setMenu((current) => (current?.kind === "archive" ? null : { kind: "archive", anchor: buttonAnchor(opener, "end"), opener }));
+    setMenu((current) =>
+      current?.kind === 'archive'
+        ? null
+        : { kind: 'archive', anchor: buttonAnchor(opener, 'end'), opener }
+    );
   }, []);
 
   const askArchiveDelete = useCallback((askDelete: ArchiveDeleteScope | undefined) => {
     setMenu((current) => {
-      if (current?.kind === "archive") return { ...current, askDelete };
-      if (current?.kind === "archive-group") return { ...current, askDelete: askDelete !== undefined };
+      if (current?.kind === 'archive') return { ...current, askDelete };
+      if (current?.kind === 'archive-group')
+        return { ...current, askDelete: askDelete !== undefined };
       return current;
     });
   }, []);
 
-  const archiveDeleteIds = useCallback((scope: ArchiveDeleteScope | { projectKey: string }) => archivedFamilyIds(
-    treeSelectionInput,
-    scope === "all" ? {} : scope === "old" ? { archivedBefore: Date.now() - ARCHIVED_DELETE_AFTER_MS } : scope,
-  ), [treeSelectionInput]);
+  const archiveDeleteIds = useCallback(
+    (scope: ArchiveDeleteScope | { projectKey: string }) =>
+      archivedFamilyIds(
+        treeSelectionInput,
+        scope === 'all'
+          ? {}
+          : scope === 'old'
+            ? { archivedBefore: Date.now() - ARCHIVED_DELETE_AFTER_MS }
+            : scope
+      ),
+    [treeSelectionInput]
+  );
 
-  const deleteArchived = useCallback((scope: ArchiveDeleteScope | { projectKey: string }) => {
-    const ids = archiveDeleteIds(scope);
-    const runKey = typeof scope === "string" ? `archive:${scope}` : `archive-project:${scope.projectKey}`;
-    void deleteFamilyIds(runKey, ids, () => (typeof scope === "string" ? archiveHeaderButton(null) : archiveHeaderButton(scope.projectKey)));
-  }, [archiveDeleteIds, archiveHeaderButton, deleteFamilyIds]);
+  const deleteArchived = useCallback(
+    (scope: ArchiveDeleteScope | { projectKey: string }) => {
+      const ids = archiveDeleteIds(scope);
+      const runKey =
+        typeof scope === 'string' ? `archive:${scope}` : `archive-project:${scope.projectKey}`;
+      void deleteFamilyIds(runKey, ids, () =>
+        typeof scope === 'string'
+          ? archiveHeaderButton(null)
+          : archiveHeaderButton(scope.projectKey)
+      );
+    },
+    [archiveDeleteIds, archiveHeaderButton, deleteFamilyIds]
+  );
 
   // Folding the archive's projects: one header, or (Alt+click, the bar's
   // menu) every one of them. Saved per browser, the newest choice last.
@@ -1561,30 +2034,39 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     setArchiveCollapsed(next);
     saveArchiveCollapsed(next);
   }, []);
-  const setAllArchiveGroupsExpanded = useCallback((expanded: boolean) => {
-    const keys = archiveGroups.map((row) => row.project.key);
-    const others = archiveCollapsed.filter((key) => !keys.includes(key));
-    saveArchiveFolds(expanded ? others : [...others, ...keys]);
-  }, [archiveCollapsed, archiveGroups, saveArchiveFolds]);
-  const handleToggleArchiveGroup = useCallback((projectKey: string, all: boolean) => {
-    const expanded = archiveCollapsed.includes(projectKey);
-    if (all) {
-      setAllArchiveGroupsExpanded(expanded);
-      return;
-    }
-    const others = archiveCollapsed.filter((key) => key !== projectKey);
-    saveArchiveFolds(expanded ? others : [...others, projectKey]);
-  }, [archiveCollapsed, saveArchiveFolds, setAllArchiveGroupsExpanded]);
+  const setAllArchiveGroupsExpanded = useCallback(
+    (expanded: boolean) => {
+      const keys = archiveGroups.map((row) => row.project.key);
+      const others = archiveCollapsed.filter((key) => !keys.includes(key));
+      saveArchiveFolds(expanded ? others : [...others, ...keys]);
+    },
+    [archiveCollapsed, archiveGroups, saveArchiveFolds]
+  );
+  const handleToggleArchiveGroup = useCallback(
+    (projectKey: string, all: boolean) => {
+      const expanded = archiveCollapsed.includes(projectKey);
+      if (all) {
+        setAllArchiveGroupsExpanded(expanded);
+        return;
+      }
+      const others = archiveCollapsed.filter((key) => key !== projectKey);
+      saveArchiveFolds(expanded ? others : [...others, projectKey]);
+    },
+    [archiveCollapsed, saveArchiveFolds, setAllArchiveGroupsExpanded]
+  );
 
   // A group's "+": a new session at once. The current project starts in the
   // sidebar's worktree, another one in its root (the main checkout); the bar
   // above the fresh composer picks another worktree. The group's own key and
   // root go along, so a worktree is never taken for another project, and a
   // pinned project without sessions keeps its server identity.
-  const handleGroupNew = useCallback((project: SidebarProject) => {
-    setMenu(null);
-    startNewSessionIn(newSessionTargetForProject(project, selectedCwd));
-  }, [selectedCwd, startNewSessionIn]);
+  const handleGroupNew = useCallback(
+    (project: SidebarProject) => {
+      setMenu(null);
+      startNewSessionIn(newSessionTargetForProject(project, selectedCwd));
+    },
+    [selectedCwd, startNewSessionIn]
+  );
 
   const closeMenu = useCallback(() => setMenu(null), []);
 
@@ -1603,57 +2085,79 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   // another window): its menu goes with it.
   const visibleRows = archiveView ? archiveRows : model.rows;
   useEffect(() => {
-    if (menu?.kind === "row" && !visibleRows.some((row) => row.key === menu.row.key)) setMenu(null);
-    if (menu?.kind === "archive-group" && !visibleRows.some((row) => row.key === `archive:${menu.project.key}`)) setMenu(null);
+    if (menu?.kind === 'row' && !visibleRows.some((row) => row.key === menu.row.key)) setMenu(null);
+    if (
+      menu?.kind === 'archive-group' &&
+      !visibleRows.some((row) => row.key === `archive:${menu.project.key}`)
+    )
+      setMenu(null);
   }, [menu, visibleRows]);
 
   // Rows are rebuilt on every refresh; the menu acts on the current one.
-  const menuRow = menu?.kind === "row"
-    ? (visibleRows.find((row): row is SessionRow => row.kind === "session" && row.key === menu.row.key) ?? menu.row)
-    : null;
+  const menuRow =
+    menu?.kind === 'row'
+      ? (visibleRows.find(
+          (row): row is SessionRow => row.kind === 'session' && row.key === menu.row.key
+        ) ?? menu.row)
+      : null;
 
-  const handleSelectFamily = useCallback((family: SessionFamily) => {
-    handleSelectSessionFromList(family.root);
-  }, [handleSelectSessionFromList]);
+  const handleSelectFamily = useCallback(
+    (family: SessionFamily) => {
+      handleSelectSessionFromList(family.root);
+    },
+    [handleSelectSessionFromList]
+  );
 
   // Every group at once: a group's menu, or Alt+click on its header.
   // Re-inserted, so the choices count as the newest ones kept.
-  const setAllGroupsExpanded = useCallback((expanded: (project: SidebarProject) => boolean) => {
-    const next = { ...groupExpansion };
-    for (const project of model.projects) {
-      delete next[project.key];
-      next[project.key] = expanded(project);
-    }
-    saveGroupChoices(next, null);
-  }, [groupExpansion, model.projects, saveGroupChoices]);
+  const setAllGroupsExpanded = useCallback(
+    (expanded: (project: SidebarProject) => boolean) => {
+      const next = { ...groupExpansion };
+      for (const project of model.projects) {
+        delete next[project.key];
+        next[project.key] = expanded(project);
+      }
+      saveGroupChoices(next, null);
+    },
+    [groupExpansion, model.projects, saveGroupChoices]
+  );
 
   // Expanding or collapsing a group only changes the view: it never moves the
   // cwd (picking a project does that, in the files tab). With Alt, every
   // group follows the one clicked, as in a Finder outline.
-  const handleToggleGroup = useCallback((projectKey: string, all: boolean) => {
-    const project = projectByKey.get(projectKey);
-    if (!project) return;
-    const expanded = !isGroupExpanded(project, shownGroupExpansion);
-    if (all) {
-      setAllGroupsExpanded(() => expanded);
-      return;
-    }
-    const next = { ...groupExpansion };
-    // Re-inserted, so the choice counts as the newest one kept.
-    delete next[projectKey];
-    next[projectKey] = expanded;
-    saveGroupChoices(next, [projectKey]);
-  }, [groupExpansion, projectByKey, saveGroupChoices, setAllGroupsExpanded, shownGroupExpansion]);
+  const handleToggleGroup = useCallback(
+    (projectKey: string, all: boolean) => {
+      const project = projectByKey.get(projectKey);
+      if (!project) return;
+      const expanded = !isGroupExpanded(project, shownGroupExpansion);
+      if (all) {
+        setAllGroupsExpanded(() => expanded);
+        return;
+      }
+      const next = { ...groupExpansion };
+      // Re-inserted, so the choice counts as the newest one kept.
+      delete next[projectKey];
+      next[projectKey] = expanded;
+      saveGroupChoices(next, [projectKey]);
+    },
+    [groupExpansion, projectByKey, saveGroupChoices, setAllGroupsExpanded, shownGroupExpansion]
+  );
 
   // The window a click opens is the one its row offers now (`nextShown`):
   // decided at the click, by position, so a row that turns selected, unread
   // or running later never shifts it.
-  const handleShowMore = useCallback((key: string) => {
-    const row = model.rows.find((item) => (item.kind === "group-more" && item.projectKey === key)
-      || (item.kind === "pinned-more" && key === PINNED_MORE_KEY));
-    if (row?.kind !== "group-more" && row?.kind !== "pinned-more") return;
-    setMoreShown((prev) => showMoreFamilies(prev, key, row.nextShown));
-  }, [model.rows]);
+  const handleShowMore = useCallback(
+    (key: string) => {
+      const row = model.rows.find(
+        (item) =>
+          (item.kind === 'group-more' && item.projectKey === key) ||
+          (item.kind === 'pinned-more' && key === PINNED_MORE_KEY)
+      );
+      if (row?.kind !== 'group-more' && row?.kind !== 'pinned-more') return;
+      setMoreShown((prev) => showMoreFamilies(prev, key, row.nextShown));
+    },
+    [model.rows]
+  );
   const handleShowLess = useCallback((key: string) => {
     setMoreShown((prev) => showLessFamilies(prev, key));
   }, []);
@@ -1669,137 +2173,165 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   const openProjectInNewTab = (project: SidebarProject) => {
     const { cwd } = newSessionTargetForProject(project, selectedCwd);
     // Navigation only, synchronous in the menu action so the browser permits it.
-    window.open(newSessionDeepLink(cwd), "_blank", "noopener,noreferrer");
+    window.open(newSessionDeepLink(cwd), '_blank', 'noopener,noreferrer');
   };
 
   const handleOpenOtherProject = () => {
-    setCustomPathOpen("project");
+    setCustomPathOpen('project');
     setCustomPathError(null);
   };
 
-  const sessionMenuItems = (row: SessionRow): SidebarMenuItem[] => sessionMenuEntries(row.context, row.status).map((entry, index) => {
-    if (entry.kind === "separator") return { type: "separator", id: `separator-${index}` };
-    const label = t(SESSION_ACTION_LABEL_KEYS[entry.id]);
-    return {
-      type: "item",
-      id: entry.id,
-      label: entry.id === "delete" ? `${label}…` : label,
-      icon: sessionActionIcon(entry.id),
-      shortcut: entry.shortcut,
-      danger: entry.id === "delete",
-      disabled: entry.disabledReason !== undefined,
-      disabledReason: entry.disabledReason === "running" ? t("sidebar.cannotArchiveRunning") : undefined,
-      onSelect: ({ shiftKey }) => runSessionAction(entry.id, row, shiftKey),
-    };
-  });
+  const sessionMenuItems = (row: SessionRow): SidebarMenuItem[] =>
+    sessionMenuEntries(row.context, row.status).map((entry, index) => {
+      if (entry.kind === 'separator') return { type: 'separator', id: `separator-${index}` };
+      const label = t(SESSION_ACTION_LABEL_KEYS[entry.id]);
+      return {
+        type: 'item',
+        id: entry.id,
+        label: entry.id === 'delete' ? `${label}…` : label,
+        icon: sessionActionIcon(entry.id),
+        shortcut: entry.shortcut,
+        danger: entry.id === 'delete',
+        disabled: entry.disabledReason !== undefined,
+        disabledReason:
+          entry.disabledReason === 'running' ? t('sidebar.cannotArchiveRunning') : undefined,
+        onSelect: ({ shiftKey }) => runSessionAction(entry.id, row, shiftKey)
+      };
+    });
 
   const groupMenuItems = (project: SidebarProject, olderCount: number): SidebarMenuItem[] => {
     const archivedCount = archiveIndex.countByProject.get(project.key) ?? 0;
     const deletable = familiesToDelete(treeSelectionInput, project.key);
     // Within the project's band; disabled at its edges.
-    const up = adjacentProjectMove(model.projects, project.key, "up");
-    const down = adjacentProjectMove(model.projects, project.key, "down");
-    const nameItems = projectNameMenuEntries(project).map((id): SidebarMenuItem => (id === "rename-project" ? {
-      type: "item",
-      id,
-      label: t("sidebar.renameProject"),
-      icon: <PencilIcon />,
-      onSelect: () => startProjectRename(project),
-    } : {
-      type: "item",
-      id,
-      label: t("sidebar.resetProjectName"),
-      icon: <RestoreIcon />,
-      onSelect: () => { void applyUiState({ action: "rename-project", projectKey: project.key, name: null }); },
-    }));
+    const up = adjacentProjectMove(model.projects, project.key, 'up');
+    const down = adjacentProjectMove(model.projects, project.key, 'down');
+    const nameItems = projectNameMenuEntries(project).map((id): SidebarMenuItem =>
+      id === 'rename-project'
+        ? {
+            type: 'item',
+            id,
+            label: t('sidebar.renameProject'),
+            icon: <PencilIcon />,
+            onSelect: () => startProjectRename(project)
+          }
+        : {
+            type: 'item',
+            id,
+            label: t('sidebar.resetProjectName'),
+            icon: <RestoreIcon />,
+            onSelect: () => {
+              void applyUiState({ action: 'rename-project', projectKey: project.key, name: null });
+            }
+          }
+    );
     // Three groups, by what they act on: the project itself, its place in the
     // list, its sessions (Delete all last, in red).
     return [
       {
-        type: "item",
-        id: "pin-project",
-        label: t(project.pinned ? "sidebar.unpinProject" : "sidebar.pinProject"),
+        type: 'item',
+        id: 'pin-project',
+        label: t(project.pinned ? 'sidebar.unpinProject' : 'sidebar.pinProject'),
         icon: project.pinned ? <PinOffIcon /> : <PinIcon />,
-        onSelect: () => { void applyUiState({ action: "pin-project", projectKey: project.key, root: project.root, pinned: !project.pinned }); },
+        onSelect: () => {
+          void applyUiState({
+            action: 'pin-project',
+            projectKey: project.key,
+            root: project.root,
+            pinned: !project.pinned
+          });
+        }
       },
       ...nameItems,
       {
-        type: "item",
-        id: "open-new-tab",
-        label: t("sidebar.openInNewTab"),
+        type: 'item',
+        id: 'open-new-tab',
+        label: t('sidebar.openInNewTab'),
         icon: <OpenInNewTabIcon />,
-        shortcut: "T",
-        onSelect: () => openProjectInNewTab(project),
+        shortcut: 'T',
+        onSelect: () => openProjectInNewTab(project)
       },
-      { type: "separator", id: "separator-layout" },
+      { type: 'separator', id: 'separator-layout' },
       {
-        type: "item",
-        id: "move-up",
-        label: t("sidebar.moveProjectUp"),
+        type: 'item',
+        id: 'move-up',
+        label: t('sidebar.moveProjectUp'),
         icon: <ChevronIcon className="sidebar-icon-up" />,
         disabled: up === null,
-        onSelect: () => { if (up) moveProject(project.key, up.anchorKey, up.position); },
+        onSelect: () => {
+          if (up) moveProject(project.key, up.anchorKey, up.position);
+        }
       },
       {
-        type: "item",
-        id: "move-down",
-        label: t("sidebar.moveProjectDown"),
+        type: 'item',
+        id: 'move-down',
+        label: t('sidebar.moveProjectDown'),
         icon: <ChevronIcon className="sidebar-icon-down" />,
         disabled: down === null,
-        onSelect: () => { if (down) moveProject(project.key, down.anchorKey, down.position); },
+        onSelect: () => {
+          if (down) moveProject(project.key, down.anchorKey, down.position);
+        }
       },
       {
         // This project open, every other one closed.
-        type: "item",
-        id: "collapse-others",
-        label: t("sidebar.collapseOtherGroups"),
+        type: 'item',
+        id: 'collapse-others',
+        label: t('sidebar.collapseOtherGroups'),
         icon: <ChevronIcon />,
-        disabled: model.projects.every((other) => isGroupExpanded(other, shownGroupExpansion) === (other.key === project.key)),
-        onSelect: () => setAllGroupsExpanded((other) => other.key === project.key),
+        disabled: model.projects.every(
+          (other) => isGroupExpanded(other, shownGroupExpansion) === (other.key === project.key)
+        ),
+        onSelect: () => setAllGroupsExpanded((other) => other.key === project.key)
       },
       {
-        type: "item",
-        id: "expand-all",
-        label: t("sidebar.expandAllGroups"),
+        type: 'item',
+        id: 'expand-all',
+        label: t('sidebar.expandAllGroups'),
         icon: <ChevronIcon className="sidebar-icon-down" />,
         disabled: model.projects.every((other) => isGroupExpanded(other, shownGroupExpansion)),
-        onSelect: () => setAllGroupsExpanded(() => true),
+        onSelect: () => setAllGroupsExpanded(() => true)
       },
-      { type: "separator", id: "separator-sessions" },
+      { type: 'separator', id: 'separator-sessions' },
       {
-        type: "item",
-        id: "archive-older",
-        label: t("sidebar.archiveOlderThanWeek", { count: olderCount }),
+        type: 'item',
+        id: 'archive-older',
+        label: t('sidebar.archiveOlderThanWeek', { count: olderCount }),
         icon: <ArchiveIcon />,
         disabled: olderCount === 0,
-        onSelect: () => archiveOlderSessions(project),
+        onSelect: () => archiveOlderSessions(project)
       },
       {
-        type: "item",
-        id: "view-archived",
-        label: t("sidebar.viewArchived", { count: archivedCount }),
+        type: 'item',
+        id: 'view-archived',
+        label: t('sidebar.viewArchived', { count: archivedCount }),
         icon: <ArchiveIcon />,
         disabled: archivedCount === 0,
-        onSelect: () => openArchiveView(project.key),
+        onSelect: () => openArchiveView(project.key)
       },
       {
-        type: "item",
-        id: "delete-all",
-        label: t("sidebar.deleteProjectSessions", { count: deletable.ids.length }),
+        type: 'item',
+        id: 'delete-all',
+        label: t('sidebar.deleteProjectSessions', { count: deletable.ids.length }),
         icon: <TrashIcon />,
         danger: true,
         disabled: deletable.ids.length === 0,
         onSelect: ({ keepOpen }) => {
           keepOpen();
           askProjectDelete(project.key, true);
-        },
-      },
+        }
+      }
     ];
   };
 
   // A menu's delete question (a project's "Delete all sessions…", the
   // archive's deletes); its counts are live.
-  const deleteQuestionBody = ({ heading, headingTitle, notes, count, onConfirm, onCancel }: {
+  const deleteQuestionBody = ({
+    heading,
+    headingTitle,
+    notes,
+    count,
+    onConfirm,
+    onCancel
+  }: {
     heading: string;
     headingTitle?: string;
     notes: string[];
@@ -1808,15 +2340,31 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     onCancel: () => void;
   }): ReactNode => (
     <div className="sidebar-menu-question">
-      <div className="sidebar-menu-header" title={headingTitle}>{heading}</div>
-      {notes.map((note) => <p key={note} className="sidebar-menu-question-text">{note}</p>)}
+      <div className="sidebar-menu-header" title={headingTitle}>
+        {heading}
+      </div>
+      {notes.map((note) => (
+        <p key={note} className="sidebar-menu-question-text">
+          {note}
+        </p>
+      ))}
       <div className="sidebar-menu-question-buttons">
-        <button type="button" className="sidebar-menu-question-confirm" disabled={count === 0} onClick={onConfirm}>
-          {t("sidebar.deleteCount", { count })}
+        <button
+          type="button"
+          className="sidebar-menu-question-confirm"
+          disabled={count === 0}
+          onClick={onConfirm}
+        >
+          {t('sidebar.deleteCount', { count })}
         </button>
         {!isMobile && (
-          <button type="button" className="sidebar-menu-question-cancel" data-sidebar-menu-autofocus="" onClick={onCancel}>
-            {t("sidebar.cancel")}
+          <button
+            type="button"
+            className="sidebar-menu-question-cancel"
+            data-sidebar-menu-autofocus=""
+            onClick={onCancel}
+          >
+            {t('sidebar.cancel')}
           </button>
         )}
       </div>
@@ -1826,15 +2374,15 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   const projectDeleteBody = (project: SidebarProject): ReactNode => {
     const { ids, running } = familiesToDelete(treeSelectionInput, project.key);
     return deleteQuestionBody({
-      heading: t("sidebar.deleteProjectSessionsHeading", { name: project.name }),
+      heading: t('sidebar.deleteProjectSessionsHeading', { name: project.name }),
       headingTitle: project.root,
       notes: [
-        t("sidebar.deleteProjectSessionsMessage"),
-        ...(running > 0 ? [t("sidebar.deleteProjectSessionsRunning", { count: running })] : []),
+        t('sidebar.deleteProjectSessionsMessage'),
+        ...(running > 0 ? [t('sidebar.deleteProjectSessionsRunning', { count: running })] : [])
       ],
       count: ids.length,
       onConfirm: () => deleteAllProjectSessions(project),
-      onCancel: () => askProjectDelete(project.key, false),
+      onCancel: () => askProjectDelete(project.key, false)
     });
   };
 
@@ -1842,137 +2390,150 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     const ids = archiveDeleteIds({ projectKey: project.key });
     return [
       {
-        type: "item",
-        id: "restore-all",
-        label: t("sidebar.restoreAllArchived", { count: ids.length }),
+        type: 'item',
+        id: 'restore-all',
+        label: t('sidebar.restoreAllArchived', { count: ids.length }),
         icon: <RestoreIcon />,
         disabled: ids.length === 0,
-        onSelect: () => restoreFamilies(familiesOf(ids)),
+        onSelect: () => restoreFamilies(familiesOf(ids))
       },
-      { type: "separator", id: "separator-delete" },
+      { type: 'separator', id: 'separator-delete' },
       {
-        type: "item",
-        id: "delete-all",
-        label: t("sidebar.deleteAllArchived", { count: ids.length }),
+        type: 'item',
+        id: 'delete-all',
+        label: t('sidebar.deleteAllArchived', { count: ids.length }),
         icon: <TrashIcon />,
         danger: true,
         disabled: ids.length === 0,
         onSelect: ({ keepOpen }) => {
           keepOpen();
-          askArchiveDelete("all");
-        },
-      },
+          askArchiveDelete('all');
+        }
+      }
     ];
   };
 
   const archiveMenuItems = (): SidebarMenuItem[] => {
-    const all = archiveDeleteIds("all");
-    const old = archiveDeleteIds("old");
+    const all = archiveDeleteIds('all');
+    const old = archiveDeleteIds('old');
     const folded = archiveGroups.filter((row) => !row.expanded).length;
     return [
       {
-        type: "item",
-        id: "collapse-all",
-        label: t("sidebar.collapseAllGroups"),
+        type: 'item',
+        id: 'collapse-all',
+        label: t('sidebar.collapseAllGroups'),
         icon: <ChevronIcon />,
         disabled: folded === archiveGroups.length,
-        onSelect: () => setAllArchiveGroupsExpanded(false),
+        onSelect: () => setAllArchiveGroupsExpanded(false)
       },
       {
-        type: "item",
-        id: "expand-all",
-        label: t("sidebar.expandAllGroups"),
+        type: 'item',
+        id: 'expand-all',
+        label: t('sidebar.expandAllGroups'),
         icon: <ChevronIcon className="sidebar-icon-down" />,
         disabled: folded === 0,
-        onSelect: () => setAllArchiveGroupsExpanded(true),
+        onSelect: () => setAllArchiveGroupsExpanded(true)
       },
-      { type: "separator", id: "separator-sessions" },
+      { type: 'separator', id: 'separator-sessions' },
       {
-        type: "item",
-        id: "restore-all",
-        label: t("sidebar.restoreAllArchived", { count: all.length }),
+        type: 'item',
+        id: 'restore-all',
+        label: t('sidebar.restoreAllArchived', { count: all.length }),
         icon: <RestoreIcon />,
         disabled: all.length === 0,
-        onSelect: () => restoreFamilies(familiesOf(all)),
+        onSelect: () => restoreFamilies(familiesOf(all))
       },
       {
-        type: "item",
-        id: "delete-old",
-        label: t("sidebar.deleteOldArchived", { count: old.length }),
+        type: 'item',
+        id: 'delete-old',
+        label: t('sidebar.deleteOldArchived', { count: old.length }),
         icon: <TrashIcon />,
         danger: true,
         disabled: old.length === 0,
         onSelect: ({ keepOpen }) => {
           keepOpen();
-          askArchiveDelete("old");
-        },
+          askArchiveDelete('old');
+        }
       },
       {
-        type: "item",
-        id: "delete-all",
-        label: t("sidebar.deleteAllArchived", { count: all.length }),
+        type: 'item',
+        id: 'delete-all',
+        label: t('sidebar.deleteAllArchived', { count: all.length }),
         icon: <TrashIcon />,
         danger: true,
         disabled: all.length === 0,
         onSelect: ({ keepOpen }) => {
           keepOpen();
-          askArchiveDelete("all");
-        },
-      },
+          askArchiveDelete('all');
+        }
+      }
     ];
   };
 
-  const archiveDeleteBody = (scope: ArchiveDeleteScope | { projectKey: string }, project: SidebarProject | null): ReactNode => deleteQuestionBody({
-    heading: project
-      ? t("sidebar.deleteArchivedInProjectHeading", { name: project.name })
-      : t(scope === "old" ? "sidebar.deleteOldArchivedHeading" : "sidebar.deleteAllArchivedHeading"),
-    headingTitle: project?.root,
-    notes: [t("sidebar.deleteArchivedMessage")],
-    count: archiveDeleteIds(scope).length,
-    onConfirm: () => deleteArchived(scope),
-    onCancel: () => askArchiveDelete(undefined),
-  });
+  const archiveDeleteBody = (
+    scope: ArchiveDeleteScope | { projectKey: string },
+    project: SidebarProject | null
+  ): ReactNode =>
+    deleteQuestionBody({
+      heading: project
+        ? t('sidebar.deleteArchivedInProjectHeading', { name: project.name })
+        : t(
+            scope === 'old'
+              ? 'sidebar.deleteOldArchivedHeading'
+              : 'sidebar.deleteAllArchivedHeading'
+          ),
+      headingTitle: project?.root,
+      notes: [t('sidebar.deleteArchivedMessage')],
+      count: archiveDeleteIds(scope).length,
+      onConfirm: () => deleteArchived(scope),
+      onCancel: () => askArchiveDelete(undefined)
+    });
 
   let menuTitle: string | undefined;
-  let menuLabel = "";
+  let menuLabel = '';
   // Room for "Archive sessions older than 7 days · N".
   let menuWidth: number | undefined;
   let menuItems: SidebarMenuItem[] | undefined;
   let menuBody: ReactNode = null;
-  if (menu?.kind === "row" && menuRow) {
+  if (menu?.kind === 'row' && menuRow) {
     menuTitle = sessionRowTitle(menuRow.family.root);
-    menuLabel = t("sidebar.sessionActions");
+    menuLabel = t('sidebar.sessionActions');
     menuItems = sessionMenuItems(menuRow);
-  } else if (menu?.kind === "group") {
+  } else if (menu?.kind === 'group') {
     // The project as the tree has it now: pinned, unpinned, renamed or moved in another window while the menu is open.
     const project = projectByKey.get(menu.project.key) ?? menu.project;
     menuTitle = project.name;
-    menuLabel = t("sidebar.projectActions", { name: project.name });
+    menuLabel = t('sidebar.projectActions', { name: project.name });
     menuItems = groupMenuItems(project, menu.olderCount);
     if (menu.askDelete) menuBody = projectDeleteBody(project);
     menuWidth = 264;
-  } else if (menu?.kind === "archive-group") {
-    const project = archiveGroups.find((row) => row.project.key === menu.project.key)?.project ?? menu.project;
+  } else if (menu?.kind === 'archive-group') {
+    const project =
+      archiveGroups.find((row) => row.project.key === menu.project.key)?.project ?? menu.project;
     menuTitle = project.name;
-    menuLabel = t("sidebar.archivedProjectActions", { name: project.name });
+    menuLabel = t('sidebar.archivedProjectActions', { name: project.name });
     menuItems = archiveGroupMenuItems(project);
     if (menu.askDelete) menuBody = archiveDeleteBody({ projectKey: project.key }, project);
     menuWidth = 248;
-  } else if (menu?.kind === "archive") {
-    menuTitle = t("sidebar.archived");
-    menuLabel = t("sidebar.archiveActions");
+  } else if (menu?.kind === 'archive') {
+    menuTitle = t('sidebar.archived');
+    menuLabel = t('sidebar.archiveActions');
     menuItems = archiveMenuItems();
     if (menu.askDelete) menuBody = archiveDeleteBody(menu.askDelete, null);
     menuWidth = 280;
   }
 
   // The tree row (and the button in it) that the open menu belongs to.
-  const activeMenuRowKey = menu?.kind === "row"
-    ? menu.row.key
-    : menu?.kind === "group" ? `group:${menu.project.key}`
-    : menu?.kind === "archive-group" ? `archive:${menu.project.key}` : null;
+  const activeMenuRowKey =
+    menu?.kind === 'row'
+      ? menu.row.key
+      : menu?.kind === 'group'
+        ? `group:${menu.project.key}`
+        : menu?.kind === 'archive-group'
+          ? `archive:${menu.project.key}`
+          : null;
 
-  const treeLayout = isMobile ? "mobile" : "desktop";
+  const treeLayout = isMobile ? 'mobile' : 'desktop';
   // Until pins and archive have loaded, archived rows would flash in.
   const treeLoading = loading || !uiStateLoaded;
   const treeProps = {
@@ -1992,11 +2553,17 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     onRestoreFamily: restoreFamily,
     onOpenRowMenu: openRowMenu,
     onRowContextMenu: handleContextMenu,
-    onRenameCommit: (family: SessionFamily, value: string) => { void commitRename(family, value); },
+    onRenameCommit: (family: SessionFamily, value: string) => {
+      void commitRename(family, value);
+    },
     onRenameCancel: () => setRenamingRootId(null),
     onRenameProjectCommit: commitProjectRename,
-    onRenameProjectCancel: () => { if (renamingProjectKey) endProjectRename(renamingProjectKey); },
-    onDeleteConfirm: (family: SessionFamily) => { void performDelete(family); },
+    onRenameProjectCancel: () => {
+      if (renamingProjectKey) endProjectRename(renamingProjectKey);
+    },
+    onDeleteConfirm: (family: SessionFamily) => {
+      void performDelete(family);
+    },
     onDeleteCancel: () => {
       const rootId = confirmDeleteRootId;
       setConfirmDeleteRootId(null);
@@ -2010,17 +2577,14 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     onOpenOtherProject: handleOpenOtherProject,
     onOpenArchive: () => openArchiveView(),
     // The archive view has no group rows: only the main tree's can be dragged.
-    onMoveGroup: moveProject,
+    onMoveGroup: moveProject
   } as const;
 
-  const fitHeader = useHeaderFit(headerRef, t("sidebar.new"));
+  const fitHeader = useHeaderFit(headerRef, t('sidebar.new'));
   const archivedCount = model.archivedCount;
 
   return (
-    <div
-      ref={sidebarRef}
-      className={`session-sidebar${toast ? " has-toast" : ""}`}
-    >
+    <div ref={sidebarRef} className={`session-sidebar${toast ? ' has-toast' : ''}`}>
       {customPathOpen && (
         <DirectoryPicker
           initialPath={customPathValue}
@@ -2029,7 +2593,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
           onCancel={() => {
             // The composer's "Open another project…" puts focus back on its
             // control: the picker took it and leaves nothing behind.
-            const opener = customPathOpen === "new-session" ? folderReturnFocusRef.current : null;
+            const opener = customPathOpen === 'new-session' ? folderReturnFocusRef.current : null;
             folderPickRef.current = null;
             folderReturnFocusRef.current = null;
             setCustomPathOpen(false);
@@ -2048,20 +2612,24 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
           className="sidebar-new-button"
           onClick={handleNewSession}
           disabled={!selectedCwd}
-          title={selectedCwd ? t("sidebar.newSessionTitle", { path: selectedCwd }) : t("sidebar.selectProject")}
+          title={
+            selectedCwd
+              ? t('sidebar.newSessionTitle', { path: selectedCwd })
+              : t('sidebar.selectProject')
+          }
         >
           <PlusIcon size={12} />
-          <span className="sidebar-new-label">{t("sidebar.new")}</span>
+          <span className="sidebar-new-label">{t('sidebar.new')}</span>
         </button>
         <button
           ref={searchButtonRef}
           type="button"
           onClick={() => setSessionSearchOpen((open) => !open)}
-          title={t("sidebar.toggleSessionSearch")}
-          aria-label={t("sidebar.toggleSessionSearch")}
+          title={t('sidebar.toggleSessionSearch')}
+          aria-label={t('sidebar.toggleSessionSearch')}
           aria-expanded={sessionSearchOpen}
           aria-controls="session-search-input"
-          className={`sidebar-search-toggle${sessionSearchOpen ? " is-active" : ""}`}
+          className={`sidebar-search-toggle${sessionSearchOpen ? ' is-active' : ''}`}
         >
           <SearchIcon size={16} />
         </button>
@@ -2072,7 +2640,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
         ref={sessionsPanelRef}
         id="session-sidebar-panel-sessions"
         role="region"
-        aria-label={t("sidebar.tabSessions")}
+        aria-label={t('sidebar.tabSessions')}
         className="sidebar-panel sidebar-sessions-panel"
         onScrollCapture={rememberScroll}
       >
@@ -2084,13 +2652,17 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
               autoFocus
               value={sessionSearchQuery}
               maxLength={200}
-              aria-label={t("sidebar.searchSessions")}
-              placeholder={t("sidebar.searchSessions")}
+              aria-label={t('sidebar.searchSessions')}
+              placeholder={t('sidebar.searchSessions')}
               onChange={(event) => setSessionSearchQuery(event.target.value)}
               onKeyDown={(event) => {
-                if (event.key === "Escape" && !event.nativeEvent.isComposing && event.keyCode !== 229) {
+                if (
+                  event.key === 'Escape' &&
+                  !event.nativeEvent.isComposing &&
+                  event.keyCode !== 229
+                ) {
                   event.stopPropagation();
-                  setSessionSearchQuery("");
+                  setSessionSearchQuery('');
                 }
               }}
               className="sidebar-search-input"
@@ -2109,11 +2681,15 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
           <div className="sidebar-sessions-views">
             {/* Kept mounted under the archive view, so going back finds it as
                 it was: inert while the archive slides in, then hidden. */}
-            <div className="sidebar-sessions-view" hidden={archiveMotion.mainHidden} inert={archiveMotion.mainInert}>
+            <div
+              className="sidebar-sessions-view"
+              hidden={archiveMotion.mainHidden}
+              inert={archiveMotion.mainInert}
+            >
               <SessionTree
                 {...treeProps}
                 rows={model.rows}
-                emptyLabel={t("sidebar.noSessions")}
+                emptyLabel={t('sidebar.noSessions')}
                 reveal={treeReveal}
                 onRevealHandled={handleRevealHandled}
               />
@@ -2122,30 +2698,32 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
                 in it is clicked twice; the tree is back under it at once. */}
             {archiveMotion.archiveMounted && (
               <div
-                className={`sidebar-sessions-view sidebar-archive-view${archiveMotion.archiveClass ? ` ${archiveMotion.archiveClass}` : ""}`}
+                className={`sidebar-sessions-view sidebar-archive-view${archiveMotion.archiveClass ? ` ${archiveMotion.archiveClass}` : ''}`}
                 inert={archiveMotion.archiveInert}
-                onAnimationEnd={(event) => { if (event.target === event.currentTarget) endArchiveMotion(); }}
+                onAnimationEnd={(event) => {
+                  if (event.target === event.currentTarget) endArchiveMotion();
+                }}
               >
                 <div className="sidebar-archive-bar">
                   <button
                     ref={archiveBackRef}
                     type="button"
                     className="sidebar-archive-back"
-                    title={t("sidebar.backToSessions")}
-                    aria-label={`${t("sidebar.backToSessions")}: ${t("sidebar.archivedCount", { count: archivedCount })}`}
+                    title={t('sidebar.backToSessions')}
+                    aria-label={`${t('sidebar.backToSessions')}: ${t('sidebar.archivedCount', { count: archivedCount })}`}
                     onClick={() => setArchiveView(false)}
                   >
                     <ChevronIcon size={13} className="sidebar-icon-back" />
-                    <span>{t("sidebar.archived")}</span>
+                    <span>{t('sidebar.archived')}</span>
                     <span className="sidebar-archive-count">· {archivedCount}</span>
                   </button>
                   <button
                     type="button"
-                    className={`sidebar-archive-menu-button${menu?.kind === "archive" ? " is-active" : ""}`}
-                    title={t("sidebar.archiveActions")}
-                    aria-label={t("sidebar.archiveActions")}
+                    className={`sidebar-archive-menu-button${menu?.kind === 'archive' ? ' is-active' : ''}`}
+                    title={t('sidebar.archiveActions')}
+                    aria-label={t('sidebar.archiveActions')}
                     aria-haspopup="menu"
-                    aria-expanded={menu?.kind === "archive"}
+                    aria-expanded={menu?.kind === 'archive'}
                     disabled={archiveGroups.length === 0}
                     onClick={(event) => openArchiveMenu(event.currentTarget)}
                   >
@@ -2155,7 +2733,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
                 <SessionTree
                   {...treeProps}
                   rows={archiveRows}
-                  emptyLabel={t("sidebar.noArchived")}
+                  emptyLabel={t('sidebar.noArchived')}
                   reveal={archiveReveal}
                   onRevealHandled={handleArchiveRevealHandled}
                 />
@@ -2172,7 +2750,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
         ariaLabel={menuLabel}
         title={menuTitle}
         items={menuItems}
-        cancelLabel={t("sidebar.cancel")}
+        cancelLabel={t('sidebar.cancel')}
         focusCancel={menuBody !== null}
         onClose={closeMenu}
         returnFocusTo={menu?.opener ?? null}
@@ -2180,7 +2758,11 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
       >
         {menuBody}
       </SidebarMenu>
-      <SidebarToast toast={toast} onDismiss={() => setToast(null)} dismissLabel={t("sidebar.dismiss")} />
+      <SidebarToast
+        toast={toast}
+        onDismiss={() => setToast(null)}
+        dismissLabel={t('sidebar.dismiss')}
+      />
     </div>
   );
 }

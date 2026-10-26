@@ -1,14 +1,14 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { useI18n } from "@/hooks/useI18n";
+import { useState } from 'react';
+import { useI18n } from '@/hooks/useI18n';
 import {
   codemodeTotalCost,
   formatCodemodeCost,
   formatCodemodeDuration,
   type CodemodeCallStatus,
-  type CodemodeCallView,
-} from "@/lib/codemode-view";
+  type CodemodeCallView
+} from '@/lib/codemode-view';
 
 // The tool calls a codemode script made, listed under the script in its card.
 // Those calls never reach the model as tool calls of their own, so they are
@@ -18,10 +18,10 @@ import {
 export const CODEMODE_VISIBLE_CALLS = 20;
 
 const STATUS_STYLE: Record<CodemodeCallStatus, { icon: string; color: string }> = {
-  running: { icon: "…", color: "#d97706" },
-  ok: { icon: "✓", color: "#16a34a" },
-  error: { icon: "✗", color: "#f87171" },
-  cancelled: { icon: "⊘", color: "var(--text-dim)" },
+  running: { icon: '…', color: '#d97706' },
+  ok: { icon: '✓', color: '#16a34a' },
+  error: { icon: '✗', color: '#f87171' },
+  cancelled: { icon: '⊘', color: 'var(--text-dim)' }
 };
 
 function CallRow({ call }: { call: CodemodeCallView }) {
@@ -29,37 +29,73 @@ function CallRow({ call }: { call: CodemodeCallView }) {
   const status = STATUS_STYLE[call.status];
   const duration = formatCodemodeDuration(call.durationMs);
   return (
-    <li style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 6, minWidth: 0 }}>
+    <li style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0 }}>
         <span
           role="img"
           aria-label={t(`codemode.status.${call.status}`)}
           title={t(`codemode.status.${call.status}`)}
-          style={{ color: status.color, width: 12, flexShrink: 0, textAlign: "center" }}
+          style={{ color: status.color, width: 12, flexShrink: 0, textAlign: 'center' }}
         >
           {status.icon}
         </span>
-        <span style={{ color: "var(--text-muted)", fontWeight: 600, flexShrink: 0 }}>{call.name}</span>
+        <span style={{ color: 'var(--text-muted)', fontWeight: 600, flexShrink: 0 }}>
+          {call.name}
+        </span>
         {call.args && (
-          <span style={{ color: "var(--text-dim)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>
+          <span
+            style={{
+              color: 'var(--text-dim)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              flex: 1,
+              minWidth: 0
+            }}
+          >
             {call.args}
           </span>
         )}
         {duration && (
-          <span style={{ color: "var(--text-dim)", flexShrink: 0, marginLeft: "auto", fontVariantNumeric: "tabular-nums" }}>{duration}</span>
+          <span
+            style={{
+              color: 'var(--text-dim)',
+              flexShrink: 0,
+              marginLeft: 'auto',
+              fontVariantNumeric: 'tabular-nums'
+            }}
+          >
+            {duration}
+          </span>
         )}
         {call.cost !== undefined && (
-          <span style={{ color: "var(--text-dim)", flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>{formatCodemodeCost(call.cost)}</span>
+          <span
+            style={{ color: 'var(--text-dim)', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}
+          >
+            {formatCodemodeCost(call.cost)}
+          </span>
         )}
       </div>
       {call.error && (
-        <div style={{ color: "#f87171", paddingLeft: 18, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{call.error}</div>
+        <div
+          style={{
+            color: '#f87171',
+            paddingLeft: 18,
+            whiteSpace: 'pre-wrap',
+            overflowWrap: 'anywhere'
+          }}
+        >
+          {call.error}
+        </div>
       )}
     </li>
   );
 }
 
-export function CodemodeCallList({ calls, omitted }: {
+export function CodemodeCallList({
+  calls,
+  omitted
+}: {
   calls: readonly CodemodeCallView[];
   /** Earlier calls a progress snapshot did not include. */
   omitted: number;
@@ -76,37 +112,61 @@ export function CodemodeCallList({ calls, omitted }: {
       style={{
         // the quiet card's whisper divider, matching every other pane
         // inside a tool card (CARD_RULE in MessageView.tsx).
-        borderTop: "1px solid color-mix(in srgb, var(--border) 45%, transparent)",
-        padding: "6px 10px",
-        fontFamily: "var(--font-mono)",
-        fontSize: "calc(11.5px + var(--chat-font-size-offset, 0px))",
+        borderTop: '1px solid color-mix(in srgb, var(--border) 45%, transparent)',
+        padding: '6px 10px',
+        fontFamily: 'var(--font-mono)',
+        fontSize: 'calc(11.5px + var(--chat-font-size-offset, 0px))',
         lineHeight: 1.5,
-        display: "flex",
-        flexDirection: "column",
+        display: 'flex',
+        flexDirection: 'column',
         gap: 3,
-        minWidth: 0,
+        minWidth: 0
       }}
     >
-      <div style={{ color: "var(--text-dim)", fontFamily: "inherit", fontSize: 11 }}>{t("codemode.calls")}</div>
+      <div style={{ color: 'var(--text-dim)', fontFamily: 'inherit', fontSize: 11 }}>
+        {t('codemode.calls')}
+      </div>
       {omitted > 0 && (
-        <div style={{ color: "var(--text-dim)" }}>{t("codemode.omittedCalls", { count: omitted })}</div>
+        <div style={{ color: 'var(--text-dim)' }}>
+          {t('codemode.omittedCalls', { count: omitted })}
+        </div>
       )}
       {hidden > 0 && (
         <button
           type="button"
           onClick={() => setShowAll(true)}
-          style={{ alignSelf: "flex-start", padding: 0, border: "none", background: "none", color: "var(--accent)", cursor: "pointer", font: "inherit" }}
+          style={{
+            alignSelf: 'flex-start',
+            padding: 0,
+            border: 'none',
+            background: 'none',
+            color: 'var(--accent)',
+            cursor: 'pointer',
+            font: 'inherit'
+          }}
         >
-          {t("codemode.showEarlierCalls", { count: hidden })}
+          {t('codemode.showEarlierCalls', { count: hidden })}
         </button>
       )}
-      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
+      <ul
+        style={{
+          listStyle: 'none',
+          margin: 0,
+          padding: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 3,
+          minWidth: 0
+        }}
+      >
         {shown.map((call, index) => (
           <CallRow key={call.id || `${hidden + index}`} call={call} />
         ))}
       </ul>
       {totalCost !== null && (
-        <div style={{ color: "var(--text-dim)" }}>{t("codemode.modelCost", { cost: formatCodemodeCost(totalCost) })}</div>
+        <div style={{ color: 'var(--text-dim)' }}>
+          {t('codemode.modelCost', { cost: formatCodemodeCost(totalCost) })}
+        </div>
       )}
     </div>
   );

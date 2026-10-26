@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import type { ReactNode, Ref } from "react";
+import type { ReactNode, Ref } from 'react';
 
 /** The parts of a keydown the paste box decides on. */
 export interface OAuthPasteKey {
@@ -18,7 +18,7 @@ export interface OAuthPasteKey {
  * and only with Cmd or Ctrl unless `plainEnterSubmits`.
  */
 export function oauthPasteKeySubmits(event: OAuthPasteKey, plainEnterSubmits: boolean): boolean {
-  if (event.key !== "Enter" || event.isComposing || event.keyCode === 229) return false;
+  if (event.key !== 'Enter' || event.isComposing || event.keyCode === 229) return false;
   return plainEnterSubmits || event.metaKey || event.ctrlKey;
 }
 
@@ -42,7 +42,7 @@ export function OAuthPastePanel({
   plainEnterSubmits = true,
   inputRef,
   onValueChange,
-  onSubmit,
+  onSubmit
 }: {
   message: ReactNode;
   hint?: ReactNode;
@@ -73,17 +73,25 @@ export function OAuthPastePanel({
           disabled={disabled || undefined}
           onChange={(event) => onValueChange(event.target.value)}
           onKeyDown={(event) => {
-            const submits = oauthPasteKeySubmits({
-              key: event.key,
-              metaKey: event.metaKey,
-              ctrlKey: event.ctrlKey,
-              isComposing: event.nativeEvent.isComposing,
-              keyCode: event.keyCode,
-            }, plainEnterSubmits);
+            const submits = oauthPasteKeySubmits(
+              {
+                key: event.key,
+                metaKey: event.metaKey,
+                ctrlKey: event.ctrlKey,
+                isComposing: event.nativeEvent.isComposing,
+                keyCode: event.keyCode
+              },
+              plainEnterSubmits
+            );
             if (submits && canSubmit) onSubmit();
           }}
         />
-        <button type="button" className="oauth-paste-submit" onClick={onSubmit} disabled={!canSubmit}>
+        <button
+          type="button"
+          className="oauth-paste-submit"
+          onClick={onSubmit}
+          disabled={!canSubmit}
+        >
           {submitLabel}
         </button>
       </div>

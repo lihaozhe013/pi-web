@@ -1,12 +1,15 @@
-import { getSessionEntries, resolveSessionPath } from "./session-reader";
-export { isFilePathReferencedByEntries } from "./session-file-references-core";
+import { getSessionEntries, resolveSessionPath } from './session-reader';
+export { isFilePathReferencedByEntries } from './session-file-references-core';
 import {
   isBashOutputPathReferencedByEntries,
   isFilePathReferencedByEntries,
-  isValidSessionId,
-} from "./session-file-references-core";
+  isValidSessionId
+} from './session-file-references-core';
 
-export async function isFilePathReferencedBySession(filePath: string, sessionId: string | null): Promise<boolean> {
+export async function isFilePathReferencedBySession(
+  filePath: string,
+  sessionId: string | null
+): Promise<boolean> {
   if (!isValidSessionId(sessionId)) return false;
   try {
     const sessionPath = await resolveSessionPath(sessionId);
@@ -17,7 +20,10 @@ export async function isFilePathReferencedBySession(filePath: string, sessionId:
   }
 }
 
-export async function isBashOutputPathReferencedBySession(filePath: string, sessionId: string | null): Promise<boolean> {
+export async function isBashOutputPathReferencedBySession(
+  filePath: string,
+  sessionId: string | null
+): Promise<boolean> {
   if (!isValidSessionId(sessionId)) return false;
   try {
     const sessionPath = await resolveSessionPath(sessionId);

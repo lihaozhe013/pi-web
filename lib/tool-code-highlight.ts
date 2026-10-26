@@ -12,15 +12,15 @@
  * a card can also tokenize one diff line at a time with it.
  */
 
-import { refractor } from "refractor/core";
+import { refractor } from 'refractor/core';
 
 export interface ToolCodeTokenText {
-  type: "text";
+  type: 'text';
   value: string;
 }
 
 export interface ToolCodeTokenElement {
-  type: "element";
+  type: 'element';
   tagName: string;
   properties?: { className?: string[] };
   children?: ToolCodeNode[];

@@ -19,7 +19,7 @@
  * Legacy values are a bare session id; current values are a small JSON object.
  */
 
-const STORAGE_KEY = "pi-web:tab-open-session";
+const STORAGE_KEY = 'pi-web:tab-open-session';
 
 interface StorageLike {
   getItem(key: string): string | null;
@@ -27,12 +27,10 @@ interface StorageLike {
   removeItem(key: string): void;
 }
 
-export type TabOpen =
-  | { kind: "session"; sessionId: string }
-  | { kind: "new"; cwd: string };
+export type TabOpen = { kind: 'session'; sessionId: string } | { kind: 'new'; cwd: string };
 
 function getBrowserStorage(): StorageLike | null {
-  if (typeof window === "undefined") return null;
+  if (typeof window === 'undefined') return null;
   try {
     return window.sessionStorage;
   } catch {
@@ -41,24 +39,24 @@ function getBrowserStorage(): StorageLike | null {
 }
 
 function parseTabOpen(raw: string | null): TabOpen | null {
-  if (typeof raw !== "string" || raw.length === 0) return null;
-  if (raw.startsWith("{")) {
+  if (typeof raw !== 'string' || raw.length === 0) return null;
+  if (raw.startsWith('{')) {
     try {
       const parsed: unknown = JSON.parse(raw);
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
       const record = parsed as { kind?: unknown; sessionId?: unknown; cwd?: unknown };
-      if (record.kind === "session" && typeof record.sessionId === "string" && record.sessionId) {
-        return { kind: "session", sessionId: record.sessionId };
+      if (record.kind === 'session' && typeof record.sessionId === 'string' && record.sessionId) {
+        return { kind: 'session', sessionId: record.sessionId };
       }
-      if (record.kind === "new" && typeof record.cwd === "string" && record.cwd.trim()) {
-        return { kind: "new", cwd: record.cwd };
+      if (record.kind === 'new' && typeof record.cwd === 'string' && record.cwd.trim()) {
+        return { kind: 'new', cwd: record.cwd };
       }
       return null;
     } catch {
       return null;
     }
   }
-  return { kind: "session", sessionId: raw };
+  return { kind: 'session', sessionId: raw };
 }
 
 function writeTabOpen(value: TabOpen, storage: StorageLike): void {
@@ -66,9 +64,7 @@ function writeTabOpen(value: TabOpen, storage: StorageLike): void {
 }
 
 /** What this tab showed last, or null when none is remembered. */
-export function getTabOpen(
-  storage: StorageLike | null = getBrowserStorage(),
-): TabOpen | null {
+export function getTabOpen(storage: StorageLike | null = getBrowserStorage()): TabOpen | null {
   if (!storage) return null;
   try {
     return parseTabOpen(storage.getItem(STORAGE_KEY));
@@ -79,11 +75,11 @@ export function getTabOpen(
 
 export function setTabOpenSession(
   sessionId: string,
-  storage: StorageLike | null = getBrowserStorage(),
+  storage: StorageLike | null = getBrowserStorage()
 ): void {
   if (!storage || !sessionId) return;
   try {
-    writeTabOpen({ kind: "session", sessionId }, storage);
+    writeTabOpen({ kind: 'session', sessionId }, storage);
   } catch {
     // storage unavailable — memory is best-effort
   }
@@ -91,12 +87,12 @@ export function setTabOpenSession(
 
 export function setTabOpenNewSession(
   cwd: string,
-  storage: StorageLike | null = getBrowserStorage(),
+  storage: StorageLike | null = getBrowserStorage()
 ): void {
   const trimmed = cwd.trim();
   if (!storage || !trimmed) return;
   try {
-    writeTabOpen({ kind: "new", cwd: trimmed }, storage);
+    writeTabOpen({ kind: 'new', cwd: trimmed }, storage);
   } catch {
     // storage unavailable — memory is best-effort
   }
@@ -105,12 +101,12 @@ export function setTabOpenNewSession(
 /** Forget this tab's session when it matches `sessionId`. */
 export function clearTabOpenSession(
   sessionId: string,
-  storage: StorageLike | null = getBrowserStorage(),
+  storage: StorageLike | null = getBrowserStorage()
 ): void {
   if (!storage || !sessionId) return;
   try {
     const current = parseTabOpen(storage.getItem(STORAGE_KEY));
-    if (current?.kind !== "session" || current.sessionId !== sessionId) return;
+    if (current?.kind !== 'session' || current.sessionId !== sessionId) return;
     storage.removeItem(STORAGE_KEY);
   } catch {
     // storage unavailable — memory is best-effort

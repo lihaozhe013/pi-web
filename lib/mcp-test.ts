@@ -1,5 +1,10 @@
-import { ModelRegistry, type McpExposure, type McpServerConfig, type McpServerEntry } from "@earendil-works/pi-coding-agent";
-import type { McpScope, McpTestResult, McpTestState, McpTestTool } from "./api-types";
+import {
+  ModelRegistry,
+  type McpExposure,
+  type McpServerConfig,
+  type McpServerEntry
+} from '@earendil-works/pi-coding-agent';
+import type { McpScope, McpTestResult, McpTestState, McpTestTool } from './api-types';
 import {
   argSecretParts,
   commandSecretParts,
@@ -8,12 +13,19 @@ import {
   maskCommand,
   maskUrl,
   SECRET_MASK,
-  urlSecretParts,
-} from "./mcp-secrets";
-import { guardedCredentialStore, mcpOAuthUrl, mcpSignInKey, mcpSignOutCount, mcpSignOutGuard, type McpSignInWriteGuard } from "./mcp-sign-out";
-import { recordMcpStatus } from "./mcp-status";
-import { createPiWebMcpTransportFactory, resolvedConfigValues } from "./mcp-transport";
-import { getModelRuntimeWithExtensions } from "./model-runtime";
+  urlSecretParts
+} from './mcp-secrets';
+import {
+  guardedCredentialStore,
+  mcpOAuthUrl,
+  mcpSignInKey,
+  mcpSignOutCount,
+  mcpSignOutGuard,
+  type McpSignInWriteGuard
+} from './mcp-sign-out';
+import { recordMcpStatus } from './mcp-status';
+import { createPiWebMcpTransportFactory, resolvedConfigValues } from './mcp-transport';
+import { getModelRuntimeWithExtensions } from './model-runtime';
 import type {
   McpClient,
   McpOAuthCredentialStore,
@@ -21,8 +33,8 @@ import type {
   McpTool,
   McpTransport,
   PiSdkInternals,
-  StdioTransport,
-} from "./pi-sdk-internals";
+  StdioTransport
+} from './pi-sdk-internals';
 
 // Settings › MCP's Test (ADR 0006): connect one `mcp.json` entry once, outside
 // any session, list what it offers, and close it again. It connects the way a
@@ -74,18 +86,23 @@ const TEXT_MAX_CHARS = 300;
 /** Literal and resolved values shorter than this are not masked in messages: no secret is this short, and masking `1` or `true` would garble them. */
 const MASK_MIN_LENGTH = 6;
 /** The SDK's words before the text of a `!command` that failed (`resolveConfigValueOrThrow()`). */
-const SHELL_COMMAND_QUOTE = "from shell command: ";
-const EXPOSURES: ReadonlySet<string> = new Set<McpExposure>(["codemode", "deferred", "direct", "hidden"]);
+const SHELL_COMMAND_QUOTE = 'from shell command: ';
+const EXPOSURES: ReadonlySet<string> = new Set<McpExposure>([
+  'codemode',
+  'deferred',
+  'direct',
+  'hidden'
+]);
 
 export type McpTestInternals = Pick<
   PiSdkInternals,
-  | "McpServerConnection"
-  | "McpOAuthCredentialStore"
-  | "createDefaultTransport"
-  | "StdioTransport"
-  | "getConfigValueEnvVarNames"
-  | "isCommandConfigValue"
-  | "getMcpToolExposure"
+  | 'McpServerConnection'
+  | 'McpOAuthCredentialStore'
+  | 'createDefaultTransport'
+  | 'StdioTransport'
+  | 'getConfigValueEnvVarNames'
+  | 'isCommandConfigValue'
+  | 'getMcpToolExposure'
 >;
 
 /** The entry to test, as the route read and validated it from its file. */
@@ -103,7 +120,7 @@ export interface McpTestTarget {
 }
 
 /** What connecting found, before the queue and the clock are added. */
-export type McpTestRun = Omit<McpTestResult, "testedAt" | "queuedMs">;
+export type McpTestRun = Omit<McpTestResult, 'testedAt' | 'queuedMs'>;
 
 /** Connects `target` until `signal` aborts; replaced in tests of the queue. */
 export type McpTestConnect = (target: McpTestTarget, signal: AbortSignal) => Promise<McpTestRun>;
@@ -133,7 +150,9 @@ function delay(ms: number): { promise: Promise<void>; cancel: () => void } {
 
 function aborted(signal: AbortSignal): Promise<void> {
   if (signal.aborted) return Promise.resolve();
-  return new Promise((resolve) => signal.addEventListener("abort", () => resolve(), { once: true }));
+  return new Promise((resolve) =>
+    signal.addEventListener('abort', () => resolve(), { once: true })
+  );
 }
 
 function clip(text: string, max: number): string {
@@ -161,7 +180,10 @@ export function maskStatusStderr(text: string, redact: (text: string) => string)
 }
 
 /** Whether connecting resolves a `!command`: in a stdio entry's env, an HTTP entry's headers or `oauth.clientSecret`. */
-export function runsShellCommand(config: unknown, internals: Pick<PiSdkInternals, "isCommandConfigValue">): boolean {
+export function runsShellCommand(
+  config: unknown,
+  internals: Pick<PiSdkInternals, 'isCommandConfigValue'>
+): boolean {
   return resolvedConfigValues(config).some(({ value }) => internals.isCommandConfigValue(value));
 }
 
@@ -172,7 +194,7 @@ export function runsShellCommand(config: unknown, internals: Pick<PiSdkInternals
 const AUTHORIZATION_SCHEME = /^(?:bearer|basic|token)$/i;
 
 function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /** One text to replace: everywhere, or (`word`) only where it is not part of a longer word. */
@@ -203,9 +225,9 @@ interface Replacement {
 export function createTestRedactor(
   config: McpServerConfig,
   transports: readonly McpTransport[],
-  internals: Pick<PiSdkInternals, "isCommandConfigValue">,
+  internals: Pick<PiSdkInternals, 'isCommandConfigValue'>,
   /** Values resolved outside the transports, such as the `oauth.clientSecret` a sign-in resolved. */
-  resolvedSecrets: readonly string[] = [],
+  resolvedSecrets: readonly string[] = []
 ): (text: string) => string {
   const replacements = new Map<string, Replacement>();
   const add = (raw: string, shown: string, word: boolean) => {
@@ -219,7 +241,8 @@ export function createTestRedactor(
     if (trimmed.length >= MASK_MIN_LENGTH) add(trimmed, SECRET_MASK, false);
     // `Bearer <token>`: the token alone may be echoed.
     for (const word of trimmed.split(/\s+/)) {
-      if (word !== trimmed && word.length >= MASK_MIN_LENGTH && !AUTHORIZATION_SCHEME.test(word)) add(word, SECRET_MASK, true);
+      if (word !== trimmed && word.length >= MASK_MIN_LENGTH && !AUTHORIZATION_SCHEME.test(word))
+        add(word, SECRET_MASK, true);
     }
   };
   const masked = (raw: string, shown: { value: string; masked: boolean }) => {
@@ -228,16 +251,24 @@ export function createTestRedactor(
   for (const { value } of resolvedConfigValues(config)) {
     if (internals.isCommandConfigValue(value)) {
       const text = value.slice(1);
-      if (text.trim()) add(`${SHELL_COMMAND_QUOTE}${text}`, `${SHELL_COMMAND_QUOTE}${SECRET_MASK}`, false);
+      if (text.trim())
+        add(`${SHELL_COMMAND_QUOTE}${text}`, `${SHELL_COMMAND_QUOTE}${SECRET_MASK}`, false);
       if (text.trim().length >= MASK_MIN_LENGTH) add(text.trim(), SECRET_MASK, true);
     } else if (!isReferenceOnly(value)) {
       secret(value);
     }
   }
-  const resolved = transports.map((transport) =>
-    (transport as { options?: { env?: Record<string, string>; headers?: Record<string, string> } }).options ?? {});
-  if ("url" in config) {
-    for (const options of resolved) for (const value of Object.values(options.headers ?? {})) secret(value);
+  const resolved = transports.map(
+    (transport) =>
+      (
+        transport as {
+          options?: { env?: Record<string, string>; headers?: Record<string, string> };
+        }
+      ).options ?? {}
+  );
+  if ('url' in config) {
+    for (const options of resolved)
+      for (const value of Object.values(options.headers ?? {})) secret(value);
     masked(config.url, maskUrl(config.url));
     try {
       // `new URL()` adds the `/` of an empty path and lowercases the host, and messages quote it that way.
@@ -249,12 +280,15 @@ export function createTestRedactor(
     for (const part of urlSecretParts(config.url)) secret(part);
   } else {
     // Only the entry's own names: the rest of a stdio server's environment is the host's, sanitized.
-    for (const options of resolved) for (const name of Object.keys(config.env ?? {})) secret(options.env?.[name]);
+    for (const options of resolved)
+      for (const name of Object.keys(config.env ?? {})) secret(options.env?.[name]);
     masked(config.command, maskCommand(config.command));
     for (const part of commandSecretParts(config.command)) secret(part);
     const args = config.args ?? [];
     const shown = maskArgs(args).args;
-    args.forEach((arg, index) => masked(arg, { value: shown[index] ?? SECRET_MASK, masked: shown[index] !== arg }));
+    args.forEach((arg, index) =>
+      masked(arg, { value: shown[index] ?? SECRET_MASK, masked: shown[index] !== arg })
+    );
     for (const part of argSecretParts(args)) secret(part);
   }
   for (const value of resolvedSecrets) secret(value);
@@ -264,9 +298,13 @@ export function createTestRedactor(
     .map(({ raw, shown, word }) => ({
       shown,
       // Word characters on either side mean `raw` is part of a longer word, which a word replacement leaves alone.
-      pattern: new RegExp(word ? `(?<![A-Za-z0-9_])${escapeRegExp(raw)}(?![A-Za-z0-9_])` : escapeRegExp(raw), "g"),
+      pattern: new RegExp(
+        word ? `(?<![A-Za-z0-9_])${escapeRegExp(raw)}(?![A-Za-z0-9_])` : escapeRegExp(raw),
+        'g'
+      )
     }));
-  return (text) => ordered.reduce((current, { pattern, shown }) => current.replace(pattern, () => shown), text);
+  return (text) =>
+    ordered.reduce((current, { pattern, shown }) => current.replace(pattern, () => shown), text);
 }
 
 // ---------------------------------------------------------------------------
@@ -280,10 +318,22 @@ export function createTestRedactor(
  * `Object.prototype`'s function. Anything but an exposure falls back to the
  * server's.
  */
-function toolExposure(config: McpServerConfig, name: string, internals: Pick<PiSdkInternals, "getMcpToolExposure">): McpExposure {
-  const overrides: Record<string, McpExposure> = Object.assign(Object.create(null), config.toolExposure);
-  const exposure: unknown = internals.getMcpToolExposure({ ...config, toolExposure: overrides }, name);
-  return typeof exposure === "string" && EXPOSURES.has(exposure) ? (exposure as McpExposure) : config.exposure ?? "codemode";
+function toolExposure(
+  config: McpServerConfig,
+  name: string,
+  internals: Pick<PiSdkInternals, 'getMcpToolExposure'>
+): McpExposure {
+  const overrides: Record<string, McpExposure> = Object.assign(
+    Object.create(null),
+    config.toolExposure
+  );
+  const exposure: unknown = internals.getMcpToolExposure(
+    { ...config, toolExposure: overrides },
+    name
+  );
+  return typeof exposure === 'string' && EXPOSURES.has(exposure)
+    ? (exposure as McpExposure)
+    : (config.exposure ?? 'codemode');
 }
 
 /**
@@ -293,27 +343,38 @@ function toolExposure(config: McpServerConfig, name: string, internals: Pick<PiS
 function describeTool(
   tool: McpTool,
   config: McpServerConfig,
-  internals: Pick<PiSdkInternals, "getMcpToolExposure">,
-  redact: (text: string) => string,
+  internals: Pick<PiSdkInternals, 'getMcpToolExposure'>,
+  redact: (text: string) => string
 ): McpTestTool {
-  const annotations: Partial<NonNullable<McpTool["annotations"]>> =
-    typeof tool.annotations === "object" && tool.annotations !== null ? tool.annotations : {};
-  const text = [tool.description, tool.title, annotations.title].find((value): value is string => typeof value === "string") ?? "";
-  const description = text.split(/\r?\n/).map((line) => line.trim()).find(Boolean);
+  const annotations: Partial<NonNullable<McpTool['annotations']>> =
+    typeof tool.annotations === 'object' && tool.annotations !== null ? tool.annotations : {};
+  const text =
+    [tool.description, tool.title, annotations.title].find(
+      (value): value is string => typeof value === 'string'
+    ) ?? '';
+  const description = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find(Boolean);
   return {
     name: headOf(tool.name, redact, TEXT_MAX_CHARS),
     ...(description ? { description: headOf(description, redact, TEXT_MAX_CHARS) } : {}),
     readOnly: annotations.readOnlyHint === true,
-    exposure: toolExposure(config, tool.name, internals),
+    exposure: toolExposure(config, tool.name, internals)
   };
 }
 
 /** What the server said about itself; pi-mcp checks that `name` and `version` are strings. */
-function describeServerInfo(info: NonNullable<McpClient["serverInfo"]>, redact: (text: string) => string): NonNullable<McpTestResult["serverInfo"]> {
+function describeServerInfo(
+  info: NonNullable<McpClient['serverInfo']>,
+  redact: (text: string) => string
+): NonNullable<McpTestResult['serverInfo']> {
   return {
-    name: headOf(String(info.name ?? ""), redact, TEXT_MAX_CHARS),
-    version: headOf(String(info.version ?? ""), redact, TEXT_MAX_CHARS),
-    ...(typeof info.title === "string" && info.title ? { title: headOf(info.title, redact, TEXT_MAX_CHARS) } : {}),
+    name: headOf(String(info.name ?? ''), redact, TEXT_MAX_CHARS),
+    version: headOf(String(info.version ?? ''), redact, TEXT_MAX_CHARS),
+    ...(typeof info.title === 'string' && info.title
+      ? { title: headOf(info.title, redact, TEXT_MAX_CHARS) }
+      : {})
   };
 }
 
@@ -323,10 +384,13 @@ function describeServerInfo(info: NonNullable<McpClient["serverInfo"]>, redact: 
  * received more since (at most 64 KiB); the message keeps the part before it.
  * Neither is masked or shortened yet.
  */
-function splitStderr(message: string, stdio: StdioTransport | undefined): { error: string; stderr?: string } {
-  const full = stdio?.stderr.trim() ?? "";
+function splitStderr(
+  message: string,
+  stdio: StdioTransport | undefined
+): { error: string; stderr?: string } {
+  const full = stdio?.stderr.trim() ?? '';
   if (!full) return { error: message };
-  for (let index = message.indexOf("\n"); index >= 0; index = message.indexOf("\n", index + 1)) {
+  for (let index = message.indexOf('\n'); index >= 0; index = message.indexOf('\n', index + 1)) {
     const tail = message.slice(index + 1);
     if (tail && full.includes(tail)) return { error: message.slice(0, index), stderr: full };
   }
@@ -357,12 +421,17 @@ export function openTestConnection(
     credentials?: McpOAuthCredentialStore;
     /** A pi provider's current token, for an entry with `auth.provider`; read from pi's credentials when omitted. */
     providerToken?: (provider: string) => Promise<string | undefined>;
-  } = {},
+  } = {}
 ): McpTestConnection {
   const requestTimeoutMs = options.requestTimeoutMs ?? MCP_TEST_REQUEST_TIMEOUT_MS;
   const { config } = target;
   const timeout = Math.min(config.timeout ?? SDK_DEFAULT_TIMEOUT_SECONDS, requestTimeoutMs / 1000);
-  const entry: McpServerEntry = { name: target.name, config: { ...config, timeout }, source: target.sourcePath, scope: target.scope };
+  const entry: McpServerEntry = {
+    name: target.name,
+    config: { ...config, timeout },
+    source: target.sourcePath,
+    scope: target.scope
+  };
   const transports: McpTransport[] = [];
   const factory = createPiWebMcpTransportFactory(internals);
   const connection = new internals.McpServerConnection({
@@ -377,7 +446,7 @@ export function openTestConnection(
     // sign-in passes one over the same file whose writes stop once its server is signed out.
     credentials: options.credentials ?? new internals.McpOAuthCredentialStore(),
     providerToken: options.providerToken ?? providerTokenReader(),
-    onTools: () => {},
+    onTools: () => {}
   });
   return { connection, transports };
 }
@@ -408,9 +477,13 @@ function providerTokenReader(): (provider: string) => Promise<string | undefined
  * which also ends an HTTP retry waiting between attempts; closing the
  * transports directly fails a handshake still in progress.
  */
-export async function closeTestConnection({ connection, transports }: McpTestConnection, waitMs: number = MCP_TEST_CLOSE_WAIT_MS): Promise<void> {
-  const closing = [connection.close(), ...transports.map((transport) => transport.close())]
-    .map((promise) => promise.catch(() => undefined));
+export async function closeTestConnection(
+  { connection, transports }: McpTestConnection,
+  waitMs: number = MCP_TEST_CLOSE_WAIT_MS
+): Promise<void> {
+  const closing = [connection.close(), ...transports.map((transport) => transport.close())].map(
+    (promise) => promise.catch(() => undefined)
+  );
   const wait = delay(waitMs);
   await Promise.race([Promise.all(closing), wait.promise]);
   wait.cancel();
@@ -428,7 +501,7 @@ export async function observeTestConnection(
   target: McpTestTarget,
   internals: McpTestInternals,
   signal: AbortSignal,
-  options: { attempt?: () => Promise<McpClient>; resolvedSecrets?: readonly string[] } = {},
+  options: { attempt?: () => Promise<McpClient>; resolvedSecrets?: readonly string[] } = {}
 ): Promise<McpTestRun> {
   const { config } = target;
   const attempt = options.attempt ?? (() => connection.getClient());
@@ -437,44 +510,56 @@ export async function observeTestConnection(
   const outcome: Outcome = signal.aborted
     ? { aborted: true }
     : await Promise.race([
-        attempt().then((client): Outcome => ({ client }), (error: unknown): Outcome => ({ error })),
-        aborted(signal).then((): Outcome => ({ aborted: true })),
+        attempt().then(
+          (client): Outcome => ({ client }),
+          (error: unknown): Outcome => ({ error })
+        ),
+        aborted(signal).then((): Outcome => ({ aborted: true }))
       ]);
   const durationMs = Date.now() - started;
 
-  const stdioTransports = transports.filter((transport): transport is StdioTransport => transport instanceof internals.StdioTransport);
+  const stdioTransports = transports.filter(
+    (transport): transport is StdioTransport => transport instanceof internals.StdioTransport
+  );
   const stdio = stdioTransports[stdioTransports.length - 1];
   const redact = createTestRedactor(config, transports, internals, options.resolvedSecrets);
-  const isStdio = !("url" in config);
+  const isStdio = !('url' in config);
   const cwd = isStdio ? { cwd: stdio?.options.cwd ?? target.cwd } : {};
-  if ("aborted" in outcome) {
+  if ('aborted' in outcome) {
     const stderr = stdio?.stderr.trim();
     return {
-      state: "failed",
+      state: 'failed',
       timedOut: true,
       tools: [],
       toolCount: 0,
       durationMs,
       ...cwd,
-      ...(stderr ? { stderr: tailOf(stderr, redact, STDERR_TAIL_CHARS) } : {}),
+      ...(stderr ? { stderr: tailOf(stderr, redact, STDERR_TAIL_CHARS) } : {})
     };
   }
-  const state: McpTestState = connection.state === "connected"
-    ? "connected"
-    : connection.state === "needs-auth" ? "needs-auth" : "failed";
-  const tools = state === "connected" ? connection.tools : [];
-  const client = "client" in outcome ? outcome.client : undefined;
+  const state: McpTestState =
+    connection.state === 'connected'
+      ? 'connected'
+      : connection.state === 'needs-auth'
+        ? 'needs-auth'
+        : 'failed';
+  const tools = state === 'connected' ? connection.tools : [];
+  const client = 'client' in outcome ? outcome.client : undefined;
   const run: McpTestRun = {
     state,
-    tools: tools.slice(0, MCP_TEST_MAX_TOOLS).map((tool) => describeTool(tool, config, internals, redact)),
+    tools: tools
+      .slice(0, MCP_TEST_MAX_TOOLS)
+      .map((tool) => describeTool(tool, config, internals, redact)),
     toolCount: tools.length,
     durationMs,
     ...cwd,
-    ...(state === "connected" && connection.hasResources ? { resources: true as const } : {}),
-    ...(client?.serverInfo ? { serverInfo: describeServerInfo(client.serverInfo, redact) } : {}),
+    ...(state === 'connected' && connection.hasResources ? { resources: true as const } : {}),
+    ...(client?.serverInfo ? { serverInfo: describeServerInfo(client.serverInfo, redact) } : {})
   };
-  if (state === "failed") {
-    const message = connection.error ?? ("error" in outcome ? errorMessage(outcome.error) : "The connection failed");
+  if (state === 'failed') {
+    const message =
+      connection.error ??
+      ('error' in outcome ? errorMessage(outcome.error) : 'The connection failed');
     const { error, stderr } = splitStderr(message, stdio);
     run.error = headOf(error, redact, ERROR_MAX_CHARS);
     if (stderr) run.stderr = tailOf(stderr, redact, STDERR_TAIL_CHARS);
@@ -493,11 +578,13 @@ export async function connectForTest(
   target: McpTestTarget,
   internals: McpTestInternals,
   signal: AbortSignal,
-  options: { requestTimeoutMs?: number; closeWaitMs?: number; guard?: McpSignInWriteGuard } = {},
+  options: { requestTimeoutMs?: number; closeWaitMs?: number; guard?: McpSignInWriteGuard } = {}
 ): Promise<McpTestRun> {
   const opened = openTestConnection(target, internals, {
-    ...(options.requestTimeoutMs !== undefined ? { requestTimeoutMs: options.requestTimeoutMs } : {}),
-    ...(options.guard ? { credentials: guardedCredentialStore(internals, options.guard) } : {}),
+    ...(options.requestTimeoutMs !== undefined
+      ? { requestTimeoutMs: options.requestTimeoutMs }
+      : {}),
+    ...(options.guard ? { credentials: guardedCredentialStore(internals, options.guard) } : {})
   });
   // Whatever happens, the connection and its transports are closed: a result
   // that could not be built must not leave a stdio server running.
@@ -512,13 +599,16 @@ export async function connectForTest(
 // The queue for entries that run a shell command, joining, the deadline
 // ---------------------------------------------------------------------------
 
-const FLIGHTS_KEY: symbol = Symbol.for("pi-web:mcp-test-flights");
-const COMMAND_QUEUE_KEY: symbol = Symbol.for("pi-web:mcp-test-command-queue");
-const CANCELLED = "cancelled";
-const DEADLINE = "deadline";
+const FLIGHTS_KEY: symbol = Symbol.for('pi-web:mcp-test-flights');
+const COMMAND_QUEUE_KEY: symbol = Symbol.for('pi-web:mcp-test-command-queue');
+const CANCELLED = 'cancelled';
+const DEADLINE = 'deadline';
 
 function flights(): Map<string, Promise<McpTestResult> & { join: (signal?: AbortSignal) => void }> {
-  const store = globalThis as Record<symbol, Map<string, Promise<McpTestResult> & { join: (signal?: AbortSignal) => void }> | undefined>;
+  const store = globalThis as Record<
+    symbol,
+    Map<string, Promise<McpTestResult> & { join: (signal?: AbortSignal) => void }> | undefined
+  >;
   return (store[FLIGHTS_KEY] ??= new Map());
 }
 
@@ -534,7 +624,10 @@ function commandQueue(): { tail: Promise<void> } {
  * the ones ahead of it. A sign-in of such an entry takes a place for each of
  * its connects, never across the wait for the browser.
  */
-export async function takeMcpCommandSlot(signal: AbortSignal, waitMs: number): Promise<{ release: () => void; turn: boolean; timedOut: boolean }> {
+export async function takeMcpCommandSlot(
+  signal: AbortSignal,
+  waitMs: number
+): Promise<{ release: () => void; turn: boolean; timedOut: boolean }> {
   const queue = commandQueue();
   const ahead = queue.tail;
   let release!: () => void;
@@ -544,13 +637,13 @@ export async function takeMcpCommandSlot(signal: AbortSignal, waitMs: number): P
   queue.tail = ahead.then(() => done);
   const wait = delay(waitMs);
   const outcome = await Promise.race([
-    ahead.then(() => "turn" as const),
-    wait.promise.then(() => "timeout" as const),
-    aborted(signal).then(() => "aborted" as const),
+    ahead.then(() => 'turn' as const),
+    wait.promise.then(() => 'timeout' as const),
+    aborted(signal).then(() => 'aborted' as const)
   ]);
   wait.cancel();
-  if (outcome !== "turn") release();
-  return { release, turn: outcome === "turn", timedOut: outcome === "timeout" };
+  if (outcome !== 'turn') release();
+  return { release, turn: outcome === 'turn', timedOut: outcome === 'timeout' };
 }
 
 /** The sign-out guard of a test of `target` starting now, for an entry that signs in with OAuth. */
@@ -577,7 +670,14 @@ function signOutsOf(target: McpTestTarget): number {
 }
 
 function flightKey(target: McpTestTarget): string {
-  return [target.scope, target.sourcePath, target.name, target.configKey, target.cwd, signOutsOf(target)].join("\0");
+  return [
+    target.scope,
+    target.sourcePath,
+    target.name,
+    target.configKey,
+    target.cwd,
+    signOutsOf(target)
+  ].join('\0');
 }
 
 /**
@@ -585,7 +685,11 @@ function flightKey(target: McpTestTarget): string {
  * content and folder). The result is recorded as the entry's status unless
  * every caller gave up first, or it never left the queue.
  */
-export function testMcpServer(target: McpTestTarget, internals: McpTestInternals, options: McpTestOptions = {}): Promise<McpTestResult> {
+export function testMcpServer(
+  target: McpTestTarget,
+  internals: McpTestInternals,
+  options: McpTestOptions = {}
+): Promise<McpTestResult> {
   const key = flightKey(target);
   const running = flights();
   const existing = running.get(key);
@@ -600,9 +704,11 @@ export function testMcpServer(target: McpTestTarget, internals: McpTestInternals
     if (running.get(key) === flight) running.delete(key);
   });
   running.set(key, flight);
-  void flight.finally(() => {
-    if (running.get(key) === flight) running.delete(key);
-  }).catch(() => undefined);
+  void flight
+    .finally(() => {
+      if (running.get(key) === flight) running.delete(key);
+    })
+    .catch(() => undefined);
   flight.join(options.signal);
   return flight;
 }
@@ -611,14 +717,20 @@ function startTest(
   target: McpTestTarget,
   internals: McpTestInternals,
   options: McpTestOptions,
-  onCancelled: () => void,
+  onCancelled: () => void
 ): Promise<McpTestResult> & { join: (signal?: AbortSignal) => void } {
   const deadlineMs = options.deadlineMs ?? MCP_TEST_DEADLINE_MS;
   const closeWaitMs = options.closeWaitMs ?? MCP_TEST_CLOSE_WAIT_MS;
   // Taken when the test starts: a sign-out from then on bars its token writes and its record.
   const guard = signOutGuardFor(target);
-  const connect: McpTestConnect = options.connect
-    ?? ((entry, signal) => connectForTest(entry, internals, signal, { requestTimeoutMs: options.requestTimeoutMs, closeWaitMs, guard }));
+  const connect: McpTestConnect =
+    options.connect ??
+    ((entry, signal) =>
+      connectForTest(entry, internals, signal, {
+        requestTimeoutMs: options.requestTimeoutMs,
+        closeWaitMs,
+        guard
+      }));
   const signedOutSince = (): boolean => {
     try {
       guard?.();
@@ -647,7 +759,7 @@ function startTest(
     };
     if (signal.aborted) leave();
     else {
-      signal.addEventListener("abort", leave, { once: true });
+      signal.addEventListener('abort', leave, { once: true });
       listeners.push([signal, leave]);
     }
   };
@@ -657,7 +769,7 @@ function startTest(
       return await runTest();
     } finally {
       // Over: a caller that leaves now cannot abort anything.
-      for (const [signal, leave] of listeners) signal.removeEventListener("abort", leave);
+      for (const [signal, leave] of listeners) signal.removeEventListener('abort', leave);
     }
   };
 
@@ -669,13 +781,24 @@ function startTest(
     const slot = serial ? await takeMcpCommandSlot(controller.signal, deadlineMs) : undefined;
     const queuedMs = serial ? Date.now() - queuedAt : 0;
     const finish = (result: McpTestRun, record: boolean): McpTestResult => {
-      const full: McpTestResult = { ...result, testedAt: Date.now(), ...(queuedMs > 0 ? { queuedMs } : {}) };
+      const full: McpTestResult = {
+        ...result,
+        testedAt: Date.now(),
+        ...(queuedMs > 0 ? { queuedMs } : {})
+      };
       // A sign-out since the test started forgot the entry's statuses; what the test found with
       // the tokens it had then is not news about the server signed out of.
-      if (record && !signedOutSince()) recordMcpStatus(target, target.configKey, { ...full, origin: "test" });
+      if (record && !signedOutSince())
+        recordMcpStatus(target, target.configKey, { ...full, origin: 'test' });
       return full;
     };
-    const notRun = (extra: Partial<McpTestRun>): McpTestRun => ({ state: "failed", tools: [], toolCount: 0, durationMs: 0, ...extra });
+    const notRun = (extra: Partial<McpTestRun>): McpTestRun => ({
+      state: 'failed',
+      tools: [],
+      toolCount: 0,
+      durationMs: 0,
+      ...extra
+    });
     if (slot && !slot.turn) {
       // Never tested, so nothing is recorded: the entry's last real result stays.
       return finish(notRun(slot.timedOut ? { queueTimedOut: true } : {}), false);

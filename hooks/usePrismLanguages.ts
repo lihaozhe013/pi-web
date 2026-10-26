@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { loadPrismLanguages, prismLanguagesLoaded } from "@/lib/prism-languages";
+import { useEffect, useState } from 'react';
+import { loadPrismLanguages, prismLanguagesLoaded } from '@/lib/prism-languages';
 
 /**
  * True once every Prism language is registered (lib/prism-languages.ts). While
@@ -14,10 +14,16 @@ export function usePrismLanguages(enabled = true): boolean {
     if (ready || !enabled) return;
     let active = true;
     loadPrismLanguages().then(
-      () => { if (active) setReady(true); },
-      () => { /* Stays plain text; the next highlighter to mount retries. */ },
+      () => {
+        if (active) setReady(true);
+      },
+      () => {
+        /* Stays plain text; the next highlighter to mount retries. */
+      }
     );
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [enabled, ready]);
   return ready;
 }

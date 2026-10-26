@@ -9,7 +9,7 @@
 
 /** Larger results are shown as the server sent them. */
 const PRETTY_JSON_MAX_CHARS = 200_000;
-const MCP_TOOL_PREFIX = "mcp__";
+const MCP_TOOL_PREFIX = 'mcp__';
 
 export interface McpToolLabel {
   server: string;
@@ -17,14 +17,16 @@ export interface McpToolLabel {
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /** The server and tool an MCP call's result names, or null when there is none to go by. */
 export function mcpToolLabel(toolName: string, details?: unknown): McpToolLabel | null {
   if (!toolName.startsWith(MCP_TOOL_PREFIX) || !isRecord(details)) return null;
   const { server, tool } = details;
-  return typeof server === "string" && typeof tool === "string" && server && tool ? { server, tool } : null;
+  return typeof server === 'string' && typeof tool === 'string' && server && tool
+    ? { server, tool }
+    : null;
 }
 
 /**

@@ -1,6 +1,6 @@
-import { createReadStream } from "node:fs";
-import { createInterface } from "node:readline";
-import type { SessionInfo } from "./types";
+import { createReadStream } from 'node:fs';
+import { createInterface } from 'node:readline';
+import type { SessionInfo } from './types';
 
 const MAX_FILES = 500;
 const MAX_RESULTS = 30;
@@ -28,14 +28,14 @@ export interface SessionSearchResponse {
 export async function searchSessionContents(
   sessions: readonly SessionInfo[],
   query: string,
-  requestSignal?: AbortSignal,
+  requestSignal?: AbortSignal
 ): Promise<SessionSearchResponse> {
   const response: SessionSearchResponse = { results: [], truncated: false };
   const needle = query.trim();
   if (!needle) return response;
-  if (needle.length > 200) throw new RangeError("Search query exceeds 200 characters");
+  if (needle.length > 200) throw new RangeError('Search query exceeds 200 characters');
   // Escape every operator: this is literal search, with offsets in the original text.
-  const matcher = new RegExp(needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+  const matcher = new RegExp(needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
   const deadline = Date.now() + TIME_BUDGET_MS;
   const timeout = AbortSignal.timeout(TIME_BUDGET_MS);
   const signal = requestSignal ? AbortSignal.any([requestSignal, timeout]) : timeout;
@@ -44,11 +44,20 @@ export async function searchSessionContents(
     .sort((a, b) => b.modified.localeCompare(a.modified));
 
   for (const [index, session] of candidates.entries()) {
-    if (index >= MAX_FILES || response.results.length >= MAX_RESULTS || signal.aborted || Date.now() >= deadline) {
+    if (
+      index >= MAX_FILES ||
+      response.results.length >= MAX_RESULTS ||
+      signal.aborted ||
+      Date.now() >= deadline
+    ) {
       response.truncated = true;
       break;
     }
-    const stream = createReadStream(session.path, { encoding: "utf8", end: MAX_FILE_BYTES - 1, signal });
+    const stream = createReadStream(session.path, {
+      encoding: 'utf8',
+      end: MAX_FILE_BYTES - 1,
+      signal
+    });
     const lines = createInterface({ input: stream, crlfDelay: Infinity });
     let found = false;
     try {
@@ -62,12 +71,26 @@ export async function searchSessionContents(
           continue;
         }
         let entry;
-        try { entry = JSON.parse(line); } catch { continue; }
-        if (entry?.type !== "message" || !["user", "assistant"].includes(entry.message?.role)) continue;
+        try {
+          entry = JSON.parse(line);
+        } catch {
+          continue;
+        }
+        if (entry?.type !== 'message' || !['user', 'assistant'].includes(entry.message?.role))
+          continue;
         const content: unknown = entry.message.content;
-        const blocks = typeof content === "string" ? [{ type: "text", text: content }] : Array.isArray(content) ? content : [];
-        const textBlocks = blocks.flatMap((block, blockIndex) => block?.type === "text" && typeof block.text === "string" ? [{ text: block.text as string, blockIndex }] : []);
-        const text = textBlocks.map((block) => block.text).join("\n");
+        const blocks =
+          typeof content === 'string'
+            ? [{ type: 'text', text: content }]
+            : Array.isArray(content)
+              ? content
+              : [];
+        const textBlocks = blocks.flatMap((block, blockIndex) =>
+          block?.type === 'text' && typeof block.text === 'string'
+            ? [{ text: block.text as string, blockIndex }]
+            : []
+        );
+        const text = textBlocks.map((block) => block.text).join('\n');
         const match = matcher.exec(text);
         if (!match) continue;
         const start = match.index;
@@ -80,11 +103,20 @@ export async function searchSessionContents(
         });
         response.results.push({
           session,
-          ...(typeof entry.id === "string" ? { entryId: entry.id } : {}),
+          ...(typeof entry.id === 'string' ? { entryId: entry.id } : {}),
           blockIndex: matchedBlock!.blockIndex,
-          before: (start > 80 ? "..." : "") + text.slice(Math.max(0, start - 80), start).replace(/\s+/g, " ").trimStart(),
-          match: match[0].replace(/\s+/g, " "),
-          after: text.slice(end, end + 80).replace(/\s+/g, " ").trimEnd() + (end + 80 < text.length ? "..." : ""),
+          before:
+            (start > 80 ? '...' : '') +
+            text
+              .slice(Math.max(0, start - 80), start)
+              .replace(/\s+/g, ' ')
+              .trimStart(),
+          match: match[0].replace(/\s+/g, ' '),
+          after:
+            text
+              .slice(end, end + 80)
+              .replace(/\s+/g, ' ')
+              .trimEnd() + (end + 80 < text.length ? '...' : '')
         });
         found = true;
         break;
@@ -101,7 +133,7 @@ export async function searchSessionContents(
     // already carries the displayed name (including session_info names), so a
     // title hit is a fallback only when the transcript has no match.
     if (!found && !signal.aborted && Date.now() < deadline) {
-      const title = session.name || session.firstMessage || "";
+      const title = session.name || session.firstMessage || '';
       const titleHit = matcher.exec(title);
       if (titleHit) {
         response.results.push({
@@ -110,7 +142,7 @@ export async function searchSessionContents(
           titleMatch: true,
           before: title.slice(0, titleHit.index),
           match: titleHit[0],
-          after: title.slice(titleHit.index + titleHit[0].length),
+          after: title.slice(titleHit.index + titleHit[0].length)
         });
       }
     }

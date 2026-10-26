@@ -1,17 +1,21 @@
-import { isIP } from "node:net";
+import { isIP } from 'node:net';
 
 function normalizeHostname(value: string): string {
-  const unbracketed = value.startsWith("[") && value.endsWith("]")
-    ? value.slice(1, -1)
-    : value;
-  return unbracketed.toLowerCase().replace(/\.$/, "");
+  const unbracketed = value.startsWith('[') && value.endsWith(']') ? value.slice(1, -1) : value;
+  return unbracketed.toLowerCase().replace(/\.$/, '');
 }
 
 function hostnameFromAuthority(value: string): string | null {
   if (!value || /[\s/@\\]/.test(value)) return null;
   try {
     const parsed = new URL(`http://${value}`);
-    if (parsed.username || parsed.password || parsed.pathname !== "/" || parsed.search || parsed.hash) {
+    if (
+      parsed.username ||
+      parsed.password ||
+      parsed.pathname !== '/' ||
+      parsed.search ||
+      parsed.hash
+    ) {
       return null;
     }
     return normalizeHostname(parsed.hostname);
@@ -24,7 +28,13 @@ function normalizeAuthority(value: string): string | null {
   if (!value || /[\s/@\\]/.test(value)) return null;
   try {
     const parsed = new URL(`http://${value}`);
-    if (parsed.username || parsed.password || parsed.pathname !== "/" || parsed.search || parsed.hash) {
+    if (
+      parsed.username ||
+      parsed.password ||
+      parsed.pathname !== '/' ||
+      parsed.search ||
+      parsed.hash
+    ) {
       return null;
     }
     const hostname = normalizeHostname(parsed.hostname);
@@ -41,13 +51,13 @@ function normalizeConfiguredHostname(value: string | undefined): string | null {
 }
 
 function isLoopbackHostname(hostname: string): boolean {
-  return hostname === "localhost" || hostname.endsWith(".localhost");
+  return hostname === 'localhost' || hostname.endsWith('.localhost');
 }
 
 function configuredHostnamesFromEnvironment(): string[] {
   return [
     process.env.PI_WEB_HOSTNAME,
-    ...(process.env.PI_WEB_ALLOWED_HOSTS?.split(",") ?? []),
+    ...(process.env.PI_WEB_ALLOWED_HOSTS?.split(',') ?? [])
   ].filter((value): value is string => Boolean(value?.trim()));
 }
 
@@ -61,15 +71,16 @@ function canonicalOrigin(value: string): string | null {
 
 function getRequestOrigin(request: Request): string | null {
   const requestUrl = new URL(request.url);
-  const host = request.headers.get("host");
+  const host = request.headers.get('host');
   return host ? canonicalOrigin(`${requestUrl.protocol}//${host}`) : null;
 }
 
 function isPdfFileReadUrl(url: URL): boolean {
-  if (!url.pathname.startsWith("/api/files/") || url.searchParams.get("type") !== "read") return false;
-  const lastSegment = url.pathname.slice(url.pathname.lastIndexOf("/") + 1);
+  if (!url.pathname.startsWith('/api/files/') || url.searchParams.get('type') !== 'read')
+    return false;
+  const lastSegment = url.pathname.slice(url.pathname.lastIndexOf('/') + 1);
   try {
-    return decodeURIComponent(lastSegment).toLowerCase().endsWith(".pdf");
+    return decodeURIComponent(lastSegment).toLowerCase().endsWith('.pdf');
   } catch {
     return false;
   }
@@ -87,10 +98,10 @@ function isPdfFileReadUrl(url: URL): boolean {
  */
 function isUserInitiatedDocumentNavigation(request: Request): boolean {
   if (
-    request.method !== "GET"
-    || request.headers.get("sec-fetch-mode") !== "navigate"
-    || request.headers.get("sec-fetch-dest") !== "document"
-    || request.headers.get("sec-fetch-user") !== "?1"
+    request.method !== 'GET' ||
+    request.headers.get('sec-fetch-mode') !== 'navigate' ||
+    request.headers.get('sec-fetch-dest') !== 'document' ||
+    request.headers.get('sec-fetch-user') !== '?1'
   ) {
     return false;
   }
@@ -110,15 +121,15 @@ function isUserInitiatedDocumentNavigation(request: Request): boolean {
  */
 export function isApiRequestHostAllowed(
   request: Request,
-  configuredHostnames = configuredHostnamesFromEnvironment(),
+  configuredHostnames = configuredHostnamesFromEnvironment()
 ): boolean {
-  const host = request.headers.get("host");
+  const host = request.headers.get('host');
   const hostname = host ? hostnameFromAuthority(host) : null;
   if (!hostname) return false;
   if (isLoopbackHostname(hostname) || isIP(hostname)) return true;
 
   return configuredHostnames.some(
-    (configured) => normalizeConfiguredHostname(configured) === hostname,
+    (configured) => normalizeConfiguredHostname(configured) === hostname
   );
 }
 
@@ -131,11 +142,12 @@ export function isApiRequestHostAllowed(
  */
 function isProxyRewrittenSameOrigin(request: Request, origin: string): boolean {
   if (
-    request.headers.get("sec-fetch-site") !== "same-origin"
-    || !request.headers.get("x-forwarded-proto")
-  ) return false;
+    request.headers.get('sec-fetch-site') !== 'same-origin' ||
+    !request.headers.get('x-forwarded-proto')
+  )
+    return false;
 
-  const host = request.headers.get("host");
+  const host = request.headers.get('host');
   if (!host) return false;
 
   let originHost: string;
@@ -151,9 +163,9 @@ function isProxyRewrittenSameOrigin(request: Request, origin: string): boolean {
 
 /** Reject browser cross-site API requests while preserving non-browser clients. */
 export function isApiRequestOriginAllowed(request: Request): boolean {
-  const origin = request.headers.get("origin");
-  const fetchSite = request.headers.get("sec-fetch-site");
-  if (fetchSite === "cross-site") return false;
+  const origin = request.headers.get('origin');
+  const fetchSite = request.headers.get('sec-fetch-site');
+  if (fetchSite === 'cross-site') return false;
   if (!origin) return true;
 
   const requestOrigin = getRequestOrigin(request);
@@ -163,12 +175,12 @@ export function isApiRequestOriginAllowed(request: Request): boolean {
 }
 
 export function shouldCheckApiRequestOrigin(request: Request): boolean {
-  return request.headers.has("origin") || request.headers.has("sec-fetch-site");
+  return request.headers.has('origin') || request.headers.has('sec-fetch-site');
 }
 
 export function isApiRequestAllowed(
   request: Request,
-  configuredHostnames = configuredHostnamesFromEnvironment(),
+  configuredHostnames = configuredHostnamesFromEnvironment()
 ): boolean {
   if (!isApiRequestHostAllowed(request, configuredHostnames)) return false;
   if (isUserInitiatedDocumentNavigation(request)) return true;
@@ -176,7 +188,9 @@ export function isApiRequestAllowed(
 }
 
 export function hasJsonContentType(request: Request): boolean {
-  const mediaType = request.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase();
-  return mediaType === "application/json"
-    || Boolean(mediaType?.startsWith("application/") && mediaType.endsWith("+json"));
+  const mediaType = request.headers.get('content-type')?.split(';', 1)[0]?.trim().toLowerCase();
+  return (
+    mediaType === 'application/json' ||
+    Boolean(mediaType?.startsWith('application/') && mediaType.endsWith('+json'))
+  );
 }

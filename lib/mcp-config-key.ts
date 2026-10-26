@@ -1,4 +1,4 @@
-import { createHmac, randomBytes } from "node:crypto";
+import { createHmac, randomBytes } from 'node:crypto';
 
 // How an `mcp.json` entry is identified across the modules that compare
 // entries: the MCP host (`lib/mcp-host.ts`) diffs what it registered against
@@ -8,7 +8,7 @@ import { createHmac, randomBytes } from "node:crypto";
 // the host's module chain, so both live here rather than in either of them.
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /**
@@ -21,7 +21,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export const MCP_CONFIG_KEY_MAX_DEPTH = 64;
 
 /** What stands for an array or object below the depth limit: not JSON, so no value prints as it. */
-const TOO_DEEP = "<too deep>";
+const TOO_DEEP = '<too deep>';
 
 /**
  * JSON with sorted keys, so an entry compares equal however its file orders it.
@@ -32,14 +32,18 @@ const TOO_DEEP = "<too deep>";
 export function canonicalJson(value: unknown, depth = 0): string {
   if (Array.isArray(value) || isRecord(value)) {
     if (depth >= MCP_CONFIG_KEY_MAX_DEPTH) return TOO_DEEP;
-    if (Array.isArray(value)) return `[${value.map((item) => canonicalJson(item, depth + 1)).join(",")}]`;
-    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key], depth + 1)}`).join(",")}}`;
+    if (Array.isArray(value))
+      return `[${value.map((item) => canonicalJson(item, depth + 1)).join(',')}]`;
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key], depth + 1)}`)
+      .join(',')}}`;
   }
-  return JSON.stringify(value) ?? "null";
+  return JSON.stringify(value) ?? 'null';
 }
 
 // One key per server process: hot reload re-evaluates this module, globalThis keeps it.
-const CONFIG_KEY_SECRET: symbol = Symbol.for("pi-web:mcp-config-key-secret");
+const CONFIG_KEY_SECRET: symbol = Symbol.for('pi-web:mcp-config-key-secret');
 
 /**
  * What identifies an entry's content, so a status recorded for it can be
@@ -53,7 +57,7 @@ const CONFIG_KEY_SECRET: symbol = Symbol.for("pi-web:mcp-config-key-secret");
 export function mcpConfigKey(value: unknown): string {
   const store = globalThis as Record<symbol, Buffer | undefined>;
   const secret = (store[CONFIG_KEY_SECRET] ??= randomBytes(32));
-  return createHmac("sha256", secret).update(canonicalJson(value)).digest("base64url");
+  return createHmac('sha256', secret).update(canonicalJson(value)).digest('base64url');
 }
 
 /**

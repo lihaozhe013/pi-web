@@ -1,6 +1,10 @@
-import type { AssistantContentBlock, AssistantMessage } from "./types";
-import { getAssistantErrorMessage, isAssistantTruncated, splitFinalAssistantBlocks } from "./message-display";
-import type { WrittenFile } from "./turn-written-files";
+import type { AssistantContentBlock, AssistantMessage } from './types';
+import {
+  getAssistantErrorMessage,
+  isAssistantTruncated,
+  splitFinalAssistantBlocks
+} from './message-display';
+import type { WrittenFile } from './turn-written-files';
 
 /** What the chat shows of a turn's final assistant message, apart. */
 export interface FinalAnswerViews {
@@ -14,7 +18,7 @@ export interface FinalAnswerViews {
 function withAssistantBlocks(
   message: AssistantMessage,
   content: AssistantContentBlock[],
-  options: { omitUsage?: boolean } = {},
+  options: { omitUsage?: boolean } = {}
 ): AssistantMessage {
   const next = { ...message, content };
   if (options.omitUsage) next.usage = undefined;
@@ -30,15 +34,16 @@ function withAssistantBlocks(
  */
 export function getFinalAnswerViews(
   cache: WeakMap<AssistantMessage, FinalAnswerViews>,
-  message: AssistantMessage,
+  message: AssistantMessage
 ): FinalAnswerViews {
   const cached = cache.get(message);
   if (cached) return cached;
 
   const { answerBlocks } = splitFinalAssistantBlocks(message);
-  const answer = answerBlocks.length > 0 || getAssistantErrorMessage(message) || isAssistantTruncated(message)
-    ? withAssistantBlocks(message, answerBlocks)
-    : null;
+  const answer =
+    answerBlocks.length > 0 || getAssistantErrorMessage(message) || isAssistantTruncated(message)
+      ? withAssistantBlocks(message, answerBlocks)
+      : null;
   const processEnd = message.content.indexOf(answerBlocks[0]);
   const views: FinalAnswerViews = {
     answer,
@@ -46,8 +51,8 @@ export function getFinalAnswerViews(
     process: withAssistantBlocks(
       message,
       message.content.slice(0, processEnd < 0 ? undefined : processEnd),
-      { omitUsage: Boolean(answer) },
-    ),
+      { omitUsage: Boolean(answer) }
+    )
   };
   cache.set(message, views);
   return views;
@@ -57,10 +62,11 @@ export function getFinalAnswerViews(
 export function keepWrittenFiles(views: FinalAnswerViews, next: WrittenFile[]): WrittenFile[] {
   const previous = views.writtenFiles;
   if (
-    previous
-    && previous.length === next.length
-    && previous.every((file, index) => file.filePath === next[index].filePath)
-  ) return previous;
+    previous &&
+    previous.length === next.length &&
+    previous.every((file, index) => file.filePath === next[index].filePath)
+  )
+    return previous;
   views.writtenFiles = next;
   return next;
 }

@@ -1,4 +1,4 @@
-import type { AgentEventLike } from "./agent-event-wire";
+import type { AgentEventLike } from './agent-event-wire';
 
 export interface AgentEventSourceLike {
   readonly readyState: number;
@@ -7,16 +7,20 @@ export interface AgentEventSourceLike {
   close(): void;
 }
 
-export type AgentEventConnectionStatus = "ready_timeout" | "startup_error" | "closed";
+export type AgentEventConnectionStatus = 'ready_timeout' | 'startup_error' | 'closed';
 
 export class AgentEventConnectionError extends Error {
-  constructor(public readonly status: AgentEventConnectionStatus, message?: string) {
-    super(message ?? (
-      status === "ready_timeout"
-        ? "Timed out starting the agent session. Please try again."
-        : "Failed to connect to the agent event stream. Please try again."
-    ));
-    this.name = "AgentEventConnectionError";
+  constructor(
+    public readonly status: AgentEventConnectionStatus,
+    message?: string
+  ) {
+    super(
+      message ??
+        (status === 'ready_timeout'
+          ? 'Timed out starting the agent session. Please try again.'
+          : 'Failed to connect to the agent event stream. Please try again.')
+    );
+    this.name = 'AgentEventConnectionError';
   }
 }
 
@@ -60,7 +64,7 @@ export class AgentEventConnection {
 
   close(): void {
     this.stopRetrying();
-    if (this.current) this.discard(this.current, new AgentEventConnectionError("closed"));
+    if (this.current) this.discard(this.current, new AgentEventConnectionError('closed'));
   }
 
   maintain(sessionId: string): void {
@@ -69,7 +73,7 @@ export class AgentEventConnection {
     void this.ensureConnected(sessionId).catch((error) => {
       if (retryGeneration !== this.retryGeneration) return;
       if (error instanceof AgentEventConnectionError) {
-        if (error.status === "startup_error") this.stopRetrying();
+        if (error.status === 'startup_error') this.stopRetrying();
         else this.scheduleRetry(sessionId);
       } else {
         this.options.onUnexpectedError?.(error);
@@ -82,35 +86,32 @@ export class AgentEventConnection {
       let connection = this.current;
       if (!connection || connection.sessionId !== sessionId) {
         connection = this.open(sessionId);
-      } else if (
-        connection.attempt.ready
-        && connection.source.readyState === EVENT_SOURCE_OPEN
-      ) {
+      } else if (connection.attempt.ready && connection.source.readyState === EVENT_SOURCE_OPEN) {
         return;
       }
 
       await connection.attempt.promise;
       if (this.current !== connection) {
         if (this.current?.sessionId === sessionId) continue;
-        throw new AgentEventConnectionError("closed");
+        throw new AgentEventConnectionError('closed');
       }
       if (connection.source.readyState === EVENT_SOURCE_OPEN) return;
 
       // A once-ready EventSource may otherwise remain CONNECTING indefinitely.
-      this.discard(connection, new AgentEventConnectionError("closed"));
+      this.discard(connection, new AgentEventConnectionError('closed'));
     }
   }
 
   private open(sessionId: string): Connection {
-    if (this.current) this.discard(this.current, new AgentEventConnectionError("closed"));
+    if (this.current) this.discard(this.current, new AgentEventConnectionError('closed'));
 
     let source: AgentEventSourceLike;
     try {
       source = this.options.createSource(sessionId);
     } catch (error) {
       throw new AgentEventConnectionError(
-        "closed",
-        error instanceof Error ? error.message : String(error),
+        'closed',
+        error instanceof Error ? error.message : String(error)
       );
     }
 
@@ -122,7 +123,7 @@ export class AgentEventConnection {
       reject = rejectPromise;
     });
     const timeout = setTimeout(() => {
-      this.fail(connection, new AgentEventConnectionError("ready_timeout"));
+      this.fail(connection, new AgentEventConnectionError('ready_timeout'));
     }, this.options.readinessTimeoutMs);
     const attempt: Attempt = {
       promise,
@@ -138,7 +139,7 @@ export class AgentEventConnection {
         settled = true;
         clearTimeout(timeout);
         reject(error);
-      },
+      }
     };
     const connection: Connection = { sessionId, source, attempt, watchdog: null };
     this.current = connection;
@@ -154,8 +155,8 @@ export class AgentEventConnection {
         return;
       }
 
-      if (event.type === "heartbeat") return;
-      if (event.type === "connected") {
+      if (event.type === 'heartbeat') return;
+      if (event.type === 'connected') {
         attempt.ready = true;
         attempt.succeed();
         this.stopRetrying();
@@ -163,21 +164,24 @@ export class AgentEventConnection {
         if (staleAfterMs && connection.watchdog === null) {
           // Checked against the clock, so a background tab's throttled timer
           // only reconnects later, never wrongly.
-          connection.watchdog = setInterval(() => {
-            if (Date.now() - lastSeen > staleAfterMs) {
-              this.fail(connection, new AgentEventConnectionError("closed"));
-            }
-          }, Math.max(1_000, Math.floor(staleAfterMs / 3)));
+          connection.watchdog = setInterval(
+            () => {
+              if (Date.now() - lastSeen > staleAfterMs) {
+                this.fail(connection, new AgentEventConnectionError('closed'));
+              }
+            },
+            Math.max(1_000, Math.floor(staleAfterMs / 3))
+          );
         }
-      } else if (event.type === "startup_error") {
-        const message = typeof event.errorMessage === "string" ? event.errorMessage : undefined;
-        this.fail(connection, new AgentEventConnectionError("startup_error", message));
+      } else if (event.type === 'startup_error') {
+        const message = typeof event.errorMessage === 'string' ? event.errorMessage : undefined;
+        this.fail(connection, new AgentEventConnectionError('startup_error', message));
         return;
       }
       this.options.onEvent(event);
     };
     source.onerror = () => {
-      this.fail(connection, new AgentEventConnectionError("closed"));
+      this.fail(connection, new AgentEventConnectionError('closed'));
     };
 
     return connection;
@@ -186,7 +190,7 @@ export class AgentEventConnection {
   private fail(connection: Connection, error: AgentEventConnectionError): void {
     if (this.current !== connection) return;
     this.discard(connection, error);
-    if (error.status === "startup_error") this.stopRetrying();
+    if (error.status === 'startup_error') this.stopRetrying();
     else this.scheduleRetry(connection.sessionId);
   }
 
@@ -240,8 +244,10 @@ export const SESSION_LEASE_TIMEOUT_MS = 5_000;
  * command, a compaction, an extension dialog waiting for an answer, or a subagent left to finish
  * (its end starts a turn there). A hidden page keeps or reopens the session's stream while it does.
  */
-export function sessionLeaseShowsActivity(reply: SessionLeaseReply | "unanswered" | null | undefined): boolean {
-  if (!reply || reply === "unanswered") return false;
+export function sessionLeaseShowsActivity(
+  reply: SessionLeaseReply | 'unanswered' | null | undefined
+): boolean {
+  if (!reply || reply === 'unanswered') return false;
   return Boolean(reply.running || reply.awaitingInput || reply.subagentsActive);
 }
 
@@ -251,8 +257,10 @@ export function sessionLeaseShowsActivity(reply: SessionLeaseReply | "unanswered
  * or no network) releases: the pool is starved, which is what the release is for, or the stream
  * is down anyway. `null` (the server answered with an error) keeps the stream until the next check.
  */
-export function canReleaseHiddenEventStream(reply: SessionLeaseReply | "unanswered" | null | undefined): boolean {
-  if (reply === "unanswered") return true;
+export function canReleaseHiddenEventStream(
+  reply: SessionLeaseReply | 'unanswered' | null | undefined
+): boolean {
+  if (reply === 'unanswered') return true;
   if (!reply) return false;
   return !sessionLeaseShowsActivity(reply);
 }

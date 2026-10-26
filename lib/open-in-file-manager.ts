@@ -1,10 +1,10 @@
-import { spawn } from "child_process";
-import { isIP } from "net";
+import { spawn } from 'child_process';
+import { isIP } from 'net';
 
 const FILE_MANAGER_BY_PLATFORM = new Map<string, string>([
-  ["win32", "explorer.exe"],
-  ["darwin", "open"],
-  ["linux", "xdg-open"],
+  ['win32', 'explorer.exe'],
+  ['darwin', 'open'],
+  ['linux', 'xdg-open']
 ]);
 
 /** Whether the platform has a file manager command. */
@@ -20,7 +20,7 @@ export function isFileManagerSupported(platform: string): boolean {
  */
 export function fileManagerCommand(
   platform: string,
-  target: string,
+  target: string
 ): { command: string; args: string[] } | null {
   const command = FILE_MANAGER_BY_PLATFORM.get(platform);
   return command ? { command, args: [target] } : null;
@@ -40,13 +40,14 @@ export function fileManagerCommand(
 export function isLoopbackHost(host: string | null | undefined): boolean {
   if (!host) return false;
   const normalized = host.trim().toLowerCase();
-  const closingBracket = normalized.indexOf("]");
-  const name = normalized.startsWith("[") && closingBracket !== -1
-    ? normalized.slice(1, closingBracket)
-    : normalized.split(":")[0];
-  if (name === "localhost" || name.endsWith(".localhost")) return true;
-  if (name === "::1") return true;
-  return isIP(name) === 4 && name.startsWith("127.");
+  const closingBracket = normalized.indexOf(']');
+  const name =
+    normalized.startsWith('[') && closingBracket !== -1
+      ? normalized.slice(1, closingBracket)
+      : normalized.split(':')[0];
+  if (name === 'localhost' || name.endsWith('.localhost')) return true;
+  if (name === '::1') return true;
+  return isIP(name) === 4 && name.startsWith('127.');
 }
 
 /**
@@ -60,15 +61,15 @@ export function isLoopbackHost(host: string | null | undefined): boolean {
  */
 export function launchFileManager(
   target: string,
-  platform: string = process.platform,
+  platform: string = process.platform
 ): Promise<void> {
   const spec = fileManagerCommand(platform, target);
   if (!spec) return Promise.reject(new Error(`Unsupported platform: ${platform}`));
   return new Promise((resolve, reject) => {
-    const child = spawn(spec.command, spec.args, { detached: true, stdio: "ignore" });
+    const child = spawn(spec.command, spec.args, { detached: true, stdio: 'ignore' });
     // explorer.exe can exit with code 1 even on success, so only a failed spawn counts.
-    child.once("error", reject);
-    child.once("spawn", () => {
+    child.once('error', reject);
+    child.once('spawn', () => {
       child.unref();
       resolve();
     });

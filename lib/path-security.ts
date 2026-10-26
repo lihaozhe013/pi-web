@@ -1,6 +1,6 @@
-import { realpathSync } from "fs";
-import path from "path";
-import { isWindowsAbsolutePath } from "./paths";
+import { realpathSync } from 'fs';
+import path from 'path';
+import { isWindowsAbsolutePath } from './paths';
 
 /**
  * Lexical containment check. Accepts either canonical form on both sides: it
@@ -11,7 +11,7 @@ export function isPathWithinRoots(target: string, roots: Set<string>): boolean {
   for (const root of roots) {
     const useWindowsRules = isWindowsAbsolutePath(target) || isWindowsAbsolutePath(root);
     const resolver = useWindowsRules ? path.win32 : path;
-    const sep = useWindowsRules ? "\\" : path.sep;
+    const sep = useWindowsRules ? '\\' : path.sep;
     const normalized = resolver.resolve(target);
     const normalizedRoot = resolver.resolve(root);
     const comparable = useWindowsRules ? normalized.toLowerCase() : normalized;
@@ -43,8 +43,8 @@ export function resolveRealRoots(roots: Set<string>): Set<string> {
  * in Windows paths; elsewhere it is part of a file name.
  */
 export function hasParentDirectorySegment(target: string): boolean {
-  const separator = process.platform === "win32" || isWindowsAbsolutePath(target) ? /[\\/]/ : "/";
-  return target.split(separator).includes("..");
+  const separator = process.platform === 'win32' || isWindowsAbsolutePath(target) ? /[\\/]/ : '/';
+  return target.split(separator).includes('..');
 }
 
 export function isExistingPathWithinRoots(target: string, roots: Set<string>): boolean {

@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useMemo } from "react";
-import { AnsiUp } from "ansi_up";
+import { useMemo } from 'react';
+import { AnsiUp } from 'ansi_up';
 
 /**
  * Renders ANSI SGR escape sequences (as emitted by pi extension widgets such

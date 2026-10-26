@@ -1,5 +1,5 @@
-import { randomUUID } from "node:crypto";
-import type { Agent, AgentMessage, ThinkingLevel } from "@earendil-works/pi-agent-core";
+import { randomUUID } from 'node:crypto';
+import type { Agent, AgentMessage, ThinkingLevel } from '@earendil-works/pi-agent-core';
 import {
   getSupportedThinkingLevels,
   normalizeContext,
@@ -7,9 +7,9 @@ import {
   type AssistantMessage,
   type Context,
   type Model,
-  type SimpleStreamOptions,
-} from "@earendil-works/pi-ai";
-import type { AgentSession } from "@earendil-works/pi-coding-agent";
+  type SimpleStreamOptions
+} from '@earendil-works/pi-ai';
+import type { AgentSession } from '@earendil-works/pi-coding-agent';
 
 const TITLE_TIMEOUT_MS = 90_000;
 const TITLE_MAX_TOKENS = 256;
@@ -32,11 +32,10 @@ const TRANSCRIPT_CHARS = 6000;
 // budget on the newest turns can title a session after its last chore.
 const TRANSCRIPT_HEAD_CHARS = Math.round(TRANSCRIPT_CHARS * 0.4);
 
-const TITLE_SYSTEM_PROMPT =
-  "You name chat sessions from a transcript. Reply with the title only.";
+const TITLE_SYSTEM_PROMPT = 'You name chat sessions from a transcript. Reply with the title only.';
 
-const ELISION = "[…]";
-const IMAGE_PLACEHOLDER = "[image]";
+const ELISION = '[…]';
+const IMAGE_PLACEHOLDER = '[image]';
 
 const TITLE_PROMPT = `Create a concise title for this session based on the conversation above.
 
@@ -71,12 +70,14 @@ export interface TitleRequest {
  * skips to the next supported level instead.
  */
 export function resolveTitleThinkingLevel(model: Model<Api>): ThinkingLevel {
-  if (!model.reasoning) return "off";
+  if (!model.reasoning) return 'off';
   // getSupportedThinkingLevels lists levels in ascending cost order.
   const supported = getSupportedThinkingLevels(model);
-  const rejectsMinimal = model.api === "google-generative-ai" || /gemini/i.test(model.id);
-  const usable = rejectsMinimal ? supported.filter((level) => level !== "off" && level !== "minimal") : supported;
-  return usable[0] ?? supported[0] ?? "off";
+  const rejectsMinimal = model.api === 'google-generative-ai' || /gemini/i.test(model.id);
+  const usable = rejectsMinimal
+    ? supported.filter((level) => level !== 'off' && level !== 'minimal')
+    : supported;
+  return usable[0] ?? supported[0] ?? 'off';
 }
 
 /**
@@ -92,39 +93,41 @@ export function buildTitleRequest(source: Agent, transcript: string): TitleReque
     model,
     context: {
       systemPrompt: TITLE_SYSTEM_PROMPT,
-      messages: [{
-        role: "user",
-        content: [{ type: "text", text: `${transcript}\n\n${TITLE_PROMPT}` }],
-        timestamp: Date.now(),
-      }],
+      messages: [
+        {
+          role: 'user',
+          content: [{ type: 'text', text: `${transcript}\n\n${TITLE_PROMPT}` }],
+          timestamp: Date.now()
+        }
+      ]
     },
     options: {
       maxTokens: TITLE_MAX_TOKENS,
-      cacheRetention: "none",
+      cacheRetention: 'none',
       sessionId: randomUUID(),
       transport: source.transport,
       thinkingBudgets: source.thinkingBudgets,
       maxRetryDelayMs: source.maxRetryDelayMs,
-      ...(thinkingLevel !== "off" ? { reasoning: thinkingLevel } : {}),
-    },
+      ...(thinkingLevel !== 'off' ? { reasoning: thinkingLevel } : {})
+    }
   };
 }
 
 function textOf(content: unknown): string {
-  if (typeof content === "string") return content;
-  if (!Array.isArray(content)) return "";
+  if (typeof content === 'string') return content;
+  if (!Array.isArray(content)) return '';
   const parts: string[] = [];
   let images = 0;
   for (const block of content) {
-    if (typeof block !== "object" || block === null) continue;
+    if (typeof block !== 'object' || block === null) continue;
     const type = (block as { type?: string }).type;
-    if (type === "text" && typeof (block as { text?: unknown }).text === "string") {
+    if (type === 'text' && typeof (block as { text?: unknown }).text === 'string') {
       parts.push((block as { text: string }).text);
-    } else if (type === "image") {
+    } else if (type === 'image') {
       images += 1;
     }
   }
-  const text = parts.join("\n").trim();
+  const text = parts.join('\n').trim();
   if (images === 0) return text;
   const marker = images === 1 ? IMAGE_PLACEHOLDER : `${IMAGE_PLACEHOLDER} ×${images}`;
   return text ? `${text}\n${marker}` : marker;
@@ -132,7 +135,7 @@ function textOf(content: unknown): string {
 
 function clip(text: string, max: number): string {
   const characters = Array.from(text);
-  return characters.length <= max ? text : `${characters.slice(0, max).join("")}…`;
+  return characters.length <= max ? text : `${characters.slice(0, max).join('')}…`;
 }
 
 /**
@@ -141,7 +144,7 @@ function clip(text: string, max: number): string {
  * it. Cost and latency then stop tracking session length.
  */
 function boundTranscript(lines: string[]): string {
-  const joined = lines.join("\n\n");
+  const joined = lines.join('\n\n');
   if (joined.length <= TRANSCRIPT_CHARS || lines.length < 2) return joined;
 
   const head: string[] = [];
@@ -165,27 +168,27 @@ function boundTranscript(lines: string[]): string {
 
   // Everything fit after all: the budget only looked tight because of joins.
   if (next + tail.length >= lines.length) return joined;
-  return [...head, ELISION, ...tail].join("\n\n");
+  return [...head, ELISION, ...tail].join('\n\n');
 }
 
 function lineForMessage(message: AgentMessage, lastAssistant?: AgentMessage): string | undefined {
-  if (message.role === "compactionSummary" || message.role === "branchSummary") {
+  if (message.role === 'compactionSummary' || message.role === 'branchSummary') {
     const summary = message.summary.trim();
     if (!summary) return undefined;
     return `[Earlier summary] ${clip(summary, SUMMARY_CHARS)}`;
   }
-  if (message.role === "custom") {
+  if (message.role === 'custom') {
     const text = textOf(message.content).trim();
     return text ? `User: ${clip(text, USER_CHARS)}` : undefined;
   }
-  if (message.role === "bashExecution") {
+  if (message.role === 'bashExecution') {
     const command = message.command.trim();
     return command ? `User: ${clip(`Ran \`${command}\``, USER_CHARS)}` : undefined;
   }
-  if (message.role !== "user" && message.role !== "assistant") return undefined;
+  if (message.role !== 'user' && message.role !== 'assistant') return undefined;
   const text = textOf(message.content).trim();
   if (!text) return undefined;
-  if (message.role === "user") return `User: ${clip(text, USER_CHARS)}`;
+  if (message.role === 'user') return `User: ${clip(text, USER_CHARS)}`;
   return `Assistant: ${clip(text, message === lastAssistant ? LAST_ASSISTANT_CHARS : ASSISTANT_CHARS)}`;
 }
 
@@ -193,7 +196,7 @@ function lineForMessage(message: AgentMessage, lastAssistant?: AgentMessage): st
 export function buildTitleTranscript(messages: AgentMessage[]): string {
   let lastAssistant: AgentMessage | undefined;
   for (const message of messages) {
-    if (message.role === "assistant" && textOf(message.content).trim()) lastAssistant = message;
+    if (message.role === 'assistant' && textOf(message.content).trim()) lastAssistant = message;
   }
 
   const lines: string[] = [];
@@ -208,13 +211,17 @@ function stripWrappingQuotes(value: string): string {
   const pairs: Array<[string, string]> = [
     ['"', '"'],
     ["'", "'"],
-    ["`", "`"],
-    ["\u201c", "\u201d"],
-    ["\u300c", "\u300d"],
-    ["\u300e", "\u300f"],
+    ['`', '`'],
+    ['\u201c', '\u201d'],
+    ['\u300c', '\u300d'],
+    ['\u300e', '\u300f']
   ];
   for (const [start, end] of pairs) {
-    if (value.startsWith(start) && value.endsWith(end) && value.length > start.length + end.length) {
+    if (
+      value.startsWith(start) &&
+      value.endsWith(end) &&
+      value.length > start.length + end.length
+    ) {
       return value.slice(start.length, -end.length).trim();
     }
   }
@@ -226,55 +233,57 @@ export function parseGeneratedSessionTitle(raw: string): string {
   const fenced = value.match(/^```(?:json|text)?\s*([\s\S]*?)\s*```$/i);
   if (fenced) value = fenced[1].trim();
 
-  if (value.startsWith("{")) {
+  if (value.startsWith('{')) {
     try {
       const parsed = JSON.parse(value) as { title?: unknown };
-      if (typeof parsed.title === "string") value = parsed.title.trim();
+      if (typeof parsed.title === 'string') value = parsed.title.trim();
     } catch {
       // Fall back to plain-text cleanup below.
     }
   }
 
-  value = value.split(/\r?\n/, 1)[0] ?? "";
-  value = value.replace(/^(?:session\s+title|title|标题)\s*[:：-]\s*/i, "");
-  value = stripWrappingQuotes(value).replace(/\s+/g, " ").trim();
-  value = value.replace(/[。.!]+$/u, "").trim();
+  value = value.split(/\r?\n/, 1)[0] ?? '';
+  value = value.replace(/^(?:session\s+title|title|标题)\s*[:：-]\s*/i, '');
+  value = stripWrappingQuotes(value).replace(/\s+/g, ' ').trim();
+  value = value.replace(/[。.!]+$/u, '').trim();
 
   if (!/[\p{L}\p{N}]/u.test(value)) {
-    throw new Error("The model did not return a usable session title");
+    throw new Error('The model did not return a usable session title');
   }
 
   const characters = Array.from(value);
   if (characters.length > MAX_TITLE_LENGTH) {
-    value = characters.slice(0, MAX_TITLE_LENGTH).join("").trim();
+    value = characters.slice(0, MAX_TITLE_LENGTH).join('').trim();
   }
   return value;
 }
 
 function titleFromAssistant(message: AssistantMessage): GeneratedSessionTitle {
-  if (message.stopReason === "error") {
-    throw new Error(message.errorMessage || "The title model request failed");
+  if (message.stopReason === 'error') {
+    throw new Error(message.errorMessage || 'The title model request failed');
   }
-  if (message.stopReason === "aborted") {
-    throw new Error("Session title generation timed out");
+  if (message.stopReason === 'aborted') {
+    throw new Error('Session title generation timed out');
   }
   const text = message.content
-    .filter((block) => block.type === "text")
+    .filter((block) => block.type === 'text')
     .map((block) => block.text)
-    .join("\n")
+    .join('\n')
     .trim();
-  if (!text) throw new Error("The model did not return a session title");
+  if (!text) throw new Error('The model did not return a session title');
   return {
     title: parseGeneratedSessionTitle(text),
-    ...(message.usage ? {
-      usage: {
-        input: message.usage.input,
-        output: message.usage.output,
-        cacheRead: message.usage.cacheRead,
-        cacheWrite: message.usage.cacheWrite,
-        total: message.usage.totalTokens,
-      },
-    } : {}),
+    ...(message.usage
+      ? {
+          usage: {
+            input: message.usage.input,
+            output: message.usage.output,
+            cacheRead: message.usage.cacheRead,
+            cacheWrite: message.usage.cacheWrite,
+            total: message.usage.totalTokens
+          }
+        }
+      : {})
   };
 }
 
@@ -285,7 +294,7 @@ export async function generateSessionTitle(source: AgentSession): Promise<Genera
   // newest reply is missing from it; there is nothing to wait for.
   const transcript = buildTitleTranscript([...sourceAgent.state.messages]);
   if (!transcript.trim()) {
-    throw new Error("The session has no usable text to name");
+    throw new Error('The session has no usable text to name');
   }
 
   const { model, context, options } = buildTitleRequest(sourceAgent, transcript);
@@ -294,18 +303,22 @@ export async function generateSessionTitle(source: AgentSession): Promise<Genera
   const requestOptions: SimpleStreamOptions = {
     ...options,
     signal: controller.signal,
-    ...(apiKey ? { apiKey } : {}),
+    ...(apiKey ? { apiKey } : {})
   };
 
   const timeout = setTimeout(() => controller.abort(), TITLE_TIMEOUT_MS);
 
   try {
     // Providers read the prompt from the transcript's leading system message.
-    const stream = await sourceAgent.streamFunction(model, normalizeContext(context), requestOptions);
+    const stream = await sourceAgent.streamFunction(
+      model,
+      normalizeContext(context),
+      requestOptions
+    );
     return titleFromAssistant(await stream.result());
   } catch (error) {
     if (controller.signal.aborted) {
-      throw new Error("Session title generation timed out", { cause: error });
+      throw new Error('Session title generation timed out', { cause: error });
     }
     throw error;
   } finally {

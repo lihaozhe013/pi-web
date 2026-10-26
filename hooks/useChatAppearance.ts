@@ -1,16 +1,16 @@
-"use client";
+'use client';
 
-import { useSyncExternalStore } from "react";
+import { useSyncExternalStore } from 'react';
 
 export const CHAT_CONTENT_WIDTH_DEFAULT = 820;
 export const CHAT_CONTENT_WIDTH_MIN = 820;
 export const CHAT_CONTENT_WIDTH_MAX = 2000;
-export const CHAT_CONTENT_WIDTH_STORAGE_KEY = "pi-chat-content-width";
+export const CHAT_CONTENT_WIDTH_STORAGE_KEY = 'pi-chat-content-width';
 // The chat column and tool cards share this readable baseline (see app/workspace.css).
 export const CHAT_CONTENT_FONT_SIZE_DEFAULT = 16;
 export const CHAT_CONTENT_FONT_SIZE_MIN = 12;
 export const CHAT_CONTENT_FONT_SIZE_MAX = 24;
-export const CHAT_CONTENT_FONT_SIZE_STORAGE_KEY = "pi-chat-content-font-size";
+export const CHAT_CONTENT_FONT_SIZE_STORAGE_KEY = 'pi-chat-content-font-size';
 export const TERMINAL_FONT_SIZE_DEFAULT = 13;
 
 interface ChatAppearance {
@@ -20,7 +20,7 @@ interface ChatAppearance {
 
 const DEFAULT_APPEARANCE: ChatAppearance = {
   width: CHAT_CONTENT_WIDTH_DEFAULT,
-  fontSize: CHAT_CONTENT_FONT_SIZE_DEFAULT,
+  fontSize: CHAT_CONTENT_FONT_SIZE_DEFAULT
 };
 let appearance: ChatAppearance | null = null;
 const listeners = new Set<() => void>();
@@ -34,7 +34,10 @@ export function clampChatContentWidth(value: unknown): number {
 export function clampChatContentFontSize(value: unknown): number {
   const size = Number(value ?? CHAT_CONTENT_FONT_SIZE_DEFAULT);
   if (!Number.isFinite(size)) return CHAT_CONTENT_FONT_SIZE_DEFAULT;
-  return Math.max(CHAT_CONTENT_FONT_SIZE_MIN, Math.min(CHAT_CONTENT_FONT_SIZE_MAX, Math.round(size)));
+  return Math.max(
+    CHAT_CONTENT_FONT_SIZE_MIN,
+    Math.min(CHAT_CONTENT_FONT_SIZE_MAX, Math.round(size))
+  );
 }
 
 /**
@@ -42,7 +45,11 @@ export function clampChatContentFontSize(value: unknown): number {
  * the chat default (14px chat is a 13px terminal, 18px chat a 17px one).
  */
 export function terminalFontSize(chatFontSize: unknown): number {
-  return clampChatContentFontSize(chatFontSize) - CHAT_CONTENT_FONT_SIZE_DEFAULT + TERMINAL_FONT_SIZE_DEFAULT;
+  return (
+    clampChatContentFontSize(chatFontSize) -
+    CHAT_CONTENT_FONT_SIZE_DEFAULT +
+    TERMINAL_FONT_SIZE_DEFAULT
+  );
 }
 
 function readStoredPreference(key: string): string | null {
@@ -54,17 +61,17 @@ function readStoredPreference(key: string): string | null {
 }
 
 function applyAppearance({ width, fontSize }: ChatAppearance): void {
-  if (typeof document === "undefined") return;
-  document.documentElement.style.setProperty("--chat-content-max-width", `${width}px`);
-  document.documentElement.style.setProperty("--chat-content-font-size", `${fontSize}px`);
+  if (typeof document === 'undefined') return;
+  document.documentElement.style.setProperty('--chat-content-max-width', `${width}px`);
+  document.documentElement.style.setProperty('--chat-content-font-size', `${fontSize}px`);
 }
 
 function getSnapshot(): ChatAppearance {
-  if (typeof window === "undefined") return DEFAULT_APPEARANCE;
+  if (typeof window === 'undefined') return DEFAULT_APPEARANCE;
   if (!appearance) {
     appearance = {
       width: clampChatContentWidth(readStoredPreference(CHAT_CONTENT_WIDTH_STORAGE_KEY)),
-      fontSize: clampChatContentFontSize(readStoredPreference(CHAT_CONTENT_FONT_SIZE_STORAGE_KEY)),
+      fontSize: clampChatContentFontSize(readStoredPreference(CHAT_CONTENT_FONT_SIZE_STORAGE_KEY))
     };
     applyAppearance(appearance);
   }
@@ -73,17 +80,20 @@ function getSnapshot(): ChatAppearance {
 
 function subscribe(listener: () => void): () => void {
   listeners.add(listener);
-  return () => { listeners.delete(listener); };
+  return () => {
+    listeners.delete(listener);
+  };
 }
 
 function setPreference(key: keyof ChatAppearance, value: number): void {
-  const nextValue = key === "width" ? clampChatContentWidth(value) : clampChatContentFontSize(value);
+  const nextValue =
+    key === 'width' ? clampChatContentWidth(value) : clampChatContentFontSize(value);
   appearance = { ...getSnapshot(), [key]: nextValue };
   applyAppearance(appearance);
   try {
     window.localStorage.setItem(
-      key === "width" ? CHAT_CONTENT_WIDTH_STORAGE_KEY : CHAT_CONTENT_FONT_SIZE_STORAGE_KEY,
-      String(nextValue),
+      key === 'width' ? CHAT_CONTENT_WIDTH_STORAGE_KEY : CHAT_CONTENT_FONT_SIZE_STORAGE_KEY,
+      String(nextValue)
     );
   } catch {
     // Best-effort browser preference persistence.
@@ -91,8 +101,8 @@ function setPreference(key: keyof ChatAppearance, value: number): void {
   listeners.forEach((listener) => listener());
 }
 
-const setWidth = (value: number) => setPreference("width", value);
-const setFontSize = (value: number) => setPreference("fontSize", value);
+const setWidth = (value: number) => setPreference('width', value);
+const setFontSize = (value: number) => setPreference('fontSize', value);
 
 export function useChatAppearance() {
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, () => DEFAULT_APPEARANCE);

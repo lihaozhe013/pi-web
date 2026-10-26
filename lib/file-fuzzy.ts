@@ -29,7 +29,7 @@ export function extractAtQuery(textBeforeCursor: string): AtQueryMatch | null {
     return {
       start: textBeforeCursor.length - (quoted[1].length + 2),
       query: quoted[1],
-      quoted: true,
+      quoted: true
     };
   }
   const plain = /(?:^|\s)@([^\s"]*)$/.exec(textBeforeCursor);
@@ -37,7 +37,7 @@ export function extractAtQuery(textBeforeCursor: string): AtQueryMatch | null {
     return {
       start: textBeforeCursor.length - (plain[1].length + 1),
       query: plain[1],
-      quoted: false,
+      quoted: false
     };
   }
   return null;
@@ -46,7 +46,7 @@ export function extractAtQuery(textBeforeCursor: string): AtQueryMatch | null {
 function pathDepth(p: string): number {
   let depth = 0;
   for (let i = 0; i < p.length; i++) {
-    if (p[i] === "/") depth++;
+    if (p[i] === '/') depth++;
   }
   return depth;
 }
@@ -59,10 +59,10 @@ function pathDepth(p: string): number {
 export function buildEntriesFromFiles(files: string[]): FileIndexEntry[] {
   const dirs = new Set<string>();
   for (const f of files) {
-    let idx = f.indexOf("/");
+    let idx = f.indexOf('/');
     while (idx !== -1) {
       dirs.add(f.slice(0, idx));
-      idx = f.indexOf("/", idx + 1);
+      idx = f.indexOf('/', idx + 1);
     }
   }
   const entries: FileIndexEntry[] = [];
@@ -97,13 +97,13 @@ function isSubsequence(needle: string, haystack: string): boolean {
 function scoreEntry(entry: FileIndexEntry, lowerQuery: string): number {
   const lowerPath = entry.path.toLowerCase();
   let score = 0;
-  if (lowerQuery.includes("/")) {
+  if (lowerQuery.includes('/')) {
     if (lowerPath === lowerQuery) score = 100;
     else if (lowerPath.startsWith(lowerQuery)) score = 80;
     else if (lowerPath.includes(lowerQuery)) score = 50;
     else if (isSubsequence(lowerQuery, lowerPath)) score = 10;
   } else {
-    const slash = lowerPath.lastIndexOf("/");
+    const slash = lowerPath.lastIndexOf('/');
     const lowerName = slash === -1 ? lowerPath : lowerPath.slice(slash + 1);
     if (lowerName === lowerQuery) score = 100;
     else if (lowerName.startsWith(lowerQuery)) score = 80;
@@ -120,7 +120,7 @@ export const AT_RESULT_LIMIT = 20;
 export function filterFileEntries(
   entries: FileIndexEntry[],
   query: string,
-  limit: number = AT_RESULT_LIMIT,
+  limit: number = AT_RESULT_LIMIT
 ): FileIndexEntry[] {
   const lowerQuery = query.toLowerCase();
   if (!lowerQuery) return entries.slice(0, limit);
@@ -130,10 +130,12 @@ export function filterFileEntries(
     const score = scoreEntry(entry, lowerQuery);
     if (score > 0) scored.push({ entry, score });
   }
-  scored.sort((a, b) =>
-    b.score - a.score
-    || pathDepth(a.entry.path) - pathDepth(b.entry.path)
-    || a.entry.path.localeCompare(b.entry.path));
+  scored.sort(
+    (a, b) =>
+      b.score - a.score ||
+      pathDepth(a.entry.path) - pathDepth(b.entry.path) ||
+      a.entry.path.localeCompare(b.entry.path)
+  );
   return scored.slice(0, limit).map((s) => s.entry);
 }
 
@@ -154,9 +156,13 @@ export interface AtInsertion {
  *   placed before the closing quote, so both further typing and manual
  *   completion keep the token well-formed.
  */
-export function buildAtInsertText(entryPath: string, isDir: boolean, forceQuotes = false): AtInsertion {
+export function buildAtInsertText(
+  entryPath: string,
+  isDir: boolean,
+  forceQuotes = false
+): AtInsertion {
   const p = isDir ? `${entryPath}/` : entryPath;
-  const needsQuotes = forceQuotes || p.includes(" ");
+  const needsQuotes = forceQuotes || p.includes(' ');
   if (isDir) {
     const text = needsQuotes ? `@"${p}"` : `@${p}`;
     return { text, cursorOffset: needsQuotes ? text.length - 1 : text.length };
@@ -172,18 +178,22 @@ export function buildAtInsertText(entryPath: string, isDir: boolean, forceQuotes
  */
 export function buildAtMentionText(entryPath: string, isDir: boolean): string {
   const p = isDir ? `${entryPath}/` : entryPath;
-  return p.includes(" ") ? `@"${p}" ` : `@${p} `;
+  return p.includes(' ') ? `@"${p}" ` : `@${p} `;
 }
 
 /** Closed file @mention scoped to one logical line or an inclusive line range. */
-export function buildFileLineMentionText(entryPath: string, startLine: number, endLine: number): string {
+export function buildFileLineMentionText(
+  entryPath: string,
+  startLine: number,
+  endLine: number
+): string {
   const firstLine = Math.max(1, Math.min(startLine, endLine));
   const lastLine = Math.max(1, Math.max(startLine, endLine));
-  const pathMention = entryPath.includes(" ") ? `@"${entryPath}"` : `@${entryPath}`;
+  const pathMention = entryPath.includes(' ') ? `@"${entryPath}"` : `@${entryPath}`;
   const lineSuffix = firstLine === lastLine ? `:${firstLine}` : `:${firstLine}-${lastLine}`;
   return `${pathMention}${lineSuffix} `;
 }
 
 export function buildFileAtMentionsText(entryPaths: string[]): string {
-  return entryPaths.map((entryPath) => buildAtMentionText(entryPath, false)).join("");
+  return entryPaths.map((entryPath) => buildAtMentionText(entryPath, false)).join('');
 }

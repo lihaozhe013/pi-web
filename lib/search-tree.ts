@@ -16,14 +16,19 @@ export function buildSearchTree(paths: string[]): SearchTreeNode[] {
   const roots: SearchTreeNode[] = [];
   const byPath = new Map<string, SearchTreeNode>();
   for (const relative of paths) {
-    const segments = relative.split("/");
+    const segments = relative.split('/');
     let current = roots;
-    let currentPath = "";
+    let currentPath = '';
     for (let i = 0; i < segments.length; i++) {
       currentPath = currentPath ? `${currentPath}/${segments[i]}` : segments[i];
       let node = byPath.get(currentPath);
       if (!node) {
-        node = { name: segments[i], path: currentPath, isDir: i < segments.length - 1, children: [] };
+        node = {
+          name: segments[i],
+          path: currentPath,
+          isDir: i < segments.length - 1,
+          children: []
+        };
         byPath.set(currentPath, node);
         current.push(node);
       }

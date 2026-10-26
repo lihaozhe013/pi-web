@@ -1,15 +1,15 @@
-import { lstatSync, readdirSync, realpathSync } from "node:fs";
-import { homedir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { lstatSync, readdirSync, realpathSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 import {
   hasTrustRequiringProjectResources,
   ProjectTrustStore,
-  type ProjectTrustStoreEntry,
-} from "@earendil-works/pi-coding-agent";
-import type { FreshFolderTrustBreadth, ProjectTrustStatus } from "./api-types";
-import { serializeByKey } from "./key-serializer";
-import { isPathWithinRoots } from "./path-security";
-import { samePath } from "./paths";
+  type ProjectTrustStoreEntry
+} from '@earendil-works/pi-coding-agent';
+import type { FreshFolderTrustBreadth, ProjectTrustStatus } from './api-types';
+import { serializeByKey } from './key-serializer';
+import { isPathWithinRoots } from './path-security';
+import { samePath } from './paths';
 
 /** The folder as `trust.json` keys it: resolved, then its real path when it exists. */
 function trustKeyPath(cwd: string): string {
@@ -23,13 +23,13 @@ function trustKeyPath(cwd: string): string {
 
 function describeDecision(
   cwd: string,
-  entry: ProjectTrustStoreEntry | null,
-): Pick<ProjectTrustStatus, "decision" | "decisionPath" | "inherited"> {
+  entry: ProjectTrustStoreEntry | null
+): Pick<ProjectTrustStatus, 'decision' | 'decisionPath' | 'inherited'> {
   if (!entry) return { decision: null, inherited: false };
   return {
     decision: entry.decision,
     decisionPath: entry.path,
-    inherited: !samePath(entry.path, trustKeyPath(cwd)),
+    inherited: !samePath(entry.path, trustKeyPath(cwd))
   };
 }
 
@@ -50,14 +50,18 @@ export function getProjectTrustStatus(cwd: string, agentDir: string): ProjectTru
   if (!requiresTrust) {
     if (!cwd) return { requiresTrust: false, trusted: true, decision: null, inherited: false };
     try {
-      return { requiresTrust: false, trusted: true, ...describeDecision(cwd, trustStore.getEntry(cwd)) };
+      return {
+        requiresTrust: false,
+        trusted: true,
+        ...describeDecision(cwd, trustStore.getEntry(cwd))
+      };
     } catch (error) {
       return {
         requiresTrust: false,
         trusted: true,
         decision: null,
         inherited: false,
-        decisionError: error instanceof Error ? error.message : String(error),
+        decisionError: error instanceof Error ? error.message : String(error)
       };
     }
   }
@@ -66,12 +70,12 @@ export function getProjectTrustStatus(cwd: string, agentDir: string): ProjectTru
   return {
     requiresTrust: true,
     trusted: entry?.decision === true,
-    ...describeDecision(cwd, entry),
+    ...describeDecision(cwd, entry)
   };
 }
 
 // Hot reload re-evaluates this module; globalThis keeps one warning per error per process.
-const TRUST_READ_WARNINGS_KEY: symbol = Symbol.for("pi-web:project-trust-read-warnings");
+const TRUST_READ_WARNINGS_KEY: symbol = Symbol.for('pi-web:project-trust-read-warnings');
 const TRUST_READ_WARNINGS_MAX = 200;
 
 /**
@@ -102,17 +106,20 @@ export function mayReadProjectConfigNow(cwd: string, agentDir: string): boolean 
     if (!cwd || !hasTrustRequiringProjectResources(cwd)) return false;
     return new ProjectTrustStore(agentDir).get(cwd) === true;
   } catch (error) {
-    const trustPath = join(agentDir, "trust.json");
+    const trustPath = join(agentDir, 'trust.json');
     const message = error instanceof Error ? error.message : String(error);
     const store = globalThis as Record<symbol, Set<string> | undefined>;
     const warned = (store[TRUST_READ_WARNINGS_KEY] ??= new Set());
     const key = `${trustPath}\0${message}`;
     if (!warned.has(key)) {
       // The oldest goes, never the whole set, which would repeat every warning it held.
-      if (warned.size >= TRUST_READ_WARNINGS_MAX) warned.delete(warned.values().next().value as string);
+      if (warned.size >= TRUST_READ_WARNINGS_MAX)
+        warned.delete(warned.values().next().value as string);
       warned.add(key);
       // A lock error does not name the file, so the path is always given.
-      console.warn(`[pi-web] cannot read project trust from ${trustPath}; projects that need it count as untrusted meanwhile: ${message}`);
+      console.warn(
+        `[pi-web] cannot read project trust from ${trustPath}; projects that need it count as untrusted meanwhile: ${message}`
+      );
     }
     return false;
   }
@@ -126,7 +133,13 @@ export function trustProject(cwd: string, agentDir: string): ProjectTrustStatus 
   // Built from what was just written, not read back: a second read can fail
   // (the lock held past the store's wait), and the route would then report a
   // decision already on disk as a failure and skip rebuilding the cwd's wrappers.
-  return { requiresTrust: true, trusted: true, decision: true, decisionPath: trustKeyPath(cwd), inherited: false };
+  return {
+    requiresTrust: true,
+    trusted: true,
+    decision: true,
+    decisionPath: trustKeyPath(cwd),
+    inherited: false
+  };
 }
 
 /**
@@ -148,7 +161,7 @@ export function trustProject(cwd: string, agentDir: string): ProjectTrustStatus 
  */
 export function projectTrustReloadOptions(
   cwd: string,
-  agentDir: string,
+  agentDir: string
 ): { resolveProjectTrust: () => Promise<boolean> } | undefined {
   if (!cwd || !hasTrustRequiringProjectResources(cwd)) return undefined;
   const trustStore = new ProjectTrustStore(agentDir);
@@ -170,14 +183,14 @@ export function projectTrustReloadOptions(
  * compares it with the SDK's own list, so an upgrade that adds one fails there.
  */
 export const TRUST_REQUIRING_PROJECT_ENTRIES = [
-  "settings.json",
-  "mcp.json",
-  "extensions",
-  "skills",
-  "prompts",
-  "themes",
-  "SYSTEM.md",
-  "APPEND_SYSTEM.md",
+  'settings.json',
+  'mcp.json',
+  'extensions',
+  'skills',
+  'prompts',
+  'themes',
+  'SYSTEM.md',
+  'APPEND_SYSTEM.md'
 ] as const;
 
 function realPathOr(path: string): string {
@@ -208,12 +221,15 @@ function somethingAt(path: string): boolean {
  * skips a link to nothing: such a link starts counting the moment its target
  * appears, after the folder was trusted as one with nothing in it.
  */
-export function hasTrustRelevantEntries(cwd: string, home: string = process.env.HOME || homedir()): boolean {
+export function hasTrustRelevantEntries(
+  cwd: string,
+  home: string = process.env.HOME || homedir()
+): boolean {
   const folder = realPathOr(cwd);
   if (hasOwnTrustEntries(folder)) return true;
-  const userSkills = join(realPathOr(home), ".agents", "skills");
+  const userSkills = join(realPathOr(home), '.agents', 'skills');
   for (let current = folder; ; current = dirname(current)) {
-    const skills = join(current, ".agents", "skills");
+    const skills = join(current, '.agents', 'skills');
     if (!samePath(skills, userSkills) && somethingAt(skills)) return true;
     if (dirname(current) === current) return false;
   }
@@ -221,7 +237,7 @@ export function hasTrustRelevantEntries(cwd: string, home: string = process.env.
 
 /** What under `folder/.pi` makes it require trust, or a `.pi` that is a link to nothing, by `lstat`. */
 function hasOwnTrustEntries(folder: string): boolean {
-  const configDir = join(folder, ".pi");
+  const configDir = join(folder, '.pi');
   try {
     if (lstatSync(configDir).isSymbolicLink() && realPathOr(configDir) === configDir) return true;
   } catch {
@@ -235,7 +251,7 @@ export const NESTED_PROJECT_SCAN_DEPTH = 4;
 /** How many folders it reads before it stops and refuses the step, since it cannot tell. */
 export const NESTED_PROJECT_SCAN_MAX_FOLDERS = 2000;
 /** Never descended into: dependencies and history hold no project, and `.pi` / `.agents` are checked, not walked. */
-const NESTED_PROJECT_SCAN_SKIP = new Set(["node_modules", ".git", ".pi", ".agents"]);
+const NESTED_PROJECT_SCAN_SKIP = new Set(['node_modules', '.git', '.pi', '.agents']);
 
 /**
  * A folder below `cwd` that would inherit a decision trusting `cwd`: one with
@@ -254,7 +270,10 @@ const NESTED_PROJECT_SCAN_SKIP = new Set(["node_modules", ".git", ".pi", ".agent
  * check. A `trust.json` that cannot be read counts a found project as having
  * no decision. Folders deeper than the scan are not looked at.
  */
-export function findInheritingTrustProject(cwd: string, agentDir: string): FreshFolderTrustBreadth | undefined {
+export function findInheritingTrustProject(
+  cwd: string,
+  agentDir: string
+): FreshFolderTrustBreadth | undefined {
   const folder = realPathOr(cwd);
   let store: ProjectTrustStore | undefined;
   const hasDecision = (path: string): boolean => {
@@ -270,7 +289,8 @@ export function findInheritingTrustProject(cwd: string, agentDir: string): Fresh
   for (let depth = 0; depth <= NESTED_PROJECT_SCAN_DEPTH && level.length > 0; depth += 1) {
     const next: string[] = [];
     for (const dir of level) {
-      if (read >= NESTED_PROJECT_SCAN_MAX_FOLDERS) return { kind: "too-many-folders", path: folder };
+      if (read >= NESTED_PROJECT_SCAN_MAX_FOLDERS)
+        return { kind: 'too-many-folders', path: folder };
       read += 1;
       let names: Set<string>;
       let children: string[] = [];
@@ -288,8 +308,10 @@ export function findInheritingTrustProject(cwd: string, agentDir: string): Fresh
       }
       // `cwd` itself was checked before (`hasTrustRelevantEntries()`).
       if (depth > 0) {
-        const needsTrust = (names.has(".pi") && hasOwnTrustEntries(dir)) || (names.has(".agents") && somethingAt(join(dir, ".agents", "skills")));
-        if (needsTrust && !hasDecision(dir)) return { kind: "contains-project", path: dir };
+        const needsTrust =
+          (names.has('.pi') && hasOwnTrustEntries(dir)) ||
+          (names.has('.agents') && somethingAt(join(dir, '.agents', 'skills')));
+        if (needsTrust && !hasDecision(dir)) return { kind: 'contains-project', path: dir };
       }
       next.push(...children);
     }
@@ -315,18 +337,19 @@ function within(target: string, root: string): boolean {
  */
 export function freshFolderTrustBreadth(
   cwd: string,
-  options: { agentDir: string; knownFolders: Iterable<string>; home?: string },
+  options: { agentDir: string; knownFolders: Iterable<string>; home?: string }
 ): FreshFolderTrustBreadth | undefined {
   const folder = realPathOr(cwd);
-  if (dirname(folder) === folder) return { kind: "root", path: folder };
+  if (dirname(folder) === folder) return { kind: 'root', path: folder };
   const home = realPathOr(options.home ?? (process.env.HOME || homedir()));
-  if (samePath(folder, home)) return { kind: "home", path: folder };
-  if (within(home, folder)) return { kind: "contains-home", path: home };
+  if (samePath(folder, home)) return { kind: 'home', path: folder };
+  if (within(home, folder)) return { kind: 'contains-home', path: home };
   const agentDir = realPathOr(options.agentDir);
-  if (within(agentDir, folder)) return { kind: "contains-agent-dir", path: agentDir };
+  if (within(agentDir, folder)) return { kind: 'contains-agent-dir', path: agentDir };
   for (const known of options.knownFolders) {
     const knownFolder = realPathOr(known);
-    if (!samePath(knownFolder, folder) && within(knownFolder, folder)) return { kind: "contains-folder", path: knownFolder };
+    if (!samePath(knownFolder, folder) && within(knownFolder, folder))
+      return { kind: 'contains-folder', path: knownFolder };
   }
   return findInheritingTrustProject(folder, options.agentDir);
 }
@@ -335,20 +358,26 @@ export type FreshFolderTrustResult<T> =
   /** Trusted, then written; `status` is the folder's trust as written. */
   | { ok: true; value: T; status: ProjectTrustStatus }
   /** Trusting it would trust more than the folder; nothing was written. */
-  | { ok: false; reason: "trust-too-broad"; breadth: FreshFolderTrustBreadth; error: string }
+  | { ok: false; reason: 'trust-too-broad'; breadth: FreshFolderTrustBreadth; error: string }
   /** Not fresh anymore (resources that need trust, or a decision here or above); nothing was written. */
-  | { ok: false; reason: "folder-not-fresh"; status?: ProjectTrustStatus; error: string }
+  | { ok: false; reason: 'folder-not-fresh'; status?: ProjectTrustStatus; error: string }
   /** `trust.json` could not be read or written (unparsable, or locked by another process); nothing was written. */
-  | { ok: false; reason: "trust-unreadable"; error: string }
+  | { ok: false; reason: 'trust-unreadable'; error: string }
   /**
    * `write` threw after the folder was trusted. The decision was taken back
    * unless `rollbackError` says why it could not be, in which case the folder
    * stays trusted (`status`).
    */
-  | { ok: false; reason: "write-failed"; writeError: unknown; rollbackError?: string; status?: ProjectTrustStatus };
+  | {
+      ok: false;
+      reason: 'write-failed';
+      writeError: unknown;
+      rollbackError?: string;
+      status?: ProjectTrustStatus;
+    };
 
 // Route handlers are bundled separately and hot reload re-evaluates modules; globalThis keeps one chain per folder per process.
-const FRESH_TRUST_LOCKS_KEY: symbol = Symbol.for("pi-web:fresh-folder-trust-locks");
+const FRESH_TRUST_LOCKS_KEY: symbol = Symbol.for('pi-web:fresh-folder-trust-locks');
 
 /** Runs `task` after every earlier task for the same folder has settled. */
 function serializeForFolder<T>(key: string, task: () => Promise<T>): Promise<T> {
@@ -392,11 +421,20 @@ export async function trustFreshFolderAndWrite<T>(
   cwd: string,
   agentDir: string,
   write: () => Promise<T> | T,
-  options: { knownFolders: Iterable<string>; home?: string },
+  options: { knownFolders: Iterable<string>; home?: string }
 ): Promise<FreshFolderTrustResult<T>> {
-  const breadth = freshFolderTrustBreadth(cwd, { agentDir, knownFolders: options.knownFolders, home: options.home });
+  const breadth = freshFolderTrustBreadth(cwd, {
+    agentDir,
+    knownFolders: options.knownFolders,
+    home: options.home
+  });
   if (breadth) {
-    return { ok: false, reason: "trust-too-broad", breadth, error: `Trusting ${cwd} would also trust ${breadth.path}` };
+    return {
+      ok: false,
+      reason: 'trust-too-broad',
+      breadth,
+      error: `Trusting ${cwd} would also trust ${breadth.path}`
+    };
   }
   const key = trustKeyPath(cwd);
   return serializeForFolder(key, async (): Promise<FreshFolderTrustResult<T>> => {
@@ -408,7 +446,7 @@ export async function trustFreshFolderAndWrite<T>(
       } catch {
         // Unknown: the caller reads it again.
       }
-      return { ok: false, reason: "folder-not-fresh", ...(status ? { status } : {}), error };
+      return { ok: false, reason: 'folder-not-fresh', ...(status ? { status } : {}), error };
     };
     if (hasTrustRequiringProjectResources(cwd) || hasTrustRelevantEntries(cwd, options.home)) {
       return notFresh(`${cwd} now has project resources that need trust`);
@@ -417,31 +455,55 @@ export async function trustFreshFolderAndWrite<T>(
     try {
       entry = store.getEntry(cwd);
     } catch (error) {
-      return { ok: false, reason: "trust-unreadable", error: message(error) };
+      return { ok: false, reason: 'trust-unreadable', error: message(error) };
     }
     if (entry) return notFresh(`${entry.path} has a trust decision now`);
     // Again inside the chain: a `git clone` into the folder may have landed since the panel offered the step.
     const nested = findInheritingTrustProject(cwd, agentDir);
-    if (nested) return { ok: false, reason: "trust-too-broad", breadth: nested, error: `Trusting ${cwd} would also trust ${nested.path}` };
+    if (nested)
+      return {
+        ok: false,
+        reason: 'trust-too-broad',
+        breadth: nested,
+        error: `Trusting ${cwd} would also trust ${nested.path}`
+      };
     try {
       store.set(cwd, true);
     } catch (error) {
-      return { ok: false, reason: "trust-unreadable", error: message(error) };
+      return { ok: false, reason: 'trust-unreadable', error: message(error) };
     }
-    const trusted: ProjectTrustStatus = { requiresTrust: true, trusted: true, decision: true, decisionPath: key, inherited: false };
+    const trusted: ProjectTrustStatus = {
+      requiresTrust: true,
+      trusted: true,
+      decision: true,
+      decisionPath: key,
+      inherited: false
+    };
     let value: T;
     try {
       value = await write();
     } catch (writeError) {
       try {
         store.set(cwd, null);
-        return { ok: false, reason: "write-failed", writeError };
+        return { ok: false, reason: 'write-failed', writeError };
       } catch (rollbackError) {
-        console.warn(`[pi-web] could not take back the trust given to ${cwd} after a failed write: ${message(rollbackError)}`);
-        return { ok: false, reason: "write-failed", writeError, rollbackError: message(rollbackError), status: trusted };
+        console.warn(
+          `[pi-web] could not take back the trust given to ${cwd} after a failed write: ${message(rollbackError)}`
+        );
+        return {
+          ok: false,
+          reason: 'write-failed',
+          writeError,
+          rollbackError: message(rollbackError),
+          status: trusted
+        };
       }
     }
     // Built from what was written, as trustProject() does: a second read can fail on the lock.
-    return { ok: true, value, status: { ...trusted, requiresTrust: hasTrustRequiringProjectResources(cwd) } };
+    return {
+      ok: true,
+      value,
+      status: { ...trusted, requiresTrust: hasTrustRequiringProjectResources(cwd) }
+    };
   });
 }

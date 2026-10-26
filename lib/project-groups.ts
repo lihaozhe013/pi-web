@@ -1,5 +1,5 @@
-import type { SessionInfo } from "./types";
-import { workspaceKeyOf } from "./workspace-memory";
+import type { SessionInfo } from './types';
+import { workspaceKeyOf } from './workspace-memory';
 
 export interface RecentProject {
   /** Stable server-provided identity used for comparison and Map keys. */
@@ -28,7 +28,7 @@ export function getRecentProjects(sessions: readonly SessionInfo[]): RecentProje
 export function getProjectActivity(
   sessions: readonly SessionInfo[],
   runningSessionIds: ReadonlySet<string>,
-  unreadSessionIds: ReadonlySet<string>,
+  unreadSessionIds: ReadonlySet<string>
 ): Map<string, { running: number; unread: number }> {
   const counts = new Map<string, { running: number; unread: number }>();
   for (const session of sessions) {

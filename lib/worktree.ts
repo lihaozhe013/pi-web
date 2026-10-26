@@ -1,9 +1,9 @@
-import { execFile } from "child_process";
-import { existsSync, mkdirSync, readFileSync, realpathSync } from "fs";
-import { basename, dirname, join, resolve } from "path";
-import { promisify } from "util";
-import { allowFileRoot } from "./allowed-roots";
-import { samePath, toNativePath } from "./paths";
+import { execFile } from 'child_process';
+import { existsSync, mkdirSync, readFileSync, realpathSync } from 'fs';
+import { basename, dirname, join, resolve } from 'path';
+import { promisify } from 'util';
+import { allowFileRoot } from './allowed-roots';
+import { samePath, toNativePath } from './paths';
 
 const execFileAsync = promisify(execFile);
 
@@ -55,18 +55,18 @@ export function invalidateProjectCache(): void {
 }
 
 async function git(cwd: string, args: string[], timeoutMs = 10_000): Promise<string> {
-  const { stdout } = await execFileAsync("git", ["-C", cwd, ...args], {
+  const { stdout } = await execFileAsync('git', ['-C', cwd, ...args], {
     timeout: timeoutMs,
     maxBuffer: 1024 * 1024,
     // Pin the message locale so error-text matching (e.g. the dirty-worktree
     // detection in the DELETE route) works regardless of system language.
-    env: { ...process.env, LC_ALL: "C" },
+    env: { ...process.env, LC_ALL: 'C' }
   });
   return stdout.trim();
 }
 
 /** Spawn failures that clear up on their own: out of fds, processes or memory. */
-const TRANSIENT_SPAWN_CODES = new Set(["EMFILE", "ENFILE", "EAGAIN", "ENOMEM"]);
+const TRANSIENT_SPAWN_CODES = new Set(['EMFILE', 'ENFILE', 'EAGAIN', 'ENOMEM']);
 
 /**
  * A git run that never gave its answer: the spawn failed for want of
@@ -79,8 +79,11 @@ const TRANSIENT_SPAWN_CODES = new Set(["EMFILE", "ENFILE", "EAGAIN", "ENOMEM"]);
 function isTransientGitError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
   const { code, killed, signal } = error as { code?: unknown; killed?: unknown; signal?: unknown };
-  return killed === true || (typeof signal === "string" && signal !== "")
-    || (typeof code === "string" && TRANSIENT_SPAWN_CODES.has(code));
+  return (
+    killed === true ||
+    (typeof signal === 'string' && signal !== '') ||
+    (typeof code === 'string' && TRANSIENT_SPAWN_CODES.has(code))
+  );
 }
 
 function realPathOrSelf(filePath: string): string {
@@ -100,10 +103,11 @@ function realPathOrSelf(filePath: string): string {
  */
 function repoRootFromCommonDir(commonDir: string): string {
   const parent = dirname(commonDir);
-  if (basename(commonDir) === ".git") return parent;
+  if (basename(commonDir) === '.git') return parent;
   try {
-    const match = /^gitdir:\s*(.+?)\s*$/m.exec(readFileSync(join(parent, ".git"), "utf8"));
-    if (match && samePath(realPathOrSelf(resolve(parent, match[1])), realPathOrSelf(commonDir))) return parent;
+    const match = /^gitdir:\s*(.+?)\s*$/m.exec(readFileSync(join(parent, '.git'), 'utf8'));
+    if (match && samePath(realPathOrSelf(resolve(parent, match[1])), realPathOrSelf(commonDir)))
+      return parent;
   } catch {
     // No `.git` file beside it (a `.git` directory belongs to another repo).
   }
@@ -125,14 +129,20 @@ function repoRootFromCommonDir(commonDir: string): string {
  */
 export function inferRemovedWorktree(cwd: string): ProjectInfo | null {
   const parent = dirname(cwd);
-  if (!parent.endsWith("-worktrees")) return null;
-  const repoRoot = parent.slice(0, -"-worktrees".length);
+  if (!parent.endsWith('-worktrees')) return null;
+  const repoRoot = parent.slice(0, -'-worktrees'.length);
   if (!repoRoot) return null;
   // A bare clone has no `.git`; git takes HEAD, objects/ and refs/ for a git dir.
-  const isRepo = existsSync(join(repoRoot, ".git"))
-    || ["HEAD", "objects", "refs"].every((name) => existsSync(join(repoRoot, name)));
+  const isRepo =
+    existsSync(join(repoRoot, '.git')) ||
+    ['HEAD', 'objects', 'refs'].every((name) => existsSync(join(repoRoot, name)));
   if (!isRepo) return null;
-  return { projectRoot: realPathOrSelf(repoRoot), branch: basename(cwd), isWorktree: true, isTopLevel: true };
+  return {
+    projectRoot: realPathOrSelf(repoRoot),
+    branch: basename(cwd),
+    isWorktree: true,
+    isTopLevel: true
+  };
 }
 
 /**
@@ -168,7 +178,9 @@ export async function resolveProject(cwd: string): Promise<ProjectInfo> {
     // Transient git failure (fd exhaustion, a killed git): serve a cwd-only
     // fallback for this request only, never cached, so it cannot become a
     // lasting project identity. The next request retries.
-    console.error(`[pi-web] resolveProject: git failed for ${cwd}, not cached: ${error instanceof Error ? error.message : String(error)}`);
+    console.error(
+      `[pi-web] resolveProject: git failed for ${cwd}, not cached: ${error instanceof Error ? error.message : String(error)}`
+    );
     return { projectRoot: cwd, branch: null, isWorktree: false, isTopLevel: false };
   }
   cache.set(cwd, { info, expiresAt: Date.now() + PROJECT_CACHE_TTL_MS });
@@ -197,14 +209,25 @@ async function resolveProjectUncached(cwd: string): Promise<ProjectInfo> {
   let info: ProjectInfo;
   try {
     if (!existsSync(cwd)) {
-      return inferRemovedWorktree(cwd) ?? { projectRoot: cwd, branch: null, isWorktree: false, isTopLevel: false };
+      return (
+        inferRemovedWorktree(cwd) ?? {
+          projectRoot: cwd,
+          branch: null,
+          isWorktree: false,
+          isTopLevel: false
+        }
+      );
     }
     const out = await git(cwd, [
-      "rev-parse", "--path-format=absolute",
-      "--git-common-dir", "--git-dir", "--show-toplevel",
-      "--abbrev-ref", "HEAD",
+      'rev-parse',
+      '--path-format=absolute',
+      '--git-common-dir',
+      '--git-dir',
+      '--show-toplevel',
+      '--abbrev-ref',
+      'HEAD'
     ]);
-    const [commonDirRaw, gitDirRaw, toplevelRaw, ref] = out.split("\n").map((l) => l.trim());
+    const [commonDirRaw, gitDirRaw, toplevelRaw, ref] = out.split('\n').map((l) => l.trim());
     // Only the first three lines are paths — `ref` is a branch name and must
     // keep its forward slashes (`feature/foo`).
     const [commonDir, gitDir, toplevel] = [commonDirRaw, gitDirRaw, toplevelRaw].map(toNativePath);
@@ -222,9 +245,9 @@ async function resolveProjectUncached(cwd: string): Promise<ProjectInfo> {
     const topLevelProjectRoot = isWorktreeTopLevel ? repoRootFromCommonDir(commonDir) : toplevel;
     info = {
       projectRoot: isTopLevel ? realPathOrSelf(topLevelProjectRoot) : cwd,
-      branch: ref && ref !== "HEAD" ? ref : null,
+      branch: ref && ref !== 'HEAD' ? ref : null,
       isWorktree: isWorktreeTopLevel,
-      isTopLevel,
+      isTopLevel
     };
   } catch (error) {
     // A transient failure propagates so resolveProject keeps it out of the
@@ -246,12 +269,12 @@ async function resolveProjectUncached(cwd: string): Promise<ProjectInfo> {
 
 /** Main repo root (parent of the shared .git dir, or a bare clone), or throws for non-git dirs */
 async function getRepoRoot(cwd: string): Promise<string> {
-  const commonDir = await git(cwd, ["rev-parse", "--path-format=absolute", "--git-common-dir"]);
+  const commonDir = await git(cwd, ['rev-parse', '--path-format=absolute', '--git-common-dir']);
   return realPathOrSelf(repoRootFromCommonDir(toNativePath(commonDir)));
 }
 
 export async function listWorktrees(cwd: string): Promise<WorktreeInfo[]> {
-  const out = await git(cwd, ["worktree", "list", "--porcelain"]);
+  const out = await git(cwd, ['worktree', 'list', '--porcelain']);
   const worktrees: WorktreeInfo[] = [];
   let current: (Partial<WorktreeInfo> & { prunable?: boolean }) | null = null;
 
@@ -264,22 +287,25 @@ export async function listWorktrees(cwd: string): Promise<WorktreeInfo[]> {
         worktrees.push({
           path: current.path,
           branch: current.branch ?? null,
-          isMain: worktrees.length === 0,
+          isMain: worktrees.length === 0
         });
       }
     }
     current = null;
   };
 
-  for (const line of out.split("\n")) {
-    if (line.startsWith("worktree ")) {
+  for (const line of out.split('\n')) {
+    if (line.startsWith('worktree ')) {
       flush();
-      current = { path: toNativePath(line.slice("worktree ".length).trim()) };
-    } else if (line.startsWith("branch ") && current) {
-      current.branch = line.slice("branch ".length).trim().replace(/^refs\/heads\//, "");
-    } else if (line.startsWith("prunable") && current) {
+      current = { path: toNativePath(line.slice('worktree '.length).trim()) };
+    } else if (line.startsWith('branch ') && current) {
+      current.branch = line
+        .slice('branch '.length)
+        .trim()
+        .replace(/^refs\/heads\//, '');
+    } else if (line.startsWith('prunable') && current) {
       current.prunable = true;
-    } else if (line.trim() === "") {
+    } else if (line.trim() === '') {
       flush();
     }
   }
@@ -287,21 +313,30 @@ export async function listWorktrees(cwd: string): Promise<WorktreeInfo[]> {
   return worktrees;
 }
 
-function findWorktreeByPath(worktrees: readonly WorktreeInfo[], candidate: string): WorktreeInfo | undefined {
+function findWorktreeByPath(
+  worktrees: readonly WorktreeInfo[],
+  candidate: string
+): WorktreeInfo | undefined {
   return worktrees.find((worktree) => samePath(worktree.path, candidate));
 }
 
-export function findCurrentWorktreePath(worktrees: readonly WorktreeInfo[], cwd: string): string | null {
+export function findCurrentWorktreePath(
+  worktrees: readonly WorktreeInfo[],
+  cwd: string
+): string | null {
   return findWorktreeByPath(worktrees, realPathOrSelf(cwd))?.path ?? null;
 }
 
 function sanitizeBranchForDir(branch: string): string {
-  return branch.replace(/[/\\:*?"<>|\s]+/g, "-").replace(/^-+|-+$/g, "");
+  return branch.replace(/[/\\:*?"<>|\s]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
-export async function addWorktree(cwd: string, branch: string): Promise<{ path: string; branch: string }> {
+export async function addWorktree(
+  cwd: string,
+  branch: string
+): Promise<{ path: string; branch: string }> {
   const trimmed = branch.trim();
-  if (!trimmed) throw new Error("Branch name is required");
+  if (!trimmed) throw new Error('Branch name is required');
 
   const dirName = sanitizeBranchForDir(trimmed);
   if (!dirName) throw new Error(`Invalid branch name: ${branch}`);
@@ -319,7 +354,7 @@ export async function addWorktree(cwd: string, branch: string): Promise<{ path: 
   // fetch here: worktree creation must stay a local, offline-safe operation.
   let branchExists = false;
   try {
-    await git(repoRoot, ["rev-parse", "--verify", "--quiet", `refs/heads/${trimmed}`]);
+    await git(repoRoot, ['rev-parse', '--verify', '--quiet', `refs/heads/${trimmed}`]);
     branchExists = true;
   } catch {
     branchExists = false;
@@ -329,18 +364,18 @@ export async function addWorktree(cwd: string, branch: string): Promise<{ path: 
     // Large repos (30k+ files) can take minutes to checkout.
     const WORKTREE_TIMEOUT = 5 * 60_000;
     if (branchExists) {
-      await git(repoRoot, ["worktree", "add", "--", worktreePath, trimmed], WORKTREE_TIMEOUT);
+      await git(repoRoot, ['worktree', 'add', '--', worktreePath, trimmed], WORKTREE_TIMEOUT);
     } else {
       // New branch: prefer the remote-tracking tip (refs/remotes/origin/<branch>)
       // over local HEAD when the user already fetched it; fall back to HEAD.
       let startFrom: string | undefined;
       try {
-        await git(repoRoot, ["rev-parse", "--verify", "--quiet", `refs/remotes/origin/${trimmed}`]);
+        await git(repoRoot, ['rev-parse', '--verify', '--quiet', `refs/remotes/origin/${trimmed}`]);
         startFrom = `refs/remotes/origin/${trimmed}`;
       } catch {
         startFrom = undefined;
       }
-      const addArgs = ["worktree", "add", "-b", trimmed, "--", worktreePath];
+      const addArgs = ['worktree', 'add', '-b', trimmed, '--', worktreePath];
       if (startFrom) addArgs.push(startFrom);
       await git(repoRoot, addArgs, WORKTREE_TIMEOUT);
     }
@@ -353,16 +388,20 @@ export async function addWorktree(cwd: string, branch: string): Promise<{ path: 
   return { path: worktreePath, branch: trimmed };
 }
 
-export async function removeWorktree(cwd: string, worktreePath: string, force = false): Promise<void> {
+export async function removeWorktree(
+  cwd: string,
+  worktreePath: string,
+  force = false
+): Promise<void> {
   const worktrees = await listWorktrees(cwd);
   // Git reports worktrees by their real path; the caller's may run through a link
   // (macOS's /var and /tmp are links to /private/...).
   const target = findWorktreeByPath(worktrees, realPathOrSelf(worktreePath));
   if (!target) throw new Error(`Not a worktree of this repository: ${worktreePath}`);
-  if (target.isMain) throw new Error("Cannot remove the main worktree");
+  if (target.isMain) throw new Error('Cannot remove the main worktree');
 
   try {
-    await git(cwd, ["worktree", "remove", ...(force ? ["--force"] : []), target.path]);
+    await git(cwd, ['worktree', 'remove', ...(force ? ['--force'] : []), target.path]);
   } catch (error) {
     throw new Error(extractGitError(error), { cause: error });
   }
@@ -385,6 +424,6 @@ export function worktreeHasUncommittedFiles(message: string): boolean {
 
 function extractGitError(error: unknown): string {
   const stderr = (error as { stderr?: string }).stderr;
-  if (typeof stderr === "string" && stderr.trim()) return stderr.trim();
+  if (typeof stderr === 'string' && stderr.trim()) return stderr.trim();
   return error instanceof Error ? error.message : String(error);
 }

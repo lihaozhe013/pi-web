@@ -1,8 +1,8 @@
-import { getAdditionalAllowedRoots, normalizeSlashes } from "./allowed-roots";
-import { isExistingPathWithinRoots, isPathWithinRoots } from "./path-security";
-import { listAllSessions } from "./session-reader";
-export { allowFileRoot, normalizeSlashes } from "./allowed-roots";
-export { isWindowsAbsolutePath } from "./paths";
+import { getAdditionalAllowedRoots, normalizeSlashes } from './allowed-roots';
+import { isExistingPathWithinRoots, isPathWithinRoots } from './path-security';
+import { listAllSessions } from './session-reader';
+export { allowFileRoot, normalizeSlashes } from './allowed-roots';
+export { isWindowsAbsolutePath } from './paths';
 
 // Short-TTL cache for the allowed-roots set. Without this, every file list/read
 // request re-scans every pi session on disk just to check access. 5s is short

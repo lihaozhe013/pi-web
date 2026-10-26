@@ -13,7 +13,9 @@ export interface ExpandedPathsMemory {
  * path that no longer exists stays harmless: only a listed directory looks
  * itself up, so it simply never matches.
  */
-export function createExpandedPathsMemory(limit = EXPANDED_PATHS_MEMORY_LIMIT): ExpandedPathsMemory {
+export function createExpandedPathsMemory(
+  limit = EXPANDED_PATHS_MEMORY_LIMIT
+): ExpandedPathsMemory {
   // A Map iterates in insertion order: the first key is the oldest.
   const byCwd = new Map<string, ReadonlySet<string>>();
   return {
@@ -28,6 +30,6 @@ export function createExpandedPathsMemory(limit = EXPANDED_PATHS_MEMORY_LIMIT): 
     },
     restore(cwd) {
       return new Set(byCwd.get(cwd));
-    },
+    }
   };
 }

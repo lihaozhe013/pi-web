@@ -8,36 +8,53 @@
 
 export function isWriteToolName(toolName: string): boolean {
   const name = toolName.toLowerCase();
-  return name === "write" ||
-    name.startsWith("write_") ||
-    name.endsWith(".write") ||
-    name.endsWith("_write");
+  return (
+    name === 'write' ||
+    name.startsWith('write_') ||
+    name.endsWith('.write') ||
+    name.endsWith('_write')
+  );
 }
 
 export function isEditToolName(toolName: string): boolean {
   const name = toolName.toLowerCase();
-  return name === "edit" ||
-    name.startsWith("edit_") ||
-    name.endsWith(".edit") ||
-    name.endsWith("_edit") ||
-    name.includes("str_replace") ||
-    name.includes("replace_editor");
+  return (
+    name === 'edit' ||
+    name.startsWith('edit_') ||
+    name.endsWith('.edit') ||
+    name.endsWith('_edit') ||
+    name.includes('str_replace') ||
+    name.includes('replace_editor')
+  );
 }
 
 /** Codex-style patch tools (e.g. the pi-apply-patch extension). */
 export function isApplyPatchToolName(toolName: string): boolean {
   const name = toolName.toLowerCase();
-  return name === "apply_patch" ||
-    name.startsWith("apply_patch_") ||
-    name.endsWith(".apply_patch") ||
-    name.endsWith("_apply_patch");
+  return (
+    name === 'apply_patch' ||
+    name.startsWith('apply_patch_') ||
+    name.endsWith('.apply_patch') ||
+    name.endsWith('_apply_patch')
+  );
 }
 
 /** Recognizes shell tools, including names decorated by extensions. */
 const SHELL_TOOL_NAMES = new Set([
-  "bash", "shell", "sh", "zsh", "powershell", "pwsh", "cmd", "exec",
-  "exec_command", "run_command", "run_shell_command", "execute_command",
-  "terminal", "local_shell",
+  'bash',
+  'shell',
+  'sh',
+  'zsh',
+  'powershell',
+  'pwsh',
+  'cmd',
+  'exec',
+  'exec_command',
+  'run_command',
+  'run_shell_command',
+  'execute_command',
+  'terminal',
+  'local_shell'
 ]);
 
 export function isShellToolName(toolName: string): boolean {

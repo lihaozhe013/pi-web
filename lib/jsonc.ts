@@ -20,9 +20,12 @@ export function stripJsonComments(input: string): string {
   return input
     .replace(/"(?:\\.|[^"\\])*"|\/\/[^\n]*|\/\*[\s\S]*?\*\//g, (match) => {
       if (match[0] === '"') return match;
-      return match[1] === "*" ? " " : "";
+      return match[1] === '*' ? ' ' : '';
     })
-    .replace(/"(?:\\.|[^"\\])*"|,(\s*[}\]])/g, (match, tail?: string) => tail ?? (match[0] === '"' ? match : ""));
+    .replace(
+      /"(?:\\.|[^"\\])*"|,(\s*[}\]])/g,
+      (match, tail?: string) => tail ?? (match[0] === '"' ? match : '')
+    );
 }
 
 /**
@@ -31,5 +34,5 @@ export function stripJsonComments(input: string): string {
  * including an unterminated block comment.
  */
 export function parseJsonc(text: string): unknown {
-  return JSON.parse(stripJsonComments(text.replace(/^\uFEFF/, "")));
+  return JSON.parse(stripJsonComments(text.replace(/^\uFEFF/, '')));
 }

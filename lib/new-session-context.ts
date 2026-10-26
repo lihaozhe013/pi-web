@@ -7,8 +7,8 @@
  * without a DOM.
  */
 
-import { projectNameOf, type SidebarProject } from "./session-tree";
-import { workspaceKeyOf } from "./workspace-memory";
+import { projectNameOf, type SidebarProject } from './session-tree';
+import { workspaceKeyOf } from './workspace-memory';
 
 export interface WorktreeChoice {
   path: string;
@@ -61,7 +61,9 @@ export interface NewSessionContext {
  * a context without its cwd, or no project yet (a sidebar with no cwd, whose
  * files tab still offers every project).
  */
-export type ProjectWorktreeContext = Omit<NewSessionContext, "cwd" | "project"> & { project: ProjectChoice | null };
+export type ProjectWorktreeContext = Omit<NewSessionContext, 'cwd' | 'project'> & {
+  project: ProjectChoice | null;
+};
 
 /** A move the shell made from the bar, kept until the sidebar reports its cwd. */
 export interface NewSessionMove {
@@ -73,13 +75,13 @@ export interface NewSessionMove {
 
 /** The group's + and Open in new tab use the same directory and project identity. */
 export function newSessionTargetForProject(
-  project: Pick<SidebarProject, "key" | "root" | "current">,
-  selectedCwd: string | null,
+  project: Pick<SidebarProject, 'key' | 'root' | 'current'>,
+  selectedCwd: string | null
 ): NewSessionTarget {
   return {
     cwd: project.current && selectedCwd ? selectedCwd : project.root,
     projectKey: project.key,
-    projectRoot: project.root,
+    projectRoot: project.root
   };
 }
 
@@ -95,7 +97,7 @@ export function newSessionTargetForProject(
 export function contextForCwd(
   context: NewSessionContext | null,
   cwd: string,
-  move: NewSessionMove | null = null,
+  move: NewSessionMove | null = null
 ): NewSessionContext {
   if (context?.cwd === cwd) return context;
   if (context?.worktrees?.some((worktree) => worktree.path === cwd)) {
@@ -107,11 +109,12 @@ export function contextForCwd(
       ...context,
       cwd,
       worktrees: [...context.worktrees, { path: cwd, branch: moved.branch, isMain: false }],
-      currentWorktreePath: cwd,
+      currentWorktreePath: cwd
     };
   }
   const projects = context?.projects ?? [];
-  const project = moved?.project ?? projects.find((choice) => choice.root === cwd) ?? { key: cwd, root: cwd };
+  const project = moved?.project ??
+    projects.find((choice) => choice.root === cwd) ?? { key: cwd, root: cwd };
   // A move names its project by key and root: its display name is the list's.
   const alias = project.alias ?? projects.find((choice) => choice.key === project.key)?.alias;
   return {
@@ -119,7 +122,7 @@ export function contextForCwd(
     project: alias === undefined ? project : { ...project, alias },
     worktrees: null,
     currentWorktreePath: null,
-    projects,
+    projects
   };
 }
 
@@ -147,7 +150,7 @@ export function projectForCwd(
     validated: { cwd: string; root: string; key: string } | null;
     listing: WorktreeListing | null;
     sessions: readonly { cwd: string; projectRoot?: string | null; projectKey?: string | null }[];
-  },
+  }
 ): ProjectChoice {
   const { validated, listing, sessions } = known;
   // /api/cwd/validate resolves identity before a custom path becomes active,
@@ -159,9 +162,9 @@ export function projectForCwd(
   if (listing?.isTopLevel && listing.worktrees.some((worktree) => worktree.path === cwd)) {
     return { root: listing.projectRoot, key: listing.projectKey };
   }
-  const match = sessions.find((session) => (
-    session.cwd === cwd || (session.projectRoot ?? session.cwd) === cwd
-  ));
+  const match = sessions.find(
+    (session) => session.cwd === cwd || (session.projectRoot ?? session.cwd) === cwd
+  );
   return match
     ? { root: match.projectRoot ?? match.cwd, key: workspaceKeyOf(match) }
     : { root: cwd, key: cwd };
@@ -176,7 +179,10 @@ export function projectChoices(context: ProjectWorktreeContext): ProjectChoice[]
 }
 
 /** `choice` as a picker takes it: its key and root, and the display name `names` holds for its key. */
-export function withProjectAlias(choice: ProjectChoice, names: Readonly<Record<string, string>> | undefined): ProjectChoice {
+export function withProjectAlias(
+  choice: ProjectChoice,
+  names: Readonly<Record<string, string>> | undefined
+): ProjectChoice {
   const { key, root } = choice;
   const alias = names && Object.hasOwn(names, key) ? names[key] : undefined;
   return alias === undefined ? { key, root } : { key, root, alias };
@@ -186,7 +192,7 @@ export function withProjectAlias(choice: ProjectChoice, names: Readonly<Record<s
 export function mergeProjectChoices(
   first: readonly ProjectChoice[],
   more: readonly ProjectChoice[],
-  names?: Readonly<Record<string, string>>,
+  names?: Readonly<Record<string, string>>
 ): ProjectChoice[] {
   const seen = new Set<string>();
   const merged: ProjectChoice[] = [];
@@ -199,8 +205,8 @@ export function mergeProjectChoices(
 }
 
 function parentFolderName(root: string): string | null {
-  const trimmed = root.replace(/[\\/]+$/, "");
-  const separator = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\"));
+  const trimmed = root.replace(/[\\/]+$/, '');
+  const separator = Math.max(trimmed.lastIndexOf('/'), trimmed.lastIndexOf('\\'));
   return separator > 0 ? projectNameOf(trimmed.slice(0, separator)) : null;
 }
 
@@ -210,23 +216,33 @@ function parentFolderName(root: string): string | null {
  * part that tells them apart. A project the user named shows that name alone:
  * the path tooltip tells it apart.
  */
-export function describeProjectChoices(choices: readonly ProjectChoice[]): Array<{ choice: ProjectChoice; name: string; note: string | null }> {
-  const named = choices.map((choice) => ({ choice, name: choice.alias ?? projectNameOf(choice.root) }));
+export function describeProjectChoices(
+  choices: readonly ProjectChoice[]
+): Array<{ choice: ProjectChoice; name: string; note: string | null }> {
+  const named = choices.map((choice) => ({
+    choice,
+    name: choice.alias ?? projectNameOf(choice.root)
+  }));
   const counts = new Map<string, number>();
   for (const { name } of named) counts.set(name, (counts.get(name) ?? 0) + 1);
   return named.map(({ choice, name }) => ({
     choice,
     name,
-    note: choice.alias === undefined && (counts.get(name) ?? 0) > 1 ? parentFolderName(choice.root) : null,
+    note:
+      choice.alias === undefined && (counts.get(name) ?? 0) > 1
+        ? parentFolderName(choice.root)
+        : null
   }));
 }
 
 /** The checkout a picker shows: `currentWorktreePath`'s, else the main one. */
 export function currentWorktreeOf(context: ProjectWorktreeContext): WorktreeChoice | null {
   const worktrees = context.worktrees ?? [];
-  return worktrees.find((worktree) => worktree.path === context.currentWorktreePath)
-    ?? worktrees.find((worktree) => worktree.isMain)
-    ?? null;
+  return (
+    worktrees.find((worktree) => worktree.path === context.currentWorktreePath) ??
+    worktrees.find((worktree) => worktree.isMain) ??
+    null
+  );
 }
 
 /**
@@ -235,7 +251,7 @@ export function currentWorktreeOf(context: ProjectWorktreeContext): WorktreeChoi
  * changes.
  */
 export function newSessionContextKey(context: NewSessionContext | null): string {
-  if (!context) return "";
+  if (!context) return '';
   return JSON.stringify([
     context.cwd,
     context.project.key,
@@ -243,6 +259,6 @@ export function newSessionContextKey(context: NewSessionContext | null): string 
     context.project.alias ?? null,
     context.currentWorktreePath,
     context.worktrees?.map((worktree) => [worktree.path, worktree.branch, worktree.isMain]) ?? null,
-    context.projects.map((project) => [project.key, project.root, project.alias ?? null]),
+    context.projects.map((project) => [project.key, project.root, project.alias ?? null])
   ]);
 }

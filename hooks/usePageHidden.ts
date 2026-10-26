@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from 'react';
 
 /**
  * How long a page stays hidden before it lets go of the long-lived streams it can
@@ -10,12 +10,12 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 export const HIDDEN_PAGE_GRACE_MS = 30_000;
 
 function subscribe(cb: () => void): () => void {
-  if (typeof document === "undefined") return () => {};
-  document.addEventListener("visibilitychange", cb);
-  return () => document.removeEventListener("visibilitychange", cb);
+  if (typeof document === 'undefined') return () => {};
+  document.addEventListener('visibilitychange', cb);
+  return () => document.removeEventListener('visibilitychange', cb);
 }
 
-const getSnapshot = () => document.visibilityState === "hidden";
+const getSnapshot = () => document.visibilityState === 'hidden';
 const getServerSnapshot = () => false;
 
 /** True once the page has been hidden for `graceMs`; false again as soon as it shows. */

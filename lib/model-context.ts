@@ -4,28 +4,41 @@ export interface ModelContextConfig {
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 export function withContextWindowOverride<T extends ModelContextConfig>(
   config: T,
   providerId: string,
   modelId: string,
-  value: string | number | undefined,
+  value: string | number | undefined
 ): T {
   const providers = { ...config.providers };
   const provider = { ...(Object.hasOwn(providers, providerId) ? providers[providerId] : {}) };
   const modelOverrides = { ...provider.modelOverrides };
   const previous = Object.hasOwn(modelOverrides, modelId) ? modelOverrides[modelId] : undefined;
-  if (previous !== undefined && !isRecord(previous)) throw new Error("Model override must be an object");
-  const override: Record<string, unknown> = { ...previous as Record<string, unknown> | undefined };
+  if (previous !== undefined && !isRecord(previous))
+    throw new Error('Model override must be an object');
+  const override: Record<string, unknown> = {
+    ...(previous as Record<string, unknown> | undefined)
+  };
   if (value === undefined) delete override.contextWindow;
   else override.contextWindow = value;
-  if (Object.keys(override).length) Object.defineProperty(modelOverrides, modelId, { value: override, enumerable: true, configurable: true });
+  if (Object.keys(override).length)
+    Object.defineProperty(modelOverrides, modelId, {
+      value: override,
+      enumerable: true,
+      configurable: true
+    });
   else delete modelOverrides[modelId];
   if (Object.keys(modelOverrides).length) provider.modelOverrides = modelOverrides;
   else delete provider.modelOverrides;
-  if (Object.keys(provider).length) Object.defineProperty(providers, providerId, { value: provider, enumerable: true, configurable: true });
+  if (Object.keys(provider).length)
+    Object.defineProperty(providers, providerId, {
+      value: provider,
+      enumerable: true,
+      configurable: true
+    });
   else delete providers[providerId];
   return { ...config, providers };
 }
@@ -36,7 +49,7 @@ export class ContextWindowError extends Error {
 
   constructor(model: string) {
     super(`Context window of ${model} must be a positive number of tokens`);
-    this.name = "ContextWindowError";
+    this.name = 'ContextWindowError';
     this.model = model;
   }
 }
@@ -48,11 +61,11 @@ export class ContextWindowError extends Error {
  * Undefined when the value is neither.
  */
 export function parseContextWindow(value: unknown): number | undefined {
-  if (typeof value === "string") {
+  if (typeof value === 'string') {
     const parsed = /^\d+$/.test(value.trim()) ? Number(value.trim()) : 0;
     return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : undefined;
   }
-  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : undefined;
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined;
 }
 
 export function normalizeContextWindowOverrides<T extends ModelContextConfig>(config: T): T {
@@ -61,7 +74,7 @@ export function normalizeContextWindowOverrides<T extends ModelContextConfig>(co
   for (const [providerId, provider] of Object.entries(result.providers)) {
     if (!isRecord(provider) || !isRecord(provider.modelOverrides)) continue;
     for (const [modelId, override] of Object.entries(provider.modelOverrides)) {
-      if (!isRecord(override) || !Object.hasOwn(override, "contextWindow")) continue;
+      if (!isRecord(override) || !Object.hasOwn(override, 'contextWindow')) continue;
       const parsed = parseContextWindow(override.contextWindow);
       if (parsed === undefined) throw new ContextWindowError(`${providerId}/${modelId}`);
       override.contextWindow = parsed;

@@ -1,15 +1,19 @@
-import type { EnabledModelsModelView, EnabledModelsProviderView, EnabledModelsView } from "@/lib/enabled-models";
+import type {
+  EnabledModelsModelView,
+  EnabledModelsProviderView,
+  EnabledModelsView
+} from '@/lib/enabled-models';
 
 /** Rows shown for the current filter, matched on model name and id. */
 export function filterEnabledModels(
   models: readonly EnabledModelsModelView[],
-  query: string,
+  query: string
 ): EnabledModelsModelView[] {
   const needle = query.trim().toLowerCase();
   if (!needle) return [...models];
-  return models.filter((model) => (
-    model.id.toLowerCase().includes(needle) || model.name.toLowerCase().includes(needle)
-  ));
+  return models.filter(
+    (model) => model.id.toLowerCase().includes(needle) || model.name.toLowerCase().includes(needle)
+  );
 }
 
 export interface EnabledModelsBulkActions {
@@ -30,7 +34,7 @@ export interface EnabledModelsBulkActions {
  */
 export function enabledModelsBulkActions(
   view: EnabledModelsView | null,
-  shown: readonly EnabledModelsModelView[],
+  shown: readonly EnabledModelsModelView[]
 ): EnabledModelsBulkActions {
   const enableRefs = shown.filter((model) => !model.enabled).map((model) => model.ref);
   const disableRefs = shown.filter((model) => model.enabled).map((model) => model.ref);
@@ -39,8 +43,8 @@ export function enabledModelsBulkActions(
     enableRefs,
     disableRefs,
     canEnable: editable && enableRefs.length > 0,
-    canDisable: editable && disableRefs.length > 0
-      && (view?.enabledTotal ?? 0) - disableRefs.length >= 1,
+    canDisable:
+      editable && disableRefs.length > 0 && (view?.enabledTotal ?? 0) - disableRefs.length >= 1
   };
 }
 
@@ -50,7 +54,7 @@ export interface EnabledModelsProviderToggle {
   /** True when the switch cannot move in the direction it would go. */
   blocked: boolean;
   /** Why it cannot move, as a refusal key, or null while it can. */
-  reason: "last-model" | "project-scope" | null;
+  reason: 'last-model' | 'project-scope' | null;
 }
 
 /**
@@ -65,7 +69,7 @@ export interface EnabledModelsProviderToggle {
  */
 export function enabledModelsProviderToggle(
   view: EnabledModelsView | null,
-  provider: EnabledModelsProviderView,
+  provider: EnabledModelsProviderView
 ): EnabledModelsProviderToggle {
   const bulk = enabledModelsBulkActions(view, provider.models);
   const checked = provider.models.length > 0 && provider.enabledCount === provider.models.length;
@@ -73,21 +77,21 @@ export function enabledModelsProviderToggle(
   return {
     checked,
     blocked,
-    reason: !blocked ? null : view?.editable ? "last-model" : "project-scope",
+    reason: !blocked ? null : view?.editable ? 'last-model' : 'project-scope'
   };
 }
 
 /** True when switching this single model off would empty the scope. */
 export function isLastEnabledModel(
   view: EnabledModelsView | null,
-  model: EnabledModelsModelView,
+  model: EnabledModelsModelView
 ): boolean {
   return model.enabled && (view?.enabledTotal ?? 0) <= 1;
 }
 
 export function findProviderView(
   view: EnabledModelsView | null,
-  providerId: string,
+  providerId: string
 ): EnabledModelsProviderView | undefined {
   return view?.providers.find((provider) => provider.id === providerId);
 }
@@ -95,7 +99,7 @@ export function findProviderView(
 /** `12/40` style badge for a provider row, or null while nothing is scoped. */
 export function providerBadgeLabel(
   view: EnabledModelsView | null,
-  providerId: string,
+  providerId: string
 ): string | null {
   if (!view || view.allEnabled) return null;
   const provider = findProviderView(view, providerId);

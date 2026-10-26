@@ -1,8 +1,8 @@
-import { isBlockingExtensionUiRequest } from "./extension-ui-queue";
-import type { BlockingExtensionUiRequest, ExtensionUiRequest } from "./types";
+import { isBlockingExtensionUiRequest } from './extension-ui-queue';
+import type { BlockingExtensionUiRequest, ExtensionUiRequest } from './types';
 
 interface WindowNotificationLike {
-  onclick: Notification["onclick"];
+  onclick: Notification['onclick'];
   close: () => void;
 }
 
@@ -11,7 +11,10 @@ interface ServiceWorkerRegistrationLike {
 }
 
 export interface BrowserNotificationEnvironment {
-  createWindowNotification: (title: string, options?: NotificationOptions) => WindowNotificationLike;
+  createWindowNotification: (
+    title: string,
+    options?: NotificationOptions
+  ) => WindowNotificationLike;
   getServiceWorkerRegistration: (() => Promise<ServiceWorkerRegistrationLike | undefined>) | null;
 }
 
@@ -23,14 +26,14 @@ export interface BrowserNotificationOptions {
   tag?: string;
 }
 
-export type NotificationDelivery = "service-worker" | "window" | null;
+export type NotificationDelivery = 'service-worker' | 'window' | null;
 
-type DocumentAttentionState = Pick<Document, "visibilityState" | "hasFocus">;
+type DocumentAttentionState = Pick<Document, 'visibilityState' | 'hasFocus'>;
 
 export function shouldShowBrowserNotification(
-  attentionState: DocumentAttentionState = document,
+  attentionState: DocumentAttentionState = document
 ): boolean {
-  return attentionState.visibilityState !== "visible" || !attentionState.hasFocus();
+  return attentionState.visibilityState !== 'visible' || !attentionState.hasFocus();
 }
 
 // The classification lives with the request queues (lib/extension-ui-queue.ts),
@@ -39,7 +42,7 @@ export { isBlockingExtensionUiRequest };
 
 export function claimExtensionAttentionNotification(
   request: ExtensionUiRequest,
-  notifiedRequestIds: Set<string>,
+  notifiedRequestIds: Set<string>
 ): request is BlockingExtensionUiRequest {
   if (!isBlockingExtensionUiRequest(request) || notifiedRequestIds.has(request.id)) return false;
   notifiedRequestIds.add(request.id);
@@ -49,19 +52,18 @@ export function claimExtensionAttentionNotification(
 function getBrowserEnvironment(): BrowserNotificationEnvironment {
   return {
     createWindowNotification: (title, options) => new Notification(title, options),
-    getServiceWorkerRegistration: "serviceWorker" in navigator
-      ? () => navigator.serviceWorker.getRegistration()
-      : null,
+    getServiceWorkerRegistration:
+      'serviceWorker' in navigator ? () => navigator.serviceWorker.getRegistration() : null
   };
 }
 
 export async function showBrowserNotification(
   options: BrowserNotificationOptions,
-  environment: BrowserNotificationEnvironment = getBrowserEnvironment(),
+  environment: BrowserNotificationEnvironment = getBrowserEnvironment()
 ): Promise<NotificationDelivery> {
   const notificationOptions: NotificationOptions = {
     body: options.body,
-    ...(options.tag ? { tag: options.tag, renotify: true } : {}),
+    ...(options.tag ? { tag: options.tag, renotify: true } : {})
   };
 
   if (environment.getServiceWorkerRegistration) {
@@ -70,9 +72,9 @@ export async function showBrowserNotification(
       if (registration) {
         await registration.showNotification(options.title, {
           ...notificationOptions,
-          data: { url: options.sessionUrl },
+          data: { url: options.sessionUrl }
         });
-        return "service-worker";
+        return 'service-worker';
       }
     } catch {
       // Fall back to a page notification where the constructor is supported.
@@ -85,7 +87,7 @@ export async function showBrowserNotification(
       notification.close();
       options.onClick();
     };
-    return "window";
+    return 'window';
   } catch {
     // Most mobile browsers expose Notification but require service-worker delivery.
     return null;

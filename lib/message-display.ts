@@ -1,11 +1,22 @@
-import type { AgentMessage, AssistantContentBlock, AssistantMessage, ThinkingContent, ToolCallContent } from "./types";
+import type {
+  AgentMessage,
+  AssistantContentBlock,
+  AssistantMessage,
+  ThinkingContent,
+  ToolCallContent
+} from './types';
 
 interface DisplayOptions {
   isStreaming?: boolean;
 }
 
 export function getThinkingPreview(thinking: string): string {
-  return thinking.trimStart().match(/^[^\r\n]{0,240}/u)?.[0].trimEnd() ?? "";
+  return (
+    thinking
+      .trimStart()
+      .match(/^[^\r\n]{0,240}/u)?.[0]
+      .trimEnd() ?? ''
+  );
 }
 
 export const THINKING_PIECE_CHARS = 8_000;
@@ -35,12 +46,12 @@ export function splitThinkingPieces(thinking: string): ThinkingPiece[] {
     // Searched up to the hard cut only: an unbroken line is not scanned to
     // its end again for every piece.
     const window = thinking.slice(from, hardCut + 1);
-    let found = window.indexOf("\n");
+    let found = window.indexOf('\n');
     // Never at a "\n" that ends an empty line: the piece would end in a line
     // break, and a block draws no line for a trailing one, so that empty line
     // would be lost.
     while (found >= 0 && /\n\r?$/.test(thinking.slice(from + found - 2, from + found))) {
-      found = window.indexOf("\n", found + 1);
+      found = window.indexOf('\n', found + 1);
     }
     if (found >= 0) {
       const lineBreak = from + found;
@@ -64,39 +75,56 @@ export function splitThinkingPieces(thinking: string): ThinkingPiece[] {
  * pi's TUI renders a custom message only when `display` is set; `display: false`
  * is how an extension keeps a message for the model alone. The chat skips it too.
  */
-export function isHiddenCustomMessage(message: { role?: AgentMessage["role"]; display?: boolean }): boolean {
-  return message.role === "custom" && !message.display;
+export function isHiddenCustomMessage(message: {
+  role?: AgentMessage['role'];
+  display?: boolean;
+}): boolean {
+  return message.role === 'custom' && !message.display;
 }
 
-export function isMessageGroupAnchor(message: { role?: AgentMessage["role"]; customType?: string; display?: boolean }): boolean {
+export function isMessageGroupAnchor(message: {
+  role?: AgentMessage['role'];
+  customType?: string;
+  display?: boolean;
+}): boolean {
   // A background subagent completion starts a new displayed turn, same as a
   // user message or compaction summary: pi-web's own, and @tintinweb/pi-subagents'
   // (a follow-up that triggers a turn). Other custom messages stay inside the turn.
-  return message.role === "user"
-    || (message.role === "custom" && !isHiddenCustomMessage(message) && (
-      message.customType === "compaction"
-      || message.customType === "pi-web:subagent-notification"
-      || message.customType === "subagent-notification"
-    ));
+  return (
+    message.role === 'user' ||
+    (message.role === 'custom' &&
+      !isHiddenCustomMessage(message) &&
+      (message.customType === 'compaction' ||
+        message.customType === 'pi-web:subagent-notification' ||
+        message.customType === 'subagent-notification'))
+  );
 }
 
-export function isEmptyThinkingBlock(block: AssistantContentBlock, options: DisplayOptions = {}): block is ThinkingContent {
-  return block.type === "thinking" && !block.deferred && !options.isStreaming && block.thinking.trim() === "";
+export function isEmptyThinkingBlock(
+  block: AssistantContentBlock,
+  options: DisplayOptions = {}
+): block is ThinkingContent {
+  return (
+    block.type === 'thinking' &&
+    !block.deferred &&
+    !options.isStreaming &&
+    block.thinking.trim() === ''
+  );
 }
 
 export function getDisplayableAssistantBlocks(
   message: AssistantMessage,
-  options: DisplayOptions = {},
+  options: DisplayOptions = {}
 ): AssistantContentBlock[] {
   return (message.content ?? []).filter((block) => !isEmptyThinkingBlock(block, options));
 }
 
 export function getAssistantErrorMessage(
   message: AssistantMessage,
-  options: DisplayOptions = {},
+  options: DisplayOptions = {}
 ): string | null {
-  if (options.isStreaming || message.stopReason !== "error") return null;
-  return message.errorMessage?.trim() || "Unknown provider error";
+  if (options.isStreaming || message.stopReason !== 'error') return null;
+  return message.errorMessage?.trim() || 'Unknown provider error';
 }
 
 /**
@@ -106,26 +134,26 @@ export function getAssistantErrorMessage(
  */
 export function isAssistantTruncated(
   message: AssistantMessage,
-  options: DisplayOptions = {},
+  options: DisplayOptions = {}
 ): boolean {
-  return !options.isStreaming && message.stopReason === "length";
+  return !options.isStreaming && message.stopReason === 'length';
 }
 
 /** Text, an image, or a tool call is an answer. Thinking alone is not. */
 export function hasAssistantAnswer(message: AssistantMessage): boolean {
   return (message.content ?? []).some((block) => {
-    if (block.type === "text") return block.text.trim().length > 0;
-    return block.type === "image" || block.type === "toolCall";
+    if (block.type === 'text') return block.text.trim().length > 0;
+    return block.type === 'image' || block.type === 'toolCall';
   });
 }
 
 function isFinalAnswerBlock(block: AssistantContentBlock): boolean {
-  return block.type === "text" || block.type === "image";
+  return block.type === 'text' || block.type === 'image';
 }
 
 export function splitFinalAssistantBlocks(
   message: AssistantMessage,
-  options: DisplayOptions = {},
+  options: DisplayOptions = {}
 ): { answerBlocks: AssistantContentBlock[]; processBlocks: AssistantContentBlock[] } {
   const blocks = getDisplayableAssistantBlocks(message, options);
   const lastProcessIndex = blocks.findLastIndex((block) => !isFinalAnswerBlock(block));
@@ -134,12 +162,12 @@ export function splitFinalAssistantBlocks(
   }
   return {
     answerBlocks: blocks.slice(lastProcessIndex + 1),
-    processBlocks: blocks.slice(0, lastProcessIndex + 1),
+    processBlocks: blocks.slice(0, lastProcessIndex + 1)
   };
 }
 
 export function countToolCallBlocks(blocks: AssistantContentBlock[]): number {
-  return blocks.filter((block): block is ToolCallContent => block.type === "toolCall").length;
+  return blocks.filter((block): block is ToolCallContent => block.type === 'toolCall').length;
 }
 
 /**
@@ -149,7 +177,7 @@ export function countToolCallBlocks(blocks: AssistantContentBlock[]): number {
  * last tool call sits in them and would be hidden (#906).
  */
 export function collapsesProcessDetails(answer: AssistantMessage | null): boolean {
-  return (answer?.content ?? []).some((block) => (
-    block.type === "image" || (block.type === "text" && block.text.trim().length > 0)
-  ));
+  return (answer?.content ?? []).some(
+    (block) => block.type === 'image' || (block.type === 'text' && block.text.trim().length > 0)
+  );
 }

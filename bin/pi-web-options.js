@@ -1,29 +1,29 @@
-"use strict";
+'use strict';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { parseArgs } = require("util");
+const { parseArgs } = require('util');
 
-const TRUE_VALUES = new Set(["1", "true", "yes", "on"]);
+const TRUE_VALUES = new Set(['1', 'true', 'yes', 'on']);
 
 const CLI_OPTIONS = {
-  port: { type: "string", short: "p" },
-  hostname: { type: "string", short: "H" },
-  "no-open": { type: "boolean" },
-  help: { type: "boolean", short: "h" },
+  port: { type: 'string', short: 'p' },
+  hostname: { type: 'string', short: 'H' },
+  'no-open': { type: 'boolean' },
+  help: { type: 'boolean', short: 'h' }
 };
 
 function isEnabled(value) {
-  return typeof value === "string" && TRUE_VALUES.has(value.trim().toLowerCase());
+  return typeof value === 'string' && TRUE_VALUES.has(value.trim().toLowerCase());
 }
 
 function normalizePort(value) {
-  if (typeof value !== "string" || !/^\d+$/.test(value)) {
-    throw new Error("Port must be a non-negative integer.");
+  if (typeof value !== 'string' || !/^\d+$/.test(value)) {
+    throw new Error('Port must be a non-negative integer.');
   }
 
   const port = Number(value);
   if (!Number.isSafeInteger(port) || port > 65535) {
-    throw new Error("Port must be between 0 and 65535.");
+    throw new Error('Port must be between 0 and 65535.');
   }
 
   return String(port);
@@ -34,8 +34,8 @@ function normalizePort(value) {
 const COMMAND_OPTIONS = {
   version: {},
   status: {},
-  stop: { port: { type: "string", short: "p" } },
-  open: { port: { type: "string", short: "p" } },
+  stop: { port: { type: 'string', short: 'p' } },
+  open: { port: { type: 'string', short: 'p' } }
 };
 
 function getHelpText() {
@@ -70,7 +70,7 @@ Environment:
 function toParseError(error) {
   const message = error instanceof Error ? error.message : String(error);
   const err = new Error(`${message}\nUse --help to see available options.`);
-  err.code = "ERR_PARSE_ARGS_UNKNOWN_OPTION";
+  err.code = 'ERR_PARSE_ARGS_UNKNOWN_OPTION';
   return err;
 }
 
@@ -78,18 +78,18 @@ function toParseError(error) {
 // { command, help, port? } for a subcommand.
 function parseCommandLine(args = process.argv.slice(2), env = process.env) {
   const first = args[0];
-  const command = first === "-v" || first === "--version" ? "version" : first;
+  const command = first === '-v' || first === '--version' ? 'version' : first;
   if (!Object.hasOwn(COMMAND_OPTIONS, command)) {
-    return { command: "start", ...parseLaunchOptions(args, env) };
+    return { command: 'start', ...parseLaunchOptions(args, env) };
   }
 
   let values;
   try {
     ({ values } = parseArgs({
       args: args.slice(1),
-      options: { ...COMMAND_OPTIONS[command], help: { type: "boolean", short: "h" } },
+      options: { ...COMMAND_OPTIONS[command], help: { type: 'boolean', short: 'h' } },
       strict: true,
-      allowPositionals: false,
+      allowPositionals: false
     }));
   } catch (error) {
     throw toParseError(error);
@@ -98,7 +98,7 @@ function parseCommandLine(args = process.argv.slice(2), env = process.env) {
   return {
     command,
     help: false,
-    port: values.port === undefined ? undefined : normalizePort(values.port),
+    port: values.port === undefined ? undefined : normalizePort(values.port)
   };
 }
 
@@ -110,7 +110,7 @@ function parseLaunchOptions(args = process.argv.slice(2), env = process.env) {
       args,
       options: CLI_OPTIONS,
       strict: true,
-      allowPositionals: true,
+      allowPositionals: true
     }));
   } catch (error) {
     throw toParseError(error);
@@ -122,15 +122,15 @@ function parseLaunchOptions(args = process.argv.slice(2), env = process.env) {
 
   if (positionals.length > 0) {
     throw new Error(
-      `Unexpected argument(s): ${positionals.join(" ")}\nUse --help to see available options.`,
+      `Unexpected argument(s): ${positionals.join(' ')}\nUse --help to see available options.`
     );
   }
 
   return {
     help: false,
-    port: normalizePort(values.port ?? env.PORT ?? "30141"),
-    hostname: values.hostname ?? env.PI_WEB_HOSTNAME ?? "127.0.0.1",
-    openBrowser: !values["no-open"] && !isEnabled(env.PI_WEB_NO_OPEN),
+    port: normalizePort(values.port ?? env.PORT ?? '30141'),
+    hostname: values.hostname ?? env.PI_WEB_HOSTNAME ?? '127.0.0.1',
+    openBrowser: !values['no-open'] && !isEnabled(env.PI_WEB_NO_OPEN)
   };
 }
 

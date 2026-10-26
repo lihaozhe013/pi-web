@@ -1,30 +1,30 @@
-import { execFile } from "child_process";
-import { existsSync, readFileSync } from "fs";
-import { join } from "path";
-import { promisify } from "util";
+import { execFile } from 'child_process';
+import { existsSync, readFileSync } from 'fs';
+import { join } from 'path';
+import { promisify } from 'util';
 import {
   DefaultPackageManager,
   getAgentDir,
-  SettingsManager,
-} from "@earendil-works/pi-coding-agent";
-import { gt, maxSatisfying, rcompare, valid, validRange } from "semver";
-import type { PluginScope, PluginUpdateResult } from "@/lib/api-types";
-import { nodeCliInvocation } from "./node-cli";
-import { parseNpmSource } from "./npm-source";
-import { getProjectTrustStatus } from "./project-trust";
+  SettingsManager
+} from '@earendil-works/pi-coding-agent';
+import { gt, maxSatisfying, rcompare, valid, validRange } from 'semver';
+import type { PluginScope, PluginUpdateResult } from '@/lib/api-types';
+import { nodeCliInvocation } from './node-cli';
+import { parseNpmSource } from './npm-source';
+import { getProjectTrustStatus } from './project-trust';
 
 const execFileAsync = promisify(execFile);
 
 type ConfiguredPackage = {
   source: string;
-  scope: "user" | "project";
+  scope: 'user' | 'project';
   installedPath?: string;
 };
 
 type CommandRunner = (
   command: string,
   args: string[],
-  options: { cwd: string; env?: NodeJS.ProcessEnv },
+  options: { cwd: string; env?: NodeJS.ProcessEnv }
 ) => Promise<string>;
 
 type CheckOptions = {
@@ -33,29 +33,29 @@ type CheckOptions = {
   runCommand?: CommandRunner;
 };
 
-function toPluginScope(scope: ConfiguredPackage["scope"]): PluginScope {
-  return scope === "project" ? "project" : "global";
+function toPluginScope(scope: ConfiguredPackage['scope']): PluginScope {
+  return scope === 'project' ? 'project' : 'global';
 }
 
 function hasGitRef(source: string): boolean {
-  const value = source.startsWith("git:") ? source.slice(4).trim() : source.trim();
+  const value = source.startsWith('git:') ? source.slice(4).trim() : source.trim();
   const scpPath = value.match(/^git@[^:]+:(.+)$/)?.[1];
-  if (scpPath) return scpPath.includes("@");
-  if (value.includes("://")) {
+  if (scpPath) return scpPath.includes('@');
+  if (value.includes('://')) {
     try {
-      return new URL(value).pathname.replace(/^\/+/, "").includes("@");
+      return new URL(value).pathname.replace(/^\/+/, '').includes('@');
     } catch {
       return false;
     }
   }
-  const slash = value.indexOf("/");
-  return slash >= 0 && value.slice(slash + 1).includes("@");
+  const slash = value.indexOf('/');
+  return slash >= 0 && value.slice(slash + 1).includes('@');
 }
 
 export function isPluginSourceCheckable(source: string): boolean {
   const npm = parseNpmSource(source);
-  if (npm) return valid(npm.version ?? "") === null;
-  if (source.startsWith("git:") || /^(https?|ssh|git):\/\//i.test(source)) {
+  if (npm) return valid(npm.version ?? '') === null;
+  if (source.startsWith('git:') || /^(https?|ssh|git):\/\//i.test(source)) {
     return !hasGitRef(source);
   }
   return false;
@@ -63,114 +63,114 @@ export function isPluginSourceCheckable(source: string): boolean {
 
 function result(
   pkg: ConfiguredPackage,
-  state: PluginUpdateResult["state"],
-  message?: string,
+  state: PluginUpdateResult['state'],
+  message?: string
 ): PluginUpdateResult {
   const npm = parseNpmSource(pkg.source);
   return {
     source: pkg.source,
     scope: toPluginScope(pkg.scope),
     displayName: npm?.name ?? pkg.source,
-    type: npm ? "npm" : "git",
+    type: npm ? 'npm' : 'git',
     state,
-    message,
+    message
   };
 }
 
 async function runCommand(
   command: string,
   args: string[],
-  options: { cwd: string; env?: NodeJS.ProcessEnv },
+  options: { cwd: string; env?: NodeJS.ProcessEnv }
 ): Promise<string> {
   // A bare `npm` resolves to `npm.cmd` on Windows, which `execFile` cannot
   // spawn (CVE-2024-27980); run the bundled `npm-cli.js` through `node`.
-  const invocation = command === "npm" ? nodeCliInvocation("npm", args) : { command, args };
+  const invocation = command === 'npm' ? nodeCliInvocation('npm', args) : { command, args };
   const { stdout } = await execFileAsync(invocation.command, invocation.args, {
     cwd: options.cwd,
     env: options.env ? { ...process.env, ...options.env } : process.env,
-    encoding: "utf8",
-    timeout: 10_000,
+    encoding: 'utf8',
+    timeout: 10_000
   });
   return stdout;
 }
 
 function readInstalledVersion(installedPath: string): string {
-  const parsed = JSON.parse(readFileSync(join(installedPath, "package.json"), "utf8")) as {
+  const parsed = JSON.parse(readFileSync(join(installedPath, 'package.json'), 'utf8')) as {
     version?: unknown;
   };
-  if (typeof parsed.version !== "string" || !valid(parsed.version)) {
-    throw new Error("Installed package version is unavailable.");
+  if (typeof parsed.version !== 'string' || !valid(parsed.version)) {
+    throw new Error('Installed package version is unavailable.');
   }
   return parsed.version;
 }
 
 function readLatestVersion(stdout: string, range?: string): string {
   const parsed = JSON.parse(stdout.trim()) as unknown;
-  if (typeof parsed === "string" && valid(parsed)) return parsed;
+  if (typeof parsed === 'string' && valid(parsed)) return parsed;
   if (Array.isArray(parsed)) {
-    const versions = parsed.filter((value): value is string => typeof value === "string" && valid(value) !== null);
+    const versions = parsed.filter(
+      (value): value is string => typeof value === 'string' && valid(value) !== null
+    );
     const latest = range ? maxSatisfying(versions, range) : versions.sort(rcompare)[0];
     if (latest) return latest;
   }
-  throw new Error("Unexpected response from npm view.");
+  throw new Error('Unexpected response from npm view.');
 }
 
 async function checkNpmPackage(
   pkg: ConfiguredPackage,
   cwd: string,
   npmCommand: string[] | undefined,
-  runner: CommandRunner,
+  runner: CommandRunner
 ): Promise<PluginUpdateResult> {
   if (!pkg.installedPath || !existsSync(pkg.installedPath)) {
-    return result(pkg, "error", "Package is not installed.");
+    return result(pkg, 'error', 'Package is not installed.');
   }
   const npm = parseNpmSource(pkg.source);
-  if (!npm) return result(pkg, "unsupported");
-  const [command = "npm", ...commandArgs] = npmCommand ?? [];
-  if (!command) return result(pkg, "error", "Invalid npmCommand.");
+  if (!npm) return result(pkg, 'unsupported');
+  const [command = 'npm', ...commandArgs] = npmCommand ?? [];
+  if (!command) return result(pkg, 'error', 'Invalid npmCommand.');
   const current = readInstalledVersion(pkg.installedPath);
-  const stdout = await runner(
-    command,
-    [...commandArgs, "view", npm.spec, "version", "--json"],
-    { cwd },
-  );
-  const range = npm.version ? validRange(npm.version) ?? undefined : undefined;
+  const stdout = await runner(command, [...commandArgs, 'view', npm.spec, 'version', '--json'], {
+    cwd
+  });
+  const range = npm.version ? (validRange(npm.version) ?? undefined) : undefined;
   const latest = readLatestVersion(stdout, range);
-  return result(pkg, gt(latest, current) ? "update-available" : "up-to-date");
+  return result(pkg, gt(latest, current) ? 'update-available' : 'up-to-date');
 }
 
 async function checkGitPackage(
   pkg: ConfiguredPackage,
-  runner: CommandRunner,
+  runner: CommandRunner
 ): Promise<PluginUpdateResult> {
   if (!pkg.installedPath || !existsSync(pkg.installedPath)) {
-    return result(pkg, "error", "Package is not installed.");
+    return result(pkg, 'error', 'Package is not installed.');
   }
   const options = {
     cwd: pkg.installedPath,
-    env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+    env: { ...process.env, GIT_TERMINAL_PROMPT: '0' }
   };
-  const local = (await runner("git", ["rev-parse", "HEAD"], options)).trim();
-  const upstream = await runner("git", ["rev-parse", "--abbrev-ref", "@{upstream}"], options)
+  const local = (await runner('git', ['rev-parse', 'HEAD'], options)).trim();
+  const upstream = await runner('git', ['rev-parse', '--abbrev-ref', '@{upstream}'], options)
     .then((value) => value.trim())
-    .catch(() => "");
-  const ref = upstream.startsWith("origin/")
-    ? `refs/heads/${upstream.slice("origin/".length)}`
-    : "HEAD";
-  const remoteOutput = await runner("git", ["ls-remote", "origin", ref], options);
+    .catch(() => '');
+  const ref = upstream.startsWith('origin/')
+    ? `refs/heads/${upstream.slice('origin/'.length)}`
+    : 'HEAD';
+  const remoteOutput = await runner('git', ['ls-remote', 'origin', ref], options);
   const remote = remoteOutput.match(/^([0-9a-f]{40,64})\s+/m)?.[1];
   if (!remote) throw new Error(`Failed to determine remote ${ref}.`);
-  return result(pkg, local === remote ? "up-to-date" : "update-available");
+  return result(pkg, local === remote ? 'up-to-date' : 'update-available');
 }
 
 function isOffline(): boolean {
-  return /^(1|true|yes)$/i.test(process.env.PI_OFFLINE ?? "");
+  return /^(1|true|yes)$/i.test(process.env.PI_OFFLINE ?? '');
 }
 
 export async function checkPluginUpdates(
   cwd: string,
   filter?: { source?: string; scope?: PluginScope },
-  options: CheckOptions = {},
+  options: CheckOptions = {}
 ): Promise<PluginUpdateResult[]> {
   let packages = options.packages;
   let npmCommand = options.npmCommand;
@@ -178,9 +178,13 @@ export async function checkPluginUpdates(
     const agentDir = getAgentDir();
     const projectTrust = getProjectTrustStatus(cwd, agentDir);
     const settingsManager = SettingsManager.create(cwd, agentDir, {
-      projectTrusted: projectTrust.trusted,
+      projectTrusted: projectTrust.trusted
     });
-    packages = new DefaultPackageManager({ cwd, agentDir, settingsManager }).listConfiguredPackages();
+    packages = new DefaultPackageManager({
+      cwd,
+      agentDir,
+      settingsManager
+    }).listConfiguredPackages();
     npmCommand ??= settingsManager.getNpmCommand();
   }
 
@@ -190,19 +194,25 @@ export async function checkPluginUpdates(
   });
   const runner = options.runCommand ?? runCommand;
 
-  return Promise.all(selected.map(async (pkg) => {
-    if (!isPluginSourceCheckable(pkg.source)) {
-      return result(pkg, "unsupported", "Pinned or local packages cannot be checked automatically.");
-    }
-    if (isOffline()) {
-      return result(pkg, "error", "Update checks are disabled while PI_OFFLINE=1.");
-    }
-    try {
-      return parseNpmSource(pkg.source)
-        ? await checkNpmPackage(pkg, cwd, npmCommand, runner)
-        : await checkGitPackage(pkg, runner);
-    } catch (error) {
-      return result(pkg, "error", error instanceof Error ? error.message : String(error));
-    }
-  }));
+  return Promise.all(
+    selected.map(async (pkg) => {
+      if (!isPluginSourceCheckable(pkg.source)) {
+        return result(
+          pkg,
+          'unsupported',
+          'Pinned or local packages cannot be checked automatically.'
+        );
+      }
+      if (isOffline()) {
+        return result(pkg, 'error', 'Update checks are disabled while PI_OFFLINE=1.');
+      }
+      try {
+        return parseNpmSource(pkg.source)
+          ? await checkNpmPackage(pkg, cwd, npmCommand, runner)
+          : await checkGitPackage(pkg, runner);
+      } catch (error) {
+        return result(pkg, 'error', error instanceof Error ? error.message : String(error));
+      }
+    })
+  );
 }

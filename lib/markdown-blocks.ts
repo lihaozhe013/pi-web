@@ -20,7 +20,7 @@ const INLINE_CODE = /`[^`]*`/g;
  * message is rendered whole.
  */
 export function splitMarkdownBlocks(markdown: string): string[] {
-  const lines = markdown.split("\n");
+  const lines = markdown.split('\n');
   if (/^---[ \t]*\r?$/.test(lines[0])) return [markdown];
   const blocks: string[] = [];
   let current: string[] = [];
@@ -30,10 +30,18 @@ export function splitMarkdownBlocks(markdown: string): string[] {
   let afterBlank = false;
 
   for (const line of lines) {
-    const blank = line.trim() === "";
-    if (afterBlank && !blank && !fence && !inMath && !rawHtml && current.length > 0
-      && !/^[ \t]/.test(line) && !LIST_ITEM.test(line)) {
-      blocks.push(current.join("\n") + "\n");
+    const blank = line.trim() === '';
+    if (
+      afterBlank &&
+      !blank &&
+      !fence &&
+      !inMath &&
+      !rawHtml &&
+      current.length > 0 &&
+      !/^[ \t]/.test(line) &&
+      !LIST_ITEM.test(line)
+    ) {
+      blocks.push(current.join('\n') + '\n');
       current = [];
     }
     current.push(line);
@@ -45,12 +53,12 @@ export function splitMarkdownBlocks(markdown: string): string[] {
       if (!fence) fence = { marker, size };
       else if (marker === fence.marker && size >= fence.size) fence = null;
     } else if (!fence) {
-      const prose = line.replace(INLINE_CODE, "");
+      const prose = line.replace(INLINE_CODE, '');
       if (HTML_TAG.test(prose)) rawHtml = true;
       if ((prose.match(/\$\$/g)?.length ?? 0) % 2 === 1) inMath = !inMath;
     }
     afterBlank = blank;
   }
-  blocks.push(current.join("\n"));
+  blocks.push(current.join('\n'));
   return blocks;
 }

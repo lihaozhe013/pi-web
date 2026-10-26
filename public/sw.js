@@ -1,12 +1,12 @@
-const CACHE_PREFIX = "pi-web";
-const CACHE_VERSION = new URL(self.location.href).searchParams.get("v") || "dev";
+const CACHE_PREFIX = 'pi-web';
+const CACHE_VERSION = new URL(self.location.href).searchParams.get('v') || 'dev';
 const STATIC_CACHE = `${CACHE_PREFIX}-static-${CACHE_VERSION}`;
-const OFFLINE_URL = "/offline.html";
+const OFFLINE_URL = '/offline.html';
 const PRECACHE_URLS = [
   OFFLINE_URL,
-  "/icons/icon-192.png",
-  "/icons/icon-512.png",
-  "/icons/apple-touch-icon.png",
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+  '/icons/apple-touch-icon.png'
 ];
 // A reachable port backed by a dead upstream accepts the connection and then
 // never answers: fetch() neither resolves nor rejects, so the navigation hangs
@@ -14,16 +14,16 @@ const PRECACHE_URLS = [
 const NAVIGATION_TIMEOUT_MS = 8000;
 const ASSET_TIMEOUT_MS = 8000;
 
-self.addEventListener("install", (event) => {
+self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
       .open(STATIC_CACHE)
       .then((cache) => cache.addAll(PRECACHE_URLS))
-      .then(() => self.skipWaiting()),
+      .then(() => self.skipWaiting())
   );
 });
 
-self.addEventListener("activate", (event) => {
+self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
       .keys()
@@ -31,47 +31,46 @@ self.addEventListener("activate", (event) => {
         Promise.all(
           keys
             .filter((key) => key.startsWith(`${CACHE_PREFIX}-`) && key !== STATIC_CACHE)
-            .map((key) => caches.delete(key)),
-        ),
+            .map((key) => caches.delete(key))
+        )
       )
-      .then(() => self.clients.claim()),
+      .then(() => self.clients.claim())
   );
 });
 
-self.addEventListener("fetch", (event) => {
+self.addEventListener('fetch', (event) => {
   const { request } = event;
-  if (request.method !== "GET") return;
+  if (request.method !== 'GET') return;
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
   // Session data and live agent traffic must always come from the local server.
-  if (url.pathname.startsWith("/api/") || url.pathname === "/sw.js") return;
+  if (url.pathname.startsWith('/api/') || url.pathname === '/sw.js') return;
 
   // The manifest is runtime configuration. Bypass even entries left in an old
   // cache, including requests with a query string or navigation mode.
-  if (url.pathname === "/manifest.webmanifest") return;
+  if (url.pathname === '/manifest.webmanifest') return;
 
-  if (request.mode === "navigate") {
+  if (request.mode === 'navigate') {
     event.respondWith(
       fetchWithTimeout(request, NAVIGATION_TIMEOUT_MS).catch(async () => {
         const fallback = await caches.match(OFFLINE_URL);
         return fallback ?? Response.error();
-      }),
+      })
     );
     return;
   }
 
   const isStaticAsset =
-    url.pathname.startsWith("/_next/static/") ||
-    PRECACHE_URLS.includes(url.pathname);
+    url.pathname.startsWith('/_next/static/') || PRECACHE_URLS.includes(url.pathname);
 
   if (isStaticAsset) {
     event.respondWith(cacheFirst(request, event));
   }
 });
 
-self.addEventListener("push", (event) => {
+self.addEventListener('push', (event) => {
   let payload = {};
   try {
     payload = event.data ? event.data.json() : {};
@@ -79,7 +78,7 @@ self.addEventListener("push", (event) => {
     // Ignore malformed or missing push payloads.
   }
   const { title, body, url, tag } = payload;
-  if (typeof title !== "string" || !title || typeof body !== "string" || !body) return;
+  if (typeof title !== 'string' || !title || typeof body !== 'string' || !body) return;
 
   // Always surface a system notification. iOS revokes the push subscription
   // when a service worker handles a push without showing a notification, so
@@ -90,19 +89,18 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
-      data: { url: typeof url === "string" && url ? url : "/" },
-      ...(typeof tag === "string" && tag ? { tag, renotify: true } : {}),
-    }),
+      data: { url: typeof url === 'string' && url ? url : '/' },
+      ...(typeof tag === 'string' && tag ? { tag, renotify: true } : {})
+    })
   );
 });
 
-self.addEventListener("notificationclick", (event) => {
+self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  const requestedUrl = typeof event.notification.data?.url === "string"
-    ? event.notification.data.url
-    : "/";
-  let targetUrl = new URL("/", self.location.origin);
+  const requestedUrl =
+    typeof event.notification.data?.url === 'string' ? event.notification.data.url : '/';
+  let targetUrl = new URL('/', self.location.origin);
   try {
     const candidate = new URL(requestedUrl, self.location.origin);
     if (candidate.origin === self.location.origin) targetUrl = candidate;
@@ -115,8 +113,8 @@ self.addEventListener("notificationclick", (event) => {
 
 async function focusOrOpenWindow(targetUrl) {
   const windowClients = await self.clients.matchAll({
-    type: "window",
-    includeUncontrolled: true,
+    type: 'window',
+    includeUncontrolled: true
   });
   const exactClient = windowClients.find((client) => client.url === targetUrl);
   const candidates = exactClient
@@ -125,9 +123,8 @@ async function focusOrOpenWindow(targetUrl) {
 
   for (const client of candidates) {
     try {
-      const targetClient = client.url === targetUrl
-        ? client
-        : (await client.navigate(targetUrl)) ?? client;
+      const targetClient =
+        client.url === targetUrl ? client : ((await client.navigate(targetUrl)) ?? client);
       await targetClient.focus();
       return;
     } catch {
@@ -159,7 +156,7 @@ async function cacheFirst(request, event) {
   if (cached) return cached;
 
   const response = await fetchWithTimeout(request, ASSET_TIMEOUT_MS);
-  if (response.ok && response.type === "basic") {
+  if (response.ok && response.type === 'basic') {
     // Deliberately NOT awaited before returning the response.
     //
     // The SW script URL is versioned (?v=<app version>), so every upgrade
@@ -176,7 +173,7 @@ async function cacheFirst(request, event) {
         .then((cache) => cache.put(request, copy))
         .catch(() => {
           // A failed write only costs one network re-fetch next time.
-        }),
+        })
     );
   }
   return response;

@@ -15,14 +15,14 @@ export function prismLanguagesLoaded(): boolean {
 
 /** Loads every Prism language once; a failed chunk load may be retried. */
 export function loadPrismLanguages(): Promise<void> {
-  loading ??= import("refractor/all").then(
+  loading ??= import('refractor/all').then(
     () => {
       loaded = true;
     },
     (error: unknown) => {
       loading = null;
       throw error;
-    },
+    }
   );
   return loading;
 }

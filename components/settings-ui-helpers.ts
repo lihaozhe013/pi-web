@@ -1,4 +1,4 @@
-import type { ProjectTrustStatus } from "@/lib/api-types";
+import type { ProjectTrustStatus } from '@/lib/api-types';
 
 /**
  * The rows a group switch would change: those not already in the requested
@@ -10,7 +10,7 @@ export function itemsToSwitch<T>(
   items: readonly T[],
   enabled: boolean,
   isEnabled: (item: T) => boolean,
-  keepOn?: (item: T) => boolean,
+  keepOn?: (item: T) => boolean
 ): T[] {
   return items.filter((item) => isEnabled(item) !== enabled && (enabled || !keepOn?.(item)));
 }
@@ -23,6 +23,12 @@ export function itemsToSwitch<T>(
  * loads again, in place, when this changes. Empty without a status.
  */
 export function projectTrustReloadKey(trust: ProjectTrustStatus | null | undefined): string {
-  if (!trust) return "";
-  return JSON.stringify([trust.requiresTrust, trust.trusted, trust.decision, trust.decisionPath ?? null, trust.inherited]);
+  if (!trust) return '';
+  return JSON.stringify([
+    trust.requiresTrust,
+    trust.trusted,
+    trust.decision,
+    trust.decisionPath ?? null,
+    trust.inherited
+  ]);
 }

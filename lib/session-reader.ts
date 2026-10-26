@@ -1,21 +1,37 @@
+import { SessionManager, getAgentDir } from '@earendil-works/pi-coding-agent';
+import { closeSync, type Dirent, fstatSync, openSync, readSync, statSync } from 'fs';
+import { readdir } from 'fs/promises';
 import {
-  SessionManager,
-  getAgentDir,
-} from "@earendil-works/pi-coding-agent";
-import { closeSync, type Dirent, fstatSync, openSync, readSync, statSync } from "fs";
-import { readdir } from "fs/promises";
-import { isAbsolute, join, normalize as normalizePath, relative, resolve as resolvePath, sep } from "path";
-import type { AgentMessage, ImageContent, SessionEntry, SessionHeader, SessionInfo, SessionContext } from "./types";
-import { normalizeToolCalls } from "./normalize";
-import { withoutMessageSignatures } from "./message-signatures";
-import { getThinkingPreview, isMessageGroupAnchor } from "./message-display";
-import { projectIdentityKey } from "./project-identity";
-import { sessionPathKey } from "./session-path";
-import { skillExpansionToCommand } from "./slash-display";
-import { MAX_TOOL_RESULT_IMAGE_BYTES, TOOL_RESULT_IMAGE_MIMES } from "./tool-result-images";
-import { resolveProject, type ProjectInfo } from "./worktree";
-import { readSubagentRun, SUBAGENT_META_TYPE } from "./subagents";
-import { checkSessionMembership, listSessionsIncremental, scanSessionFileInfo, type ScannedSessionInfo } from "./session-list-scanner";
+  isAbsolute,
+  join,
+  normalize as normalizePath,
+  relative,
+  resolve as resolvePath,
+  sep
+} from 'path';
+import type {
+  AgentMessage,
+  ImageContent,
+  SessionEntry,
+  SessionHeader,
+  SessionInfo,
+  SessionContext
+} from './types';
+import { normalizeToolCalls } from './normalize';
+import { withoutMessageSignatures } from './message-signatures';
+import { getThinkingPreview, isMessageGroupAnchor } from './message-display';
+import { projectIdentityKey } from './project-identity';
+import { sessionPathKey } from './session-path';
+import { skillExpansionToCommand } from './slash-display';
+import { MAX_TOOL_RESULT_IMAGE_BYTES, TOOL_RESULT_IMAGE_MIMES } from './tool-result-images';
+import { resolveProject, type ProjectInfo } from './worktree';
+import { readSubagentRun, SUBAGENT_META_TYPE } from './subagents';
+import {
+  checkSessionMembership,
+  listSessionsIncremental,
+  scanSessionFileInfo,
+  type ScannedSessionInfo
+} from './session-list-scanner';
 
 export { getAgentDir };
 
@@ -27,7 +43,7 @@ const SESSION_RESULT_MAX_BYTES = 256 * 1024;
 const SESSION_TAIL_PROBE_MAX_BYTES = 64 * 1024;
 
 function readBoundedLines(filePath: string, maxBytes: number, maxLines: number): string[] {
-  const fd = openSync(filePath, "r");
+  const fd = openSync(filePath, 'r');
   try {
     const chunks: Buffer[] = [];
     let position = 0;
@@ -55,18 +71,18 @@ function readBoundedLines(filePath: string, maxBytes: number, maxLines: number):
       chunks.push(data.subarray(0, end));
     }
 
-    const source = Buffer.concat(chunks).toString("utf8");
-    const lines = source.split("\n");
-    if (!reachedEof && !source.endsWith("\n")) lines.pop();
-    if (lines.at(-1) === "") lines.pop();
-    return lines.map((line) => line.endsWith("\r") ? line.slice(0, -1) : line);
+    const source = Buffer.concat(chunks).toString('utf8');
+    const lines = source.split('\n');
+    if (!reachedEof && !source.endsWith('\n')) lines.pop();
+    if (lines.at(-1) === '') lines.pop();
+    return lines.map((line) => (line.endsWith('\r') ? line.slice(0, -1) : line));
   } finally {
     closeSync(fd);
   }
 }
 
 function readBoundedTailLines(filePath: string, maxBytes: number): string[] {
-  const fd = openSync(filePath, "r");
+  const fd = openSync(filePath, 'r');
   try {
     const fileSize = fstatSync(fd).size;
     const start = Math.max(0, fileSize - maxBytes);
@@ -74,14 +90,14 @@ function readBoundedTailLines(filePath: string, maxBytes: number): string[] {
     const bytesRead = readSync(fd, buffer, 0, buffer.length, start);
     if (bytesRead === 0) return [];
 
-    const lines = buffer.subarray(0, bytesRead).toString("utf8").split("\n");
+    const lines = buffer.subarray(0, bytesRead).toString('utf8').split('\n');
     if (start > 0) {
       const previousByte = Buffer.allocUnsafe(1);
       readSync(fd, previousByte, 0, 1, start - 1);
       if (previousByte[0] !== 0x0a) lines.shift();
     }
-    if (lines.at(-1) === "") lines.pop();
-    return lines.map((line) => line.endsWith("\r") ? line.slice(0, -1) : line);
+    if (lines.at(-1) === '') lines.pop();
+    return lines.map((line) => (line.endsWith('\r') ? line.slice(0, -1) : line));
   } finally {
     closeSync(fd);
   }
@@ -108,8 +124,8 @@ function parseSessionEntries(lines: readonly string[]): SessionEntry[] {
 function readEntryId(line: string): string | undefined {
   try {
     const entry = JSON.parse(line) as { type?: unknown; id?: unknown };
-    if (entry.type === "session") return undefined;
-    return typeof entry.id === "string" && entry.id ? entry.id : undefined;
+    if (entry.type === 'session') return undefined;
+    return typeof entry.id === 'string' && entry.id ? entry.id : undefined;
   } catch {
     return undefined;
   }
@@ -141,25 +157,27 @@ export function readLatestSessionEntryId(filePath: string | undefined): string |
 
 function readSessionRelationEntries(filePath: string): SessionEntry[] {
   const prefixEntries = parseSessionEntries(
-    readBoundedLines(filePath, SESSION_RELATION_MAX_BYTES, SESSION_RELATION_MAX_LINES).slice(1),
+    readBoundedLines(filePath, SESSION_RELATION_MAX_BYTES, SESSION_RELATION_MAX_LINES).slice(1)
   );
-  const isSubagent = prefixEntries.some((entry) => (
-    entry.type === "custom" && entry.customType === SUBAGENT_META_TYPE
-  ));
+  const isSubagent = prefixEntries.some(
+    (entry) => entry.type === 'custom' && entry.customType === SUBAGENT_META_TYPE
+  );
   if (!isSubagent) return prefixEntries;
 
   return [
     ...prefixEntries,
-    ...parseSessionEntries(readBoundedTailLines(filePath, SESSION_RESULT_MAX_BYTES)),
+    ...parseSessionEntries(readBoundedTailLines(filePath, SESSION_RESULT_MAX_BYTES))
   ];
 }
 
 export async function attachSessionProjectInfo(sessions: SessionInfo[]): Promise<SessionInfo[]> {
   const uniqueCwds = [...new Set(sessions.map((s) => s.cwd).filter(Boolean))];
   const projectByCwd = new Map<string, ProjectInfo>();
-  await Promise.all(uniqueCwds.map(async (cwd) => {
-    projectByCwd.set(cwd, await resolveProject(cwd));
-  }));
+  await Promise.all(
+    uniqueCwds.map(async (cwd) => {
+      projectByCwd.set(cwd, await resolveProject(cwd));
+    })
+  );
 
   return sessions.map((session) => {
     const project = session.cwd ? projectByCwd.get(session.cwd) : undefined;
@@ -169,14 +187,14 @@ export async function attachSessionProjectInfo(sessions: SessionInfo[]): Promise
       projectRoot,
       projectKey: projectIdentityKey(projectRoot),
       ...(project?.branch ? { branch: project.branch } : {}),
-      ...(project?.isWorktree ? { isWorktree: true } : {}),
+      ...(project?.isWorktree ? { isWorktree: true } : {})
     };
   });
 }
 
 export function mergeSessionLists(
   persistedSessions: SessionInfo[],
-  supplementalSessions: SessionInfo[],
+  supplementalSessions: SessionInfo[]
 ): SessionInfo[] {
   const byId = new Map(supplementalSessions.map((session) => [session.id, session]));
   // A disk scan is authoritative once the JSONL exists. In particular, this
@@ -198,7 +216,7 @@ const scannedSubagentRuns = new WeakMap<ScannedSessionInfo, ScannedSubagent | nu
 
 function resolveScannedSessionRelation(
   scanned: ScannedSessionInfo,
-  pathToId: Map<string, string>,
+  pathToId: Map<string, string>
 ): { originSessionId?: string; subagent: ScannedSubagent | null } {
   const originSessionId = scanned.parentSessionPath
     ? pathToId.get(sessionPathKey(scanned.parentSessionPath))
@@ -208,7 +226,11 @@ function resolveScannedSessionRelation(
   const cached = scannedSubagentRuns.get(scanned);
   if (cached !== undefined) return { originSessionId, subagent: cached };
   try {
-    const subagent = readSubagentRun(readSessionRelationEntries(scanned.path), scanned.id, scanned.path);
+    const subagent = readSubagentRun(
+      readSessionRelationEntries(scanned.path),
+      scanned.id,
+      scanned.path
+    );
     scannedSubagentRuns.set(scanned, subagent);
     return { originSessionId, subagent };
   } catch {
@@ -230,12 +252,15 @@ export function catalogFirstMessage(text: string): string {
   const display = skillExpansionToCommand(text) ?? text;
   if (display.length <= CATALOG_FIRST_MESSAGE_MAX) return display;
   const last = display.charCodeAt(CATALOG_FIRST_MESSAGE_MAX - 1);
-  return display.slice(0, last >= 0xd800 && last <= 0xdbff ? CATALOG_FIRST_MESSAGE_MAX - 1 : CATALOG_FIRST_MESSAGE_MAX);
+  return display.slice(
+    0,
+    last >= 0xd800 && last <= 0xdbff ? CATALOG_FIRST_MESSAGE_MAX - 1 : CATALOG_FIRST_MESSAGE_MAX
+  );
 }
 
 function mapScannedSession(
   scanned: ScannedSessionInfo,
-  pathToId: Map<string, string>,
+  pathToId: Map<string, string>
 ): SessionInfo {
   cacheSessionPath(scanned.id, scanned.path);
   const { originSessionId, subagent } = resolveScannedSessionRelation(scanned, pathToId);
@@ -250,17 +275,26 @@ function mapScannedSession(
     messageCount: scanned.messageCount,
     // A pending row has no first message yet; the placeholder would read as a
     // real "(no messages)" session until the details arrive.
-    firstMessage: detailsPending && !scanned.firstMessage
-      ? ""
-      : catalogFirstMessage(scanned.firstMessage || "(no messages)"),
+    firstMessage:
+      detailsPending && !scanned.firstMessage
+        ? ''
+        : catalogFirstMessage(scanned.firstMessage || '(no messages)'),
     parentSessionId: originSessionId,
     ...(subagent
-      ? { relation: { kind: "subagent" as const, parentSessionId: subagent.parentSessionId, profile: subagent.profile, description: subagent.description, status: subagent.status } }
+      ? {
+          relation: {
+            kind: 'subagent' as const,
+            parentSessionId: subagent.parentSessionId,
+            profile: subagent.profile,
+            description: subagent.description,
+            status: subagent.status
+          }
+        }
       : scanned.parentSessionPath
-        ? { relation: { kind: "fork" as const, ...(originSessionId ? { originSessionId } : {}) } }
+        ? { relation: { kind: 'fork' as const, ...(originSessionId ? { originSessionId } : {}) } }
         : {}),
     transient: false,
-    ...(detailsPending ? { detailsPending: true } : {}),
+    ...(detailsPending ? { detailsPending: true } : {})
   };
 }
 
@@ -278,7 +312,7 @@ async function buildSessionList(scanned: ScannedSessionInfo[]): Promise<SessionI
  */
 export async function readSessionInfo(filePath: string): Promise<SessionInfo | null> {
   const scanned = await scanSessionFileInfo(filePath);
-  return scanned ? (await buildSessionList([scanned]))[0] ?? null : null;
+  return scanned ? ((await buildSessionList([scanned]))[0] ?? null) : null;
 }
 
 async function loadAllSessions(): Promise<SessionInfo[]> {
@@ -294,14 +328,20 @@ export async function listSessionSummaries(): Promise<SessionInfo[]> {
   return buildSessionList(await listSessionsIncremental({ deferDetails: true }));
 }
 
-export async function listAllSessions(options: { force?: boolean; allowStale?: boolean } = {}): Promise<SessionInfo[]> {
+export async function listAllSessions(
+  options: { force?: boolean; allowStale?: boolean } = {}
+): Promise<SessionInfo[]> {
   if (options.force) invalidateSessionListCache();
   const generation = globalThis.__piSessionListGeneration ?? 0;
 
   // Return cached result if still fresh (avoids re-scanning session files
   // and re-spawning git processes on every page load).
   const cache = globalThis.__piSessionListCache;
-  if (cache && cache.generation === generation && Date.now() - cache.ts < SESSION_LIST_CACHE_TTL_MS) {
+  if (
+    cache &&
+    cache.generation === generation &&
+    Date.now() - cache.ts < SESSION_LIST_CACHE_TTL_MS
+  ) {
     return cache.data;
   }
 
@@ -317,7 +357,10 @@ export async function listAllSessions(options: { force?: boolean; allowStale?: b
 
   // Coalescing dedup: concurrent callers share the same in-flight promise
   // only while it belongs to the current cache generation.
-  if (globalThis.__piSessionListPromise && globalThis.__piSessionListPromiseGeneration === generation) {
+  if (
+    globalThis.__piSessionListPromise &&
+    globalThis.__piSessionListPromiseGeneration === generation
+  ) {
     return globalThis.__piSessionListPromise;
   }
 
@@ -359,19 +402,19 @@ const SESSION_LIST_CACHE_TTL_MS = 30_000;
 const SESSION_ID_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/;
 
 function defaultSessionsDir(): string {
-  return join(getAgentDir(), "sessions");
+  return join(getAgentDir(), 'sessions');
 }
 
 function resolvePathWithinDefaultSessions(
   filePath: string,
-  sessionsDir = resolvePath(defaultSessionsDir()),
+  sessionsDir = resolvePath(defaultSessionsDir())
 ): string | null {
   const candidatePath = resolvePath(filePath);
   const relativePath = relative(sessionsDir, candidatePath);
-  return relativePath !== ""
-    && relativePath !== ".."
-    && !relativePath.startsWith(`..${sep}`)
-    && !isAbsolute(relativePath)
+  return relativePath !== '' &&
+    relativePath !== '..' &&
+    !relativePath.startsWith(`..${sep}`) &&
+    !isAbsolute(relativePath)
     ? candidatePath
     : null;
 }
@@ -395,7 +438,7 @@ async function findSessionPathById(sessionId: string): Promise<string | null> {
     if (!projectDir.isDirectory() && !projectDir.isSymbolicLink()) continue;
     const projectPath = resolvePathWithinDefaultSessions(
       join(sessionsDir, projectDir.name),
-      sessionsDir,
+      sessionsDir
     );
     if (!projectPath) continue;
 
@@ -408,10 +451,7 @@ async function findSessionPathById(sessionId: string): Promise<string | null> {
 
     for (const file of files) {
       if (!file.endsWith(suffix)) continue;
-      const candidate = resolvePathWithinDefaultSessions(
-        join(projectPath, file),
-        sessionsDir,
-      );
+      const candidate = resolvePathWithinDefaultSessions(join(projectPath, file), sessionsDir);
       if (!candidate) continue;
       try {
         if (readSessionHeader(candidate)?.id !== sessionId) continue;
@@ -429,7 +469,7 @@ async function findSessionPathById(sessionId: string): Promise<string | null> {
 }
 
 function findSessionIdByPath(filePath: string): string | undefined {
-  if (!filePath.endsWith(".jsonl")) return undefined;
+  if (!filePath.endsWith('.jsonl')) return undefined;
   const candidate = resolvePathWithinDefaultSessions(filePath);
   if (!candidate) return undefined;
   try {
@@ -510,7 +550,7 @@ export const SM_CACHE_LIMITS = {
   /** Summed on-disk size of cached sessions. */
   maxTotalBytes: 256 * 1024 * 1024,
   /** A session larger than this is never cached — it would evict everything else. */
-  maxFileBytes: 64 * 1024 * 1024,
+  maxFileBytes: 64 * 1024 * 1024
 };
 
 function getSmCache(): Map<string, SmCacheEntry> {
@@ -555,7 +595,7 @@ export function invalidateSessionManagerCache(filePath?: string): void {
  */
 export function openSessionManager(
   filePath: string,
-  options: { mutable?: boolean } = {},
+  options: { mutable?: boolean } = {}
 ): SessionManager {
   if (options.mutable) return SessionManager.open(filePath, undefined);
 
@@ -623,7 +663,11 @@ export function cacheSessionPath(sessionId: string, filePath: string): void {
   const previousPathKey = previousPath ? sessionPathKey(previousPath) : undefined;
   const previousSessionId = reverseCache.get(pathKey);
   const previousOwnerPath = previousSessionId ? pathCache.get(previousSessionId) : undefined;
-  if (previousPathKey && previousPathKey !== pathKey && reverseCache.get(previousPathKey) === sessionId) {
+  if (
+    previousPathKey &&
+    previousPathKey !== pathKey &&
+    reverseCache.get(previousPathKey) === sessionId
+  ) {
     reverseCache.delete(previousPathKey);
   }
   if (
@@ -654,7 +698,7 @@ export function readSessionHeader(filePath: string): SessionHeader | null {
   if (!firstLine) return null;
   try {
     const header = JSON.parse(firstLine) as SessionHeader;
-    return header.type === "session" ? header : null;
+    return header.type === 'session' ? header : null;
   } catch {
     return null;
   }
@@ -665,38 +709,49 @@ export function getSessionEntries(filePath: string): SessionEntry[] {
   return entries as unknown as SessionEntry[];
 }
 
-export function getLatestModelChange(entries: SessionEntry[]): SessionContext["model"] {
+export function getLatestModelChange(entries: SessionEntry[]): SessionContext['model'] {
   for (let i = entries.length - 1; i >= 0; i--) {
     const entry = entries[i];
-    if (entry.type === "model_change") {
+    if (entry.type === 'model_change') {
       return { provider: entry.provider, modelId: entry.modelId };
     }
   }
   return null;
 }
 
-function getSessionSettings(entries: SessionEntry[], leafId?: string | null): Pick<SessionContext, "thinkingLevel" | "model"> {
-  if (leafId === null) return { thinkingLevel: "off", model: null };
+function getSessionSettings(
+  entries: SessionEntry[],
+  leafId?: string | null
+): Pick<SessionContext, 'thinkingLevel' | 'model'> {
+  if (leafId === null) return { thinkingLevel: 'off', model: null };
   const branch = sliceActiveBranch(entries, leafId ?? null, entries.length);
   let thinkingLevel: string | undefined;
-  let responseModel: SessionContext["model"] | undefined;
+  let responseModel: SessionContext['model'] | undefined;
 
-  for (let i = branch.length - 1; i >= 0 && (thinkingLevel === undefined || responseModel === undefined); i--) {
+  for (
+    let i = branch.length - 1;
+    i >= 0 && (thinkingLevel === undefined || responseModel === undefined);
+    i--
+  ) {
     const entry = branch[i];
-    if (thinkingLevel === undefined && entry.type === "thinking_level_change") {
+    if (thinkingLevel === undefined && entry.type === 'thinking_level_change') {
       thinkingLevel = entry.thinkingLevel;
     }
-    if (responseModel === undefined && entry.type === "message" && entry.message.role === "assistant") {
+    if (
+      responseModel === undefined &&
+      entry.type === 'message' &&
+      entry.message.role === 'assistant'
+    ) {
       const message = entry.message as { provider?: unknown; model?: unknown };
-      if (typeof message.provider === "string" && typeof message.model === "string") {
+      if (typeof message.provider === 'string' && typeof message.model === 'string') {
         responseModel = { provider: message.provider, modelId: message.model };
       }
     }
   }
 
   return {
-    thinkingLevel: thinkingLevel ?? "off",
-    model: getLatestModelChange(branch) ?? responseModel ?? null,
+    thinkingLevel: thinkingLevel ?? 'off',
+    model: getLatestModelChange(branch) ?? responseModel ?? null
   };
 }
 
@@ -712,14 +767,20 @@ export interface BuildSessionContextOptions {
 export function buildSessionContext(
   entries: SessionEntry[],
   leafId?: string | null,
-  options: BuildSessionContextOptions = {},
+  options: BuildSessionContextOptions = {}
 ): SessionContext {
   const { tail, excludeLeaf } = options;
   // History pages retain the original branch order, including compacted messages.
   // SDK context filtering can drop a page's messages when firstKeptEntryId is outside it.
-  const sliced = leafId === null ? [] : sliceActiveBranch(
-    entries, leafId ?? null, tail && tail > 0 ? tail : entries.length, excludeLeaf,
-  );
+  const sliced =
+    leafId === null
+      ? []
+      : sliceActiveBranch(
+          entries,
+          leafId ?? null,
+          tail && tail > 0 ? tail : entries.length,
+          excludeLeaf
+        );
   const hasMore = Boolean(tail && tail > 0 && sliced[0]?.parentId);
   const turnsBefore = hasMore ? countTurnsBefore(entries, sliced[0]) : 0;
 
@@ -740,7 +801,7 @@ export function buildSessionContext(
     oldestEntryId: sliced[0]?.id ?? null,
     hasMore,
     turnsBefore,
-    ...getSessionSettings(entries, leafId),
+    ...getSessionSettings(entries, leafId)
   };
 }
 
@@ -750,14 +811,14 @@ export function buildSessionContext(
  */
 function turnAnchorShape(entry: SessionEntry): Parameters<typeof isMessageGroupAnchor>[0] | null {
   switch (entry.type) {
-    case "message":
-      return entry.message.role === "system" ? null : entry.message as AgentMessage;
-    case "compaction":
-      return { role: "custom", customType: "compaction", display: true };
-    case "branch_summary":
-      return entry.summary ? { role: "user" } : null;
-    case "custom_message":
-      return { role: "custom", customType: entry.customType, display: entry.display };
+    case 'message':
+      return entry.message.role === 'system' ? null : (entry.message as AgentMessage);
+    case 'compaction':
+      return { role: 'custom', customType: 'compaction', display: true };
+    case 'branch_summary':
+      return entry.summary ? { role: 'user' } : null;
+    case 'custom_message':
+      return { role: 'custom', customType: entry.customType, display: entry.display };
     default:
       return null;
   }
@@ -790,10 +851,10 @@ function countTurnsBefore(entries: SessionEntry[], oldest: SessionEntry): number
  * over a tool-heavy session can hold a single user message).
  */
 function countsTowardTail(entry: SessionEntry): boolean {
-  if (entry.type === "compaction") return true;
-  if (entry.type !== "message") return false;
+  if (entry.type === 'compaction') return true;
+  if (entry.type !== 'message') return false;
   const role = (entry as { message?: { role?: string } }).message?.role;
-  return role === "user" || role === "assistant";
+  return role === 'user' || role === 'assistant';
 }
 
 /**
@@ -815,7 +876,7 @@ export function sliceActiveBranch(
   entries: SessionEntry[],
   leafId: string | null,
   tail: number,
-  excludeLeaf = false,
+  excludeLeaf = false
 ): SessionEntry[] {
   if (tail <= 0) return entries;
   const byId = new Map<string, SessionEntry>();
@@ -845,33 +906,37 @@ function parseEntryTimestamp(timestamp: string): number | undefined {
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function base64ImageInfo(block: unknown): { bytes: number; mime?: string } | null {
-  if (!isRecord(block) || block.type !== "image") return null;
+  if (!isRecord(block) || block.type !== 'image') return null;
 
   let data: string | undefined;
   let mime: string | undefined;
-  if (typeof block.data === "string") {
+  if (typeof block.data === 'string') {
     data = block.data;
-    mime = typeof block.mimeType === "string" ? block.mimeType : undefined;
-  } else if (isRecord(block.source) && block.source.type === "base64" && typeof block.source.data === "string") {
+    mime = typeof block.mimeType === 'string' ? block.mimeType : undefined;
+  } else if (
+    isRecord(block.source) &&
+    block.source.type === 'base64' &&
+    typeof block.source.data === 'string'
+  ) {
     data = block.source.data;
-    mime = typeof block.source.media_type === "string" ? block.source.media_type : undefined;
+    mime = typeof block.source.media_type === 'string' ? block.source.media_type : undefined;
   }
   if (!data) return null;
 
-  const padding = data.endsWith("==") ? 2 : data.endsWith("=") ? 1 : 0;
-  return { bytes: Math.max(0, Math.floor(data.length * 3 / 4) - padding), mime };
+  const padding = data.endsWith('==') ? 2 : data.endsWith('=') ? 1 : 0;
+  return { bytes: Math.max(0, Math.floor((data.length * 3) / 4) - padding), mime };
 }
 
 function deferToolResultBase64Images(
   message: AgentMessage,
   sessionId: string | undefined,
-  entryId: string,
+  entryId: string
 ): AgentMessage {
-  if (message.role !== "toolResult") return message;
+  if (message.role !== 'toolResult') return message;
 
   let omitted = 0;
   let bytes = 0;
@@ -889,12 +954,12 @@ function deferToolResultBase64Images(
       image.bytes > 0 &&
       image.bytes <= MAX_TOOL_RESULT_IMAGE_BYTES
     ) {
-      const source: ImageContent["source"] = {
-        type: "url",
+      const source: ImageContent['source'] = {
+        type: 'url',
         media_type: image.mime,
-        url: `/api/sessions/${encodeURIComponent(sessionId)}/entries/${encodeURIComponent(entryId)}/tool-result-image?blockIndex=${blockIndex}`,
+        url: `/api/sessions/${encodeURIComponent(sessionId)}/entries/${encodeURIComponent(entryId)}/tool-result-image?blockIndex=${blockIndex}`
       };
-      return [{ type: "image", source } satisfies ImageContent];
+      return [{ type: 'image', source } satisfies ImageContent];
     }
 
     // Retain the old bounded fallback for callers that do not have a session id.
@@ -905,10 +970,10 @@ function deferToolResultBase64Images(
   });
   if (omitted === 0) return { ...message, content };
 
-  const mimeText = mimes.size > 0 ? `: ${[...mimes].join(", ")}` : "";
+  const mimeText = mimes.size > 0 ? `: ${[...mimes].join(', ')}` : '';
   content.push({
-    type: "text",
-    text: `[${omitted} tool result image${omitted === 1 ? "" : "s"} omitted from initial history payload${mimeText}, ~${bytes} bytes]`,
+    type: 'text',
+    text: `[${omitted} tool result image${omitted === 1 ? '' : 's'} omitted from initial history payload${mimeText}, ~${bytes} bytes]`
   });
   return { ...message, content };
 }
@@ -917,7 +982,7 @@ function deferToolResultBase64Images(
 // Returns null for entries that do not map to chat history (metadata, non-message types).
 function entryToUiMessage(
   entry: SessionEntry,
-  options: BuildSessionContextOptions,
+  options: BuildSessionContextOptions
 ): AgentMessage | null {
   // Supported message roles: user, assistant, toolResult, bashExecution.
   // bashExecution messages enter the case "message" branch (entry.type === "message").
@@ -925,56 +990,61 @@ function entryToUiMessage(
   // passes non-assistant messages — including bashExecution — through unchanged.
   // normalizeToolCalls is a secondary guard (returns non-assistant messages as-is).
   switch (entry.type) {
-    case "message": {
+    case 'message': {
       // Transcript system messages carry the prompt and tool loadout (Pi >= 0.86).
       // They are provider input, not conversation, so they never render.
-      if (entry.message.role === "system") return null;
+      if (entry.message.role === 'system') return null;
       const displayMessage = withoutMessageSignatures(entry.message);
       let message = options.deferToolResultImages
-        ? deferToolResultBase64Images(normalizeToolCalls(displayMessage), options.sessionId, entry.id)
+        ? deferToolResultBase64Images(
+            normalizeToolCalls(displayMessage),
+            options.sessionId,
+            entry.id
+          )
         : normalizeToolCalls(displayMessage);
-      const legacyContent = message.role === "assistant" ? (message as { content: unknown }).content : undefined;
-      if (typeof legacyContent === "string") {
-        message = { ...message, content: [{ type: "text", text: legacyContent }] } as AgentMessage;
+      const legacyContent =
+        message.role === 'assistant' ? (message as { content: unknown }).content : undefined;
+      if (typeof legacyContent === 'string') {
+        message = { ...message, content: [{ type: 'text', text: legacyContent }] } as AgentMessage;
       }
-      if (!options.deferThinking || message.role !== "assistant") return message;
+      if (!options.deferThinking || message.role !== 'assistant') return message;
       const content = message.content;
       return {
         ...message,
-        content: content.map((block) => (
-          block.type === "thinking" && block.thinking.trim() !== ""
+        content: content.map((block) =>
+          block.type === 'thinking' && block.thinking.trim() !== ''
             ? { ...block, thinking: getThinkingPreview(block.thinking), deferred: true }
             : block
-        )),
+        )
       };
     }
-    case "compaction":
+    case 'compaction':
       return {
-        role: "custom",
-        customType: "compaction",
+        role: 'custom',
+        customType: 'compaction',
         content: entry.summary,
         display: true,
         details: {
           tokensBefore: entry.tokensBefore,
-          firstKeptEntryId: entry.firstKeptEntryId,
+          firstKeptEntryId: entry.firstKeptEntryId
         },
-        timestamp: parseEntryTimestamp(entry.timestamp),
+        timestamp: parseEntryTimestamp(entry.timestamp)
       };
-    case "branch_summary":
+    case 'branch_summary':
       if (!entry.summary) return null;
       return {
-        role: "user",
+        role: 'user',
         content: `*The conversation briefly explored another branch and returned with this summary:*\n\n${entry.summary}`,
-        timestamp: parseEntryTimestamp(entry.timestamp),
+        timestamp: parseEntryTimestamp(entry.timestamp)
       };
-    case "custom_message":
+    case 'custom_message':
       return {
-        role: "custom",
+        role: 'custom',
         customType: entry.customType,
         content: entry.content,
         display: entry.display,
         details: entry.details,
-        timestamp: parseEntryTimestamp(entry.timestamp),
+        timestamp: parseEntryTimestamp(entry.timestamp)
       };
     default:
       return null;

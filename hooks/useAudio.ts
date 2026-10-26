@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect } from 'react';
 
 // How long the context keeps running after a chime, an unlock or a hold. The
 // chime lasts 0.63 s; the rest leaves room for output latency.
@@ -18,7 +18,7 @@ function playTone(ctx: AudioContext) {
     const gain = ctx.createGain();
     osc.connect(gain);
     gain.connect(ctx.destination);
-    osc.type = "sine";
+    osc.type = 'sine';
     osc.frequency.value = freq;
     const t = now + i * 0.18;
     gain.gain.setValueAtTime(0, t);
@@ -31,17 +31,19 @@ function playTone(ctx: AudioContext) {
 
 export function useAudio() {
   const [enabled, setEnabled] = useState<boolean>(() => {
-    if (typeof window === "undefined") return true;
+    if (typeof window === 'undefined') return true;
     try {
-      const stored = localStorage.getItem("pi-sound-enabled");
-      return stored === null ? true : stored === "true";
+      const stored = localStorage.getItem('pi-sound-enabled');
+      return stored === null ? true : stored === 'true';
     } catch {
       return true;
     }
   });
 
   const enabledRef = useRef(enabled);
-  useEffect(() => { enabledRef.current = enabled; }, [enabled]);
+  useEffect(() => {
+    enabledRef.current = enabled;
+  }, [enabled]);
 
   // Reuse a single AudioContext so it can be resumed if the browser
   // autoplay policy suspends it (contexts created outside user gestures
@@ -53,7 +55,7 @@ export function useAudio() {
   // and a hold keeps it running while the shown session's run is under way.
   const ctxRef = useRef<AudioContext | null>(null);
   const getCtx = useCallback((): AudioContext | null => {
-    if (ctxRef.current && ctxRef.current.state !== "closed") return ctxRef.current;
+    if (ctxRef.current && ctxRef.current.state !== 'closed') return ctxRef.current;
     try {
       ctxRef.current = new AudioContext();
     } catch {
@@ -77,21 +79,31 @@ export function useAudio() {
 
   // Resume, run `onRunning`, and suspend AUDIO_IDLE_SUSPEND_MS after the last
   // run settled, unless a newer resume or a hold is still outstanding then.
-  const runBriefly = useCallback((ctx: AudioContext, onRunning: () => void) => {
-    resumingRef.current++;
-    const settled = () => {
-      resumingRef.current--;
-      scheduleIdleSuspend(ctx);
-    };
-    ctx.resume().then(onRunning).catch(() => {}).then(settled);
-  }, [scheduleIdleSuspend]);
+  const runBriefly = useCallback(
+    (ctx: AudioContext, onRunning: () => void) => {
+      resumingRef.current++;
+      const settled = () => {
+        resumingRef.current--;
+        scheduleIdleSuspend(ctx);
+      };
+      ctx
+        .resume()
+        .then(onRunning)
+        .catch(() => {})
+        .then(settled);
+    },
+    [scheduleIdleSuspend]
+  );
 
-  const unlockAudio = useCallback((force = false) => {
-    if (!force && !enabledRef.current) return;
-    const ctx = getCtx();
-    if (!ctx || ctx.state === "running") return;
-    runBriefly(ctx, () => {});
-  }, [getCtx, runBriefly]);
+  const unlockAudio = useCallback(
+    (force = false) => {
+      if (!force && !enabledRef.current) return;
+      const ctx = getCtx();
+      if (!ctx || ctx.state === 'running') return;
+      runBriefly(ctx, () => {});
+    },
+    [getCtx, runBriefly]
+  );
 
   const toggle = useCallback(() => {
     const next = !enabledRef.current;
@@ -99,7 +111,7 @@ export function useAudio() {
     else ctxRef.current?.suspend().catch(() => {});
     enabledRef.current = next;
     try {
-      localStorage.setItem("pi-sound-enabled", String(next));
+      localStorage.setItem('pi-sound-enabled', String(next));
     } catch {
       // Browser storage is best-effort.
     }
@@ -114,7 +126,7 @@ export function useAudio() {
     clearTimeout(idleTimerRef.current);
     if (enabledRef.current) {
       const ctx = getCtx();
-      if (ctx && ctx.state !== "running") runBriefly(ctx, () => {});
+      if (ctx && ctx.state !== 'running') runBriefly(ctx, () => {});
     }
     let released = false;
     return () => {
@@ -142,5 +154,12 @@ export function useAudio() {
     });
   }, [getCtx, runBriefly]);
 
-  return { soundEnabled: enabled, onSoundToggle: toggle, playDoneSound: playDone, unlockAudio, holdAudio, soundEnabledRef: enabledRef };
+  return {
+    soundEnabled: enabled,
+    onSoundToggle: toggle,
+    playDoneSound: playDone,
+    unlockAudio,
+    holdAudio,
+    soundEnabledRef: enabledRef
+  };
 }

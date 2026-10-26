@@ -1,10 +1,17 @@
-"use client";
+'use client';
 
-import { Fragment, useEffect, useId, useRef } from "react";
-import type { ButtonHTMLAttributes, ClipboardEvent, CSSProperties, HTMLAttributes, ReactNode, Ref } from "react";
+import { Fragment, useEffect, useId, useRef } from 'react';
+import type {
+  ButtonHTMLAttributes,
+  ClipboardEvent,
+  CSSProperties,
+  HTMLAttributes,
+  ReactNode,
+  Ref
+} from 'react';
 
-type ConfigButtonVariant = "primary" | "secondary" | "danger" | "ghost";
-type ConfigButtonSize = "small" | "default";
+type ConfigButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost';
+type ConfigButtonSize = 'small' | 'default';
 
 interface ConfigPanelShellProps {
   embedded: boolean;
@@ -21,25 +28,25 @@ export function ConfigPanelShell({
   embedded,
   title,
   subtitle,
-  closeLabel = "Close",
+  closeLabel = 'Close',
   onClose,
   children,
   width = 900,
-  height = "78vh",
+  height = '78vh'
 }: ConfigPanelShellProps) {
   const panelStyle = embedded
     ? undefined
     : ({
-        "--config-panel-width": `${width}px`,
-        "--config-panel-height": height,
+        '--config-panel-width': `${width}px`,
+        '--config-panel-height': height
       } as CSSProperties);
 
   return (
     <div
-      role={embedded ? undefined : "dialog"}
-      aria-modal={embedded ? undefined : "true"}
+      role={embedded ? undefined : 'dialog'}
+      aria-modal={embedded ? undefined : 'true'}
       aria-label={title}
-      className={`config-panel-root ${embedded ? "is-embedded" : "is-modal"}`}
+      className={`config-panel-root ${embedded ? 'is-embedded' : 'is-modal'}`}
       onClick={(event) => {
         if (!embedded && event.target === event.currentTarget) onClose();
       }}
@@ -83,7 +90,13 @@ export function ConfigSidebarList({ children }: { children: ReactNode }) {
 }
 
 /** A sidebar group heading; `aside` sits at its right edge. */
-export function ConfigSidebarGroupLabel({ children, aside }: { children: ReactNode; aside?: ReactNode }) {
+export function ConfigSidebarGroupLabel({
+  children,
+  aside
+}: {
+  children: ReactNode;
+  aside?: ReactNode;
+}) {
   return (
     <div className="config-sidebar-group-label">
       <span className="config-sidebar-group-label-text">{children}</span>
@@ -108,7 +121,7 @@ export function ConfigSidebarGroupSwitch({
   disabled = false,
   loading = false,
   describedBy,
-  onChange,
+  onChange
 }: {
   enabled: number;
   total: number;
@@ -123,7 +136,9 @@ export function ConfigSidebarGroupSwitch({
 }) {
   return (
     <span className="config-sidebar-group-switch">
-      <span className="config-sidebar-group-count">{enabled}/{total}</span>
+      <span className="config-sidebar-group-count">
+        {enabled}/{total}
+      </span>
       <ConfigSwitch
         checked={checked ?? (total > 0 && enabled === total)}
         disabled={disabled}
@@ -137,12 +152,26 @@ export function ConfigSidebarGroupSwitch({
 }
 
 /** What the last group switch left undone, under that group's heading. */
-export function ConfigSidebarGroupStatus({ error, note }: { error?: string | null; note?: string | null }) {
+export function ConfigSidebarGroupStatus({
+  error,
+  note
+}: {
+  error?: string | null;
+  note?: string | null;
+}) {
   if (!error && !note) return null;
   return (
     <div className="config-sidebar-group-status">
-      {note && <div role="status" className="config-sidebar-group-note">{note}</div>}
-      {error && <div role="alert" className="config-sidebar-group-error">{error}</div>}
+      {note && (
+        <div role="status" className="config-sidebar-group-note">
+          {note}
+        </div>
+      )}
+      {error && (
+        <div role="alert" className="config-sidebar-group-error">
+          {error}
+        </div>
+      )}
     </div>
   );
 }
@@ -158,8 +187,8 @@ export function ConfigSidebarItem({
     <button
       type="button"
       {...props}
-      aria-current={active ? "page" : undefined}
-      className={["config-sidebar-item", className].filter(Boolean).join(" ")}
+      aria-current={active ? 'page' : undefined}
+      className={['config-sidebar-item', className].filter(Boolean).join(' ')}
     >
       {children}
     </button>
@@ -168,28 +197,19 @@ export function ConfigSidebarItem({
 
 export function ConfigSidebarText({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
   return (
-    <span
-      {...props}
-      className={["config-sidebar-text", className].filter(Boolean).join(" ")}
-    />
+    <span {...props} className={['config-sidebar-text', className].filter(Boolean).join(' ')} />
   );
 }
 
 export function ConfigDetailStack({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
-    <div
-      {...props}
-      className={["config-detail-stack", className].filter(Boolean).join(" ")}
-    />
+    <div {...props} className={['config-detail-stack', className].filter(Boolean).join(' ')} />
   );
 }
 
 export function ConfigDetailHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
-    <div
-      {...props}
-      className={["config-detail-header", className].filter(Boolean).join(" ")}
-    />
+    <div {...props} className={['config-detail-header', className].filter(Boolean).join(' ')} />
   );
 }
 
@@ -197,17 +217,14 @@ export function ConfigDetailHeaderInfo({ className, ...props }: HTMLAttributes<H
   return (
     <div
       {...props}
-      className={["config-detail-header-info", className].filter(Boolean).join(" ")}
+      className={['config-detail-header-info', className].filter(Boolean).join(' ')}
     />
   );
 }
 
 export function ConfigDetailActions({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
-    <div
-      {...props}
-      className={["config-detail-actions", className].filter(Boolean).join(" ")}
-    />
+    <div {...props} className={['config-detail-actions', className].filter(Boolean).join(' ')} />
   );
 }
 
@@ -219,7 +236,17 @@ export function ConfigSectionTitle({ children }: { children: ReactNode }) {
   return <div className="config-section-title">{children}</div>;
 }
 
-export function ConfigField({ label, children, style, ref }: { label: ReactNode; children: ReactNode; style?: CSSProperties; ref?: Ref<HTMLDivElement> }) {
+export function ConfigField({
+  label,
+  children,
+  style,
+  ref
+}: {
+  label: ReactNode;
+  children: ReactNode;
+  style?: CSSProperties;
+  ref?: Ref<HTMLDivElement>;
+}) {
   return (
     <div ref={ref} className="config-field" style={style}>
       <span className="config-field-label">{label}</span>
@@ -239,15 +266,15 @@ export function ConfigDetailGrid({ children }: { children: ReactNode }) {
 
 export function ConfigDetailGridRow({
   label,
-  tone = "muted",
+  tone = 'muted',
   mono = false,
   className,
   style,
-  children,
+  children
 }: {
   label: ReactNode;
   /** `plain` leaves the color to the value's own children or `style`. */
-  tone?: "plain" | "muted" | "dim" | "error";
+  tone?: 'plain' | 'muted' | 'dim' | 'error';
   mono?: boolean;
   className?: string;
   style?: CSSProperties;
@@ -258,11 +285,13 @@ export function ConfigDetailGridRow({
       <div className="config-detail-grid-label">{label}</div>
       <div
         className={[
-          "config-detail-grid-value",
-          tone === "plain" ? null : `is-${tone}`,
-          mono ? "is-mono" : null,
-          className,
-        ].filter(Boolean).join(" ")}
+          'config-detail-grid-value',
+          tone === 'plain' ? null : `is-${tone}`,
+          mono ? 'is-mono' : null,
+          className
+        ]
+          .filter(Boolean)
+          .join(' ')}
         style={style}
       >
         {children}
@@ -274,7 +303,7 @@ export function ConfigDetailGridRow({
 /** Where a row lives (`global`, `project`, …); a project scope is tinted. */
 export function ConfigScopeTag({ scope, children }: { scope: string; children: ReactNode }) {
   return (
-    <span className={`config-scope-tag${scope === "project" ? " is-project" : ""}`}>
+    <span className={`config-scope-tag${scope === 'project' ? ' is-project' : ''}`}>
       {children}
     </span>
   );
@@ -298,9 +327,9 @@ export function ConfigScopeSwitch<S extends string>({
   options,
   label,
   disabledReason,
-  size = "default",
+  size = 'default',
   onChange,
-  children,
+  children
 }: {
   value: S;
   options: readonly ConfigScopeOption<S>[];
@@ -308,16 +337,21 @@ export function ConfigScopeSwitch<S extends string>({
   label: string;
   /** Shown while any option is disabled. */
   disabledReason?: string | null;
-  size?: "default" | "small";
+  size?: 'default' | 'small';
   onChange: (value: S) => void;
   children?: ReactNode;
 }) {
   const reasonId = useId();
-  const reason = disabledReason && options.some((option) => option.disabled) ? disabledReason : null;
+  const reason =
+    disabledReason && options.some((option) => option.disabled) ? disabledReason : null;
   return (
     <div className="config-scope-switch-field">
       <div className="config-scope-switch-row">
-        <div role="group" aria-label={label} className={`config-scope-switch${size === "small" ? " is-small" : ""}`}>
+        <div
+          role="group"
+          aria-label={label}
+          className={`config-scope-switch${size === 'small' ? ' is-small' : ''}`}
+        >
           {options.map((option) => (
             <button
               key={option.value}
@@ -352,9 +386,16 @@ export function ConfigScopeSwitch<S extends string>({
  * cannot parse.
  */
 function pathWithBreaks(path: string): ReactNode[] {
-  return path.split(/([\\/])/).map((part, index) => (
-    part === "/" || part === "\\" ? <Fragment key={index}>{part}<wbr /></Fragment> : part
-  ));
+  return path.split(/([\\/])/).map((part, index) =>
+    part === '/' || part === '\\' ? (
+      <Fragment key={index}>
+        {part}
+        <wbr />
+      </Fragment>
+    ) : (
+      part
+    )
+  );
 }
 
 /**
@@ -372,7 +413,7 @@ export function ConfigSaveTarget<S extends string>({
   path,
   disabledReason,
   onChange,
-  children,
+  children
 }: {
   value: S;
   options: readonly ConfigScopeOption<S>[];
@@ -394,7 +435,9 @@ export function ConfigSaveTarget<S extends string>({
         size="small"
         onChange={onChange}
       >
-        <span className="config-save-target-path">{typeof path === "string" ? pathWithBreaks(path) : path}</span>
+        <span className="config-save-target-path">
+          {typeof path === 'string' ? pathWithBreaks(path) : path}
+        </span>
       </ConfigScopeSwitch>
       {children}
     </div>
@@ -413,7 +456,7 @@ export function addSourceKeySubmits(event: {
   nativeEvent?: { isComposing?: boolean };
   keyCode?: number;
 }): boolean {
-  if (event.key !== "Enter" || !(event.metaKey || event.ctrlKey)) return false;
+  if (event.key !== 'Enter' || !(event.metaKey || event.ctrlKey)) return false;
   // Safari reports a composing Enter as keyCode 229 without isComposing.
   return event.nativeEvent?.isComposing !== true && event.keyCode !== 229;
 }
@@ -433,7 +476,7 @@ export interface ConfigAddSourceCatalog {
 export function ConfigAddSourceHeading({
   title,
   catalogs,
-  target,
+  target
 }: {
   title: string;
   catalogs: readonly ConfigAddSourceCatalog[];
@@ -445,7 +488,13 @@ export function ConfigAddSourceHeading({
         <ConfigDetailTitle>{title}</ConfigDetailTitle>
         <span className="config-add-source-catalogs">
           {catalogs.map((catalog) => (
-            <a key={catalog.href} href={catalog.href} target="_blank" rel="noopener noreferrer" className="config-add-source-catalog">
+            <a
+              key={catalog.href}
+              href={catalog.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="config-add-source-catalog"
+            >
               {catalog.icon}
               {catalog.label}
             </a>
@@ -489,7 +538,7 @@ export function ConfigAddSourcePanel({
   examples,
   error,
   multiline = false,
-  children,
+  children
 }: {
   title: string;
   catalogs: readonly ConfigAddSourceCatalog[];
@@ -518,13 +567,13 @@ export function ConfigAddSourcePanel({
       inputRef.current?.focus();
       return;
     }
-    if (typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches) return;
+    if (typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches) return;
     textareaRef.current?.focus();
   }, [multiline]);
 
   const onPaste = (event: ClipboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     if (!normalizeValue) return;
-    const pasted = event.clipboardData.getData("text");
+    const pasted = event.clipboardData.getData('text');
     const normalized = normalizeValue(pasted);
     if (normalized === pasted) return;
     event.preventDefault();
@@ -533,11 +582,7 @@ export function ConfigAddSourcePanel({
 
   return (
     <ConfigDetailStack className="is-fill">
-      <ConfigAddSourceHeading
-        title={title}
-        catalogs={catalogs}
-        target={target}
-      />
+      <ConfigAddSourceHeading title={title} catalogs={catalogs} target={target} />
 
       <ConfigField label={inputLabel}>
         {multiline ? (
@@ -577,7 +622,7 @@ export function ConfigAddSourcePanel({
               if (normalizeValue) onValueChange(normalizeValue(event.currentTarget.value));
             }}
             onKeyDown={(event) => {
-              if (event.key === "Enter" && canSubmit) onSubmit();
+              if (event.key === 'Enter' && canSubmit) onSubmit();
             }}
           />
         )}
@@ -589,26 +634,28 @@ export function ConfigAddSourcePanel({
         <div className="config-add-source-examples">
           <div className="config-add-source-examples-label">{examplesLabel}</div>
           <div className="config-add-source-example-list">
-            {examples.map((example) => typeof example === "string" ? (
-              <button
-                key={example}
-                type="button"
-                className="config-add-source-example"
-                onClick={() => onValueChange(example)}
-              >
-                {example}
-              </button>
-            ) : (
-              <button
-                key={example.value}
-                type="button"
-                className="config-add-source-example has-label"
-                onClick={() => onValueChange(example.value)}
-              >
-                <span className="config-add-source-example-label">{example.label}</span>
-                <span className="config-add-source-example-value">{example.value}</span>
-              </button>
-            ))}
+            {examples.map((example) =>
+              typeof example === 'string' ? (
+                <button
+                  key={example}
+                  type="button"
+                  className="config-add-source-example"
+                  onClick={() => onValueChange(example)}
+                >
+                  {example}
+                </button>
+              ) : (
+                <button
+                  key={example.value}
+                  type="button"
+                  className="config-add-source-example has-label"
+                  onClick={() => onValueChange(example.value)}
+                >
+                  <span className="config-add-source-example-label">{example.label}</span>
+                  <span className="config-add-source-example-value">{example.value}</span>
+                </button>
+              )
+            )}
           </div>
         </div>
       )}
@@ -623,9 +670,17 @@ export function ConfigAddSourcePanel({
 }
 
 /** A banner above a panel's split view; `action` sits at its right edge. `id` lets a control it explains point at it. */
-export function ConfigNotice({ id, action, children }: { id?: string; action?: ReactNode; children: ReactNode }) {
+export function ConfigNotice({
+  id,
+  action,
+  children
+}: {
+  id?: string;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
   return (
-    <div id={id} role="status" className={`config-notice${action ? " has-action" : ""}`}>
+    <div id={id} role="status" className={`config-notice${action ? ' has-action' : ''}`}>
       {action ? <span className="config-notice-text">{children}</span> : children}
       {action}
     </div>
@@ -642,7 +697,7 @@ export function ConfigTrustNotice({
   message,
   trustLabel,
   trusting = false,
-  onTrust,
+  onTrust
 }: {
   id?: string;
   message: string;
@@ -653,11 +708,13 @@ export function ConfigTrustNotice({
   return (
     <ConfigNotice
       id={id}
-      action={onTrust && trustLabel ? (
-        <ConfigButton size="small" onClick={onTrust} disabled={trusting}>
-          {trustLabel}
-        </ConfigButton>
-      ) : undefined}
+      action={
+        onTrust && trustLabel ? (
+          <ConfigButton size="small" onClick={onTrust} disabled={trusting}>
+            {trustLabel}
+          </ConfigButton>
+        ) : undefined
+      }
     >
       {message}
     </ConfigNotice>
@@ -692,14 +749,14 @@ export function ConfigFooter({ status, children }: { status?: ReactNode; childre
  */
 export function ConfigFooterStatus({
   summary,
-  tone = "default",
-  details,
+  tone = 'default',
+  details
 }: {
   summary: ReactNode;
-  tone?: "default" | "warning" | "error";
+  tone?: 'default' | 'warning' | 'error';
   details?: readonly ReactNode[];
 }) {
-  const className = `config-footer-status-summary${tone === "default" ? "" : ` is-${tone}`}`;
+  const className = `config-footer-status-summary${tone === 'default' ? '' : ` is-${tone}`}`;
   if (!details?.length) return <span className={className}>{summary}</span>;
   return (
     <details className="config-footer-status-details">
@@ -715,22 +772,23 @@ export function ConfigFooterStatus({
 
 /** A button; `ref` reaches it (a prop since React 19), so a panel can move focus to it. */
 export function ConfigButton({
-  variant = "secondary",
-  size = "default",
+  variant = 'secondary',
+  size = 'default',
   className,
   children,
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ConfigButtonVariant; size?: ConfigButtonSize; ref?: Ref<HTMLButtonElement> }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: ConfigButtonVariant;
+  size?: ConfigButtonSize;
+  ref?: Ref<HTMLButtonElement>;
+}) {
   return (
     <button
       type="button"
       {...props}
-      className={[
-        "config-button",
-        `config-button-${variant}`,
-        `config-button-${size}`,
-        className,
-      ].filter(Boolean).join(" ")}
+      className={['config-button', `config-button-${variant}`, `config-button-${size}`, className]
+        .filter(Boolean)
+        .join(' ')}
     >
       {children}
     </button>
@@ -741,15 +799,15 @@ export function ConfigSwitch({
   checked,
   disabled = false,
   loading = false,
-  size = "default",
+  size = 'default',
   label,
   describedBy,
-  onChange,
+  onChange
 }: {
   checked: boolean;
   disabled?: boolean;
   loading?: boolean;
-  size?: "default" | "small";
+  size?: 'default' | 'small';
   label: string;
   /** The id of visible text about the switch, such as why it is disabled; never only its tooltip. */
   describedBy?: string;
@@ -766,7 +824,7 @@ export function ConfigSwitch({
       aria-describedby={describedBy}
       title={label}
       disabled={inactive}
-      className={`config-switch${size === "small" ? " is-small" : ""}${loading ? " is-loading" : ""}`}
+      className={`config-switch${size === 'small' ? ' is-small' : ''}${loading ? ' is-loading' : ''}`}
       onClick={() => onChange(!checked)}
     >
       <span className="config-switch-knob" aria-hidden="true" />
@@ -774,16 +832,31 @@ export function ConfigSwitch({
   );
 }
 
-export function ConfigListAction({ active = false, children, className, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { active?: boolean; ref?: Ref<HTMLButtonElement> }) {
+export function ConfigListAction({
+  active = false,
+  children,
+  className,
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement> & { active?: boolean; ref?: Ref<HTMLButtonElement> }) {
   return (
     <div className="config-list-action">
       <button
         type="button"
         {...props}
-        aria-current={active ? "page" : undefined}
-        className={["config-list-action-button", className].filter(Boolean).join(" ")}
+        aria-current={active ? 'page' : undefined}
+        className={['config-list-action-button', className].filter(Boolean).join(' ')}
       >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
           <path d="M12 5v14M5 12h14" />
         </svg>
         {children}
@@ -796,7 +869,7 @@ export function ConfigStatusDot({ active, color }: { active?: boolean; color?: s
   return (
     <span
       aria-hidden="true"
-      className={`config-status-dot${active ? " is-active" : active === false ? " is-inactive" : ""}`}
+      className={`config-status-dot${active ? ' is-active' : active === false ? ' is-inactive' : ''}`}
       style={color ? { backgroundColor: color } : undefined}
     />
   );

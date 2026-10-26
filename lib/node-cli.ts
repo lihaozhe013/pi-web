@@ -1,8 +1,8 @@
-import { existsSync } from "fs";
-import { dirname, join } from "path";
-import { execPath } from "process";
+import { existsSync } from 'fs';
+import { dirname, join } from 'path';
+import { execPath } from 'process';
 
-export type NodeCliName = "npm" | "npx";
+export type NodeCliName = 'npm' | 'npx';
 
 export interface NodeCliLookupOptions {
   /** Directory holding the running `node` binary. Defaults to the real one. */
@@ -24,15 +24,15 @@ export interface NodeCliLookupOptions {
  */
 export function findNodeCliScript(
   name: NodeCliName,
-  options: NodeCliLookupOptions = {},
+  options: NodeCliLookupOptions = {}
 ): string | null {
   const nodeDir = options.nodeDir ?? dirname(execPath);
   const fileExists = options.fileExists ?? existsSync;
   const candidates = [
     // Windows MSI installer layout: node.exe and node_modules share a dir
-    join(nodeDir, "node_modules", "npm", "bin", `${name}-cli.js`),
+    join(nodeDir, 'node_modules', 'npm', 'bin', `${name}-cli.js`),
     // Unix layout: .../bin/node + .../lib/node_modules/npm/bin/<name>-cli.js
-    join(nodeDir, "..", "lib", "node_modules", "npm", "bin", `${name}-cli.js`),
+    join(nodeDir, '..', 'lib', 'node_modules', 'npm', 'bin', `${name}-cli.js`)
   ];
   for (const candidate of candidates) {
     try {
@@ -57,10 +57,8 @@ export interface NodeCliInvocation {
 export function nodeCliInvocation(
   name: NodeCliName,
   args: string[],
-  options: NodeCliLookupOptions = {},
+  options: NodeCliLookupOptions = {}
 ): NodeCliInvocation {
   const script = findNodeCliScript(name, options);
-  return script
-    ? { command: execPath, args: [script, ...args] }
-    : { command: name, args };
+  return script ? { command: execPath, args: [script, ...args] } : { command: name, args };
 }

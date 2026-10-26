@@ -33,7 +33,8 @@ function unexpectedTokenPosition(text: string, token: string, quoted: string): n
     position = text.length - context.length + TOKEN_CONTEXT;
   } else {
     position = text.indexOf(context);
-    while (position >= 0 && text[position + TOKEN_CONTEXT] !== token) position = text.indexOf(context, position + 1);
+    while (position >= 0 && text[position + TOKEN_CONTEXT] !== token)
+      position = text.indexOf(context, position + 1);
     if (position < 0) return undefined;
     position += TOKEN_CONTEXT;
   }
@@ -43,8 +44,8 @@ function unexpectedTokenPosition(text: string, token: string, quoted: string): n
 /** `at position 62 (line 5 column 7)`, as V8 words the messages that give one. */
 function describePosition(text: string, position: number): string {
   const before = text.slice(0, position);
-  const line = before.split("\n").length;
-  const column = position - before.lastIndexOf("\n");
+  const line = before.split('\n').length;
+  const column = position - before.lastIndexOf('\n');
   return `at position ${position} (line ${line} column ${column})`;
 }
 
@@ -61,16 +62,16 @@ export function jsonErrorMessage(error: unknown, text: string): string {
   const message = errorMessage(error);
   if (!message.includes('"')) return message;
   const match = UNEXPECTED_TOKEN.exec(message);
-  if (!match) return "Not valid JSON";
+  if (!match) return 'Not valid JSON';
   const [, token, quoted] = match;
   const code = token.charCodeAt(0);
   const shown = /[\p{L}\p{N}]/u.test(token)
-    ? ""
+    ? ''
     : /[\p{P}\p{S}]/u.test(token)
       ? ` '${token}'`
-      : ` U+${code.toString(16).toUpperCase().padStart(4, "0")}`;
+      : ` U+${code.toString(16).toUpperCase().padStart(4, '0')}`;
   const position = unexpectedTokenPosition(text, token, quoted);
-  return `Unexpected token${shown} in JSON${position === undefined ? "" : ` ${describePosition(text, position)}`}`;
+  return `Unexpected token${shown} in JSON${position === undefined ? '' : ` ${describePosition(text, position)}`}`;
 }
 
 /** How V8 ends a parse error that quotes the source (`... is not valid JSON`). */
@@ -86,7 +87,8 @@ const QUOTES_SOURCE = /is not valid JSON$/;
  * `paths` are the files the SDK read, which prefix its messages.
  */
 export function scrubMcpLoadError(message: string, paths: readonly string[]): string {
-  const prefix = paths.map((path) => `${path}: `).find((candidate) => message.startsWith(candidate)) ?? "";
+  const prefix =
+    paths.map((path) => `${path}: `).find((candidate) => message.startsWith(candidate)) ?? '';
   const rest = message.slice(prefix.length);
-  return QUOTES_SOURCE.test(rest) ? `${prefix}${jsonErrorMessage(rest, "")}` : message;
+  return QUOTES_SOURCE.test(rest) ? `${prefix}${jsonErrorMessage(rest, '')}` : message;
 }

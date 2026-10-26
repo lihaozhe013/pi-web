@@ -28,7 +28,7 @@
  * render through the same split diff view as the built-in edit tool.
  */
 
-import type { SplitDiffCell, SplitDiffFile, SplitDiffRow } from "./patch";
+import type { SplitDiffCell, SplitDiffFile, SplitDiffRow } from './patch';
 
 export interface ApplyPatchPreviewFile {
   filePath?: string;
@@ -41,7 +41,7 @@ export interface ApplyPatchPreviewFile {
 export function extractApplyPatchPaths(patchText: string): string[] {
   const paths: string[] = [];
   for (const match of patchText.matchAll(/^\*\*\* (?:Add|Delete|Update) File: (.+)$/gm)) {
-    const filePath = (match[1] ?? "").trim();
+    const filePath = (match[1] ?? '').trim();
     if (filePath && !paths.includes(filePath)) paths.push(filePath);
   }
   return paths;
@@ -49,15 +49,15 @@ export function extractApplyPatchPaths(patchText: string): string[] {
 
 /** Pull the patch document out of an apply_patch tool call's input. */
 export function getApplyPatchInputText(input: unknown, rawInput?: string): string {
-  if (input && typeof input === "object" && !Array.isArray(input)) {
+  if (input && typeof input === 'object' && !Array.isArray(input)) {
     const value = (input as Record<string, unknown>).input;
-    if (typeof value === "string" && value.length > 0) return value;
+    if (typeof value === 'string' && value.length > 0) return value;
   }
-  return typeof rawInput === "string" ? rawInput : "";
+  return typeof rawInput === 'string' ? rawInput : '';
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /**
@@ -78,7 +78,9 @@ export function getApplyPatchAppliedFiles(details: unknown): string[] | null {
   if (!isRecord(details) || !isRecord(details.result)) return null;
   const applied = details.result.appliedFiles;
   if (!Array.isArray(applied)) return null;
-  return applied.filter((filePath): filePath is string => typeof filePath === "string" && filePath.length > 0);
+  return applied.filter(
+    (filePath): filePath is string => typeof filePath === 'string' && filePath.length > 0
+  );
 }
 
 // ── Shared row building ──────────────────────────────────────────────────────
@@ -97,15 +99,15 @@ function createRowSink(): RowSink {
   let pendingRemoved: SplitDiffCell[] = [];
   let pendingAdded: SplitDiffCell[] = [];
 
-  const emptyCell = (): SplitDiffCell => ({ lineNo: null, text: "", type: "empty" });
+  const emptyCell = (): SplitDiffCell => ({ lineNo: null, text: '', type: 'empty' });
 
   const flushChanges = () => {
     const count = Math.max(pendingRemoved.length, pendingAdded.length);
     for (let i = 0; i < count; i++) {
       rows.push({
-        type: "line",
+        type: 'line',
         left: pendingRemoved[i] ?? emptyCell(),
-        right: pendingAdded[i] ?? emptyCell(),
+        right: pendingAdded[i] ?? emptyCell()
       });
     }
     pendingRemoved = [];
@@ -117,29 +119,30 @@ function createRowSink(): RowSink {
     context(text, lineNo) {
       flushChanges();
       rows.push({
-        type: "line",
-        left: { lineNo, text, type: "context" },
-        right: { lineNo, text, type: "context" },
+        type: 'line',
+        left: { lineNo, text, type: 'context' },
+        right: { lineNo, text, type: 'context' }
       });
     },
     removed(text, lineNo) {
-      pendingRemoved.push({ lineNo, text, type: "removed" });
+      pendingRemoved.push({ lineNo, text, type: 'removed' });
     },
     added(text, lineNo) {
-      pendingAdded.push({ lineNo, text, type: "added" });
+      pendingAdded.push({ lineNo, text, type: 'added' });
     },
     gap() {
       flushChanges();
       // Only between lines: never before the first one or twice in a row.
-      if (rows.length > 0 && rows[rows.length - 1].type !== "gap") rows.push({ type: "gap", count: null });
+      if (rows.length > 0 && rows[rows.length - 1].type !== 'gap')
+        rows.push({ type: 'gap', count: null });
     },
     finish() {
       flushChanges();
       // A gap with no line after it (a trailing or still-streaming @@) marks
       // nothing. Mutate in place, callers already hold a reference to this
       // array; a file left with no rows is dropped by its caller.
-      if (rows.length > 0 && rows[rows.length - 1].type === "gap") rows.pop();
-    },
+      if (rows.length > 0 && rows[rows.length - 1].type === 'gap') rows.pop();
+    }
   };
 }
 
@@ -150,7 +153,10 @@ function createRowSink(): RowSink {
  * input (streaming) — complete operations parsed so far are returned.
  */
 export function parseApplyPatchInput(patchText: string): SplitDiffFile[] | null {
-  if (!patchText.includes("*** Begin Patch") && !/\*\*\* (?:Add|Delete|Update) File: /.test(patchText)) {
+  if (
+    !patchText.includes('*** Begin Patch') &&
+    !/\*\*\* (?:Add|Delete|Update) File: /.test(patchText)
+  ) {
     return null;
   }
 
@@ -159,54 +165,54 @@ export function parseApplyPatchInput(patchText: string): SplitDiffFile[] | null 
   let current: SplitDiffFile | null = null;
   // "add" / "delete" bodies carry bare content lines; "update" bodies carry
   // prefixed ones. Tracked so unprefixed lines land on the correct side.
-  let operation: "add" | "delete" | "update" | null = null;
+  let operation: 'add' | 'delete' | 'update' | null = null;
 
   for (const rawLine of patchText.split(/\r?\n/)) {
     const header = rawLine.match(/^\*\*\* (Add|Delete|Update) File: (.+)$/);
     if (header) {
-      const op = (header[1]?.toLowerCase() ?? "update") as "add" | "delete" | "update";
-      const filePath = (header[2] ?? "").trim();
+      const op = (header[1]?.toLowerCase() ?? 'update') as 'add' | 'delete' | 'update';
+      const filePath = (header[2] ?? '').trim();
       sink?.finish();
       operation = op;
       sink = createRowSink();
       current = {
-        oldPath: op === "add" ? undefined : filePath,
-        newPath: op === "delete" ? undefined : filePath,
-        rows: sink.rows,
+        oldPath: op === 'add' ? undefined : filePath,
+        newPath: op === 'delete' ? undefined : filePath,
+        rows: sink.rows
       };
       files.push(current);
       continue;
     }
 
     if (/^\*\*\* Move to: /.test(rawLine)) {
-      const movePath = rawLine.replace(/^\*\*\* Move to: /, "").trim();
-      if (current && operation === "update") current.newPath = movePath;
+      const movePath = rawLine.replace(/^\*\*\* Move to: /, '').trim();
+      if (current && operation === 'update') current.newPath = movePath;
       continue;
     }
 
     if (!sink || !current) continue;
     const body: RowSink = sink;
-    if (rawLine.startsWith("*** ")) continue; // Begin/End Patch markers
+    if (rawLine.startsWith('*** ')) continue; // Begin/End Patch markers
     // Each @@ starts a chunk at another place in the file. It carries no line
     // numbers, so the gap before a later chunk has no count.
-    if (operation === "update" && rawLine.startsWith("@@")) {
+    if (operation === 'update' && rawLine.startsWith('@@')) {
       body.gap();
       continue;
     }
 
-    if (operation === "update") {
+    if (operation === 'update') {
       const prefix = rawLine[0];
       const content = rawLine.slice(1);
-      if (prefix === "+") body.added(content, null);
-      else if (prefix === "-") body.removed(content, null);
-      else if (prefix === " ") body.context(content, null);
-      else if (rawLine !== "") body.context(rawLine, null); // defensive: unprefixed context
-    } else if (operation === "add") {
-      if (rawLine === "") continue;
-      sink.added(rawLine.startsWith("+") ? rawLine.slice(1) : rawLine, null);
-    } else if (operation === "delete") {
-      if (rawLine === "") continue;
-      sink.removed(rawLine.startsWith("-") ? rawLine.slice(1) : rawLine, null);
+      if (prefix === '+') body.added(content, null);
+      else if (prefix === '-') body.removed(content, null);
+      else if (prefix === ' ') body.context(content, null);
+      else if (rawLine !== '') body.context(rawLine, null); // defensive: unprefixed context
+    } else if (operation === 'add') {
+      if (rawLine === '') continue;
+      sink.added(rawLine.startsWith('+') ? rawLine.slice(1) : rawLine, null);
+    } else if (operation === 'delete') {
+      if (rawLine === '') continue;
+      sink.removed(rawLine.startsWith('-') ? rawLine.slice(1) : rawLine, null);
     }
   }
   sink?.finish();
@@ -223,15 +229,15 @@ export function parseApplyPatchInput(patchText: string): SplitDiffFile[] | null 
  * with real line numbers, so those are preserved.
  */
 export function applyPatchPreviewToFiles(preview: unknown): SplitDiffFile[] | null {
-  if (!preview || typeof preview !== "object" || Array.isArray(preview)) return null;
+  if (!preview || typeof preview !== 'object' || Array.isArray(preview)) return null;
   const rawFiles = (preview as Record<string, unknown>).files;
   if (!Array.isArray(rawFiles)) return null;
 
   const files: SplitDiffFile[] = [];
   for (const rawFile of rawFiles) {
-    if (!rawFile || typeof rawFile !== "object" || Array.isArray(rawFile)) continue;
+    if (!rawFile || typeof rawFile !== 'object' || Array.isArray(rawFile)) continue;
     const entry = rawFile as ApplyPatchPreviewFile;
-    if (typeof entry.filePath !== "string" || typeof entry.diff !== "string") continue;
+    if (typeof entry.filePath !== 'string' || typeof entry.diff !== 'string') continue;
 
     const sink = createRowSink();
     for (const line of entry.diff.split(/\r?\n/)) {
@@ -239,18 +245,18 @@ export function applyPatchPreviewToFiles(preview: unknown): SplitDiffFile[] | nu
       if (!match) continue;
       const [, marker, num, text] = match;
       const lineNo = Number(num);
-      if (marker === "+") sink.added(text, lineNo);
-      else if (marker === "-") sink.removed(text, lineNo);
+      if (marker === '+') sink.added(text, lineNo);
+      else if (marker === '-') sink.removed(text, lineNo);
       else sink.context(text, lineNo);
     }
     sink.finish();
 
-    const isAdd = entry.operation === "add";
-    const isDelete = entry.operation === "delete";
+    const isAdd = entry.operation === 'add';
+    const isDelete = entry.operation === 'delete';
     files.push({
       oldPath: isAdd ? undefined : entry.filePath,
       newPath: isDelete ? undefined : (entry.movePath ?? entry.filePath),
-      rows: sink.rows,
+      rows: sink.rows
     });
   }
 

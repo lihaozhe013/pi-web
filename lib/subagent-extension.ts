@@ -1,24 +1,29 @@
-import { Type } from "@earendil-works/pi-ai";
+import { Type } from '@earendil-works/pi-ai';
 import {
   defineTool,
   type ExtensionContext,
   type InlineExtension,
   type LoadExtensionsResult,
-  type ToolExposure,
-} from "@earendil-works/pi-coding-agent";
+  type ToolExposure
+} from '@earendil-works/pi-coding-agent';
 import {
   SUBAGENT_CONTROL_TOOL_NAMES,
   type SubagentProfile,
-  type SubagentRunInfo,
-} from "./subagents";
-import { MAX_SUBAGENT_INPUT_BYTES, MAX_SUBAGENT_INPUT_FILES } from "./subagent-input";
-import { worktreeHasUncommittedFiles } from "./worktree";
+  type SubagentRunInfo
+} from './subagents';
+import { MAX_SUBAGENT_INPUT_BYTES, MAX_SUBAGENT_INPUT_FILES } from './subagent-input';
+import { worktreeHasUncommittedFiles } from './worktree';
 
-export const HOST_SUBAGENT_EXTENSION_NAME = "pi-web-subagents";
+export const HOST_SUBAGENT_EXTENSION_NAME = 'pi-web-subagents';
 const HOST_SUBAGENT_EXTENSION_PATH = `<inline:${HOST_SUBAGENT_EXTENSION_NAME}>`;
 const SUBAGENT_TOOL_NAMES = new Set<string>(SUBAGENT_CONTROL_TOOL_NAMES);
-const LEGACY_SUBAGENT_PACKAGE_NAME = "pi-subagents";
-const TERMINAL_SUBAGENT_STATUSES = new Set<SubagentRunInfo["status"]>(["completed", "failed", "aborted", "interrupted"]);
+const LEGACY_SUBAGENT_PACKAGE_NAME = 'pi-subagents';
+const TERMINAL_SUBAGENT_STATUSES = new Set<SubagentRunInfo['status']>([
+  'completed',
+  'failed',
+  'aborted',
+  'interrupted'
+]);
 /**
  * The control tools are declared to the model and activated on registration like `direct` tools,
  * but pi never lets another tool call a `model-only` tool through `ctx.executeTool()`, so a
@@ -26,14 +31,14 @@ const TERMINAL_SUBAGENT_STATUSES = new Set<SubagentRunInfo["status"]>(["complete
  * record the nested call id (`<codemode call>/<n>`) as its `parentToolCallId`, which no transcript
  * entry carries, so the chat would lose the link to the child session.
  */
-const SUBAGENT_TOOL_EXPOSURE = "model-only" satisfies ToolExposure;
+const SUBAGENT_TOOL_EXPOSURE = 'model-only' satisfies ToolExposure;
 
 export interface SubagentToolDetails {
-  kind: "pi-web-subagent";
+  kind: 'pi-web-subagent';
   sessionId: string;
   profile: string;
   description: string;
-  status: SubagentRunInfo["status"];
+  status: SubagentRunInfo['status'];
   runInBackground: boolean;
   createdAt: string;
   completedAt?: string;
@@ -52,7 +57,7 @@ export interface StartSubagentRequest {
   description: string;
   runInBackground?: boolean;
   model?: string;
-  isolation?: "worktree";
+  isolation?: 'worktree';
   signal?: AbortSignal;
   onUpdate?: (run: SubagentRunInfo) => void;
 }
@@ -79,7 +84,7 @@ export interface SubagentExtensionRuntime {
   get(sessionId: string): Promise<SubagentRunInfo | null>;
   steer(sessionId: string, message: string): Promise<void>;
   notifyParent(run: SubagentRunInfo): Promise<void>;
-  markResultConsumed(run: Pick<SubagentRunInfo, "sessionId" | "completedAt">): void;
+  markResultConsumed(run: Pick<SubagentRunInfo, 'sessionId' | 'completedAt'>): void;
 }
 
 export type SubagentProfileProvider = () => readonly SubagentProfile[];
@@ -87,18 +92,20 @@ export type SubagentEnabledProvider = () => boolean;
 
 function agentTypeDescription(profiles: readonly SubagentProfile[]): string {
   const available = profiles.filter((profile) => profile.enabled);
-  if (available.length === 0) return "No subagent profiles are currently enabled.";
-  return available.map((profile) => {
-    const details = [`Tools: ${profile.tools.length > 0 ? profile.tools.join(", ") : "none"}`];
-    if (profile.model) details.push(`Model: ${profile.model}`);
-    if (profile.thinking) details.push(`Thinking: ${profile.thinking}`);
-    return `- ${profile.name}: ${profile.description} (${details.join("; ")})`;
-  }).join("\n");
+  if (available.length === 0) return 'No subagent profiles are currently enabled.';
+  return available
+    .map((profile) => {
+      const details = [`Tools: ${profile.tools.length > 0 ? profile.tools.join(', ') : 'none'}`];
+      if (profile.model) details.push(`Model: ${profile.model}`);
+      if (profile.thinking) details.push(`Thinking: ${profile.thinking}`);
+      return `- ${profile.name}: ${profile.description} (${details.join('; ')})`;
+    })
+    .join('\n');
 }
 
 export function subagentToolDetails(run: SubagentRunInfo): SubagentToolDetails {
   return {
-    kind: "pi-web-subagent",
+    kind: 'pi-web-subagent',
     sessionId: run.sessionId,
     profile: run.profile,
     description: run.description,
@@ -109,7 +116,7 @@ export function subagentToolDetails(run: SubagentRunInfo): SubagentToolDetails {
     ...(run.error ? { error: run.error } : {}),
     ...(run.worktreePath ? { worktreePath: run.worktreePath } : {}),
     ...(run.worktreeBranch ? { worktreeBranch: run.worktreeBranch } : {}),
-    ...(run.worktreeCleanupError ? { worktreeCleanupError: run.worktreeCleanupError } : {}),
+    ...(run.worktreeCleanupError ? { worktreeCleanupError: run.worktreeCleanupError } : {})
   };
 }
 
@@ -121,30 +128,33 @@ export function subagentToolDetails(run: SubagentRunInfo): SubagentToolDetails {
  * `worktreeExists` (before #1202) says nothing.
  */
 function worktreeOutcomeText(run: SubagentRunInfo): string | undefined {
-  if (!run.worktreePath || !run.worktreeBranch || run.worktreeExists === undefined) return undefined;
-  if (!run.worktreeExists) return `Its worktree was removed; branch ${run.worktreeBranch} keeps any commits it made.`;
+  if (!run.worktreePath || !run.worktreeBranch || run.worktreeExists === undefined)
+    return undefined;
+  if (!run.worktreeExists)
+    return `Its worktree was removed; branch ${run.worktreeBranch} keeps any commits it made.`;
   return run.worktreeCleanupError && worktreeHasUncommittedFiles(run.worktreeCleanupError)
     ? `Its worktree was kept at ${run.worktreePath} (branch ${run.worktreeBranch}) because it still has uncommitted or untracked files.`
     : `Its worktree is still at ${run.worktreePath} (branch ${run.worktreeBranch}).`;
 }
 
 export function subagentFinalText(run: SubagentRunInfo): string {
-  if (run.status === "starting" || run.status === "running") {
+  if (run.status === 'starting' || run.status === 'running') {
     return `Subagent ${run.sessionId} is ${run.status}.`;
   }
   // Keep the session ID in the text: the model only sees `content`, never `details`, and needs it for `resume` / `get_subagent_result`.
   // The worktree line follows the status, before the subagent's own words.
   const worktree = worktreeOutcomeText(run);
-  const withWorktree = (status: string) => worktree ? `${status}\n\n${worktree}` : status;
-  if (run.status === "completed") {
+  const withWorktree = (status: string) => (worktree ? `${status}\n\n${worktree}` : status);
+  if (run.status === 'completed') {
     const result = run.result?.trim();
     return result
       ? `${withWorktree(`Subagent ${run.sessionId} completed.`)}\n\n${result}`
       : withWorktree(`Subagent ${run.sessionId} completed without text output.`);
   }
-  if (run.status === "aborted") return withWorktree(`Subagent ${run.sessionId} was stopped.`);
-  if (run.status === "interrupted") return `Subagent ${run.sessionId} was interrupted before completion.`;
-  const failure = withWorktree(`Subagent ${run.sessionId} failed: ${run.error ?? "Unknown error"}`);
+  if (run.status === 'aborted') return withWorktree(`Subagent ${run.sessionId} was stopped.`);
+  if (run.status === 'interrupted')
+    return `Subagent ${run.sessionId} was interrupted before completion.`;
+  const failure = withWorktree(`Subagent ${run.sessionId} failed: ${run.error ?? 'Unknown error'}`);
   const partial = run.result?.trim();
   return partial ? `${failure}\n\nPartial output:\n\n${partial}` : failure;
 }
@@ -170,7 +180,7 @@ export function subagentNotificationText(run: SubagentRunInfo): string {
 export function createSubagentExtension(
   runtime: SubagentExtensionRuntime,
   getProfiles: SubagentProfileProvider,
-  isEnabled: SubagentEnabledProvider = () => true,
+  isEnabled: SubagentEnabledProvider = () => true
 ): InlineExtension {
   return {
     name: HOST_SUBAGENT_EXTENSION_NAME,
@@ -179,183 +189,264 @@ export function createSubagentExtension(
       if (!isEnabled()) return;
       const profiles = getProfiles().filter((profile) => profile.enabled);
       const profileNames = profiles.map((profile) => profile.name);
-      const availableTypes = profileNames.length > 0 ? profileNames.join(", ") : "none";
-      pi.registerTool(defineTool({
-        name: "Agent",
-        label: "Agent",
-        description: `Delegate a focused task to a configured subagent. Each subagent runs as a full, inspectable Pi session. Use background mode for independent work and foreground mode when the result is needed immediately.\n\nAvailable agent types:\n${agentTypeDescription(profiles)}`,
-        promptSnippet: "Delegate a focused task to an inspectable subagent session",
-        exposure: SUBAGENT_TOOL_EXPOSURE,
-        promptGuidelines: [
-          "Use Agent for a focused task that benefits from an isolated context.",
-          "Use multiple background Agent calls in the same response for independent parallel work.",
-          "Do not duplicate work already delegated to a running subagent.",
-        ],
-        executionMode: "parallel",
-        parameters: Type.Object({
-          subagent_type: Type.Optional(Type.String({ description: `Configured agent profile. Available types: ${availableTypes}. Default: general-purpose.` })),
-          prompt: Type.String({ description: "The complete task for the subagent." }),
-          resume: Type.Optional(Type.String({ description: "Existing session ID to continue with its current profile, model, thinking, and context. Omit new-session options." })),
-          input_files: Type.Optional(Type.Array(Type.String(), {
-            description: `UTF-8 text files under the session cwd to include with the task. Together they may fill about a tenth of the subagent model's context window, at most ${MAX_SUBAGENT_INPUT_BYTES / 1024} KB. Pass fewer or smaller files, or name the paths in prompt if the subagent can read them.`,
-            maxItems: MAX_SUBAGENT_INPUT_FILES,
-          })),
-          description: Type.String({ description: "Short activity label shown in the UI." }),
-          run_in_background: Type.Optional(Type.Boolean({ description: "Return immediately and notify this session when complete." })),
-          model: Type.Optional(Type.String({ description: 'Optional provider/modelId override. Append ":<level>" (off, minimal, low, medium, high, xhigh, max) to also set the thinking level for this run, e.g. "provider/model:high".' })),
-          isolation: Type.Optional(Type.String({ description: 'Set to "worktree" to run the subagent in an isolated git worktree.' })),
-        }),
-        async execute(toolCallId, params, signal, onUpdate, ctx) {
-          try {
-            const resume = params.resume?.trim();
-            if (resume) {
-              const creationOptions = [
-                params.model?.trim() && "model",
-                params.input_files?.length && "input_files",
-                params.isolation?.trim() && "isolation",
-              ].filter(Boolean);
-              if (creationOptions.length > 0) {
-                throw new Error(`${creationOptions.join(", ")} only apply to new subagents. Omit them to resume the existing session, or start a new subagent.`);
-              }
-            }
-            const execution = resume
-              ? await runtime.resume({
-                  parentContext: ctx,
-                  parentToolCallId: toolCallId,
-                  sessionId: resume,
-                  task: params.prompt,
-                  description: params.description,
-                  ...(params.run_in_background !== undefined ? { runInBackground: params.run_in_background } : {}),
-                  signal,
-                  onUpdate: (run) => onUpdate?.({
-                    content: [{ type: "text", text: `${run.profile}: ${run.description} (${run.status})` }],
-                    details: subagentToolDetails(run),
-                  }),
-                })
-              : await runtime.start({
-              parentContext: ctx,
-              parentToolCallId: toolCallId,
-              profile: params.subagent_type ?? "general-purpose",
-              task: params.prompt,
-              ...(params.input_files ? { inputFiles: params.input_files } : {}),
-              description: params.description,
-              ...(params.run_in_background !== undefined ? { runInBackground: params.run_in_background } : {}),
-              ...(params.model ? { model: params.model } : {}),
-              ...(params.isolation === "worktree" ? { isolation: "worktree" as const } : {}),
-              signal,
-              onUpdate: (run) => onUpdate?.({
-                content: [{ type: "text", text: `${run.profile}: ${run.description} (${run.status})` }],
-                details: subagentToolDetails(run),
-              }),
-                });
-
-            if (execution.run.runInBackground) {
-              void execution.completion
-                .then((run) => runtime.notifyParent(run))
-                .catch((error) => {
-                  console.error(
-                    "[pi-web] failed to deliver subagent completion:",
-                    error instanceof Error ? error.message : error,
+      const availableTypes = profileNames.length > 0 ? profileNames.join(', ') : 'none';
+      pi.registerTool(
+        defineTool({
+          name: 'Agent',
+          label: 'Agent',
+          description: `Delegate a focused task to a configured subagent. Each subagent runs as a full, inspectable Pi session. Use background mode for independent work and foreground mode when the result is needed immediately.\n\nAvailable agent types:\n${agentTypeDescription(profiles)}`,
+          promptSnippet: 'Delegate a focused task to an inspectable subagent session',
+          exposure: SUBAGENT_TOOL_EXPOSURE,
+          promptGuidelines: [
+            'Use Agent for a focused task that benefits from an isolated context.',
+            'Use multiple background Agent calls in the same response for independent parallel work.',
+            'Do not duplicate work already delegated to a running subagent.'
+          ],
+          executionMode: 'parallel',
+          parameters: Type.Object({
+            subagent_type: Type.Optional(
+              Type.String({
+                description: `Configured agent profile. Available types: ${availableTypes}. Default: general-purpose.`
+              })
+            ),
+            prompt: Type.String({ description: 'The complete task for the subagent.' }),
+            resume: Type.Optional(
+              Type.String({
+                description:
+                  'Existing session ID to continue with its current profile, model, thinking, and context. Omit new-session options.'
+              })
+            ),
+            input_files: Type.Optional(
+              Type.Array(Type.String(), {
+                description: `UTF-8 text files under the session cwd to include with the task. Together they may fill about a tenth of the subagent model's context window, at most ${MAX_SUBAGENT_INPUT_BYTES / 1024} KB. Pass fewer or smaller files, or name the paths in prompt if the subagent can read them.`,
+                maxItems: MAX_SUBAGENT_INPUT_FILES
+              })
+            ),
+            description: Type.String({ description: 'Short activity label shown in the UI.' }),
+            run_in_background: Type.Optional(
+              Type.Boolean({
+                description: 'Return immediately and notify this session when complete.'
+              })
+            ),
+            model: Type.Optional(
+              Type.String({
+                description:
+                  'Optional provider/modelId override. Append ":<level>" (off, minimal, low, medium, high, xhigh, max) to also set the thinking level for this run, e.g. "provider/model:high".'
+              })
+            ),
+            isolation: Type.Optional(
+              Type.String({
+                description: 'Set to "worktree" to run the subagent in an isolated git worktree.'
+              })
+            )
+          }),
+          async execute(toolCallId, params, signal, onUpdate, ctx) {
+            try {
+              const resume = params.resume?.trim();
+              if (resume) {
+                const creationOptions = [
+                  params.model?.trim() && 'model',
+                  params.input_files?.length && 'input_files',
+                  params.isolation?.trim() && 'isolation'
+                ].filter(Boolean);
+                if (creationOptions.length > 0) {
+                  throw new Error(
+                    `${creationOptions.join(', ')} only apply to new subagents. Omit them to resume the existing session, or start a new subagent.`
                   );
-                });
+                }
+              }
+              const execution = resume
+                ? await runtime.resume({
+                    parentContext: ctx,
+                    parentToolCallId: toolCallId,
+                    sessionId: resume,
+                    task: params.prompt,
+                    description: params.description,
+                    ...(params.run_in_background !== undefined
+                      ? { runInBackground: params.run_in_background }
+                      : {}),
+                    signal,
+                    onUpdate: (run) =>
+                      onUpdate?.({
+                        content: [
+                          {
+                            type: 'text',
+                            text: `${run.profile}: ${run.description} (${run.status})`
+                          }
+                        ],
+                        details: subagentToolDetails(run)
+                      })
+                  })
+                : await runtime.start({
+                    parentContext: ctx,
+                    parentToolCallId: toolCallId,
+                    profile: params.subagent_type ?? 'general-purpose',
+                    task: params.prompt,
+                    ...(params.input_files ? { inputFiles: params.input_files } : {}),
+                    description: params.description,
+                    ...(params.run_in_background !== undefined
+                      ? { runInBackground: params.run_in_background }
+                      : {}),
+                    ...(params.model ? { model: params.model } : {}),
+                    ...(params.isolation === 'worktree' ? { isolation: 'worktree' as const } : {}),
+                    signal,
+                    onUpdate: (run) =>
+                      onUpdate?.({
+                        content: [
+                          {
+                            type: 'text',
+                            text: `${run.profile}: ${run.description} (${run.status})`
+                          }
+                        ],
+                        details: subagentToolDetails(run)
+                      })
+                  });
+
+              if (execution.run.runInBackground) {
+                void execution.completion
+                  .then((run) => runtime.notifyParent(run))
+                  .catch((error) => {
+                    console.error(
+                      '[pi-web] failed to deliver subagent completion:',
+                      error instanceof Error ? error.message : error
+                    );
+                  });
+                return {
+                  content: [
+                    {
+                      type: 'text',
+                      text: `Subagent started in background. Session ID: ${execution.run.sessionId}. You will be notified when it completes.`
+                    }
+                  ],
+                  details: subagentToolDetails(execution.run)
+                };
+              }
+
+              const run = await execution.completion;
               return {
-                content: [{ type: "text", text: `Subagent started in background. Session ID: ${execution.run.sessionId}. You will be notified when it completes.` }],
-                details: subagentToolDetails(execution.run),
+                content: [{ type: 'text', text: subagentFinalText(run) }],
+                details: subagentToolDetails(run),
+                ...(run.status === 'failed' ? { isError: true } : {})
+              };
+            } catch (error) {
+              return {
+                content: [
+                  { type: 'text', text: error instanceof Error ? error.message : String(error) }
+                ],
+                details: undefined,
+                isError: true
               };
             }
-
-            const run = await execution.completion;
-            return {
-              content: [{ type: "text", text: subagentFinalText(run) }],
-              details: subagentToolDetails(run),
-              ...(run.status === "failed" ? { isError: true } : {}),
-            };
-          } catch (error) {
-            return {
-              content: [{ type: "text", text: error instanceof Error ? error.message : String(error) }],
-              details: undefined,
-              isError: true,
-            };
           }
-        },
-      }));
+        })
+      );
 
-      pi.registerTool(defineTool({
-        name: "get_subagent_result",
-        label: "Get agent result",
-        description: "Check an inspectable subagent session and retrieve its latest result.",
-        exposure: SUBAGENT_TOOL_EXPOSURE,
-        parameters: Type.Object({
-          agent_id: Type.String({ description: "Subagent session ID." }),
-          wait: Type.Optional(Type.Boolean({ description: "Wait until the subagent finishes." })),
-        }),
-        async execute(_toolCallId, params, signal) {
-          let run = await runtime.get(params.agent_id);
-          if (!run) return { content: [{ type: "text", text: `Subagent not found: ${params.agent_id}` }], details: undefined, isError: true };
-          while (params.wait && (run.status === "starting" || run.status === "running")) {
-            await new Promise<void>((resolve, reject) => {
-              const onAbort = () => {
-                clearTimeout(timer);
-                reject(new Error("Result wait aborted"));
+      pi.registerTool(
+        defineTool({
+          name: 'get_subagent_result',
+          label: 'Get agent result',
+          description: 'Check an inspectable subagent session and retrieve its latest result.',
+          exposure: SUBAGENT_TOOL_EXPOSURE,
+          parameters: Type.Object({
+            agent_id: Type.String({ description: 'Subagent session ID.' }),
+            wait: Type.Optional(Type.Boolean({ description: 'Wait until the subagent finishes.' }))
+          }),
+          async execute(_toolCallId, params, signal) {
+            let run = await runtime.get(params.agent_id);
+            if (!run)
+              return {
+                content: [{ type: 'text', text: `Subagent not found: ${params.agent_id}` }],
+                details: undefined,
+                isError: true
               };
-              const timer = setTimeout(() => {
-                signal?.removeEventListener("abort", onAbort);
-                resolve();
-              }, 500);
-              if (signal?.aborted) onAbort();
-              else signal?.addEventListener("abort", onAbort, { once: true });
-            });
-            run = await runtime.get(params.agent_id);
-            if (!run) return { content: [{ type: "text", text: `Subagent not found: ${params.agent_id}` }], details: undefined, isError: true };
+            while (params.wait && (run.status === 'starting' || run.status === 'running')) {
+              await new Promise<void>((resolve, reject) => {
+                const onAbort = () => {
+                  clearTimeout(timer);
+                  reject(new Error('Result wait aborted'));
+                };
+                const timer = setTimeout(() => {
+                  signal?.removeEventListener('abort', onAbort);
+                  resolve();
+                }, 500);
+                if (signal?.aborted) onAbort();
+                else signal?.addEventListener('abort', onAbort, { once: true });
+              });
+              run = await runtime.get(params.agent_id);
+              if (!run)
+                return {
+                  content: [{ type: 'text', text: `Subagent not found: ${params.agent_id}` }],
+                  details: undefined,
+                  isError: true
+                };
+            }
+            // The parent now holds this result, so the background completion notification must not
+            // deliver the same text again and wake a duplicate turn.
+            if (run.runInBackground && TERMINAL_SUBAGENT_STATUSES.has(run.status))
+              runtime.markResultConsumed(run);
+            return {
+              content: [{ type: 'text', text: subagentFinalText(run) }],
+              details: subagentToolDetails(run),
+              ...(run.status === 'failed' ? { isError: true } : {})
+            };
           }
-          // The parent now holds this result, so the background completion notification must not
-          // deliver the same text again and wake a duplicate turn.
-          if (run.runInBackground && TERMINAL_SUBAGENT_STATUSES.has(run.status)) runtime.markResultConsumed(run);
-          return {
-            content: [{ type: "text", text: subagentFinalText(run) }],
-            details: subagentToolDetails(run),
-            ...(run.status === "failed" ? { isError: true } : {}),
-          };
-        },
-      }));
+        })
+      );
 
-      pi.registerTool(defineTool({
-        name: "steer_subagent",
-        label: "Steer agent",
-        description: "Send a steering message to a currently running subagent session.",
-        exposure: SUBAGENT_TOOL_EXPOSURE,
-        parameters: Type.Object({
-          agent_id: Type.String({ description: "Subagent session ID." }),
-          message: Type.String({ description: "Instruction to inject after the current tool execution." }),
-        }),
-        async execute(_toolCallId, params) {
-          try {
-            await runtime.steer(params.agent_id, params.message);
-            return { content: [{ type: "text", text: `Steering message sent to ${params.agent_id}.` }], details: undefined };
-          } catch (error) {
-            return { content: [{ type: "text", text: error instanceof Error ? error.message : String(error) }], details: undefined, isError: true };
+      pi.registerTool(
+        defineTool({
+          name: 'steer_subagent',
+          label: 'Steer agent',
+          description: 'Send a steering message to a currently running subagent session.',
+          exposure: SUBAGENT_TOOL_EXPOSURE,
+          parameters: Type.Object({
+            agent_id: Type.String({ description: 'Subagent session ID.' }),
+            message: Type.String({
+              description: 'Instruction to inject after the current tool execution.'
+            })
+          }),
+          async execute(_toolCallId, params) {
+            try {
+              await runtime.steer(params.agent_id, params.message);
+              return {
+                content: [{ type: 'text', text: `Steering message sent to ${params.agent_id}.` }],
+                details: undefined
+              };
+            } catch (error) {
+              return {
+                content: [
+                  { type: 'text', text: error instanceof Error ? error.message : String(error) }
+                ],
+                details: undefined,
+                isError: true
+              };
+            }
           }
-        },
-      }));
-    },
+        })
+      );
+    }
   };
 }
 
 /** Keep Pi Web's integrated implementation when the legacy package is loaded. */
 export function preferPiWebSubagentExtension(base: LoadExtensionsResult): LoadExtensionsResult {
   const host = base.extensions.find((extension) => extension.path === HOST_SUBAGENT_EXTENSION_PATH);
-  if (!host?.tools.has("Agent")) return base;
-  const legacyPaths = new Set(base.extensions
-    .filter((extension) => extension.path !== HOST_SUBAGENT_EXTENSION_PATH)
-    .filter((extension) => {
-      const source = extension.sourceInfo?.source ?? "";
-      const sourcePackage = source.replace(/^npm:/, "").split("@")[0];
-      const pathSegments = extension.path.replaceAll("\\", "/").split("/");
-      return sourcePackage === LEGACY_SUBAGENT_PACKAGE_NAME
-        || pathSegments.some((segment) => segment === LEGACY_SUBAGENT_PACKAGE_NAME);
-    })
-    .filter((extension) => [...SUBAGENT_TOOL_NAMES].some((name) => extension.tools.has(name)))
-    .map((extension) => extension.path));
+  if (!host?.tools.has('Agent')) return base;
+  const legacyPaths = new Set(
+    base.extensions
+      .filter((extension) => extension.path !== HOST_SUBAGENT_EXTENSION_PATH)
+      .filter((extension) => {
+        const source = extension.sourceInfo?.source ?? '';
+        const sourcePackage = source.replace(/^npm:/, '').split('@')[0];
+        const pathSegments = extension.path.replaceAll('\\', '/').split('/');
+        return (
+          sourcePackage === LEGACY_SUBAGENT_PACKAGE_NAME ||
+          pathSegments.some((segment) => segment === LEGACY_SUBAGENT_PACKAGE_NAME)
+        );
+      })
+      .filter((extension) => [...SUBAGENT_TOOL_NAMES].some((name) => extension.tools.has(name)))
+      .map((extension) => extension.path)
+  );
   if (legacyPaths.size === 0) return base;
   return {
     ...base,
@@ -364,10 +455,10 @@ export function preferPiWebSubagentExtension(base: LoadExtensionsResult): LoadEx
       if (legacyPaths.has(error.path)) return false;
       if (error.path !== HOST_SUBAGENT_EXTENSION_PATH) return true;
       return ![...legacyPaths].some((legacyPath) =>
-        [...SUBAGENT_TOOL_NAMES].some((name) =>
-          error.error === `Tool "${name}" conflicts with ${legacyPath}`
+        [...SUBAGENT_TOOL_NAMES].some(
+          (name) => error.error === `Tool "${name}" conflicts with ${legacyPath}`
         )
       );
-    }),
+    })
   };
 }

@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 
 // The published npm tarball ships `.next/prerender-manifest.json`, whose
 // `preview` block holds the build's preview-mode secrets. One of them,
@@ -17,20 +17,20 @@
 // skipped with `--ignore-scripts`.
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const crypto = require("crypto");
+const crypto = require('crypto');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const fs = require("fs");
+const fs = require('fs');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const path = require("path");
+const path = require('path');
 
-const PRERENDER_MANIFEST = "prerender-manifest.json";
+const PRERENDER_MANIFEST = 'prerender-manifest.json';
 
 function freshPreviewSecrets() {
   return {
     // Lengths mirror what Next generates at build time.
-    previewModeId: crypto.randomBytes(16).toString("hex"),
-    previewModeSigningKey: crypto.randomBytes(32).toString("hex"),
-    previewModeEncryptionKey: crypto.randomBytes(32).toString("hex"),
+    previewModeId: crypto.randomBytes(16).toString('hex'),
+    previewModeSigningKey: crypto.randomBytes(32).toString('hex'),
+    previewModeEncryptionKey: crypto.randomBytes(32).toString('hex')
   };
 }
 
@@ -48,16 +48,16 @@ function rotatePreviewSecrets(nextDir) {
 
   let manifest;
   try {
-    manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+    manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
   } catch (error) {
-    if (error && error.code === "ENOENT") {
-      return { ok: false, reason: "missing" };
+    if (error && error.code === 'ENOENT') {
+      return { ok: false, reason: 'missing' };
     }
-    return { ok: false, reason: "unreadable", error };
+    return { ok: false, reason: 'unreadable', error };
   }
 
-  if (!manifest || typeof manifest !== "object" || typeof manifest.preview !== "object") {
-    return { ok: false, reason: "unexpected-shape" };
+  if (!manifest || typeof manifest !== 'object' || typeof manifest.preview !== 'object') {
+    return { ok: false, reason: 'unexpected-shape' };
   }
 
   manifest.preview = { ...manifest.preview, ...freshPreviewSecrets() };
@@ -74,7 +74,7 @@ function rotatePreviewSecrets(nextDir) {
     } catch {
       // Best effort: leaving a stray temp file is harmless.
     }
-    return { ok: false, reason: "unwritable", error };
+    return { ok: false, reason: 'unwritable', error };
   }
 
   return { ok: true };
@@ -82,24 +82,24 @@ function rotatePreviewSecrets(nextDir) {
 
 function getRotationWarning(reason) {
   const detail =
-    reason === "unwritable"
-      ? "the install directory is not writable"
-      : reason === "missing"
-        ? "its prerender manifest is missing"
-        : reason === "unreadable"
-          ? "its prerender manifest could not be read"
-          : "its prerender manifest has an unexpected format";
+    reason === 'unwritable'
+      ? 'the install directory is not writable'
+      : reason === 'missing'
+        ? 'its prerender manifest is missing'
+        : reason === 'unreadable'
+          ? 'its prerender manifest could not be read'
+          : 'its prerender manifest has an unexpected format';
   return [
     `Warning: could not rotate pi-web's preview-mode secrets because ${detail}.`,
-    "This instance keeps the published preview id, so a client that knows it can",
+    'This instance keeps the published preview id, so a client that knows it can',
     "bypass the proxy's authentication and Host/Origin checks via the",
-    "x-prerender-revalidate header. Run from a writable install, or restrict",
-    "network access to this instance.",
-  ].join("\n");
+    'x-prerender-revalidate header. Run from a writable install, or restrict',
+    'network access to this instance.'
+  ].join('\n');
 }
 
 module.exports = {
   PRERENDER_MANIFEST,
   rotatePreviewSecrets,
-  getRotationWarning,
+  getRotationWarning
 };

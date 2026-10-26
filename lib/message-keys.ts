@@ -1,5 +1,5 @@
-import type { AgentMessage, CustomMessage } from "./types";
-import { userMessageKey } from "./prompt-recovery";
+import type { AgentMessage, CustomMessage } from './types';
+import { userMessageKey } from './prompt-recovery';
 
 /**
  * React keys of the chat's messages (#1184). A message read from the session
@@ -15,14 +15,18 @@ import { userMessageKey } from "./prompt-recovery";
  * messages moving into Process details (and an answer that followed thinking in
  * its message, whose blocks move up).
  */
-const liveKey = (anchor: string | undefined, offset: number) => `live:${anchor ?? ""}:${offset}`;
+const liveKey = (anchor: string | undefined, offset: number) => `live:${anchor ?? ''}:${offset}`;
 
-export function messageRenderKeys(entryIds: readonly string[], count: number, aliases: ReadonlyMap<string, string>): string[] {
+export function messageRenderKeys(
+  entryIds: readonly string[],
+  count: number,
+  aliases: ReadonlyMap<string, string>
+): string[] {
   const anchor = entryIds[entryIds.length - 1];
   const keys: string[] = [];
   for (let i = 0; i < count; i++) {
     const id = entryIds[i];
-    keys.push(id === undefined ? liveKey(anchor, i - entryIds.length) : aliases.get(id) ?? id);
+    keys.push(id === undefined ? liveKey(anchor, i - entryIds.length) : (aliases.get(id) ?? id));
   }
   return keys;
 }
@@ -31,8 +35,8 @@ export function messageRenderKeys(entryIds: readonly string[], count: number, al
 // browser's timestamp, and a custom message, stamped when its entry was written.
 function sameMessage(live: AgentMessage, loaded: AgentMessage): boolean {
   if (live.role !== loaded.role) return false;
-  if (live.role === "user") return userMessageKey(live) === userMessageKey(loaded);
-  if (live.role === "custom") return live.customType === (loaded as CustomMessage).customType;
+  if (live.role === 'user') return userMessageKey(live) === userMessageKey(loaded);
+  if (live.role === 'custom') return live.customType === (loaded as CustomMessage).customType;
   return live.timestamp === loaded.timestamp;
 }
 
@@ -45,8 +49,12 @@ function sameMessage(live: AgentMessage, loaded: AgentMessage): boolean {
  * place holds one entry (the reader shows an entry as one message at most).
  */
 export function carryMessageKeys(
-  previous: { messages: readonly AgentMessage[]; entryIds: readonly string[]; aliases: ReadonlyMap<string, string> },
-  next: { messages: readonly AgentMessage[]; entryIds: readonly string[] },
+  previous: {
+    messages: readonly AgentMessage[];
+    entryIds: readonly string[];
+    aliases: ReadonlyMap<string, string>;
+  },
+  next: { messages: readonly AgentMessage[]; entryIds: readonly string[] }
 ): Map<string, string> {
   const loaded = new Set(next.entryIds);
   const aliases = new Map([...previous.aliases].filter(([id]) => loaded.has(id)));
@@ -57,7 +65,11 @@ export function carryMessageKeys(
   if (start === 0 && anchor !== undefined) return aliases;
   for (let offset = 0; liveStart + offset < previous.messages.length; offset++) {
     const id = next.entryIds[start + offset];
-    if (id === undefined || !sameMessage(previous.messages[liveStart + offset], next.messages[start + offset])) break;
+    if (
+      id === undefined ||
+      !sameMessage(previous.messages[liveStart + offset], next.messages[start + offset])
+    )
+      break;
     aliases.set(id, liveKey(anchor, offset));
   }
   return aliases;

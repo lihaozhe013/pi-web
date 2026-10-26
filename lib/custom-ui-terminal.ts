@@ -15,12 +15,12 @@ export interface HeadlessCustomUiTui {
 export function createHeadlessCustomUiTui(
   requestRender: (force?: boolean) => void,
   columns = DEFAULT_CUSTOM_UI_COLUMNS,
-  rows = DEFAULT_CUSTOM_UI_ROWS,
+  rows = DEFAULT_CUSTOM_UI_ROWS
 ): HeadlessCustomUiTui {
   const terminal = Object.freeze({
     columns,
     rows,
-    kittyProtocolActive: false as const,
+    kittyProtocolActive: false as const
   });
 
   return Object.freeze({ terminal, requestRender });

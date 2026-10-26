@@ -1,4 +1,4 @@
-import type { AgentMessage, AgentUsage, SessionEntry, SessionMessage } from "./types";
+import type { AgentMessage, AgentUsage, SessionEntry, SessionMessage } from './types';
 
 export interface SessionFileStats {
   userMessages: number;
@@ -18,7 +18,7 @@ export interface SessionFileStats {
 
 /** One session's totals for the agent switcher (POST /api/sessions/stats). */
 export interface SessionUsageSummary {
-  tokens: SessionFileStats["tokens"];
+  tokens: SessionFileStats['tokens'];
   cost: number;
   toolCalls: number;
   /** Estimated active time across all entries, as the stats popover shows it. */
@@ -33,7 +33,7 @@ function emptyStats(): SessionFileStats {
     toolResults: 0,
     totalMessages: 0,
     tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-    cost: 0,
+    cost: 0
   };
 }
 
@@ -50,29 +50,30 @@ function addMessage(stats: SessionFileStats, message: SessionMessage): void {
   // Like the SDK, every message entry counts toward the total, including the
   // transcript system messages that hold the prompt and tool loadout.
   stats.totalMessages += 1;
-  if (message.role === "user") {
+  if (message.role === 'user') {
     stats.userMessages += 1;
-  } else if (message.role === "toolResult") {
+  } else if (message.role === 'toolResult') {
     stats.toolResults += 1;
     addUsage(stats, message.usage);
-  } else if (message.role === "assistant") {
+  } else if (message.role === 'assistant') {
     stats.assistantMessages += 1;
     if (Array.isArray(message.content)) {
-      stats.toolCalls += message.content.filter((c) => c.type === "toolCall").length;
+      stats.toolCalls += message.content.filter((c) => c.type === 'toolCall').length;
     }
     addUsage(stats, message.usage);
   }
 }
 
 function finishStats(stats: SessionFileStats): SessionFileStats {
-  stats.tokens.total = stats.tokens.input + stats.tokens.output + stats.tokens.cacheRead + stats.tokens.cacheWrite;
+  stats.tokens.total =
+    stats.tokens.input + stats.tokens.output + stats.tokens.cacheRead + stats.tokens.cacheWrite;
   return stats;
 }
 
 function computeMessageStats(messages: AgentMessage[]): SessionFileStats {
   const stats = emptyStats();
   for (const message of messages) {
-    if (message.role !== "custom") addMessage(stats, message);
+    if (message.role !== 'custom') addMessage(stats, message);
   }
   return finishStats(stats);
 }
@@ -80,7 +81,7 @@ function computeMessageStats(messages: AgentMessage[]): SessionFileStats {
 export function mergeSessionStats(
   fileStats: SessionFileStats | undefined,
   loadedMessages: AgentMessage[],
-  currentMessages: AgentMessage[],
+  currentMessages: AgentMessage[]
 ): SessionFileStats {
   const current = computeMessageStats(currentMessages);
   if (!fileStats) return current;
@@ -90,19 +91,22 @@ export function mergeSessionStats(
   const tokens = {
     input: fileStats.tokens.input + delta(current.tokens.input, loaded.tokens.input),
     output: fileStats.tokens.output + delta(current.tokens.output, loaded.tokens.output),
-    cacheRead: fileStats.tokens.cacheRead + delta(current.tokens.cacheRead, loaded.tokens.cacheRead),
-    cacheWrite: fileStats.tokens.cacheWrite + delta(current.tokens.cacheWrite, loaded.tokens.cacheWrite),
-    total: 0,
+    cacheRead:
+      fileStats.tokens.cacheRead + delta(current.tokens.cacheRead, loaded.tokens.cacheRead),
+    cacheWrite:
+      fileStats.tokens.cacheWrite + delta(current.tokens.cacheWrite, loaded.tokens.cacheWrite),
+    total: 0
   };
   tokens.total = tokens.input + tokens.output + tokens.cacheRead + tokens.cacheWrite;
   return {
     userMessages: fileStats.userMessages + delta(current.userMessages, loaded.userMessages),
-    assistantMessages: fileStats.assistantMessages + delta(current.assistantMessages, loaded.assistantMessages),
+    assistantMessages:
+      fileStats.assistantMessages + delta(current.assistantMessages, loaded.assistantMessages),
     toolCalls: fileStats.toolCalls + delta(current.toolCalls, loaded.toolCalls),
     toolResults: fileStats.toolResults + delta(current.toolResults, loaded.toolResults),
     totalMessages: fileStats.totalMessages + delta(current.totalMessages, loaded.totalMessages),
     tokens,
-    cost: fileStats.cost + delta(current.cost, loaded.cost),
+    cost: fileStats.cost + delta(current.cost, loaded.cost)
   };
 }
 
@@ -123,11 +127,11 @@ export function computeSessionStats(entries: SessionEntry[]): SessionFileStats {
   const stats = emptyStats();
 
   for (const entry of entries) {
-    if (entry.type === "compaction" || entry.type === "branch_summary" || entry.type === "usage") {
+    if (entry.type === 'compaction' || entry.type === 'branch_summary' || entry.type === 'usage') {
       addUsage(stats, entry.usage);
       continue;
     }
-    if (entry.type !== "message") continue;
+    if (entry.type !== 'message') continue;
     addMessage(stats, entry.message);
   }
 

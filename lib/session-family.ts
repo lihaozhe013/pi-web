@@ -1,4 +1,4 @@
-import type { SessionInfo } from "./types";
+import type { SessionInfo } from './types';
 
 export interface SessionFamily {
   root: SessionInfo;
@@ -29,7 +29,7 @@ function resolveFamilyRoots(sessions: readonly SessionInfo[]): Map<string, strin
       path.push(currentId);
       const current = byId.get(currentId);
       if (!current) break;
-      if (current.relation?.kind !== "subagent") {
+      if (current.relation?.kind !== 'subagent') {
         rootId = current.id;
         break;
       }
@@ -48,16 +48,16 @@ export function listSessionFamilies(sessions: readonly SessionInfo[]): SessionFa
   const families = new Map<string, SessionFamily>();
 
   for (const session of sessions) {
-    if (session.relation?.kind === "subagent") continue;
+    if (session.relation?.kind === 'subagent') continue;
     families.set(session.id, {
       root: session,
       subagents: [],
-      latestModified: session.modified,
+      latestModified: session.modified
     });
   }
 
   for (const session of sessions) {
-    if (session.relation?.kind !== "subagent") continue;
+    if (session.relation?.kind !== 'subagent') continue;
     const rootId = rootsBySessionId.get(session.id);
     const family = rootId ? families.get(rootId) : undefined;
     if (!family) continue;
@@ -70,19 +70,21 @@ export function listSessionFamilies(sessions: readonly SessionInfo[]): SessionFa
 
 export function getSessionFamily(
   sessions: readonly SessionInfo[],
-  sessionId: string | null | undefined,
+  sessionId: string | null | undefined
 ): SessionFamily | null {
   if (!sessionId) return null;
-  return listSessionFamilies(sessions).find((family) => (
-    family.root.id === sessionId
-    || family.subagents.some((session) => session.id === sessionId)
-  )) ?? null;
+  return (
+    listSessionFamilies(sessions).find(
+      (family) =>
+        family.root.id === sessionId || family.subagents.some((session) => session.id === sessionId)
+    ) ?? null
+  );
 }
 
 /** Subagents of a family that the sidebar's running poll lists. */
 export function countRunningSubagents(
   subagents: readonly SessionInfo[],
-  runningSessionIds: ReadonlySet<string>,
+  runningSessionIds: ReadonlySet<string>
 ): number {
   return subagents.filter((session) => runningSessionIds.has(session.id)).length;
 }
@@ -90,8 +92,10 @@ export function countRunningSubagents(
 /** The top bar's Agents badge: how many run while any does, else how many there are. */
 export function getAgentsBadge(
   subagents: readonly SessionInfo[],
-  runningSessionIds: ReadonlySet<string>,
+  runningSessionIds: ReadonlySet<string>
 ): { count: number; running: boolean } {
   const running = countRunningSubagents(subagents, runningSessionIds);
-  return running > 0 ? { count: running, running: true } : { count: subagents.length, running: false };
+  return running > 0
+    ? { count: running, running: true }
+    : { count: subagents.length, running: false };
 }

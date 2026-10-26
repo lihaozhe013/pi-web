@@ -15,9 +15,13 @@ const MAX_TRACKED_REPLIES = 32;
 const starts = new Map<string, StreamRateStart>();
 
 /** A streaming reply's identity: pi stamps its message when the request starts. */
-export function streamRateKey(message: { provider?: string; model?: string; timestamp?: number }): string | null {
-  if (typeof message.timestamp !== "number") return null;
-  return `${message.provider ?? ""}/${message.model ?? ""}@${message.timestamp}`;
+export function streamRateKey(message: {
+  provider?: string;
+  model?: string;
+  timestamp?: number;
+}): string | null {
+  if (typeof message.timestamp !== 'number') return null;
+  return `${message.provider ?? ''}/${message.model ?? ''}@${message.timestamp}`;
 }
 
 export function streamRateStart(key: string | null, tokens: number, now: number): StreamRateStart {
@@ -33,7 +37,11 @@ export function streamRateStart(key: string | null, tokens: number, now: number)
   return start;
 }
 
-export function streamTokensPerSecond(start: StreamRateStart, tokens: number, now: number): number | null {
+export function streamTokensPerSecond(
+  start: StreamRateStart,
+  tokens: number,
+  now: number
+): number | null {
   const elapsedSeconds = (now - start.at) / 1000;
   return elapsedSeconds > 0.5 ? (tokens - start.tokens) / elapsedSeconds : null;
 }

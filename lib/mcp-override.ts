@@ -1,4 +1,4 @@
-import type { McpOverrideKey } from "./api-types";
+import type { McpOverrideKey } from './api-types';
 
 // Project overrides of global MCP servers (pi 1.0.1): a project `.pi/mcp.json`
 // entry without `command`, `url` or `type` changes only `enabled`, `exposure`
@@ -8,11 +8,11 @@ import type { McpOverrideKey } from "./api-types";
 // MCP host (`lib/mcp-host.ts`), which may not import the listing.
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /** What a project override may set (the SDK's module-private `OVERRIDE_KEYS`), in its order. */
-export const MCP_OVERRIDE_KEYS: readonly McpOverrideKey[] = ["enabled", "exposure", "toolExposure"];
+export const MCP_OVERRIDE_KEYS: readonly McpOverrideKey[] = ['enabled', 'exposure', 'toolExposure'];
 
 /**
  * Whether an entry overrides the global server of its name instead of
@@ -20,7 +20,12 @@ export const MCP_OVERRIDE_KEYS: readonly McpOverrideKey[] = ["enabled", "exposur
  * `url` or `type`. `loadMcpConfig()` reads one so only in a project file.
  */
 export function isMcpOverrideEntry(value: unknown): boolean {
-  return isRecord(value) && value.command === undefined && value.url === undefined && value.type === undefined;
+  return (
+    isRecord(value) &&
+    value.command === undefined &&
+    value.url === undefined &&
+    value.type === undefined
+  );
 }
 
 /**
@@ -29,8 +34,16 @@ export function isMcpOverrideEntry(value: unknown): boolean {
  * or a key it may not set. Undefined when the override applies, once the
  * global entry with its keys passes the validator.
  */
-export function mcpOverrideRefusal(name: string, value: Record<string, unknown>, hasBase: boolean): string | undefined {
+export function mcpOverrideRefusal(
+  name: string,
+  value: Record<string, unknown>,
+  hasBase: boolean
+): string | undefined {
   if (!hasBase) return `server "${name}" needs "command" or "url", or a global server to override`;
-  const extra = Object.keys(value).some((key) => !(MCP_OVERRIDE_KEYS as readonly string[]).includes(key));
-  return extra ? `server "${name}": an override can only set ${MCP_OVERRIDE_KEYS.join(", ")}` : undefined;
+  const extra = Object.keys(value).some(
+    (key) => !(MCP_OVERRIDE_KEYS as readonly string[]).includes(key)
+  );
+  return extra
+    ? `server "${name}": an override can only set ${MCP_OVERRIDE_KEYS.join(', ')}`
+    : undefined;
 }

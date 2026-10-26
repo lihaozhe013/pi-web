@@ -1,21 +1,29 @@
-import { existsSync } from "fs";
-import { stat } from "fs/promises";
-import { resolve } from "path";
-import { createAgentSessionServices, getAgentDir, type SettingsManager } from "@earendil-works/pi-coding-agent";
-import { getSupportedThinkingLevels } from "@earendil-works/pi-ai";
+import { existsSync } from 'fs';
+import { stat } from 'fs/promises';
+import { resolve } from 'path';
+import {
+  createAgentSessionServices,
+  getAgentDir,
+  type SettingsManager
+} from '@earendil-works/pi-coding-agent';
+import { getSupportedThinkingLevels } from '@earendil-works/pi-ai';
 import {
   loadModelsWithCache,
   withModelRuntimeError,
   withSafeModelLoadFailure,
-  type ModelsData,
-} from "@/lib/models-cache";
-import { orderSelectorModels, resolveVisibleModels, selectInitialModelScope } from "@/lib/model-scope";
-import { getAllowedFileRoots, isExistingFilePathAllowed } from "@/lib/file-access";
-import { projectTrustReloadOptions } from "@/lib/project-trust";
-import { rememberProviderModels, withDeferredProviderModels } from "@/lib/deferred-provider-models";
-import { inferRemovedWorktree } from "@/lib/worktree";
+  type ModelsData
+} from '@/lib/models-cache';
+import {
+  orderSelectorModels,
+  resolveVisibleModels,
+  selectInitialModelScope
+} from '@/lib/model-scope';
+import { getAllowedFileRoots, isExistingFilePathAllowed } from '@/lib/file-access';
+import { projectTrustReloadOptions } from '@/lib/project-trust';
+import { rememberProviderModels, withDeferredProviderModels } from '@/lib/deferred-provider-models';
+import { inferRemovedWorktree } from '@/lib/worktree';
 
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
 async function loadModels(cwd: string): Promise<ModelsData> {
   const nameMap = new Map<string, string>();
@@ -32,7 +40,7 @@ async function loadModels(cwd: string): Promise<ModelsData> {
   const services = await createAgentSessionServices({
     cwd,
     agentDir,
-    ...(trustReloadOptions ? { resourceLoaderReloadOptions: trustReloadOptions } : {}),
+    ...(trustReloadOptions ? { resourceLoaderReloadOptions: trustReloadOptions } : {})
   });
   const modelError = services.modelRuntime.getError();
   const settings: SettingsManager = services.settingsManager;
@@ -41,14 +49,14 @@ async function loadModels(cwd: string): Promise<ModelsData> {
   // way the CLI does instead of comparing pattern strings literally (#307).
   const scope = await resolveVisibleModels(
     withDeferredProviderModels(services.modelRuntime),
-    settings.getEnabledModels(),
+    settings.getEnabledModels()
   );
   const { visible, thinkingLevelPins, warnings } = scope;
   modelList = orderSelectorModels(scope).map((m) => ({
     id: m.id,
     name: m.name,
     provider: m.provider,
-    input: m.input,
+    input: m.input
   }));
   for (const m of visible) {
     const key = `${m.provider}:${m.id}`;
@@ -62,17 +70,18 @@ async function loadModels(cwd: string): Promise<ModelsData> {
   const initial = selectInitialModelScope(scope, {
     ...(defaultProvider && defaultModelId
       ? { defaultModel: { provider: defaultProvider, modelId: defaultModelId } }
-      : {}),
+      : {})
   });
   if (initial.model) {
     defaultModel = { provider: initial.model.provider, modelId: initial.model.id };
   }
-  const defaultThinkingLevel = initial.thinkingLevel
-    ?? (initial.model
+  const defaultThinkingLevel =
+    initial.thinkingLevel ??
+    (initial.model
       ? settings.getModelThinkingLevel(initial.model.provider, initial.model.id)
-      : undefined)
-    ?? settings.getDefaultThinkingLevel()
-    ?? null;
+      : undefined) ??
+    settings.getDefaultThinkingLevel() ??
+    null;
 
   return withModelRuntimeError(
     {
@@ -84,9 +93,9 @@ async function loadModels(cwd: string): Promise<ModelsData> {
       thinkingLevels,
       thinkingLevelMaps,
       thinkingLevelPins,
-      ...(warnings.length > 0 ? { modelScopeWarnings: warnings } : {}),
+      ...(warnings.length > 0 ? { modelScopeWarnings: warnings } : {})
     },
-    modelError,
+    modelError
   );
 }
 
@@ -98,11 +107,11 @@ const EMPTY_MODELS: ModelsData = {
   savedDefaultThinkingLevel: null,
   thinkingLevels: {},
   thinkingLevelMaps: {},
-  thinkingLevelPins: {},
+  thinkingLevelPins: {}
 };
 
 export async function GET(req: Request) {
-  const requestedCwd = resolve(new URL(req.url).searchParams.get("cwd") || process.cwd());
+  const requestedCwd = resolve(new URL(req.url).searchParams.get('cwd') || process.cwd());
   // A subagent run isolated in a worktree has that worktree removed when the run
   // finishes, yet its session file still records the worktree as its cwd. Fall back
   // to the main repo it branched from, so opening a finished subagent resolves the
@@ -111,7 +120,7 @@ export async function GET(req: Request) {
   // by name already.
   const cwd = existsSync(requestedCwd)
     ? requestedCwd
-    : inferRemovedWorktree(requestedCwd)?.projectRoot ?? requestedCwd;
+    : (inferRemovedWorktree(requestedCwd)?.projectRoot ?? requestedCwd);
 
   let cwdStat;
   try {
@@ -124,7 +133,7 @@ export async function GET(req: Request) {
   }
   const allowedRoots = await getAllowedFileRoots();
   if (!isExistingFilePathAllowed(cwd, allowedRoots)) {
-    return Response.json({ error: "Access denied" }, { status: 403 });
+    return Response.json({ error: 'Access denied' }, { status: 403 });
   }
 
   try {

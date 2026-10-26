@@ -1,7 +1,7 @@
 const SESSION_LIVENESS_PROTOCOL_VERSION = 1;
-export const SESSION_LIVENESS_REGISTRY_KEY = "@lihaozhe013/pi-web/session-liveness/v1";
+export const SESSION_LIVENESS_REGISTRY_KEY = '@lihaozhe013/pi-web/session-liveness/v1';
 export const SESSION_LIVENESS_LEASE_TTL_MS = 90_000;
-const SESSION_LIVENESS_LEASES_KEY = "@lihaozhe013/pi-web/session-liveness-leases/v2";
+const SESSION_LIVENESS_LEASES_KEY = '@lihaozhe013/pi-web/session-liveness-leases/v2';
 
 export interface SessionLivenessProvider {
   name: string;
@@ -32,22 +32,22 @@ interface LeaseRecord {
 type LeaseStore = Map<string, LeaseRecord>;
 
 function assertNonEmptyString(value: unknown, field: string): asserts value is string {
-  if (typeof value !== "string" || value.trim().length === 0) {
+  if (typeof value !== 'string' || value.trim().length === 0) {
     throw new Error(`Session liveness provider ${field} must be a non-empty string`);
   }
 }
 
 function validateProvider(provider: SessionLivenessProvider): void {
-  if (!provider || typeof provider !== "object") {
-    throw new Error("Session liveness provider must be an object");
+  if (!provider || typeof provider !== 'object') {
+    throw new Error('Session liveness provider must be an object');
   }
-  assertNonEmptyString(provider.name, "name");
-  assertNonEmptyString(provider.sessionId, "sessionId");
+  assertNonEmptyString(provider.name, 'name');
+  assertNonEmptyString(provider.sessionId, 'sessionId');
   if (provider.sessionFile !== undefined) {
-    assertNonEmptyString(provider.sessionFile, "sessionFile");
+    assertNonEmptyString(provider.sessionFile, 'sessionFile');
   }
-  if (typeof provider.isActive !== "function") {
-    throw new Error("Session liveness provider isActive must be a function");
+  if (typeof provider.isActive !== 'function') {
+    throw new Error('Session liveness provider isActive must be a function');
   }
 }
 
@@ -68,33 +68,43 @@ function createRegistry(): SessionLivenessRegistry {
       };
     },
     hasActiveProvider(session) {
-      const identities = new Set([session.sessionId, session.sessionFile].filter((value): value is string => Boolean(value)));
+      const identities = new Set(
+        [session.sessionId, session.sessionFile].filter((value): value is string => Boolean(value))
+      );
       for (const provider of providers.values()) {
-        if (!identities.has(provider.sessionId) && (!provider.sessionFile || !identities.has(provider.sessionFile))) {
+        if (
+          !identities.has(provider.sessionId) &&
+          (!provider.sessionFile || !identities.has(provider.sessionFile))
+        ) {
           continue;
         }
         try {
           const active = provider.isActive();
-          if (typeof active !== "boolean") {
-            throw new Error("isActive() must return a boolean");
+          if (typeof active !== 'boolean') {
+            throw new Error('isActive() must return a boolean');
           }
           if (active) return true;
         } catch (error) {
-          console.error(`[pi-web] Session liveness provider '${provider.name}' failed; preserving the session:`, error);
+          console.error(
+            `[pi-web] Session liveness provider '${provider.name}' failed; preserving the session:`,
+            error
+          );
           return true;
         }
       }
       return false;
-    },
+    }
   };
 }
 
 function isCompatibleRegistry(value: unknown): value is SessionLivenessRegistry {
-  if (!value || typeof value !== "object") return false;
+  if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<SessionLivenessRegistry>;
-  return candidate.version === SESSION_LIVENESS_PROTOCOL_VERSION
-    && typeof candidate.register === "function"
-    && typeof candidate.hasActiveProvider === "function";
+  return (
+    candidate.version === SESSION_LIVENESS_PROTOCOL_VERSION &&
+    typeof candidate.register === 'function' &&
+    typeof candidate.hasActiveProvider === 'function'
+  );
 }
 
 function getRegistry(): SessionLivenessRegistry {
@@ -121,10 +131,13 @@ function getLeaseStore(): LeaseStore {
 
 function scheduleLeaseExpiry(lease: LeaseRecord): void {
   if (lease.timer) clearTimeout(lease.timer);
-  lease.timer = setTimeout(() => {
-    if (!lease.released && lease.expiresAt <= Date.now()) lease.release();
-    else if (!lease.released) scheduleLeaseExpiry(lease);
-  }, Math.max(1, lease.expiresAt - Date.now()));
+  lease.timer = setTimeout(
+    () => {
+      if (!lease.released && lease.expiresAt <= Date.now()) lease.release();
+      else if (!lease.released) scheduleLeaseExpiry(lease);
+    },
+    Math.max(1, lease.expiresAt - Date.now())
+  );
   const unref = (lease.timer as unknown as { unref?: () => void }).unref;
   unref?.call(lease.timer);
 }
@@ -146,9 +159,9 @@ export function holdSessionLivenessLease(sessionId: string, holder: string): voi
   }
   existing?.release();
   const providerRelease = registerSessionLivenessProvider({
-    name: "pi-web-selected-session",
+    name: 'pi-web-selected-session',
     sessionId,
-    isActive: () => !lease.released && lease.expiresAt > Date.now(),
+    isActive: () => !lease.released && lease.expiresAt > Date.now()
   });
   const lease: LeaseRecord = {
     expiresAt: Date.now() + SESSION_LIVENESS_LEASE_TTL_MS,
@@ -160,7 +173,7 @@ export function holdSessionLivenessLease(sessionId: string, holder: string): voi
       if (lease.timer) clearTimeout(lease.timer);
       providerRelease();
       if (leases.get(key) === lease) leases.delete(key);
-    },
+    }
   };
   leases.set(key, lease);
   scheduleLeaseExpiry(lease);

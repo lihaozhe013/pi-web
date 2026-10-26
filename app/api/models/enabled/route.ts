@@ -1,7 +1,7 @@
-import { stat } from "fs/promises";
-import { resolve } from "path";
-import { getAgentDir, SettingsManager, type ModelRuntime } from "@earendil-works/pi-coding-agent";
-import type { Api, Model } from "@earendil-works/pi-ai";
+import { stat } from 'fs/promises';
+import { resolve } from 'path';
+import { getAgentDir, SettingsManager, type ModelRuntime } from '@earendil-works/pi-coding-agent';
+import type { Api, Model } from '@earendil-works/pi-ai';
 import {
   clearEnabledModels,
   constrainProviderEntries,
@@ -10,8 +10,8 @@ import {
   renameProviderPatterns,
   setModelsEnabled,
   type EnabledModelsEdit,
-  type ProviderRename,
-} from "@/lib/enabled-models";
+  type ProviderRename
+} from '@/lib/enabled-models';
 import {
   buildEnabledModelsInput,
   buildEnabledModelsView,
@@ -19,15 +19,15 @@ import {
   modelRef,
   readEnabledModelsSettings,
   writeEnabledModels,
-  type EnabledModelsView,
-} from "@/lib/enabled-models-runtime";
-import type { EnabledModelsInput } from "@/lib/enabled-models";
-import { getModelRuntimeWithExtensions } from "@/lib/model-runtime";
-import { withDeferredProviderModels } from "@/lib/deferred-provider-models";
-import { getAllowedFileRoots, isExistingFilePathAllowed } from "@/lib/file-access";
-import { invalidateModelsCache } from "@/lib/models-cache";
+  type EnabledModelsView
+} from '@/lib/enabled-models-runtime';
+import type { EnabledModelsInput } from '@/lib/enabled-models';
+import { getModelRuntimeWithExtensions } from '@/lib/model-runtime';
+import { withDeferredProviderModels } from '@/lib/deferred-provider-models';
+import { getAllowedFileRoots, isExistingFilePathAllowed } from '@/lib/file-access';
+import { invalidateModelsCache } from '@/lib/models-cache';
 
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
 interface RequestContext {
   modelRuntime: ModelRuntime;
@@ -44,15 +44,18 @@ async function loadContext(cwd: string): Promise<RequestContext> {
     modelRuntime,
     models: await modelRuntime.getAvailable(),
     settingsManager: SettingsManager.create(cwd, agentDir),
-    paths: { cwd, agentDir },
+    paths: { cwd, agentDir }
   };
 }
 
 async function buildView(context: RequestContext): Promise<EnabledModelsView> {
-  const { patterns, scope, path } = readEnabledModelsSettings(context.settingsManager, context.paths);
+  const { patterns, scope, path } = readEnabledModelsSettings(
+    context.settingsManager,
+    context.paths
+  );
   const input = await buildEnabledModelsInput(patterns, context.models);
   const providerNames = new Map(
-    context.modelRuntime.getProviders().map((provider) => [provider.id, provider.name]),
+    context.modelRuntime.getProviders().map((provider) => [provider.id, provider.name])
   );
   const modelError = context.modelRuntime.getError();
   return buildEnabledModelsView({
@@ -62,7 +65,7 @@ async function buildView(context: RequestContext): Promise<EnabledModelsView> {
     customProviders: customProviderIds(context.modelRuntime),
     scope,
     settingsPath: path,
-    ...(modelError ? { modelError } : {}),
+    ...(modelError ? { modelError } : {})
   });
 }
 
@@ -85,14 +88,14 @@ async function resolveCwd(raw: string | null): Promise<{ cwd: string } | { error
   }
   const allowedRoots = await getAllowedFileRoots();
   if (!isExistingFilePathAllowed(cwd, allowedRoots)) {
-    return { error: Response.json({ error: "Access denied" }, { status: 403 }) };
+    return { error: Response.json({ error: 'Access denied' }, { status: 403 }) };
   }
   return { cwd };
 }
 
 export async function GET(req: Request) {
-  const resolved = await resolveCwd(new URL(req.url).searchParams.get("cwd"));
-  if ("error" in resolved) return resolved.error;
+  const resolved = await resolveCwd(new URL(req.url).searchParams.get('cwd'));
+  if ('error' in resolved) return resolved.error;
 
   try {
     return Response.json(await buildView(await loadContext(resolved.cwd)));
@@ -116,16 +119,16 @@ function renamePairs(value: unknown): ProviderRename[] | null {
   if (!Array.isArray(value)) return null;
   const renames: ProviderRename[] = [];
   for (const entry of value) {
-    if (typeof entry !== "object" || entry === null) return null;
+    if (typeof entry !== 'object' || entry === null) return null;
     const { from, to } = entry as Record<string, unknown>;
-    if (typeof from !== "string" || typeof to !== "string" || !from || !to) return null;
+    if (typeof from !== 'string' || typeof to !== 'string' || !from || !to) return null;
     renames.push({ from, to });
   }
   return renames;
 }
 
 function stringArray(value: unknown): string[] | null {
-  if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string")) return null;
+  if (!Array.isArray(value) || value.some((entry) => typeof entry !== 'string')) return null;
   return value as string[];
 }
 
@@ -147,20 +150,23 @@ async function resyncAfterModelsConfigSave(
     renames: readonly ProviderRename[];
     modelRenames: readonly ProviderRename[];
     fullyEnabled: readonly string[];
-  },
+  }
 ): Promise<EnabledModelsEdit> {
   const { renames, modelRenames, fullyEnabled } = options;
   const original = input.patterns;
   // Model references first: they still carry the old provider id, which the
   // provider rewrite below would otherwise have replaced already.
   const renamed = renameProviderPatterns(renameModelPatterns(original, modelRenames), renames);
-  let current = renamed === original
-    ? input
-    : await buildEnabledModelsInput(renamed, context.models, { withProviderGlobs: true });
+  let current =
+    renamed === original
+      ? input
+      : await buildEnabledModelsInput(renamed, context.models, { withProviderGlobs: true });
 
   const constrained = constrainProviderEntries(current);
   if (constrained.ok && constrained.changed) {
-    current = await buildEnabledModelsInput(constrained.patterns, context.models, { withProviderGlobs: true });
+    current = await buildEnabledModelsInput(constrained.patterns, context.models, {
+      withProviderGlobs: true
+    });
   }
 
   // A provider that was fully enabled before the save stays fully enabled, even
@@ -181,65 +187,70 @@ function samePatternList(a: string[] | undefined, b: string[] | undefined): bool
 export async function PUT(req: Request) {
   let body: EnabledModelsRequest;
   try {
-    body = await req.json() as EnabledModelsRequest;
+    body = (await req.json()) as EnabledModelsRequest;
   } catch {
-    return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+    return Response.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
   const op = body.op;
-  if (op !== "models" && op !== "provider" && op !== "clear" && op !== "prune" && op !== "resync") {
-    return Response.json({ error: "Invalid op" }, { status: 400 });
+  if (op !== 'models' && op !== 'provider' && op !== 'clear' && op !== 'prune' && op !== 'resync') {
+    return Response.json({ error: 'Invalid op' }, { status: 400 });
   }
-  if (op === "models" || op === "provider") {
-    if (typeof body.enabled !== "boolean") {
-      return Response.json({ error: "enabled must be a boolean" }, { status: 400 });
+  if (op === 'models' || op === 'provider') {
+    if (typeof body.enabled !== 'boolean') {
+      return Response.json({ error: 'enabled must be a boolean' }, { status: 400 });
     }
   }
-  if (body.cwd !== undefined && typeof body.cwd !== "string") {
-    return Response.json({ error: "Invalid cwd" }, { status: 400 });
+  if (body.cwd !== undefined && typeof body.cwd !== 'string') {
+    return Response.json({ error: 'Invalid cwd' }, { status: 400 });
   }
 
-  const resolved = await resolveCwd(typeof body.cwd === "string" ? body.cwd : null);
-  if ("error" in resolved) return resolved.error;
+  const resolved = await resolveCwd(typeof body.cwd === 'string' ? body.cwd : null);
+  if ('error' in resolved) return resolved.error;
 
   try {
     const context = await loadContext(resolved.cwd);
     const { patterns, scope } = readEnabledModelsSettings(context.settingsManager, context.paths);
-    if (scope === "project") {
+    if (scope === 'project') {
       return Response.json(
-        { error: "Project settings override enabledModels", reason: "project-scope" },
-        { status: 409 },
+        { error: 'Project settings override enabledModels', reason: 'project-scope' },
+        { status: 409 }
       );
     }
 
-    const input = await buildEnabledModelsInput(patterns, context.models, { withProviderGlobs: true });
+    const input = await buildEnabledModelsInput(patterns, context.models, {
+      withProviderGlobs: true
+    });
     let edit;
-    if (op === "clear") {
+    if (op === 'clear') {
       edit = clearEnabledModels(input);
-    } else if (op === "prune") {
+    } else if (op === 'prune') {
       edit = pruneStaleEnabledModels(input);
-    } else if (op === "resync") {
+    } else if (op === 'resync') {
       const renames = renamePairs(body.renames);
       const modelRenames = renamePairs(body.modelRenames ?? []);
       const fullyEnabled = stringArray(body.fullyEnabled ?? []);
       if (!renames || !modelRenames || !fullyEnabled) {
-        return Response.json({ error: "Invalid resync payload" }, { status: 400 });
+        return Response.json({ error: 'Invalid resync payload' }, { status: 400 });
       }
-      edit = await resyncAfterModelsConfigSave(context, input, { renames, modelRenames, fullyEnabled });
+      edit = await resyncAfterModelsConfigSave(context, input, {
+        renames,
+        modelRenames,
+        fullyEnabled
+      });
     } else {
       let refs: string[];
-      if (op === "provider") {
-        if (typeof body.provider !== "string" || !body.provider) {
-          return Response.json({ error: "provider is required" }, { status: 400 });
+      if (op === 'provider') {
+        if (typeof body.provider !== 'string' || !body.provider) {
+          return Response.json({ error: 'provider is required' }, { status: 400 });
         }
         // Resolved server-side so a provider switched on stays on for models
         // the browser has not seen yet.
-        refs = context.models
-          .filter((model) => model.provider === body.provider)
-          .map(modelRef);
+        refs = context.models.filter((model) => model.provider === body.provider).map(modelRef);
       } else {
         const requested = stringArray(body.refs);
-        if (!requested) return Response.json({ error: "refs must be an array of strings" }, { status: 400 });
+        if (!requested)
+          return Response.json({ error: 'refs must be an array of strings' }, { status: 400 });
         refs = requested;
       }
       edit = setModelsEnabled(input, refs, body.enabled === true);
@@ -247,8 +258,8 @@ export async function PUT(req: Request) {
 
     if (!edit.ok) {
       return Response.json(
-        { error: "At least one model must stay enabled", reason: edit.reason },
-        { status: 409 },
+        { error: 'At least one model must stay enabled', reason: edit.reason },
+        { status: 409 }
       );
     }
     if (edit.changed) {

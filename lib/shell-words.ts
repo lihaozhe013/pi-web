@@ -22,22 +22,22 @@
  *   word is refused (`multiple-commands`); blank lines and `#` comments are not.
  */
 
-export type ShellQuote = "none" | "single" | "double" | "ansi";
+export type ShellQuote = 'none' | 'single' | 'double' | 'ansi';
 
 /** Literal text, after the shell's quote removal. */
 export interface ShellTextPart {
-  type: "text";
+  type: 'text';
   value: string;
   quote: ShellQuote;
 }
 
 /** A `$NAME`, `${NAME}` or `${NAME:-fallback}` the shell would have expanded. */
 export interface ShellVariablePart {
-  type: "variable";
+  type: 'variable';
   name: string;
   /** As written, for example `${HOME}`. */
   raw: string;
-  quote: "none" | "double";
+  quote: 'none' | 'double';
   /** The literal word of `${NAME:-word}` / `${NAME-word}`. */
   fallback?: string;
 }
@@ -51,35 +51,45 @@ export interface ShellWord {
 }
 
 export type ShellWordsError =
-  | { code: "unterminated-quote"; quote: "'" | '"' }
-  | { code: "shell-operator"; operator: string }
-  | { code: "command-substitution"; syntax: string }
-  | { code: "multiple-commands" }
-  | { code: "shell-parameter"; parameter: string }
-  | { code: "unsupported-expansion"; expansion: string };
+  | { code: 'unterminated-quote'; quote: "'" | '"' }
+  | { code: 'shell-operator'; operator: string }
+  | { code: 'command-substitution'; syntax: string }
+  | { code: 'multiple-commands' }
+  | { code: 'shell-parameter'; parameter: string }
+  | { code: 'unsupported-expansion'; expansion: string };
 
 export type ShellWordsResult =
-  | { ok: true; words: ShellWord[] }
-  | { ok: false; error: ShellWordsError };
+  { ok: true; words: ShellWord[] } | { ok: false; error: ShellWordsError };
 
 const NAME_START = /[A-Za-z_]/;
 const NAME_CHAR = /[A-Za-z0-9_]/;
 const VARIABLE_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 /** Characters an unquoted backslash escapes; before anything else it is kept. */
-const ESCAPABLE = new Set([..." \t\n'\"\\$`|&;<>()#*?[]{}!~="]);
-const OPERATOR_START = new Set([..."|&;<>()"]);
+const ESCAPABLE = new Set([...' \t\n\'"\\$`|&;<>()#*?[]{}!~=']);
+const OPERATOR_START = new Set([...'|&;<>()']);
 const SPECIAL_PARAMETER = /[0-9@*#?$!-]/;
 const ANSI_ESCAPES: Record<string, string> = {
-  n: "\n", t: "\t", r: "\r", a: "\x07", b: "\b", e: "\x1b", E: "\x1b", f: "\f", v: "\v",
-  "\\": "\\", "'": "'", '"': '"', "?": "?",
+  n: '\n',
+  t: '\t',
+  r: '\r',
+  a: '\x07',
+  b: '\b',
+  e: '\x1b',
+  E: '\x1b',
+  f: '\f',
+  v: '\v',
+  '\\': '\\',
+  "'": "'",
+  '"': '"',
+  '?': '?'
 };
 
 /** `^` or `` ` `` (or `\`) with only spaces before the end of the line. */
 function continuationLength(input: string, index: number): number {
   let end = index + 1;
-  while (input[end] === " " || input[end] === "\t") end++;
-  if (input[end] === "\r" && input[end + 1] === "\n") return end + 2 - index;
-  if (input[end] === "\n") return end + 1 - index;
+  while (input[end] === ' ' || input[end] === '\t') end++;
+  if (input[end] === '\r' && input[end + 1] === '\n') return end + 2 - index;
+  if (input[end] === '\n') return end + 1 - index;
   return 0;
 }
 
@@ -90,7 +100,7 @@ function startsWindowsPath(input: string, index: number): boolean {
 
 function operatorAt(input: string, index: number): string {
   const two = input.slice(index, index + 2);
-  if (["||", "&&", ";;", ">>", "<<", ">&", "<&", ">|", "<(", ">(", "&>"].includes(two)) return two;
+  if (['||', '&&', ';;', '>>', '<<', '>&', '<&', '>|', '<(', '>(', '&>'].includes(two)) return two;
   return input[index];
 }
 
@@ -119,7 +129,7 @@ class Splitter {
 
   private startWord(): ShellWordPart[] {
     if (this.parts) return this.parts;
-    if (this.lineBreak) this.fail({ code: "multiple-commands" });
+    if (this.lineBreak) this.fail({ code: 'multiple-commands' });
     this.parts = [];
     this.windowsWord = startsWindowsPath(this.input, this.index);
     return this.parts;
@@ -128,11 +138,11 @@ class Splitter {
   private endWord(): void {
     if (!this.parts) return;
     // `""` and `''` leave empty text parts; drop them unless the word is empty.
-    const nonEmpty = this.parts.filter((part) => part.type !== "text" || part.value !== "");
+    const nonEmpty = this.parts.filter((part) => part.type !== 'text' || part.value !== '');
     const parts = nonEmpty.length > 0 ? nonEmpty : this.parts.slice(0, 1);
     this.words.push({
       parts,
-      text: parts.map((part) => (part.type === "text" ? part.value : part.raw)).join(""),
+      text: parts.map((part) => (part.type === 'text' ? part.value : part.raw)).join('')
     });
     this.parts = undefined;
     this.windowsWord = false;
@@ -141,43 +151,46 @@ class Splitter {
   private appendText(value: string, quote: ShellQuote): void {
     const parts = this.startWord();
     const last = parts[parts.length - 1];
-    if (last?.type === "text" && last.quote === quote) last.value += value;
-    else parts.push({ type: "text", value, quote });
+    if (last?.type === 'text' && last.quote === quote) last.value += value;
+    else parts.push({ type: 'text', value, quote });
   }
 
   private scan(): void {
     const { input } = this;
     while (this.index < input.length) {
       const char = input[this.index];
-      if (char === " " || char === "\t") {
+      if (char === ' ' || char === '\t') {
         this.endWord();
         this.index++;
-      } else if (char === "\r" && input[this.index + 1] === "\n") {
+      } else if (char === '\r' && input[this.index + 1] === '\n') {
         this.index++;
-      } else if (char === "\n") {
+      } else if (char === '\n') {
         this.endWord();
         if (this.words.length > 0) this.lineBreak = true;
         this.index++;
-      } else if ((char === "\\" || char === "^" || char === "`") && continuationLength(input, this.index) > 0) {
+      } else if (
+        (char === '\\' || char === '^' || char === '`') &&
+        continuationLength(input, this.index) > 0
+      ) {
         this.index += continuationLength(input, this.index);
-      } else if (char === "#" && !this.parts) {
-        while (this.index < input.length && input[this.index] !== "\n") this.index++;
+      } else if (char === '#' && !this.parts) {
+        while (this.index < input.length && input[this.index] !== '\n') this.index++;
       } else if (char === "'") {
         this.startWord();
         this.singleQuoted();
       } else if (char === '"') {
         this.startWord();
         this.doubleQuoted();
-      } else if (char === "$") {
-        this.dollar("none");
-      } else if (char === "`") {
-        this.fail({ code: "command-substitution", syntax: "`" });
+      } else if (char === '$') {
+        this.dollar('none');
+      } else if (char === '`') {
+        this.fail({ code: 'command-substitution', syntax: '`' });
       } else if (OPERATOR_START.has(char)) {
-        this.fail({ code: "shell-operator", operator: operatorAt(input, this.index) });
-      } else if (char === "\\") {
+        this.fail({ code: 'shell-operator', operator: operatorAt(input, this.index) });
+      } else if (char === '\\') {
         this.backslash();
       } else {
-        this.appendText(char, "none");
+        this.appendText(char, 'none');
         this.index++;
       }
     }
@@ -188,18 +201,18 @@ class Splitter {
     const next = this.input[this.index + 1];
     this.startWord();
     if (next === undefined || this.windowsWord || !ESCAPABLE.has(next)) {
-      this.appendText("\\", "none");
+      this.appendText('\\', 'none');
       this.index++;
       return;
     }
-    this.appendText(next, "none");
+    this.appendText(next, 'none');
     this.index += 2;
   }
 
   private singleQuoted(): void {
     const end = this.input.indexOf("'", this.index + 1);
-    if (end < 0) this.fail({ code: "unterminated-quote", quote: "'" });
-    this.appendText(this.input.slice(this.index + 1, end), "single");
+    if (end < 0) this.fail({ code: 'unterminated-quote', quote: "'" });
+    this.appendText(this.input.slice(this.index + 1, end), 'single');
     this.index = end + 1;
   }
 
@@ -208,95 +221,108 @@ class Splitter {
     const windowsPath = startsWindowsPath(input, this.index + 1);
     this.index++;
     // An empty "" still makes a word.
-    this.appendText("", "double");
+    this.appendText('', 'double');
     while (this.index < input.length) {
       const char = input[this.index];
       if (char === '"') {
         this.index++;
         return;
       }
-      if (char === "\\") {
+      if (char === '\\') {
         const next = input[this.index + 1];
-        if (next === "\n") {
+        if (next === '\n') {
           this.index += 2;
-        } else if (next === "\r" && input[this.index + 2] === "\n") {
+        } else if (next === '\r' && input[this.index + 2] === '\n') {
           this.index += 3;
-        } else if (next === '"' || (!windowsPath && (next === "$" || next === "`" || next === "\\"))) {
-          this.appendText(next, "double");
+        } else if (
+          next === '"' ||
+          (!windowsPath && (next === '$' || next === '`' || next === '\\'))
+        ) {
+          this.appendText(next, 'double');
           this.index += 2;
         } else {
-          this.appendText("\\", "double");
+          this.appendText('\\', 'double');
           this.index++;
         }
-      } else if (char === "$") {
-        this.dollar("double");
-      } else if (char === "`") {
-        this.fail({ code: "command-substitution", syntax: "`" });
+      } else if (char === '$') {
+        this.dollar('double');
+      } else if (char === '`') {
+        this.fail({ code: 'command-substitution', syntax: '`' });
       } else {
-        this.appendText(char, "double");
+        this.appendText(char, 'double');
         this.index++;
       }
     }
-    this.fail({ code: "unterminated-quote", quote: '"' });
+    this.fail({ code: 'unterminated-quote', quote: '"' });
   }
 
   private ansiQuoted(): void {
     const { input } = this;
     this.index += 2;
-    let value = "";
+    let value = '';
     while (this.index < input.length) {
       const char = input[this.index];
       if (char === "'") {
-        this.appendText(value, "ansi");
+        this.appendText(value, 'ansi');
         this.index++;
         return;
       }
-      if (char !== "\\") {
+      if (char !== '\\') {
         value += char;
         this.index++;
         continue;
       }
       const next = input[this.index + 1];
-      if (next === "x" && /^[0-9A-Fa-f]{1,2}/.test(input.slice(this.index + 2))) {
+      if (next === 'x' && /^[0-9A-Fa-f]{1,2}/.test(input.slice(this.index + 2))) {
         const hex = /^[0-9A-Fa-f]{1,2}/.exec(input.slice(this.index + 2))![0];
         value += String.fromCharCode(parseInt(hex, 16));
         this.index += 2 + hex.length;
-      } else if ((next === "u" || next === "U") && /^[0-9A-Fa-f]{1,8}/.test(input.slice(this.index + 2))) {
-        const hex = new RegExp(`^[0-9A-Fa-f]{1,${next === "u" ? 4 : 8}}`).exec(input.slice(this.index + 2))![0];
+      } else if (
+        (next === 'u' || next === 'U') &&
+        /^[0-9A-Fa-f]{1,8}/.test(input.slice(this.index + 2))
+      ) {
+        const hex = new RegExp(`^[0-9A-Fa-f]{1,${next === 'u' ? 4 : 8}}`).exec(
+          input.slice(this.index + 2)
+        )![0];
         const codePoint = parseInt(hex, 16);
         // Past U+10FFFF or a lone surrogate is no character; bash then prints the escape as text.
-        value += codePoint > 0x10ffff || (codePoint >= 0xd800 && codePoint <= 0xdfff)
-          ? input.slice(this.index, this.index + 2 + hex.length)
-          : String.fromCodePoint(codePoint);
+        value +=
+          codePoint > 0x10ffff || (codePoint >= 0xd800 && codePoint <= 0xdfff)
+            ? input.slice(this.index, this.index + 2 + hex.length)
+            : String.fromCodePoint(codePoint);
         this.index += 2 + hex.length;
       } else if (next !== undefined && next in ANSI_ESCAPES) {
         value += ANSI_ESCAPES[next];
         this.index += 2;
       } else {
-        value += "\\";
+        value += '\\';
         this.index++;
       }
     }
-    this.fail({ code: "unterminated-quote", quote: "'" });
+    this.fail({ code: 'unterminated-quote', quote: "'" });
   }
 
-  private dollar(quote: "none" | "double"): void {
+  private dollar(quote: 'none' | 'double'): void {
     const { input } = this;
     const next = input[this.index + 1];
-    if (next === "(") this.fail({ code: "command-substitution", syntax: input[this.index + 2] === "(" ? "$((" : "$(" });
-    if (quote === "none" && next === "'") {
+    if (next === '(')
+      this.fail({
+        code: 'command-substitution',
+        syntax: input[this.index + 2] === '(' ? '$((' : '$('
+      });
+    if (quote === 'none' && next === "'") {
       this.startWord();
       this.ansiQuoted();
       return;
     }
-    if (quote === "none" && next === '"') {
+    if (quote === 'none' && next === '"') {
       // $"…" is a locale-translated string; it reads like "…".
       this.startWord();
       this.index++;
       this.doubleQuoted();
       return;
     }
-    if (next === "{") {
+    if (next === '{') {
       this.braced(quote);
       return;
     }
@@ -304,37 +330,43 @@ class Splitter {
       let end = this.index + 1;
       while (end < input.length && NAME_CHAR.test(input[end])) end++;
       const name = input.slice(this.index + 1, end);
-      this.startWord().push({ type: "variable", name, raw: `$${name}`, quote });
+      this.startWord().push({ type: 'variable', name, raw: `$${name}`, quote });
       this.index = end;
       return;
     }
     if (next !== undefined && SPECIAL_PARAMETER.test(next)) {
-      this.fail({ code: "shell-parameter", parameter: `$${next}` });
+      this.fail({ code: 'shell-parameter', parameter: `$${next}` });
     }
     // A `$` before a space, a quote or the end is a literal dollar sign.
-    this.appendText("$", quote);
+    this.appendText('$', quote);
     this.index++;
   }
 
-  private braced(quote: "none" | "double"): void {
+  private braced(quote: 'none' | 'double'): void {
     const { input } = this;
-    const end = input.indexOf("}", this.index + 2);
-    if (end < 0) this.fail({ code: "unsupported-expansion", expansion: input.slice(this.index) });
+    const end = input.indexOf('}', this.index + 2);
+    if (end < 0) this.fail({ code: 'unsupported-expansion', expansion: input.slice(this.index) });
     const raw = input.slice(this.index, end + 1);
     const body = raw.slice(2, -1);
-    if (/^[0-9@*#?$!-]$/.test(body)) this.fail({ code: "shell-parameter", parameter: raw });
+    if (/^[0-9@*#?$!-]$/.test(body)) this.fail({ code: 'shell-parameter', parameter: raw });
     if (VARIABLE_NAME.test(body)) {
-      this.startWord().push({ type: "variable", name: body, raw, quote });
+      this.startWord().push({ type: 'variable', name: body, raw, quote });
       this.index = end + 1;
       return;
     }
     const fallback = /^([A-Za-z_][A-Za-z0-9_]*):?-([\s\S]*)$/.exec(body);
     if (fallback && !/[$`{}\\'"]/.test(fallback[2])) {
-      this.startWord().push({ type: "variable", name: fallback[1], raw, quote, fallback: fallback[2] });
+      this.startWord().push({
+        type: 'variable',
+        name: fallback[1],
+        raw,
+        quote,
+        fallback: fallback[2]
+      });
       this.index = end + 1;
       return;
     }
-    this.fail({ code: "unsupported-expansion", expansion: raw });
+    this.fail({ code: 'unsupported-expansion', expansion: raw });
   }
 }
 
@@ -351,32 +383,34 @@ export function splitShellWords(input: string): ShellWordsResult {
 
 /** The word's value when it holds no variable, else undefined. */
 export function literalWord(word: ShellWord): string | undefined {
-  return word.parts.every((part) => part.type === "text") ? word.text : undefined;
+  return word.parts.every((part) => part.type === 'text') ? word.text : undefined;
 }
 
 /**
  * `NAME=value` as the shell reads an assignment: the name and the `=` are
  * unquoted. Returns the value's parts, or undefined for any other word.
  */
-export function shellAssignment(word: ShellWord): { name: string; value: ShellWordPart[] } | undefined {
+export function shellAssignment(
+  word: ShellWord
+): { name: string; value: ShellWordPart[] } | undefined {
   const [first, ...rest] = word.parts;
-  if (first?.type !== "text" || first.quote !== "none") return undefined;
+  if (first?.type !== 'text' || first.quote !== 'none') return undefined;
   const match = /^([A-Za-z_][A-Za-z0-9_]*)=/.exec(first.value);
   if (!match) return undefined;
   const remainder = first.value.slice(match[0].length);
   return {
     name: match[1],
-    value: [...(remainder ? [{ ...first, value: remainder }] : []), ...rest],
+    value: [...(remainder ? [{ ...first, value: remainder }] : []), ...rest]
   };
 }
 
 /** A word a POSIX shell reads back unchanged: as is when safe, else single-quoted. */
 export function quoteShellWord(word: string): string {
-  if (word !== "" && /^[A-Za-z0-9_@%+=:,./~-]+$/.test(word)) return word;
+  if (word !== '' && /^[A-Za-z0-9_@%+=:,./~-]+$/.test(word)) return word;
   return `'${word.replace(/'/g, `'\\''`)}'`;
 }
 
 /** Words joined into one display line that `splitShellWords` splits back into the same words. */
 export function formatShellCommand(words: readonly string[]): string {
-  return words.map(quoteShellWord).join(" ");
+  return words.map(quoteShellWord).join(' ');
 }

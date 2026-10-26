@@ -2,7 +2,10 @@ export const VISIBLE_PAGE_SIZE = 50;
 export const CHAT_SCROLL_TAIL_TOLERANCE = 8;
 export const CHAT_SCROLL_REATTACH_TOLERANCE = 96;
 
-export function getVisibleRenderWindow(totalCount: number, visibleCount: number): {
+export function getVisibleRenderWindow(
+  totalCount: number,
+  visibleCount: number
+): {
   startIndex: number;
   hasMore: boolean;
 } {
@@ -11,7 +14,10 @@ export function getVisibleRenderWindow(totalCount: number, visibleCount: number)
   return { startIndex, hasMore: startIndex > 0 };
 }
 
-export function getNextVisibleCount(currentVisibleCount: number, pageSize = VISIBLE_PAGE_SIZE): number {
+export function getNextVisibleCount(
+  currentVisibleCount: number,
+  pageSize = VISIBLE_PAGE_SIZE
+): number {
   return currentVisibleCount + pageSize;
 }
 
@@ -27,7 +33,7 @@ export function isScrollAtTail(
   scrollTop: number,
   clientHeight: number,
   scrollHeight: number,
-  tolerance = CHAT_SCROLL_TAIL_TOLERANCE,
+  tolerance = CHAT_SCROLL_TAIL_TOLERANCE
 ): boolean {
   return scrollTop + clientHeight >= scrollHeight - tolerance;
 }
@@ -38,15 +44,16 @@ export function getLiveFollowAttached(
   scrollTop: number,
   clientHeight: number,
   scrollHeight: number,
-  reattachTolerance = CHAT_SCROLL_REATTACH_TOLERANCE,
+  reattachTolerance = CHAT_SCROLL_REATTACH_TOLERANCE
 ): boolean {
   if (isScrollAtTail(scrollTop, clientHeight, scrollHeight)) return true;
   if (scrollTop < previousScrollTop) return false;
   if (
-    !wasAttached
-    && scrollTop > previousScrollTop
-    && isScrollAtTail(scrollTop, clientHeight, scrollHeight, reattachTolerance)
-  ) return true;
+    !wasAttached &&
+    scrollTop > previousScrollTop &&
+    isScrollAtTail(scrollTop, clientHeight, scrollHeight, reattachTolerance)
+  )
+    return true;
   return wasAttached;
 }
 
@@ -54,7 +61,7 @@ export function shouldShowScrollToLatest(
   scrollTop: number,
   clientHeight: number,
   scrollHeight: number,
-  tolerance = CHAT_SCROLL_TAIL_TOLERANCE,
+  tolerance = CHAT_SCROLL_TAIL_TOLERANCE
 ): boolean {
   if (scrollHeight <= clientHeight) return false;
   return !isScrollAtTail(scrollTop, clientHeight, scrollHeight, tolerance);
@@ -63,12 +70,10 @@ export function shouldShowScrollToLatest(
 export function getPromptAnchorSpacerHeight(
   targetTop: number,
   contentEnd: number,
-  clientHeight: number,
+  clientHeight: number
 ): number {
   const clampedTargetTop = Math.max(0, targetTop);
   if (clampedTargetTop === 0) return 0;
 
-  return Math.max(0, Math.ceil(
-    clampedTargetTop + clientHeight - Math.max(0, contentEnd),
-  ));
+  return Math.max(0, Math.ceil(clampedTargetTop + clientHeight - Math.max(0, contentEnd)));
 }

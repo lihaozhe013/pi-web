@@ -1,14 +1,14 @@
-import type { AssistantContentBlock, ToolResultMessage } from "./types";
-import { resolveLocalFilePath } from "./file-links";
-import { isApplyPatchToolName, isEditToolName, isWriteToolName } from "./tool-names";
+import type { AssistantContentBlock, ToolResultMessage } from './types';
+import { resolveLocalFilePath } from './file-links';
+import { isApplyPatchToolName, isEditToolName, isWriteToolName } from './tool-names';
 import {
   applyPatchPreviewToFiles,
   applyPatchResultHasFailures,
   getApplyPatchAppliedFiles,
   getApplyPatchInputText,
-  parseApplyPatchInput,
-} from "./apply-patch";
-import type { SplitDiffFile } from "./patch";
+  parseApplyPatchInput
+} from './apply-patch';
+import type { SplitDiffFile } from './patch';
 
 export interface WrittenFile {
   /** Resolved absolute path of a file this turn wrote. */
@@ -22,7 +22,7 @@ function isFileWritingToolName(toolName: string): boolean {
 function readToolPath(input: Record<string, unknown> | undefined): string | null {
   if (!input) return null;
   const value = input.file_path ?? input.path;
-  return typeof value === "string" && value.length > 0 ? value : null;
+  return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
 function writtenPathsFromFiles(files: SplitDiffFile[] | null): string[] {
@@ -30,20 +30,27 @@ function writtenPathsFromFiles(files: SplitDiffFile[] | null): string[] {
   // Deletes have no newPath — they are not files this turn wrote.
   return files
     .map((file) => file.newPath)
-    .filter((filePath): filePath is string => typeof filePath === "string" && filePath.length > 0);
+    .filter((filePath): filePath is string => typeof filePath === 'string' && filePath.length > 0);
 }
 
-function collectApplyPatchDeletePaths(input: Record<string, unknown> | undefined, details: unknown): Set<string> {
+function collectApplyPatchDeletePaths(
+  input: Record<string, unknown> | undefined,
+  details: unknown
+): Set<string> {
   const deleted = new Set<string>();
-  if (details && typeof details === "object" && !Array.isArray(details)) {
+  if (details && typeof details === 'object' && !Array.isArray(details)) {
     const preview = (details as Record<string, unknown>).preview;
-    if (preview && typeof preview === "object" && !Array.isArray(preview)) {
+    if (preview && typeof preview === 'object' && !Array.isArray(preview)) {
       const files = (preview as Record<string, unknown>).files;
       if (Array.isArray(files)) {
         for (const raw of files) {
-          if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
+          if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
           const entry = raw as { operation?: unknown; filePath?: unknown };
-          if (entry.operation === "delete" && typeof entry.filePath === "string" && entry.filePath.length > 0) {
+          if (
+            entry.operation === 'delete' &&
+            typeof entry.filePath === 'string' &&
+            entry.filePath.length > 0
+          ) {
             deleted.add(entry.filePath);
           }
         }
@@ -51,7 +58,7 @@ function collectApplyPatchDeletePaths(input: Record<string, unknown> | undefined
     }
   }
   for (const match of getApplyPatchInputText(input).matchAll(/^\*\*\* Delete File: (.+)$/gm)) {
-    const filePath = (match[1] ?? "").trim();
+    const filePath = (match[1] ?? '').trim();
     if (filePath) deleted.add(filePath);
   }
   return deleted;
@@ -65,15 +72,20 @@ function collectApplyPatchDeletePaths(input: Record<string, unknown> | undefined
  * document. Deletes are omitted — they are not files this turn wrote.
  * A returned failure with no `appliedFiles` writes nothing.
  */
-function readApplyPatchPaths(input: Record<string, unknown> | undefined, result: ToolResultMessage | undefined): string[] {
+function readApplyPatchPaths(
+  input: Record<string, unknown> | undefined,
+  result: ToolResultMessage | undefined
+): string[] {
   const details = result?.details;
   const deleted = collectApplyPatchDeletePaths(input, details);
   const applied = getApplyPatchAppliedFiles(details);
   if (applied) return applied.filter((filePath) => !deleted.has(filePath));
   if (applyPatchResultHasFailures(details)) return [];
 
-  if (details && typeof details === "object" && !Array.isArray(details)) {
-    const fromPreview = writtenPathsFromFiles(applyPatchPreviewToFiles((details as Record<string, unknown>).preview));
+  if (details && typeof details === 'object' && !Array.isArray(details)) {
+    const fromPreview = writtenPathsFromFiles(
+      applyPatchPreviewToFiles((details as Record<string, unknown>).preview)
+    );
     if (fromPreview.length > 0) return fromPreview;
   }
   return writtenPathsFromFiles(parseApplyPatchInput(getApplyPatchInputText(input)));
@@ -93,13 +105,13 @@ function readApplyPatchPaths(input: Record<string, unknown> | undefined, result:
 export function extractTurnWrittenFiles(
   content: AssistantContentBlock[],
   toolResults: Map<string, ToolResultMessage> | undefined,
-  cwd?: string,
+  cwd?: string
 ): WrittenFile[] {
   const seen = new Set<string>();
   const writtenFiles: WrittenFile[] = [];
 
   for (const block of content) {
-    if (block.type !== "toolCall") continue;
+    if (block.type !== 'toolCall') continue;
     if (!isFileWritingToolName(block.toolName) && !isApplyPatchToolName(block.toolName)) continue;
 
     const result = toolResults?.get(block.toolCallId);

@@ -1,9 +1,9 @@
-import { NextResponse } from "next/server";
-import type { McpErrorResponse, McpTestResponse } from "@/lib/api-types";
-import { isMcpEntryRefusal, readConnectableMcpEntry } from "@/lib/mcp-entry-request";
-import { testMcpServer } from "@/lib/mcp-test";
+import { NextResponse } from 'next/server';
+import type { McpErrorResponse, McpTestResponse } from '@/lib/api-types';
+import { isMcpEntryRefusal, readConnectableMcpEntry } from '@/lib/mcp-entry-request';
+import { testMcpServer } from '@/lib/mcp-test';
 
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
 // Settings › MCP's Test (ADR 0006): connects one server of the global
 // `mcp.json` or the panel's project `.pi/mcp.json` once, outside any session,
@@ -28,9 +28,16 @@ export async function POST(req: Request) {
   if (isMcpEntryRefusal(entry)) return NextResponse.json(entry.body, { status: entry.status });
   const { scope, name, sourcePath, configKey, config, cwd, internals } = entry;
   try {
-    const result = await testMcpServer({ scope, name, sourcePath, configKey, config, cwd }, internals, { signal: req.signal });
+    const result = await testMcpServer(
+      { scope, name, sourcePath, configKey, config, cwd },
+      internals,
+      { signal: req.signal }
+    );
     return NextResponse.json({ scope, name, configKey, result } satisfies McpTestResponse);
   } catch (error) {
-    return NextResponse.json({ error: errorMessage(error), reason: "internal" } satisfies McpErrorResponse, { status: 500 });
+    return NextResponse.json(
+      { error: errorMessage(error), reason: 'internal' } satisfies McpErrorResponse,
+      { status: 500 }
+    );
   }
 }

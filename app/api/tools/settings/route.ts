@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
-import type { McpErrorResponse, McpRefusalReason, ToolSettingsResponse } from "@/lib/api-types";
+import { NextResponse } from 'next/server';
+import type { McpErrorResponse, McpRefusalReason, ToolSettingsResponse } from '@/lib/api-types';
 import {
   CODEMODE_INLINE_BUDGET_MAX,
   isCodemodeInlineBudget,
@@ -9,15 +9,12 @@ import {
   readCodemodeSettings,
   writeCodemodeInlineBudget,
   writeCodemodeMode,
-  writeCodemodePreference,
-} from "@/lib/codemode-settings";
-import { hasJsonContentType, isApiRequestAllowed } from "@/lib/request-security";
-import {
-  readPowerShellToolEnabled,
-  writePowerShellToolEnabled,
-} from "@/lib/powershell-settings";
+  writeCodemodePreference
+} from '@/lib/codemode-settings';
+import { hasJsonContentType, isApiRequestAllowed } from '@/lib/request-security';
+import { readPowerShellToolEnabled, writePowerShellToolEnabled } from '@/lib/powershell-settings';
 
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
 // The only writer of the global `defaultTools` key: the PowerShell switch
 // (Windows) and the Code mode choice (ADR 0006, chosen in Settings › MCP) both
@@ -27,14 +24,14 @@ export const dynamic = "force-dynamic";
 // Every refusal carries a `reason` code the panel translates, beside the
 // English `error` it shows only as the diagnostic of an `internal` failure.
 
-const CHANGES = ["enabled", "codemode", "codemodeMode", "codemodeInlineBudget"] as const;
+const CHANGES = ['enabled', 'codemode', 'codemodeMode', 'codemodeInlineBudget'] as const;
 
 function refusal(status: number, reason: McpRefusalReason, error: string) {
   return NextResponse.json({ error, reason } satisfies McpErrorResponse, { status });
 }
 
 function errorResponse(error: unknown) {
-  return refusal(500, "internal", error instanceof Error ? error.message : String(error));
+  return refusal(500, 'internal', error instanceof Error ? error.message : String(error));
 }
 
 async function readToolSettings(): Promise<ToolSettingsResponse> {
@@ -43,7 +40,13 @@ async function readToolSettings(): Promise<ToolSettingsResponse> {
   const powerShellEnabled = await readPowerShellToolEnabled();
   const codemode = await readCodemodePreference();
   const { mode: codemodeMode, inlineBudget: codemodeInlineBudget } = await readCodemodeSettings();
-  return { isWindows: process.platform === "win32", powerShellEnabled, codemode, codemodeMode, codemodeInlineBudget };
+  return {
+    isWindows: process.platform === 'win32',
+    powerShellEnabled,
+    codemode,
+    codemodeMode,
+    codemodeInlineBudget
+  };
 }
 
 export async function GET() {
@@ -56,30 +59,39 @@ export async function GET() {
 
 export async function PUT(req: Request) {
   if (!isApiRequestAllowed(req)) {
-    return refusal(403, "request-denied", "Untrusted API request");
+    return refusal(403, 'request-denied', 'Untrusted API request');
   }
   if (!hasJsonContentType(req)) {
-    return refusal(415, "content-type", "Content-Type must be application/json");
+    return refusal(415, 'content-type', 'Content-Type must be application/json');
   }
 
   let body: unknown;
   try {
     body = await req.json();
   } catch {
-    return refusal(400, "invalid-request", "Invalid JSON body");
+    return refusal(400, 'invalid-request', 'Invalid JSON body');
   }
-  if (typeof body !== "object" || body === null || Array.isArray(body)) {
-    return refusal(400, "invalid-request", "Expected a JSON object");
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+    return refusal(400, 'invalid-request', 'Expected a JSON object');
   }
-  const changes = body as { enabled?: unknown; codemode?: unknown; codemodeMode?: unknown; codemodeInlineBudget?: unknown };
+  const changes = body as {
+    enabled?: unknown;
+    codemode?: unknown;
+    codemodeMode?: unknown;
+    codemodeInlineBudget?: unknown;
+  };
   if (CHANGES.filter((key) => key in changes).length !== 1) {
-    return refusal(400, "invalid-request", "Send one of enabled (PowerShell), codemode, codemodeMode or codemodeInlineBudget");
+    return refusal(
+      400,
+      'invalid-request',
+      'Send one of enabled (PowerShell), codemode, codemodeMode or codemodeInlineBudget'
+    );
   }
 
-  if ("codemodeMode" in changes) {
+  if ('codemodeMode' in changes) {
     // "on" removes the key: it is pi's default.
     if (!isCodemodeMode(changes.codemodeMode)) {
-      return refusal(400, "invalid-request", "codemodeMode must be \"on\" or \"only\"");
+      return refusal(400, 'invalid-request', 'codemodeMode must be "on" or "only"');
     }
     try {
       await writeCodemodeMode(changes.codemodeMode);
@@ -89,11 +101,15 @@ export async function PUT(req: Request) {
     }
   }
 
-  if ("codemodeInlineBudget" in changes) {
+  if ('codemodeInlineBudget' in changes) {
     // null removes the key, which gives sessions pi's default.
     const budget = changes.codemodeInlineBudget;
     if (budget !== null && !isCodemodeInlineBudget(budget)) {
-      return refusal(400, "invalid-request", `codemodeInlineBudget must be a whole number from 0 to ${CODEMODE_INLINE_BUDGET_MAX}, or null`);
+      return refusal(
+        400,
+        'invalid-request',
+        `codemodeInlineBudget must be a whole number from 0 to ${CODEMODE_INLINE_BUDGET_MAX}, or null`
+      );
     }
     try {
       await writeCodemodeInlineBudget(budget ?? undefined);
@@ -103,9 +119,9 @@ export async function PUT(req: Request) {
     }
   }
 
-  if ("codemode" in changes) {
+  if ('codemode' in changes) {
     if (!isCodemodePreference(changes.codemode)) {
-      return refusal(400, "invalid-request", "codemode must be \"automatic\" or \"always\"");
+      return refusal(400, 'invalid-request', 'codemode must be "automatic" or "always"');
     }
     try {
       await writeCodemodePreference(changes.codemode);
@@ -115,11 +131,15 @@ export async function PUT(req: Request) {
     }
   }
 
-  if (process.platform !== "win32") {
-    return refusal(404, "invalid-request", "PowerShell tool settings are only available on Windows");
+  if (process.platform !== 'win32') {
+    return refusal(
+      404,
+      'invalid-request',
+      'PowerShell tool settings are only available on Windows'
+    );
   }
-  if (typeof changes.enabled !== "boolean") {
-    return refusal(400, "invalid-request", "enabled must be a boolean");
+  if (typeof changes.enabled !== 'boolean') {
+    return refusal(400, 'invalid-request', 'enabled must be a boolean');
   }
   try {
     await writePowerShellToolEnabled(changes.enabled);

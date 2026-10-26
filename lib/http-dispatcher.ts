@@ -1,9 +1,9 @@
-import { EventEmitter } from "node:events";
-import { homedir } from "node:os";
-import { join } from "node:path";
-import { fileURLToPath } from "node:url";
-import * as undici from "undici";
-import { readRegularFileText } from "./regular-file";
+import { EventEmitter } from 'node:events';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import * as undici from 'undici';
+import { readRegularFileText } from './regular-file';
 
 export const DEFAULT_HTTP_IDLE_TIMEOUT_MS = 300_000;
 
@@ -16,14 +16,14 @@ const originalGlobalFetch = globalThis.fetch;
 const ignoreUndiciDispatcherError = (): void => {};
 
 function parseHttpIdleTimeoutMs(value: unknown): number | undefined {
-  if (typeof value === "string") {
+  if (typeof value === 'string') {
     const trimmed = value.trim();
-    if (trimmed.toLowerCase() === "disabled") return 0;
+    if (trimmed.toLowerCase() === 'disabled') return 0;
     if (trimmed.length === 0) return undefined;
     return parseHttpIdleTimeoutMs(Number(trimmed));
   }
 
-  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
     return undefined;
   }
   return Math.floor(value);
@@ -37,13 +37,16 @@ function parseHttpIdleTimeoutMs(value: unknown): number | undefined {
  */
 export function defaultAgentDir(): string {
   let configured = process.env.PI_CODING_AGENT_DIR;
-  if (!configured) return join(homedir(), ".pi", "agent");
+  if (!configured) return join(homedir(), '.pi', 'agent');
 
   // pi's normalizePath(): Git Bash, MSYS, Cygwin and WSL drive paths on
   // Windows, then `~`, then file: URLs. The value is not trimmed.
-  if (process.platform === "win32") configured = windowsShellPath(configured);
-  if (configured === "~") return homedir();
-  if (configured.startsWith("~/") || (process.platform === "win32" && configured.startsWith("~\\"))) {
+  if (process.platform === 'win32') configured = windowsShellPath(configured);
+  if (configured === '~') return homedir();
+  if (
+    configured.startsWith('~/') ||
+    (process.platform === 'win32' && configured.startsWith('~\\'))
+  ) {
     return join(homedir(), configured.slice(2));
   }
   if (/^file:\/\//.test(configured)) return fileURLToPath(configured);
@@ -52,10 +55,10 @@ export function defaultAgentDir(): string {
 
 /** pi's normalizeWindowsShellPath(): `/c/x`, `/mnt/c/x`, `/cygdrive/c/x` to `C:\x`. */
 function windowsShellPath(path: string): string {
-  if (!path.startsWith("/") || path.startsWith("//") || path.includes("\\")) return path;
+  if (!path.startsWith('/') || path.startsWith('//') || path.includes('\\')) return path;
   const match = path.match(/^\/(?:mnt\/|cygdrive\/)?([a-z])(?:\/(.*))?$/i);
   if (!match) return path;
-  return `${match[1].toUpperCase()}:\\${match[2]?.replaceAll("/", "\\") ?? ""}`;
+  return `${match[1].toUpperCase()}:\\${match[2]?.replaceAll('/', '\\') ?? ''}`;
 }
 
 /**
@@ -72,7 +75,7 @@ function windowsShellPath(path: string): string {
 export function readHttpIdleTimeoutMs(agentDir: string = defaultAgentDir()): number | undefined {
   let text: string | undefined;
   try {
-    text = readRegularFileText(join(agentDir, "settings.json"));
+    text = readRegularFileText(join(agentDir, 'settings.json'));
   } catch {
     return undefined;
   }
@@ -84,7 +87,7 @@ export function readHttpIdleTimeoutMs(agentDir: string = defaultAgentDir()): num
   } catch {
     return undefined;
   }
-  if (typeof settings !== "object" || settings === null) return undefined;
+  if (typeof settings !== 'object' || settings === null) return undefined;
 
   return parseHttpIdleTimeoutMs((settings as { httpIdleTimeoutMs?: unknown }).httpIdleTimeoutMs);
 }
@@ -94,15 +97,13 @@ export function readHttpIdleTimeoutMs(agentDir: string = defaultAgentDir()): num
 // terminating the Next.js process first.
 function withUndiciErrorListener<T extends undici.Dispatcher>(dispatcher: T): T {
   if (dispatcher instanceof EventEmitter) {
-    EventEmitter.prototype.on.call(dispatcher, "error", ignoreUndiciDispatcherError);
+    EventEmitter.prototype.on.call(dispatcher, 'error', ignoreUndiciDispatcherError);
   }
   return dispatcher;
 }
 
 function createUndiciClient(origin: string | URL, options: object): undici.Dispatcher {
-  return withUndiciErrorListener(
-    new undici.Client(origin, options as undici.Client.Options),
-  );
+  return withUndiciErrorListener(new undici.Client(origin, options as undici.Client.Options));
 }
 
 function createUndiciOriginDispatcher(origin: string | URL, options: object): undici.Dispatcher {
@@ -114,14 +115,12 @@ function createUndiciOriginDispatcher(origin: string | URL, options: object): un
   return withUndiciErrorListener(
     new undici.Pool(origin, {
       ...dispatcherOptions,
-      factory: createUndiciClient,
-    }),
+      factory: createUndiciClient
+    })
   );
 }
 
-export function configureHttpDispatcher(
-  timeoutMs: number = DEFAULT_HTTP_IDLE_TIMEOUT_MS,
-): void {
+export function configureHttpDispatcher(timeoutMs: number = DEFAULT_HTTP_IDLE_TIMEOUT_MS): void {
   if (dispatcherGlobal.__piWebHttpDispatcherConfigured) return;
 
   const normalizedTimeoutMs = parseHttpIdleTimeoutMs(timeoutMs);
@@ -143,8 +142,8 @@ export function configureHttpDispatcher(
       connect: { autoSelectFamilyAttemptTimeout: 2_000 },
       headersTimeout: normalizedTimeoutMs,
       clientFactory: createUndiciClient,
-      factory: createUndiciOriginDispatcher,
-    }),
+      factory: createUndiciOriginDispatcher
+    })
   );
   undici.setGlobalDispatcher(dispatcher);
 

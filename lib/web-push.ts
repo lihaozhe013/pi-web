@@ -1,10 +1,10 @@
-import { existsSync, mkdirSync, readFileSync } from "fs";
-import { dirname, join } from "path";
-import webpush from "web-push";
-import { writePrivateFileAtomicSync } from "./atomic-file";
-import { enLocale } from "./i18n/messages/en";
-import { zhCNLocale } from "./i18n/messages/zh-CN";
-import { getAgentDir } from "./session-reader";
+import { existsSync, mkdirSync, readFileSync } from 'fs';
+import { dirname, join } from 'path';
+import webpush from 'web-push';
+import { writePrivateFileAtomicSync } from './atomic-file';
+import { enLocale } from './i18n/messages/en';
+import { zhCNLocale } from './i18n/messages/zh-CN';
+import { getAgentDir } from './session-reader';
 
 export interface PushSubscriptionRecord {
   endpoint: string;
@@ -21,11 +21,11 @@ interface WebPushEnvironment {
   send: (
     subscription: PushSubscriptionRecord,
     payload: string,
-    vapidKeys: PushStateFile["vapidKeys"],
+    vapidKeys: PushStateFile['vapidKeys']
   ) => Promise<void>;
   loadState: () => PushStateFile | null;
   saveState: (state: PushStateFile) => void;
-  generateVapidKeys: () => PushStateFile["vapidKeys"];
+  generateVapidKeys: () => PushStateFile['vapidKeys'];
 }
 
 export interface WebPushNotifier {
@@ -36,7 +36,7 @@ export interface WebPushNotifier {
 }
 
 function stateFilePath(): string {
-  return join(getAgentDir(), "web-push.json");
+  return join(getAgentDir(), 'web-push.json');
 }
 
 /**
@@ -49,12 +49,12 @@ function stateFilePath(): string {
 export function vapidSubject(): string {
   const configured = process.env.PI_WEB_PUSH_SUBJECT?.trim();
   if (configured) return configured;
-  return "https://github.com/lihaozhe013/pi-web";
+  return 'https://github.com/lihaozhe013/pi-web';
 }
 
 // Ask the push service to deliver immediately. Lower urgencies let idle
 // devices (especially iOS) defer delivery to an arbitrary later window.
-export const PUSH_OPTIONS = { TTL: 2419200, urgency: "high" as const };
+export const PUSH_OPTIONS = { TTL: 2419200, urgency: 'high' as const };
 
 function getDefaultEnvironment(): WebPushEnvironment {
   return {
@@ -66,18 +66,18 @@ function getDefaultEnvironment(): WebPushEnvironment {
           vapidDetails: {
             subject: vapidSubject(),
             publicKey: vapidKeys.publicKey,
-            privateKey: vapidKeys.privateKey,
+            privateKey: vapidKeys.privateKey
           },
           TTL: PUSH_OPTIONS.TTL,
-          urgency: PUSH_OPTIONS.urgency,
-        },
+          urgency: PUSH_OPTIONS.urgency
+        }
       );
     },
     loadState() {
       const path = stateFilePath();
       if (!existsSync(path)) return null;
       try {
-        return JSON.parse(readFileSync(path, "utf8")) as PushStateFile;
+        return JSON.parse(readFileSync(path, 'utf8')) as PushStateFile;
       } catch {
         return null;
       }
@@ -87,27 +87,29 @@ function getDefaultEnvironment(): WebPushEnvironment {
       mkdirSync(dirname(path), { recursive: true });
       writePrivateFileAtomicSync(path, JSON.stringify(state));
     },
-    generateVapidKeys: () => webpush.generateVAPIDKeys(),
+    generateVapidKeys: () => webpush.generateVAPIDKeys()
   };
 }
 
 function pushStatusCode(error: unknown): number | undefined {
-  if (typeof error !== "object" || error === null || !("statusCode" in error)) return undefined;
+  if (typeof error !== 'object' || error === null || !('statusCode' in error)) return undefined;
   const statusCode = (error as { statusCode?: unknown }).statusCode;
-  return typeof statusCode === "number" ? statusCode : undefined;
+  return typeof statusCode === 'number' ? statusCode : undefined;
 }
 
 /**
  * Locale lookup for push payloads. The browser reports its UI locale when it
  * subscribes; unknown locales fall back to English.
  */
-export function localeText(locale: string, key: "sessionComplete" | "taskFinished"): string {
-  if (locale === "zh-CN") {
-    const message = zhCNLocale.messages[key === "sessionComplete" ? "i18n.sessionComplete" : "i18n.taskFinished"];
+export function localeText(locale: string, key: 'sessionComplete' | 'taskFinished'): string {
+  if (locale === 'zh-CN') {
+    const message =
+      zhCNLocale.messages[key === 'sessionComplete' ? 'i18n.sessionComplete' : 'i18n.taskFinished'];
     if (message) return message;
   }
-  const message = enLocale.messages[key === "sessionComplete" ? "i18n.sessionComplete" : "i18n.taskFinished"];
-  return message ?? (key === "sessionComplete" ? "Session complete" : "Task finished.");
+  const message =
+    enLocale.messages[key === 'sessionComplete' ? 'i18n.sessionComplete' : 'i18n.taskFinished'];
+  return message ?? (key === 'sessionComplete' ? 'Session complete' : 'Task finished.');
 }
 
 export function createWebPushNotifier(environment: WebPushEnvironment): WebPushNotifier {
@@ -128,17 +130,17 @@ export function createWebPushNotifier(environment: WebPushEnvironment): WebPushN
     addSubscription(subscription) {
       state.subscriptions = [
         ...state.subscriptions.filter((s) => s.endpoint !== subscription.endpoint),
-        subscription,
+        subscription
       ];
       saveState();
     },
     async notifySessionComplete(sessionId, sessionName) {
       if (state.subscriptions.length === 0) return;
       const payloadFor = (locale: string) => ({
-        title: sessionName ?? localeText(locale, "sessionComplete"),
-        body: localeText(locale, "taskFinished"),
+        title: sessionName ?? localeText(locale, 'sessionComplete'),
+        body: localeText(locale, 'taskFinished'),
         url: `/?session=${encodeURIComponent(sessionId)}`,
-        tag: `pi-session-complete:${sessionId}`,
+        tag: `pi-session-complete:${sessionId}`
       });
 
       let pruned = false;
@@ -147,18 +149,20 @@ export function createWebPushNotifier(environment: WebPushEnvironment): WebPushN
           await environment.send(
             subscription,
             JSON.stringify(payloadFor(subscription.locale)),
-            state.vapidKeys,
+            state.vapidKeys
           );
         } catch (error) {
           const statusCode = pushStatusCode(error);
           if (statusCode === 404 || statusCode === 410) {
-            state.subscriptions = state.subscriptions.filter((s) => s.endpoint !== subscription.endpoint);
+            state.subscriptions = state.subscriptions.filter(
+              (s) => s.endpoint !== subscription.endpoint
+            );
             pruned = true;
           }
         }
       }
       if (pruned) saveState();
-    },
+    }
   };
 }
 
@@ -168,7 +172,9 @@ declare global {
 
 function getNotifier(): Promise<WebPushNotifier> {
   if (!globalThis.__piWebPushNotifier) {
-    globalThis.__piWebPushNotifier = Promise.resolve().then(() => createWebPushNotifier(getDefaultEnvironment()));
+    globalThis.__piWebPushNotifier = Promise.resolve().then(() =>
+      createWebPushNotifier(getDefaultEnvironment())
+    );
   }
   return globalThis.__piWebPushNotifier;
 }
@@ -181,7 +187,10 @@ export function addSubscription(subscription: PushSubscriptionRecord): Promise<v
   return getNotifier().then((notifier) => notifier.addSubscription(subscription));
 }
 
-export async function notifySessionComplete(sessionId: string, sessionName?: string): Promise<void> {
+export async function notifySessionComplete(
+  sessionId: string,
+  sessionName?: string
+): Promise<void> {
   const notifier = await getNotifier();
   await notifier.notifySessionComplete(sessionId, sessionName);
 }

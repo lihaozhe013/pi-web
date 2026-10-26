@@ -1,18 +1,18 @@
-import { mkdirSync, renameSync, statSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { getAgentDir } from "@earendil-works/pi-coding-agent";
-import lockfile from "proper-lockfile";
-import { writePrivateFileAtomicSync } from "./atomic-file";
-import { serializeByKey } from "./key-serializer";
-import { readRegularFileText } from "./regular-file";
+import { mkdirSync, renameSync, statSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { getAgentDir } from '@earendil-works/pi-coding-agent';
+import lockfile from 'proper-lockfile';
+import { writePrivateFileAtomicSync } from './atomic-file';
+import { serializeByKey } from './key-serializer';
+import { readRegularFileText } from './regular-file';
 import {
   applySessionUiStateRequest,
   emptySessionUiState,
   normalizeSessionUiState,
   SESSION_UI_STATE_VERSION,
   type SessionUiState,
-  type SessionUiStateRequest,
-} from "./session-ui-state-shared";
+  type SessionUiStateRequest
+} from './session-ui-state-shared';
 
 // The sidebar's pins, archive, project order and project names
 // (`lib/session-ui-state-shared.ts` has the rules) in `pi-web-session-state.json`
@@ -23,10 +23,18 @@ import {
 
 const MAX_BYTES = 4 * 1024 * 1024;
 // `__proto__` is never copied: assigning it would set the object's prototype instead.
-const KNOWN_KEYS = new Set(["version", "revision", "sessions", "projects", "projectOrder", "projectNames", "__proto__"]);
+const KNOWN_KEYS = new Set([
+  'version',
+  'revision',
+  'sessions',
+  'projects',
+  'projectOrder',
+  'projectNames',
+  '__proto__'
+]);
 
 // Route handlers are bundled separately and hot reload re-evaluates modules; globalThis keeps one queue per process.
-const QUEUE_KEY: symbol = Symbol.for("pi-web:session-ui-state-write-queue");
+const QUEUE_KEY: symbol = Symbol.for('pi-web:session-ui-state-write-queue');
 
 /**
  * About three seconds of retries in all, as for `mcp.json`: writes are
@@ -40,14 +48,14 @@ const LOCK_OPTIONS = {
   retries: { retries: 10, factor: 2, minTimeout: 25, maxTimeout: 500 },
   onCompromised: (error: Error) => {
     console.warn(`[pi-web] the session UI state lock was compromised: ${error.message}`);
-  },
+  }
 };
 
 /** Another process held the file's lock for longer than the retries wait. */
 export class SessionUiStateLockedError extends Error {
-  constructor(message = "Another process holds the session UI state lock") {
+  constructor(message = 'Another process holds the session UI state lock') {
     super(message);
-    this.name = "SessionUiStateLockedError";
+    this.name = 'SessionUiStateLockedError';
   }
 }
 
@@ -88,7 +96,7 @@ function copyState(state: SessionUiState): SessionUiState {
 }
 
 export function getSessionUiStatePath(agentDir = getAgentDir()): string {
-  return join(agentDir, "pi-web-session-state.json");
+  return join(agentDir, 'pi-web-session-state.json');
 }
 
 type Parsed = { ok: true; state: SessionUiState; raw: Record<string, unknown> } | { ok: false };
@@ -115,7 +123,7 @@ function loadState(path: string): SessionUiState {
     stats = statSync(path);
   } catch (error) {
     const code = errorCode(error);
-    if (code === "ENOENT" || code === "ENOTDIR") {
+    if (code === 'ENOENT' || code === 'ENOTDIR') {
       cache().reads.delete(path);
       return emptySessionUiState();
     }
@@ -123,7 +131,12 @@ function loadState(path: string): SessionUiState {
   }
   const cached = cache().reads.get(path);
   // An atomic replace gives the file a new inode, so a write within the mtime's granularity is still seen.
-  if (cached && cached.mtimeMs === stats.mtimeMs && cached.size === stats.size && cached.ino === stats.ino) {
+  if (
+    cached &&
+    cached.mtimeMs === stats.mtimeMs &&
+    cached.size === stats.size &&
+    cached.ino === stats.ino
+  ) {
     return cached.state;
   }
   // Read after the stat: a write in between leaves a fingerprint older than the text, which only costs one more read.
@@ -138,7 +151,9 @@ function loadState(path: string): SessionUiState {
     state = parsed.state;
     noteRevision(path, state.revision);
   } else {
-    console.warn(`[pi-web] ${path} is not valid session UI state; reading it as empty until the next change sets it aside`);
+    console.warn(
+      `[pi-web] ${path} is not valid session UI state; reading it as empty until the next change sets it aside`
+    );
     state = emptySessionUiState();
   }
   cache().reads.set(path, { mtimeMs: stats.mtimeMs, size: stats.size, ino: stats.ino, state });
@@ -150,7 +165,9 @@ export function readSessionUiState(path?: string): SessionUiState {
   try {
     return copyState(loadState(path ?? getSessionUiStatePath()));
   } catch (error) {
-    console.warn(`[pi-web] could not read the session UI state: ${error instanceof Error ? error.message : String(error)}`);
+    console.warn(
+      `[pi-web] could not read the session UI state: ${error instanceof Error ? error.message : String(error)}`
+    );
     return emptySessionUiState();
   }
 }
@@ -169,9 +186,13 @@ function backUpCorruptFile(path: string): void {
   const backup = `${path}.corrupt-${Date.now()}`;
   try {
     renameSync(path, backup);
-    console.warn(`[pi-web] ${path} could not be parsed; moved it to ${backup} and started from an empty session UI state`);
+    console.warn(
+      `[pi-web] ${path} could not be parsed; moved it to ${backup} and started from an empty session UI state`
+    );
   } catch (error) {
-    console.warn(`[pi-web] ${path} could not be parsed and could not be moved aside (${error instanceof Error ? error.message : String(error)}); starting from an empty session UI state`);
+    console.warn(
+      `[pi-web] ${path} could not be parsed and could not be moved aside (${error instanceof Error ? error.message : String(error)}); starting from an empty session UI state`
+    );
   }
 }
 
@@ -182,7 +203,7 @@ function backUpCorruptFile(path: string): void {
  */
 function editState(
   path: string,
-  edit: (state: SessionUiState) => { state: SessionUiState; changed: boolean },
+  edit: (state: SessionUiState) => { state: SessionUiState; changed: boolean }
 ): Promise<SessionUiState> {
   return serializeByKey(QUEUE_KEY, path, async () => {
     mkdirSync(dirname(path), { recursive: true });
@@ -190,7 +211,7 @@ function editState(
     try {
       release = await lockfile.lock(path, LOCK_OPTIONS);
     } catch (error) {
-      if (errorCode(error) === "ELOCKED") throw new SessionUiStateLockedError();
+      if (errorCode(error) === 'ELOCKED') throw new SessionUiStateLockedError();
       throw error;
     }
     try {
@@ -218,21 +239,32 @@ function editState(
       }
       const result = edit(state);
       if (!result.changed && !reset) return copyState(state);
-      const next: SessionUiState = { ...result.state, version: SESSION_UI_STATE_VERSION, revision: state.revision + (result.changed ? 1 : 0) };
+      const next: SessionUiState = {
+        ...result.state,
+        version: SESSION_UI_STATE_VERSION,
+        revision: state.revision + (result.changed ? 1 : 0)
+      };
       const document = {
         version: next.version,
         revision: next.revision,
         sessions: next.sessions,
         projects: next.projects,
         ...(next.projectOrder?.length ? { projectOrder: next.projectOrder } : {}),
-        ...(next.projectNames && Object.keys(next.projectNames).length > 0 ? { projectNames: next.projectNames } : {}),
-        ...extras,
+        ...(next.projectNames && Object.keys(next.projectNames).length > 0
+          ? { projectNames: next.projectNames }
+          : {}),
+        ...extras
       };
-      writePrivateFileAtomicSync(path, JSON.stringify(document, null, 2) + "\n");
+      writePrivateFileAtomicSync(path, JSON.stringify(document, null, 2) + '\n');
       noteRevision(path, next.revision);
       try {
         const stats = statSync(path);
-        cache().reads.set(path, { mtimeMs: stats.mtimeMs, size: stats.size, ino: stats.ino, state: copyState(next) });
+        cache().reads.set(path, {
+          mtimeMs: stats.mtimeMs,
+          size: stats.size,
+          ino: stats.ino,
+          state: copyState(next)
+        });
       } catch {
         cache().reads.delete(path);
       }
@@ -247,7 +279,10 @@ function editState(
   });
 }
 
-export function updateSessionUiState(request: SessionUiStateRequest, path?: string): Promise<SessionUiState> {
+export function updateSessionUiState(
+  request: SessionUiStateRequest,
+  path?: string
+): Promise<SessionUiState> {
   let target: string;
   try {
     target = path ?? getSessionUiStatePath();
@@ -262,7 +297,8 @@ export async function forgetSessionUiState(ids: Iterable<string>, path?: string)
   const target = path ?? getSessionUiStatePath();
   const wanted = [...new Set(ids)];
   if (wanted.length === 0) return;
-  const has = (state: SessionUiState) => wanted.some((id) => Object.prototype.hasOwnProperty.call(state.sessions, id));
+  const has = (state: SessionUiState) =>
+    wanted.some((id) => Object.prototype.hasOwnProperty.call(state.sessions, id));
   // Deleting a session must not lock or create anything when it had no pin or archive time.
   // A file that cannot be read throws here: the locked read could not do better.
   if (!has(loadState(target))) return;

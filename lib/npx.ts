@@ -1,6 +1,6 @@
-import { execFile } from "child_process";
-import { promisify } from "util";
-import { nodeCliInvocation } from "./node-cli";
+import { execFile } from 'child_process';
+import { promisify } from 'util';
+import { nodeCliInvocation } from './node-cli';
 
 const execFileAsync = promisify(execFile);
 
@@ -22,10 +22,10 @@ export interface RunNpxResult {
  * `npx` (or `npx.cmd`) on PATH.
  */
 export async function runNpx(args: string[], opts: RunNpxOptions = {}): Promise<RunNpxResult> {
-  const { command, args: commandArgs } = nodeCliInvocation("npx", args);
+  const { command, args: commandArgs } = nodeCliInvocation('npx', args);
   return execFileAsync(command, commandArgs, {
     timeout: opts.timeout,
     cwd: opts.cwd,
-    env: opts.env,
+    env: opts.env
   });
 }

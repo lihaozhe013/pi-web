@@ -1,6 +1,6 @@
-import { randomUUID } from "crypto";
-import { renameSync, unlinkSync, writeFileSync } from "fs";
-import { basename, dirname, join } from "path";
+import { randomUUID } from 'crypto';
+import { renameSync, unlinkSync, writeFileSync } from 'fs';
+import { basename, dirname, join } from 'path';
 
 /**
  * Replace a file atomically without exposing credentials through default
@@ -11,10 +11,10 @@ export function writePrivateFileAtomicSync(path: string, contents: string): void
   const tempPath = join(dir, `.${basename(path)}-${randomUUID()}.tmp`);
   try {
     writeFileSync(tempPath, contents, {
-      encoding: "utf8",
-      flag: "wx",
+      encoding: 'utf8',
+      flag: 'wx',
       mode: 0o600,
-      flush: true,
+      flush: true
     });
     renameSync(tempPath, path);
   } catch (error) {

@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { useState, useCallback, useRef } from "react";
-import type { DroppedItem } from "@/lib/file-upload-client";
+import { useState, useCallback, useRef } from 'react';
+import type { DroppedItem } from '@/lib/file-upload-client';
 
 function hasDraggedFiles(e: React.DragEvent): boolean {
-  return Array.from(e.dataTransfer.items).some((item) => item.kind === "file");
+  return Array.from(e.dataTransfer.items).some((item) => item.kind === 'file');
 }
 
 /**
@@ -15,17 +15,17 @@ function hasDraggedFiles(e: React.DragEvent): boolean {
 export function droppedItems(dataTransfer: DataTransfer): DroppedItem[] {
   const items: DroppedItem[] = [];
   for (const item of Array.from(dataTransfer.items)) {
-    if (item.kind !== "file") continue;
+    if (item.kind !== 'file') continue;
     const entry = item.webkitGetAsEntry?.();
     if (entry?.isDirectory) {
-      items.push({ kind: "folder", name: entry.name });
+      items.push({ kind: 'folder', name: entry.name });
       continue;
     }
     const file = item.getAsFile();
-    if (file) items.push({ kind: "file", file });
+    if (file) items.push({ kind: 'file', file });
   }
   if (items.length > 0) return items;
-  return Array.from(dataTransfer.files).map((file) => ({ kind: "file", file }));
+  return Array.from(dataTransfer.files).map((file) => ({ kind: 'file', file }));
 }
 
 export function useDragDrop(onDrop: (items: DroppedItem[]) => void) {
@@ -42,7 +42,7 @@ export function useDragDrop(onDrop: (items: DroppedItem[]) => void) {
   const handleDragOver = useCallback((e: React.DragEvent) => {
     if (!hasDraggedFiles(e)) return;
     e.preventDefault();
-    e.dataTransfer.dropEffect = "copy";
+    e.dataTransfer.dropEffect = 'copy';
   }, []);
 
   const handleDragLeave = useCallback(() => {
@@ -53,12 +53,15 @@ export function useDragDrop(onDrop: (items: DroppedItem[]) => void) {
     }
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    counterRef.current = 0;
-    setIsDragOver(false);
-    onDrop(droppedItems(e.dataTransfer));
-  }, [onDrop]);
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      counterRef.current = 0;
+      setIsDragOver(false);
+      onDrop(droppedItems(e.dataTransfer));
+    },
+    [onDrop]
+  );
 
   return { isDragOver, handleDragEnter, handleDragOver, handleDragLeave, handleDrop };
 }

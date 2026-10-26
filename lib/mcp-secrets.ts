@@ -13,68 +13,68 @@
 // `argSecretParts()`), for code that must find those values again in other
 // text, such as a connection test's error message.
 
-export const SECRET_MASK = "•••";
+export const SECRET_MASK = '•••';
 
 /** Words that name a credential wherever they appear in a name: `OPENAI_API_KEY`, `x-api-key`, `accessToken`. */
 const SECRET_WORDS = new Set([
-  "key",
-  "apikey",
-  "token",
-  "secret",
-  "password",
-  "passwd",
-  "passphrase",
-  "pwd",
-  "pass",
-  "credential",
-  "credentials",
-  "authorization",
-  "bearer",
-  "jwt",
-  "cookie",
-  "signature",
-  "pat",
+  'key',
+  'apikey',
+  'token',
+  'secret',
+  'password',
+  'passwd',
+  'passphrase',
+  'pwd',
+  'pass',
+  'credential',
+  'credentials',
+  'authorization',
+  'bearer',
+  'jwt',
+  'cookie',
+  'signature',
+  'pat'
 ]);
 
 /** Names that hold credentials in a query string as well: `?auth=…`, Azure's `sig=…`. */
-const SECRET_PARAMETER_WORDS = new Set([...SECRET_WORDS, "auth", "sig", "code", "pw"]);
+const SECRET_PARAMETER_WORDS = new Set([...SECRET_WORDS, 'auth', 'sig', 'code', 'pw']);
 
 /** A word that ends in one of these is a credential too, as all-caps names run words together: `GITHUBTOKEN`. */
-const SECRET_SUFFIXES = ["token", "secret", "password", "passwd", "apikey"];
+const SECRET_SUFFIXES = ['token', 'secret', 'password', 'passwd', 'apikey'];
 
 /**
  * A name that ends in one of these words describes a credential rather than
  * holding one: `API_KEY_FILE`, `TOKEN_URL`, `AWS_ACCESS_KEY_ID`.
  */
 const QUALIFIER_WORDS = new Set([
-  "file",
-  "path",
-  "dir",
-  "url",
-  "uri",
-  "endpoint",
-  "id",
-  "name",
-  "type",
-  "header",
-  "env",
-  "var",
-  "length",
-  "ttl",
-  "expiry",
-  "expires",
-  "timeout",
-  "mode",
-  "format",
+  'file',
+  'path',
+  'dir',
+  'url',
+  'uri',
+  'endpoint',
+  'id',
+  'name',
+  'type',
+  'header',
+  'env',
+  'var',
+  'length',
+  'ttl',
+  'expiry',
+  'expires',
+  'timeout',
+  'mode',
+  'format'
 ]);
 
 /** Short flags that take a credential as their next argument. */
-const SHORT_SECRET_FLAGS = new Set(["-k"]);
+const SHORT_SECRET_FLAGS = new Set(['-k']);
 
 function nameWords(name: string): string[] {
   return name
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
     .toLowerCase()
     .split(/[^a-z0-9]+/)
     .filter(Boolean);
@@ -84,7 +84,9 @@ function namesSecret(name: string, words: ReadonlySet<string>): boolean {
   const parts = nameWords(name);
   if (parts.length > 1 && QUALIFIER_WORDS.has(parts[parts.length - 1])) return false;
   return parts.some(
-    (word) => words.has(word) || SECRET_SUFFIXES.some((suffix) => word.length > suffix.length && word.endsWith(suffix)),
+    (word) =>
+      words.has(word) ||
+      SECRET_SUFFIXES.some((suffix) => word.length > suffix.length && word.endsWith(suffix))
   );
 }
 
@@ -105,22 +107,24 @@ function isSecretParameterName(name: string): boolean {
 
 /** Prefixes that well-known services give their keys and tokens. */
 const KNOWN_TOKEN = new RegExp(
-  "^(?:" + [
-    "sk-[A-Za-z0-9_-]{16,}",
-    "(?:sk|pk|rk)_(?:live|test)_[A-Za-z0-9]{16,}",
-    "gh[pousr]_[A-Za-z0-9]{20,}",
-    "github_pat_[A-Za-z0-9_]{20,}",
-    "glpat-[A-Za-z0-9_-]{16,}",
-    "xox[abposr]-[A-Za-z0-9-]{10,}",
-    "(?:AKIA|ASIA)[0-9A-Z]{16}",
-    "AIza[0-9A-Za-z_-]{30,}",
-    "ya29\\.[0-9A-Za-z_-]{20,}",
-    "npm_[A-Za-z0-9]{30,}",
-    "hf_[A-Za-z0-9]{30,}",
-    "shp(?:at|ss|ca|pa)_[A-Fa-f0-9]{20,}",
-    "dop_v1_[a-f0-9]{40,}",
-    "lin_api_[A-Za-z0-9]{20,}",
-  ].join("|") + ")",
+  '^(?:' +
+    [
+      'sk-[A-Za-z0-9_-]{16,}',
+      '(?:sk|pk|rk)_(?:live|test)_[A-Za-z0-9]{16,}',
+      'gh[pousr]_[A-Za-z0-9]{20,}',
+      'github_pat_[A-Za-z0-9_]{20,}',
+      'glpat-[A-Za-z0-9_-]{16,}',
+      'xox[abposr]-[A-Za-z0-9-]{10,}',
+      '(?:AKIA|ASIA)[0-9A-Z]{16}',
+      'AIza[0-9A-Za-z_-]{30,}',
+      'ya29\\.[0-9A-Za-z_-]{20,}',
+      'npm_[A-Za-z0-9]{30,}',
+      'hf_[A-Za-z0-9]{30,}',
+      'shp(?:at|ss|ca|pa)_[A-Fa-f0-9]{20,}',
+      'dop_v1_[a-f0-9]{40,}',
+      'lin_api_[A-Za-z0-9]{20,}'
+    ].join('|') +
+    ')'
 );
 const JWT = /^eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]*$/;
 const TOKEN_CHARACTERS = /^[A-Za-z0-9_\-+/=.~]+$/;
@@ -149,23 +153,31 @@ export function looksLikeSecretValue(value: string): boolean {
   if (KNOWN_TOKEN.test(value) || JWT.test(value)) return true;
   if (value.length < GENERIC_TOKEN_MIN_LENGTH || !TOKEN_CHARACTERS.test(value)) return false;
   // Paths, relative paths, home paths, and file names.
-  if (/^[./~]/.test(value) || /\.[A-Za-z][A-Za-z0-9]{0,4}$/.test(value) || value.split("/").length > 2) return false;
+  if (
+    /^[./~]/.test(value) ||
+    /\.[A-Za-z][A-Za-z0-9]{0,4}$/.test(value) ||
+    value.split('/').length > 2
+  )
+    return false;
   if (!/\d/.test(value) || !/[A-Za-z]/.test(value)) return false;
   // Random keys mix cases, are hex, or run without separators; dashed words
   // with dates and versions (`mcp-server-postgres-2024-10-01`) are names.
-  const opaque = (/[a-z]/.test(value) && /[A-Z]/.test(value)) || /^[0-9a-f]+$/i.test(value) || !/[-_.]/.test(value);
+  const opaque =
+    (/[a-z]/.test(value) && /[A-Z]/.test(value)) ||
+    /^[0-9a-f]+$/i.test(value) ||
+    !/[-_.]/.test(value);
   return opaque && entropyPerCharacter(value) >= GENERIC_TOKEN_MIN_ENTROPY;
 }
 
 const REFERENCE = /\$\{[A-Za-z_][A-Za-z0-9_]*\}|\$[A-Za-z_][A-Za-z0-9_]*/;
-const REFERENCES = new RegExp(REFERENCE.source, "g");
+const REFERENCES = new RegExp(REFERENCE.source, 'g');
 const AUTHORIZATION_SCHEME = /^(?:bearer|basic|token)\s+/i;
 
 /** Whether `value`, after an optional authorization scheme, is only `pattern` matches and separators. */
 function onlyMatches(value: string, pattern: RegExp, patterns: RegExp): boolean {
-  const withoutScheme = value.replace(AUTHORIZATION_SCHEME, "");
+  const withoutScheme = value.replace(AUTHORIZATION_SCHEME, '');
   // Separators between references (`${USER}:${PASS}`) add nothing secret.
-  return pattern.test(withoutScheme) && /^[^A-Za-z0-9]*$/.test(withoutScheme.replace(patterns, ""));
+  return pattern.test(withoutScheme) && /^[^A-Za-z0-9]*$/.test(withoutScheme.replace(patterns, ''));
 }
 
 /**
@@ -176,7 +188,7 @@ function onlyMatches(value: string, pattern: RegExp, patterns: RegExp): boolean 
  */
 export function isReferenceOnly(value: string): boolean {
   // `$$` and `$!` are escapes for a literal `$` and `!`, never a reference.
-  return onlyMatches(value.replace(/\$[$!]/g, "_x"), REFERENCE, REFERENCES);
+  return onlyMatches(value.replace(/\$[$!]/g, '_x'), REFERENCE, REFERENCES);
 }
 
 /**
@@ -187,7 +199,7 @@ export function isReferenceOnly(value: string): boolean {
  * ${TOKEN}"`, `sh -c`) reads the value from its environment.
  */
 const PLACEHOLDER = /\$\{[A-Za-z_][A-Za-z0-9_]*\}|\$[A-Z_][A-Z0-9_]*(?![A-Za-z0-9_])/;
-const PLACEHOLDERS = new RegExp(PLACEHOLDER.source, "g");
+const PLACEHOLDERS = new RegExp(PLACEHOLDER.source, 'g');
 
 /** Whether a value used as written is only placeholders, optionally after an authorization scheme. */
 function isPlaceholderOnly(value: string): boolean {
@@ -206,7 +218,7 @@ export interface MaskedValue {
 type HiddenParts = string[] | undefined;
 
 function hide(hidden: HiddenParts, raw: string): void {
-  if (!hidden || raw === "") return;
+  if (!hidden || raw === '') return;
   hidden.push(raw);
   const decoded = safeDecode(raw);
   if (decoded !== raw) hidden.push(decoded);
@@ -217,18 +229,18 @@ const URL_AUTHORITY = /^([A-Za-z][A-Za-z0-9+.-]*:\/\/)([^/?#]*)/;
 function maskUrlWith(url: string, isReference: ReferenceTest, hidden?: HiddenParts): MaskedValue {
   let masked = false;
   let rest = url;
-  let prefix = "";
+  let prefix = '';
   const authority = URL_AUTHORITY.exec(url);
   if (authority) {
     const [whole, scheme, host] = authority;
-    const at = host.lastIndexOf("@");
+    const at = host.lastIndexOf('@');
     if (at >= 0 && !isReference(safeDecode(host.slice(0, at)))) {
       prefix = `${scheme}${SECRET_MASK}${host.slice(at)}`;
       masked = true;
       const userinfo = host.slice(0, at);
       hide(hidden, userinfo);
       // The password alone, as a server may quote it.
-      const colon = userinfo.indexOf(":");
+      const colon = userinfo.indexOf(':');
       if (colon >= 0) hide(hidden, userinfo.slice(colon + 1));
     } else {
       prefix = whole;
@@ -237,18 +249,18 @@ function maskUrlWith(url: string, isReference: ReferenceTest, hidden?: HiddenPar
   }
   const queryStart = rest.search(/[?#]/);
   const path = queryStart < 0 ? rest : rest.slice(0, queryStart);
-  let query = queryStart < 0 ? "" : rest.slice(queryStart);
+  let query = queryStart < 0 ? '' : rest.slice(queryStart);
   const maskedPath = path
-    .split("/")
+    .split('/')
     .map((segment) => {
       if (!looksLikeSecretValue(safeDecode(segment))) return segment;
       masked = true;
       hide(hidden, segment);
       return SECRET_MASK;
     })
-    .join("/");
+    .join('/');
   query = query.replace(/([?&#;])([^&#;]*)/g, (match, separator: string, part: string) => {
-    const equals = part.indexOf("=");
+    const equals = part.indexOf('=');
     if (equals < 0) {
       // A bare key (`?ghp_…`), as some servers take it.
       const decoded = safeDecode(part);
@@ -259,7 +271,7 @@ function maskUrlWith(url: string, isReference: ReferenceTest, hidden?: HiddenPar
     }
     const name = part.slice(0, equals);
     const decoded = safeDecode(part.slice(equals + 1));
-    if (decoded === "" || isReference(decoded)) return match;
+    if (decoded === '' || isReference(decoded)) return match;
     if (!isSecretParameterName(name) && !looksLikeSecretValue(decoded)) return match;
     masked = true;
     hide(hidden, part.slice(equals + 1));
@@ -305,9 +317,16 @@ function isUrl(value: string): boolean {
 /** `Name=value;Name=value`, as ADO.NET and Azure write connection strings. */
 const CONNECTION_STRING_SEGMENT = /^(\s*[A-Za-z][A-Za-z0-9 _.-]*=)([\s\S]*)$/;
 
-function maskConnectionString(value: string, isReference: ReferenceTest, hidden?: HiddenParts): MaskedValue | undefined {
-  const segments = value.split(";");
-  if (segments.length < 2 || !segments.every((segment) => segment.trim() === "" || CONNECTION_STRING_SEGMENT.test(segment))) {
+function maskConnectionString(
+  value: string,
+  isReference: ReferenceTest,
+  hidden?: HiddenParts
+): MaskedValue | undefined {
+  const segments = value.split(';');
+  if (
+    segments.length < 2 ||
+    !segments.every((segment) => segment.trim() === '' || CONNECTION_STRING_SEGMENT.test(segment))
+  ) {
     return undefined;
   }
   let masked = false;
@@ -315,7 +334,7 @@ function maskConnectionString(value: string, isReference: ReferenceTest, hidden?
     const match = CONNECTION_STRING_SEGMENT.exec(segment);
     if (!match) return segment;
     const [, key, segmentValue] = match;
-    if (segmentValue.trim() === "" || isReference(segmentValue)) return segment;
+    if (segmentValue.trim() === '' || isReference(segmentValue)) return segment;
     if (isSecretName(key.slice(0, -1).trim())) {
       masked = true;
       hide(hidden, segmentValue.trim());
@@ -325,7 +344,7 @@ function maskConnectionString(value: string, isReference: ReferenceTest, hidden?
     masked ||= inner.masked;
     return `${key}${inner.value}`;
   });
-  return { value: result.join(";"), masked };
+  return { value: result.join(';'), masked };
 }
 
 /**
@@ -335,23 +354,25 @@ function maskConnectionString(value: string, isReference: ReferenceTest, hidden?
  */
 function maskValue(value: string, isReference: ReferenceTest, hidden?: HiddenParts): MaskedValue {
   const header = /^([A-Za-z0-9_-]+):(\s*)([\s\S]*)$/.exec(value);
-  if (header && header[3] !== "" && !header[3].startsWith("//") && isSecretName(header[1])) {
+  if (header && header[3] !== '' && !header[3].startsWith('//') && isSecretName(header[1])) {
     const [, name, space, headerValue] = header;
     if (isReference(headerValue)) return { value, masked: false };
     hide(hidden, headerValue.trim());
     return { value: `${name}:${space}${SECRET_MASK}`, masked: true };
   }
-  const connectionString = value.includes(";") ? maskConnectionString(value, isReference, hidden) : undefined;
+  const connectionString = value.includes(';')
+    ? maskConnectionString(value, isReference, hidden)
+    : undefined;
   if (connectionString) return connectionString;
   const pair = /^([A-Za-z_][A-Za-z0-9_]*)=([\s\S]*)$/.exec(value);
-  if (pair && pair[2] !== "" && isSecretName(pair[1])) {
+  if (pair && pair[2] !== '' && isSecretName(pair[1])) {
     if (isReference(pair[2])) return { value, masked: false };
     hide(hidden, pair[2]);
     return { value: `${pair[1]}=${SECRET_MASK}`, masked: true };
   }
   if (/\s/.test(value)) return maskPhrase(value, isReference, hidden);
   if (isUrl(value)) return maskUrlWith(value, isReference, hidden);
-  if (pair && pair[2] !== "") {
+  if (pair && pair[2] !== '') {
     const inner = maskValue(pair[2], isReference, hidden);
     return { value: `${pair[1]}=${inner.value}`, masked: inner.masked };
   }
@@ -374,8 +395,8 @@ function maskPhrase(value: string, isReference: ReferenceTest, hidden?: HiddenPa
   const words = parts.filter((_, index) => index % 2 === 0);
   const result = maskSequence(words, isReference, true, hidden);
   return {
-    value: parts.map((part, index) => (index % 2 === 0 ? result.values[index / 2] : part)).join(""),
-    masked: result.masked,
+    value: parts.map((part, index) => (index % 2 === 0 ? result.values[index / 2] : part)).join(''),
+    masked: result.masked
   };
 }
 
@@ -394,9 +415,9 @@ export function commandSecretParts(command: string): string[] {
 function flagTakesSecret(flag: string): boolean {
   if (SHORT_SECRET_FLAGS.has(flag)) return true;
   if (!/^--?[A-Za-z]/.test(flag)) return false;
-  const name = flag.replace(/^-+/, "");
+  const name = flag.replace(/^-+/, '');
   // `--auth user:password`, `--basic-auth …`.
-  return isSecretName(name) || nameWords(name).at(-1) === "auth";
+  return isSecretName(name) || nameWords(name).at(-1) === 'auth';
 }
 
 const SCHEME_WORD = /^(?:bearer|basic|token)$/i;
@@ -405,12 +426,12 @@ function maskSequence(
   items: readonly string[],
   isReference: ReferenceTest,
   phrase: boolean,
-  hidden?: HiddenParts,
+  hidden?: HiddenParts
 ): { values: string[]; masked: boolean } {
   let masked = false;
   let secretNext = false;
   const values = items.map((item) => {
-    if (item === "") return item;
+    if (item === '') return item;
     if (secretNext) {
       // `Authorization: Bearer <token>`: the scheme stays readable.
       if (phrase && SCHEME_WORD.test(item)) return item;
@@ -425,7 +446,7 @@ function maskSequence(
     const flag = /^(--?[A-Za-z][A-Za-z0-9_.-]*)=([\s\S]*)$/.exec(item);
     if (flag) {
       const [, name, value] = flag;
-      if (value !== "" && flagTakesSecret(name) && !isReference(value)) {
+      if (value !== '' && flagTakesSecret(name) && !isReference(value)) {
         masked = true;
         hide(hidden, value);
         return `${name}=${SECRET_MASK}`;
@@ -473,21 +494,25 @@ export function argSecretParts(args: readonly string[]): string[] {
 }
 
 export type LiteralSecretField =
-  | { kind: "env" | "header"; name: string }
-  | { kind: "oauth-client-secret" | "url" | "args" | "command" };
+  | { kind: 'env' | 'header'; name: string }
+  | { kind: 'oauth-client-secret' | 'url' | 'args' | 'command' };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /** A resolved value (env, header, `oauth.clientSecret`) written out rather than referenced or computed. */
 function isLiteral(value: string): boolean {
-  return !value.startsWith("!") && !isReferenceOnly(value);
+  return !value.startsWith('!') && !isReferenceOnly(value);
 }
 
 function literalSecretValue(name: string, value: string): boolean {
-  if (!isLiteral(value) || value === "") return false;
-  return isSecretName(name) || /^(?:bearer|basic|token)\s+\S/i.test(value) || maskValue(value, isReferenceOnly).masked;
+  if (!isLiteral(value) || value === '') return false;
+  return (
+    isSecretName(name) ||
+    /^(?:bearer|basic|token)\s+\S/i.test(value) ||
+    maskValue(value, isReferenceOnly).masked
+  );
 }
 
 /**
@@ -500,24 +525,25 @@ function literalSecretValue(name: string, value: string): boolean {
 export function literalSecretFields(config: unknown): LiteralSecretField[] {
   if (!isRecord(config)) return [];
   const fields: LiteralSecretField[] = [];
-  for (const kind of ["env", "headers"] as const) {
+  for (const kind of ['env', 'headers'] as const) {
     const values = config[kind];
     if (!isRecord(values)) continue;
     for (const [name, value] of Object.entries(values)) {
-      if (typeof value === "string" && literalSecretValue(name, value)) {
-        fields.push({ kind: kind === "env" ? "env" : "header", name });
+      if (typeof value === 'string' && literalSecretValue(name, value)) {
+        fields.push({ kind: kind === 'env' ? 'env' : 'header', name });
       }
     }
   }
   const clientSecret = isRecord(config.oauth) ? config.oauth.clientSecret : undefined;
-  if (typeof clientSecret === "string" && clientSecret !== "" && isLiteral(clientSecret)) {
-    fields.push({ kind: "oauth-client-secret" });
+  if (typeof clientSecret === 'string' && clientSecret !== '' && isLiteral(clientSecret)) {
+    fields.push({ kind: 'oauth-client-secret' });
   }
-  if (typeof config.url === "string" && maskUrl(config.url).masked) fields.push({ kind: "url" });
-  if (typeof config.command === "string" && maskCommand(config.command).masked) fields.push({ kind: "command" });
+  if (typeof config.url === 'string' && maskUrl(config.url).masked) fields.push({ kind: 'url' });
+  if (typeof config.command === 'string' && maskCommand(config.command).masked)
+    fields.push({ kind: 'command' });
   if (Array.isArray(config.args)) {
-    const args = config.args.filter((arg): arg is string => typeof arg === "string");
-    if (maskArgs(args).masked) fields.push({ kind: "args" });
+    const args = config.args.filter((arg): arg is string => typeof arg === 'string');
+    if (maskArgs(args).masked) fields.push({ kind: 'args' });
   }
   return fields;
 }

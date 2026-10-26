@@ -1,11 +1,15 @@
-"use client";
+'use client';
 
-import { useEffect, useMemo, useState } from "react";
-import { useI18n } from "@/hooks/useI18n";
-import { countRunningSubagents } from "@/lib/session-family";
-import type { SessionUsageSummary } from "@/lib/session-stats";
-import { formatActiveDuration, formatCompactCount, formatCostShort } from "@/lib/session-stats-format";
-import type { SessionInfo, SubagentSessionStatus } from "@/lib/types";
+import { useEffect, useMemo, useState } from 'react';
+import { useI18n } from '@/hooks/useI18n';
+import { countRunningSubagents } from '@/lib/session-family';
+import type { SessionUsageSummary } from '@/lib/session-stats';
+import {
+  formatActiveDuration,
+  formatCompactCount,
+  formatCostShort
+} from '@/lib/session-stats-format';
+import type { SessionInfo, SubagentSessionStatus } from '@/lib/types';
 
 interface Props {
   rootSession: SessionInfo;
@@ -22,11 +26,14 @@ const STATS_POLL_MS = 3000;
  * it. Read on open and whenever a run starts or ends; polled while one runs,
  * on a visible page, one request at a time.
  */
-function useAgentUsage(ids: readonly string[], runningKey: string): Record<string, SessionUsageSummary> {
+function useAgentUsage(
+  ids: readonly string[],
+  runningKey: string
+): Record<string, SessionUsageSummary> {
   const [usage, setUsage] = useState<Record<string, SessionUsageSummary>>({});
-  const idsKey = ids.join(",");
+  const idsKey = ids.join(',');
   useEffect(() => {
-    const requested = idsKey ? idsKey.split(",") : [];
+    const requested = idsKey ? idsKey.split(',') : [];
     if (requested.length === 0) return;
     const controller = new AbortController();
     let inFlight = false;
@@ -34,15 +41,15 @@ function useAgentUsage(ids: readonly string[], runningKey: string): Record<strin
       if (inFlight) return;
       inFlight = true;
       try {
-        const res = await fetch("/api/sessions/stats", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        const res = await fetch('/api/sessions/stats', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ids: requested }),
           signal: controller.signal,
-          cache: "no-store",
+          cache: 'no-store'
         });
         if (!res.ok) return;
-        const data = await res.json() as { stats?: Record<string, SessionUsageSummary> };
+        const data = (await res.json()) as { stats?: Record<string, SessionUsageSummary> };
         if (!controller.signal.aborted && data.stats) setUsage(data.stats);
       } catch {
         /* best-effort: rows keep their last numbers */
@@ -53,7 +60,7 @@ function useAgentUsage(ids: readonly string[], runningKey: string): Record<strin
     void load();
     if (!runningKey) return () => controller.abort();
     const timer = setInterval(() => {
-      if (document.visibilityState === "visible") void load();
+      if (document.visibilityState === 'visible') void load();
     }, STATS_POLL_MS);
     return () => {
       clearInterval(timer);
@@ -63,18 +70,26 @@ function useAgentUsage(ids: readonly string[], runningKey: string): Record<strin
   return usage;
 }
 
-function usageTooltip(usage: SessionUsageSummary, t: (key: string) => string, locale: string): string {
+function usageTooltip(
+  usage: SessionUsageSummary,
+  t: (key: string) => string,
+  locale: string
+): string {
   const { tokens } = usage;
   return [
-    `${t("session.totalActive")}: ${formatActiveDuration(usage.totalActiveMs)}`,
-    `${t("session.input")}: ${tokens.input.toLocaleString(locale)}`,
-    `${t("session.output")}: ${tokens.output.toLocaleString(locale)}`,
-    ...(tokens.cacheRead > 0 ? [`${t("session.cacheRead")}: ${tokens.cacheRead.toLocaleString(locale)}`] : []),
-    ...(tokens.cacheWrite > 0 ? [`${t("session.cacheWrite")}: ${tokens.cacheWrite.toLocaleString(locale)}`] : []),
-    `${t("session.total")}: ${tokens.total.toLocaleString(locale)}`,
-    ...(usage.cost > 0 ? [`${t("session.cost")}: $${usage.cost.toFixed(4)}`] : []),
-    `${t("session.toolCalls")}: ${usage.toolCalls.toLocaleString(locale)}`,
-  ].join("\n");
+    `${t('session.totalActive')}: ${formatActiveDuration(usage.totalActiveMs)}`,
+    `${t('session.input')}: ${tokens.input.toLocaleString(locale)}`,
+    `${t('session.output')}: ${tokens.output.toLocaleString(locale)}`,
+    ...(tokens.cacheRead > 0
+      ? [`${t('session.cacheRead')}: ${tokens.cacheRead.toLocaleString(locale)}`]
+      : []),
+    ...(tokens.cacheWrite > 0
+      ? [`${t('session.cacheWrite')}: ${tokens.cacheWrite.toLocaleString(locale)}`]
+      : []),
+    `${t('session.total')}: ${tokens.total.toLocaleString(locale)}`,
+    ...(usage.cost > 0 ? [`${t('session.cost')}: $${usage.cost.toFixed(4)}`] : []),
+    `${t('session.toolCalls')}: ${usage.toolCalls.toLocaleString(locale)}`
+  ].join('\n');
 }
 
 function UsageLine({ usage, style }: { usage: SessionUsageSummary; style?: React.CSSProperties }) {
@@ -83,20 +98,41 @@ function UsageLine({ usage, style }: { usage: SessionUsageSummary; style?: React
   return (
     <span
       title={usageTooltip(usage, t, locale)}
-      style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, color: "var(--text-dim)", fontSize: 11, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", ...style }}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        minWidth: 0,
+        color: 'var(--text-dim)',
+        fontSize: 11,
+        fontVariantNumeric: 'tabular-nums',
+        whiteSpace: 'nowrap',
+        ...style
+      }}
     >
       {usage.totalActiveMs > 0 && (
-        <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" />
+        <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+          <svg
+            width="11"
+            height="11"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7v5l3 2" />
           </svg>
           {formatActiveDuration(usage.totalActiveMs)}
         </span>
       )}
       {usage.tokens.total > 0 && (
-        <span>{t("agentSwitcher.tokens", { count: formatCompactCount(usage.tokens.total) })}</span>
+        <span>{t('agentSwitcher.tokens', { count: formatCompactCount(usage.tokens.total) })}</span>
       )}
-      {cost && <span style={{ color: "var(--text-muted)" }}>{cost}</span>}
+      {cost && <span style={{ color: 'var(--text-muted)' }}>{cost}</span>}
     </span>
   );
 }
@@ -111,51 +147,94 @@ function sessionTitle(session: SessionInfo): string {
 
 function formatRelativeTime(value: string, locale: string): string {
   const timestamp = new Date(value).getTime();
-  if (!Number.isFinite(timestamp)) return "";
+  if (!Number.isFinite(timestamp)) return '';
   const elapsedSeconds = Math.round((timestamp - Date.now()) / 1000);
-  const formatter = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
-  if (Math.abs(elapsedSeconds) < 60) return formatter.format(elapsedSeconds, "second");
+  const formatter = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
+  if (Math.abs(elapsedSeconds) < 60) return formatter.format(elapsedSeconds, 'second');
   const elapsedMinutes = Math.round(elapsedSeconds / 60);
-  if (Math.abs(elapsedMinutes) < 60) return formatter.format(elapsedMinutes, "minute");
+  if (Math.abs(elapsedMinutes) < 60) return formatter.format(elapsedMinutes, 'minute');
   const elapsedHours = Math.round(elapsedMinutes / 60);
-  if (Math.abs(elapsedHours) < 24) return formatter.format(elapsedHours, "hour");
-  return formatter.format(Math.round(elapsedHours / 24), "day");
+  if (Math.abs(elapsedHours) < 24) return formatter.format(elapsedHours, 'hour');
+  return formatter.format(Math.round(elapsedHours / 24), 'day');
 }
 
 export function statusColor(status: SubagentSessionStatus): string {
-  if (status === "running" || status === "starting") return "var(--accent)";
-  if (status === "completed") return "#16a34a";
-  if (status === "failed") return "#dc2626";
-  if (status === "aborted") return "#d97706";
-  return "var(--text-dim)";
+  if (status === 'running' || status === 'starting') return 'var(--accent)';
+  if (status === 'completed') return '#16a34a';
+  if (status === 'failed') return '#dc2626';
+  if (status === 'aborted') return '#d97706';
+  return 'var(--text-dim)';
 }
 
 export function StatusIcon({ status }: { status: SubagentSessionStatus }) {
-  if (status === "running" || status === "starting") {
+  if (status === 'running' || status === 'starting') {
     return (
-      <svg className="animate-spin" width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <svg
+        className="animate-spin"
+        width="13"
+        height="13"
+        viewBox="0 0 24 24"
+        fill="none"
+        aria-hidden="true"
+      >
         <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" opacity="0.25" />
-        <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        <path
+          d="M21 12a9 9 0 0 0-9-9"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
       </svg>
     );
   }
-  if (status === "failed") {
+  if (status === 'failed') {
     return (
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-        <circle cx="12" cy="12" r="9" /><path d="m9 9 6 6M15 9l-6 6" />
+      <svg
+        width="13"
+        height="13"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="9" />
+        <path d="m9 9 6 6M15 9l-6 6" />
       </svg>
     );
   }
-  if (status === "aborted" || status === "interrupted") {
+  if (status === 'aborted' || status === 'interrupted') {
     return (
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-        <circle cx="12" cy="12" r="9" /><path d="M9 9h6v6H9z" />
+      <svg
+        width="13"
+        height="13"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="9" />
+        <path d="M9 9h6v6H9z" />
       </svg>
     );
   }
   return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" /><path d="m8 12 3 3 5-6" />
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="m8 12 3 3 5-6" />
     </svg>
   );
 }
@@ -166,7 +245,7 @@ function AgentRow({
   selected,
   running,
   usage,
-  onSelect,
+  onSelect
 }: {
   session: SessionInfo;
   main?: boolean;
@@ -176,20 +255,20 @@ function AgentRow({
   onSelect: () => void;
 }) {
   const { locale, t } = useI18n();
-  const relation = session.relation?.kind === "subagent" ? session.relation : null;
-  const status: SubagentSessionStatus = running ? "running" : relation?.status ?? "completed";
-  const primary = main ? t("agentSwitcher.main") : relation?.description || sessionTitle(session);
+  const relation = session.relation?.kind === 'subagent' ? session.relation : null;
+  const status: SubagentSessionStatus = running ? 'running' : (relation?.status ?? 'completed');
+  const primary = main ? t('agentSwitcher.main') : relation?.description || sessionTitle(session);
   const secondary = main
     ? sessionTitle(session)
-    : `${relation?.profile ?? t("agentSwitcher.subagent")} · ${formatRelativeTime(session.modified, locale)}`;
+    : `${relation?.profile ?? t('agentSwitcher.subagent')} · ${formatRelativeTime(session.modified, locale)}`;
 
   return (
     <div
       style={{
-        display: "flex",
-        borderBottom: "1px solid var(--border)",
-        borderLeft: selected ? "2px solid var(--accent)" : "2px solid transparent",
-        background: selected ? "var(--bg-selected)" : "transparent",
+        display: 'flex',
+        borderBottom: '1px solid var(--border)',
+        borderLeft: selected ? '2px solid var(--accent)' : '2px solid transparent',
+        background: selected ? 'var(--bg-selected)' : 'transparent'
       }}
     >
       <button
@@ -201,47 +280,109 @@ function AgentRow({
           flex: 1,
           minWidth: 0,
           minHeight: 56,
-          display: "grid",
-          gridTemplateColumns: "28px minmax(0, 1fr) auto",
-          alignItems: "center",
+          display: 'grid',
+          gridTemplateColumns: '28px minmax(0, 1fr) auto',
+          alignItems: 'center',
           gap: 9,
-          padding: "7px 12px",
-          border: "none",
-          background: "transparent",
-          color: "var(--text)",
-          cursor: "pointer",
-          textAlign: "left",
+          padding: '7px 12px',
+          border: 'none',
+          background: 'transparent',
+          color: 'var(--text)',
+          cursor: 'pointer',
+          textAlign: 'left'
         }}
         onMouseEnter={(event) => {
-          if (!selected) event.currentTarget.style.background = "var(--bg-hover)";
+          if (!selected) event.currentTarget.style.background = 'var(--bg-hover)';
         }}
         onMouseLeave={(event) => {
-          if (!selected) event.currentTarget.style.background = "transparent";
+          if (!selected) event.currentTarget.style.background = 'transparent';
         }}
       >
-        <span style={{ width: 28, height: 28, display: "grid", placeItems: "center", color: main ? "var(--text-muted)" : "var(--accent)" }}>
+        <span
+          style={{
+            width: 28,
+            height: 28,
+            display: 'grid',
+            placeItems: 'center',
+            color: main ? 'var(--text-muted)' : 'var(--accent)'
+          }}
+        >
           {main ? (
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" />
+            <svg
+              width="17"
+              height="17"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="8" r="4" />
+              <path d="M4 21a8 8 0 0 1 16 0" />
             </svg>
           ) : (
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <rect x="5" y="7" width="14" height="11" rx="2" /><path d="M9 11h.01M15 11h.01M9 15h6M12 7V4M10 4h4" />
+            <svg
+              width="17"
+              height="17"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <rect x="5" y="7" width="14" height="11" rx="2" />
+              <path d="M9 11h.01M15 11h.01M9 15h6M12 7V4M10 4h4" />
             </svg>
           )}
         </span>
         <span style={{ minWidth: 0 }}>
-          <span style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 12, fontWeight: selected ? 600 : 500 }} title={primary}>
+          <span
+            style={{
+              display: 'block',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              fontSize: 12,
+              fontWeight: selected ? 600 : 500
+            }}
+            title={primary}
+          >
             {primary}
           </span>
-          <span style={{ display: "block", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text-dim)", fontSize: 11 }} title={secondary}>
+          <span
+            style={{
+              display: 'block',
+              marginTop: 2,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              color: 'var(--text-dim)',
+              fontSize: 11
+            }}
+            title={secondary}
+          >
             {secondary}
           </span>
           {hasUsage(usage) && <UsageLine usage={usage} style={{ marginTop: 3 }} />}
         </span>
-        <span style={{ display: "flex", alignItems: "center", gap: 6, color: main && !running ? "var(--text-dim)" : statusColor(status), fontSize: 11, whiteSpace: "nowrap" }}>
+        <span
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            color: main && !running ? 'var(--text-dim)' : statusColor(status),
+            fontSize: 11,
+            whiteSpace: 'nowrap'
+          }}
+        >
           {main && !running ? (
-            selected ? t("agentSwitcher.current") : null
+            selected ? (
+              t('agentSwitcher.current')
+            ) : null
           ) : (
             <>
               <StatusIcon status={status} />
@@ -250,31 +391,44 @@ function AgentRow({
           )}
         </span>
       </button>
-
     </div>
   );
 }
 
-export function AgentSessionPanel({ rootSession, subagents, selectedSessionId, runningSessionIds, onSelectSession }: Props) {
+export function AgentSessionPanel({
+  rootSession,
+  subagents,
+  selectedSessionId,
+  runningSessionIds,
+  onSelectSession
+}: Props) {
   const { t } = useI18n();
-  const [query, setQuery] = useState("");
-  const sortedSubagents = useMemo(() => [...subagents].sort((a, b) => {
-    const aRunning = runningSessionIds.has(a.id);
-    const bRunning = runningSessionIds.has(b.id);
-    if (aRunning !== bRunning) return aRunning ? -1 : 1;
-    return b.modified.localeCompare(a.modified);
-  }), [runningSessionIds, subagents]);
+  const [query, setQuery] = useState('');
+  const sortedSubagents = useMemo(
+    () =>
+      [...subagents].sort((a, b) => {
+        const aRunning = runningSessionIds.has(a.id);
+        const bRunning = runningSessionIds.has(b.id);
+        if (aRunning !== bRunning) return aRunning ? -1 : 1;
+        return b.modified.localeCompare(a.modified);
+      }),
+    [runningSessionIds, subagents]
+  );
   const normalizedQuery = query.trim().toLowerCase();
   const visibleSubagents = normalizedQuery
     ? sortedSubagents.filter((session) => {
-        const relation = session.relation?.kind === "subagent" ? session.relation : null;
-        return [relation?.description, relation?.profile, session.name, session.firstMessage]
-          .some((value) => value?.toLowerCase().includes(normalizedQuery));
+        const relation = session.relation?.kind === 'subagent' ? session.relation : null;
+        return [relation?.description, relation?.profile, session.name, session.firstMessage].some(
+          (value) => value?.toLowerCase().includes(normalizedQuery)
+        );
       })
     : sortedSubagents;
   const runningCount = countRunningSubagents(subagents, runningSessionIds);
-  const familyIds = useMemo(() => [rootSession.id, ...subagents.map((session) => session.id)], [rootSession.id, subagents]);
-  const runningKey = familyIds.filter((id) => runningSessionIds.has(id)).join(",");
+  const familyIds = useMemo(
+    () => [rootSession.id, ...subagents.map((session) => session.id)],
+    [rootSession.id, subagents]
+  );
+  const runningKey = familyIds.filter((id) => runningSessionIds.has(id)).join(',');
   const usage = useAgentUsage(familyIds, runningKey);
   const familyUsage = useMemo(() => {
     const listed = familyIds.map((id) => usage[id]).filter(hasUsage);
@@ -283,7 +437,7 @@ export function AgentSessionPanel({ rootSession, subagents, selectedSessionId, r
       tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
       cost: 0,
       toolCalls: 0,
-      totalActiveMs: 0,
+      totalActiveMs: 0
     };
     for (const item of listed) {
       total.tokens.input += item.tokens.input;
@@ -301,54 +455,90 @@ export function AgentSessionPanel({ rootSession, subagents, selectedSessionId, r
   return (
     <div
       role="listbox"
-      aria-label={t("agentSwitcher.title")}
+      aria-label={t('agentSwitcher.title')}
       style={{
-        background: "var(--bg-panel)",
-        borderLeft: "1px solid var(--border)",
-        borderRight: "1px solid var(--border)",
-        borderBottom: "1px solid var(--border)",
-        borderRadius: "0 0 6px 6px",
-        boxShadow: "0 10px 28px rgba(0,0,0,0.10)",
-        overflow: "hidden",
+        background: 'var(--bg-panel)',
+        borderLeft: '1px solid var(--border)',
+        borderRight: '1px solid var(--border)',
+        borderBottom: '1px solid var(--border)',
+        borderRadius: '0 0 6px 6px',
+        boxShadow: '0 10px 28px rgba(0,0,0,0.10)',
+        overflow: 'hidden'
       }}
     >
       <div>
-        <div style={{ minHeight: 44, display: "flex", alignItems: "center", gap: 8, padding: "7px 12px", borderBottom: "1px solid var(--border)" }}>
-          <strong style={{ fontSize: 12, fontWeight: 600 }}>{t("agentSwitcher.title")}</strong>
-          <span style={{ color: "var(--text-dim)", fontSize: 11 }}>
-            {t("agentSwitcher.count", { count: subagents.length })}
+        <div
+          style={{
+            minHeight: 44,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '7px 12px',
+            borderBottom: '1px solid var(--border)'
+          }}
+        >
+          <strong style={{ fontSize: 12, fontWeight: 600 }}>{t('agentSwitcher.title')}</strong>
+          <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>
+            {t('agentSwitcher.count', { count: subagents.length })}
           </span>
-          <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+          <span
+            style={{
+              marginLeft: 'auto',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              minWidth: 0
+            }}
+          >
             {familyUsage && (
-              <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, overflow: "hidden" }}>
-                <span style={{ color: "var(--text-dim)", fontSize: 11, whiteSpace: "nowrap" }} title={t("agentSwitcher.totalUsageHint")}>{t("agentSwitcher.totalUsage")}</span>
+              <span
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  minWidth: 0,
+                  overflow: 'hidden'
+                }}
+              >
+                <span
+                  style={{ color: 'var(--text-dim)', fontSize: 11, whiteSpace: 'nowrap' }}
+                  title={t('agentSwitcher.totalUsageHint')}
+                >
+                  {t('agentSwitcher.totalUsage')}
+                </span>
                 <UsageLine usage={familyUsage} />
               </span>
             )}
             {runningCount > 0 && (
-              <span style={{ color: "var(--accent)", fontSize: 11, whiteSpace: "nowrap" }}>
-                {t("agentSwitcher.runningCount", { count: runningCount })}
+              <span style={{ color: 'var(--accent)', fontSize: 11, whiteSpace: 'nowrap' }}>
+                {t('agentSwitcher.runningCount', { count: runningCount })}
               </span>
             )}
           </span>
         </div>
         {subagents.length > 8 && (
-          <div style={{ padding: 8, borderBottom: "1px solid var(--border)" }}>
+          <div style={{ padding: 8, borderBottom: '1px solid var(--border)' }}>
             <input
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder={t("agentSwitcher.search")}
-              aria-label={t("agentSwitcher.search")}
+              placeholder={t('agentSwitcher.search')}
+              aria-label={t('agentSwitcher.search')}
               style={{
-                width: "100%", height: 32, padding: "0 10px",
-                border: "1px solid var(--border)", borderRadius: 6,
-                background: "var(--bg)", color: "var(--text)", fontSize: 12, outline: "none",
+                width: '100%',
+                height: 32,
+                padding: '0 10px',
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                background: 'var(--bg)',
+                color: 'var(--text)',
+                fontSize: 12,
+                outline: 'none'
               }}
             />
           </div>
         )}
-        <div style={{ maxHeight: "min(58dvh, 480px)", overflowY: "auto" }}>
+        <div style={{ maxHeight: 'min(58dvh, 480px)', overflowY: 'auto' }}>
           <AgentRow
             session={rootSession}
             main
@@ -365,12 +555,18 @@ export function AgentSessionPanel({ rootSession, subagents, selectedSessionId, r
               running={runningSessionIds.has(session.id)}
               usage={usage[session.id]}
               onSelect={() => onSelectSession(session)}
-
             />
           ))}
           {visibleSubagents.length === 0 && (
-            <div style={{ padding: "22px 12px", color: "var(--text-dim)", fontSize: 12, textAlign: "center" }}>
-              {t("agentSwitcher.noMatches")}
+            <div
+              style={{
+                padding: '22px 12px',
+                color: 'var(--text-dim)',
+                fontSize: 12,
+                textAlign: 'center'
+              }}
+            >
+              {t('agentSwitcher.noMatches')}
             </div>
           )}
         </div>

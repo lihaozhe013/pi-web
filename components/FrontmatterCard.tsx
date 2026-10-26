@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import type { ReactNode } from "react";
-import { formatFrontmatterValue, getFrontmatterTitle } from "@/lib/frontmatter";
+import type { ReactNode } from 'react';
+import { formatFrontmatterValue, getFrontmatterTitle } from '@/lib/frontmatter';
 
 interface FrontmatterCardProps {
   data: Record<string, unknown> | null;
 }
 
-const TAG_KEYS = ["tags", "categories", "keywords", "tag", "category"];
+const TAG_KEYS = ['tags', 'categories', 'keywords', 'tag', 'category'];
 
 function isUrl(value: string): boolean {
   return /^(https?:\/\/|mailto:)/i.test(value);
@@ -16,7 +16,7 @@ function isUrl(value: string): boolean {
 function renderValue(value: unknown): ReactNode {
   const text = formatFrontmatterValue(value);
   if (!text) return null;
-  if (typeof value === "string" && isUrl(value)) {
+  if (typeof value === 'string' && isUrl(value)) {
     // Only safe schemes — values come from the user's own file but stay escaped
     // by React regardless; this just prevents javascript: hrefs.
     return (
@@ -41,7 +41,7 @@ export function FrontmatterCard({ data }: FrontmatterCardProps) {
     ? (data[tagKey] as unknown[]).map(formatFrontmatterValue).filter(Boolean)
     : [];
 
-  const rows = entries.filter(([key]) => key !== tagKey && (key !== "title" || !title));
+  const rows = entries.filter(([key]) => key !== tagKey && (key !== 'title' || !title));
 
   return (
     <div className="markdown-frontmatter">

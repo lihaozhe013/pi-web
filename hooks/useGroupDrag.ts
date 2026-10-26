@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import {
   useCallback,
@@ -9,8 +9,8 @@ import {
   useState,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
-  type RefObject,
-} from "react";
+  type RefObject
+} from 'react';
 import {
   autoScrollDelta,
   ghostTopFor,
@@ -19,9 +19,9 @@ import {
   type GroupBlock,
   type GroupDrop,
   type SidebarLayout,
-  type SidebarRow,
-} from "@/lib/session-tree";
-import type { ProjectMovePosition } from "@/lib/session-ui-state-shared";
+  type SidebarRow
+} from '@/lib/session-tree';
+import type { ProjectMovePosition } from '@/lib/session-ui-state-shared';
 
 /**
  * Dragging a project group's header to reorder the session tree's groups
@@ -53,7 +53,7 @@ const GHOST_INDENT_PX = 4;
 /** The click a release produces follows it at once; one later than this is the user's own. */
 const CLICK_SUPPRESS_MS = 600;
 
-type DragPhase = "pending" | "armed" | "dragging" | "cancelled";
+type DragPhase = 'pending' | 'armed' | 'dragging' | 'cancelled';
 
 interface DragState {
   pointerId: number;
@@ -80,7 +80,7 @@ interface DragState {
 export interface GroupDragView {
   projectKey: string;
   /** "armed": a long-press picked the group up; "dragging": it follows the pointer. */
-  phase: "armed" | "dragging";
+  phase: 'armed' | 'dragging';
   drop: GroupDrop | null;
   /** The dragged group's block while dragging, else null. */
   source: GroupBlock | null;
@@ -122,7 +122,14 @@ function distance(x1: number, y1: number, x2: number, y2: number): number {
 }
 
 function sameDrop(a: GroupDrop | null, b: GroupDrop | null): boolean {
-  return a === b || (a !== null && b !== null && a.anchorKey === b.anchorKey && a.position === b.position && a.lineY === b.lineY);
+  return (
+    a === b ||
+    (a !== null &&
+      b !== null &&
+      a.anchorKey === b.anchorKey &&
+      a.position === b.position &&
+      a.lineY === b.lineY)
+  );
 }
 
 /** Laid out: not display: none itself or inside something that is (the archive view, the files tab). */
@@ -141,21 +148,27 @@ export function useGroupDrag(options: GroupDragOptions): GroupDragApi {
   // Event time (timeStamp) until which a click is the release's own; 0 = none.
   const suppressClickUntilRef = useRef(0);
   // Set only when the phase or the drop target changes, never per pointermove.
-  const [state, setState] = useState<Omit<GroupDragView, "source"> | null>(null);
+  const [state, setState] = useState<Omit<GroupDragView, 'source'> | null>(null);
 
   const machine = useMemo(() => {
     const scrollElement = () => optionsRef.current.scrollRef.current;
 
     const publish = (drag: DragState) => {
-      setState(drag.phase === "armed" || drag.phase === "dragging"
-        ? { projectKey: drag.projectKey, phase: drag.phase, drop: drag.drop }
-        : null);
+      setState(
+        drag.phase === 'armed' || drag.phase === 'dragging'
+          ? { projectKey: drag.projectKey, phase: drag.phase, drop: drag.drop }
+          : null
+      );
     };
 
     const dropFor = (drag: DragState): GroupDrop | null => {
       const inner = optionsRef.current.innerRef.current;
       if (!inner) return null;
-      return groupDropAt(blocksRef.current, drag.projectKey, drag.clientY - inner.getBoundingClientRect().top);
+      return groupDropAt(
+        blocksRef.current,
+        drag.projectKey,
+        drag.clientY - inner.getBoundingClientRect().top
+      );
     };
 
     // The ghost follows the pointer through its style, not through React
@@ -177,10 +190,10 @@ export function useGroupDrag(options: GroupDragOptions): GroupDragApi {
         pointerY: drag.clientY,
         lineY: drag.drop && inner ? inner.getBoundingClientRect().top + drag.drop.lineY : null,
         ghostHeight: height,
-        pointerGap: drag.pointerType === "mouse" ? GHOST_GAP_PX.mouse : GHOST_GAP_PX.touch,
+        pointerGap: drag.pointerType === 'mouse' ? GHOST_GAP_PX.mouse : GHOST_GAP_PX.touch,
         lineGap: GHOST_LINE_GAP_PX,
         minTop: box.top,
-        maxTop: box.bottom - height,
+        maxTop: box.bottom - height
       });
       ghost.style.top = `${top - treeTop}px`;
       ghost.style.left = `${drag.ghost.left}px`;
@@ -191,9 +204,10 @@ export function useGroupDrag(options: GroupDragOptions): GroupDragApi {
       if (drag.frame !== null) cancelAnimationFrame(drag.frame);
       drag.timer = null;
       drag.frame = null;
-      scrollElement()?.removeEventListener("scroll", onScroll);
+      scrollElement()?.removeEventListener('scroll', onScroll);
       try {
-        if (drag.element.hasPointerCapture(drag.pointerId)) drag.element.releasePointerCapture(drag.pointerId);
+        if (drag.element.hasPointerCapture(drag.pointerId))
+          drag.element.releasePointerCapture(drag.pointerId);
       } catch {
         // Already released with the pointer.
       }
@@ -217,11 +231,11 @@ export function useGroupDrag(options: GroupDragOptions): GroupDragApi {
     const cancel = () => {
       const drag = dragRef.current;
       if (!drag) return;
-      if (drag.phase !== "armed" && drag.phase !== "dragging") {
-        if (drag.phase === "pending") teardown();
+      if (drag.phase !== 'armed' && drag.phase !== 'dragging') {
+        if (drag.phase === 'pending') teardown();
         return;
       }
-      drag.phase = "cancelled";
+      drag.phase = 'cancelled';
       drag.drop = null;
       stopMotion(drag);
       setState(null);
@@ -229,7 +243,7 @@ export function useGroupDrag(options: GroupDragOptions): GroupDragApi {
 
     const updateDrag = (force = false) => {
       const drag = dragRef.current;
-      if (!drag || drag.phase !== "dragging") return;
+      if (!drag || drag.phase !== 'dragging') return;
       const scroll = scrollElement();
       if (!scroll || !isRendered(scroll)) {
         cancel();
@@ -251,7 +265,7 @@ export function useGroupDrag(options: GroupDragOptions): GroupDragApi {
     // height (not scrollHeight: nothing the drag draws may make room to scroll into).
     const autoScroll = () => {
       const drag = dragRef.current;
-      if (!drag || drag.phase !== "dragging") return;
+      if (!drag || drag.phase !== 'dragging') return;
       drag.frame = null;
       const scroll = scrollElement();
       if (!scroll || !isRendered(scroll)) {
@@ -259,17 +273,28 @@ export function useGroupDrag(options: GroupDragOptions): GroupDragApi {
         return;
       }
       const box = scroll.getBoundingClientRect();
-      const delta = autoScrollDelta(drag.clientY, box.top, box.bottom, AUTO_SCROLL_EDGE[optionsRef.current.layout], AUTO_SCROLL_MAX_STEP);
+      const delta = autoScrollDelta(
+        drag.clientY,
+        box.top,
+        box.bottom,
+        AUTO_SCROLL_EDGE[optionsRef.current.layout],
+        AUTO_SCROLL_MAX_STEP
+      );
       if (delta !== 0) {
-        const contentHeight = optionsRef.current.offsets[optionsRef.current.offsets.length - 1] ?? 0;
-        const next = Math.min(Math.max(0, contentHeight - scroll.clientHeight), Math.max(0, scroll.scrollTop + delta));
+        const contentHeight =
+          optionsRef.current.offsets[optionsRef.current.offsets.length - 1] ?? 0;
+        const next = Math.min(
+          Math.max(0, contentHeight - scroll.clientHeight),
+          Math.max(0, scroll.scrollTop + delta)
+        );
         if (next !== scroll.scrollTop) {
           scroll.scrollTop = next;
           drag.expectedScrollTop = scroll.scrollTop;
           updateDrag();
         }
       }
-      if (dragRef.current === drag && drag.phase === "dragging") drag.frame = requestAnimationFrame(autoScroll);
+      if (dragRef.current === drag && drag.phase === 'dragging')
+        drag.frame = requestAnimationFrame(autoScroll);
     };
 
     const startDragging = (drag: DragState) => {
@@ -279,27 +304,32 @@ export function useGroupDrag(options: GroupDragOptions): GroupDragApi {
         cancel();
         return;
       }
-      drag.phase = "dragging";
+      drag.phase = 'dragging';
       // A release outside the window still reaches the header. Touch has an implicit capture.
-      if (drag.pointerType !== "touch") {
+      if (drag.pointerType !== 'touch') {
         try {
           drag.element.setPointerCapture(drag.pointerId);
         } catch {
           // The window listeners still see the pointer.
         }
       }
-      drag.ghost = { left: drag.element.getBoundingClientRect().left - tree.getBoundingClientRect().left + GHOST_INDENT_PX };
+      drag.ghost = {
+        left:
+          drag.element.getBoundingClientRect().left -
+          tree.getBoundingClientRect().left +
+          GHOST_INDENT_PX
+      };
       drag.expectedScrollTop = scroll.scrollTop;
-      scroll.addEventListener("scroll", onScroll, { passive: true });
+      scroll.addEventListener('scroll', onScroll, { passive: true });
       drag.frame = requestAnimationFrame(autoScroll);
       updateDrag(true);
     };
 
     const arm = () => {
       const drag = dragRef.current;
-      if (!drag || drag.phase !== "pending") return;
+      if (!drag || drag.phase !== 'pending') return;
       drag.timer = null;
-      drag.phase = "armed";
+      drag.phase = 'armed';
       drag.armX = drag.clientX;
       drag.armY = drag.clientY;
       drag.expectedScrollTop = scrollElement()?.scrollTop ?? 0;
@@ -310,7 +340,7 @@ export function useGroupDrag(options: GroupDragOptions): GroupDragApi {
       const drag = dragRef.current;
       if (!drag || event.pointerId !== drag.pointerId) return;
       // A release outside the window before the drag took the capture: no pointerup came.
-      if (drag.pointerType === "mouse" && event.buttons === 0) {
+      if (drag.pointerType === 'mouse' && event.buttons === 0) {
         teardown();
         return;
       }
@@ -318,18 +348,19 @@ export function useGroupDrag(options: GroupDragOptions): GroupDragApi {
       drag.clientY = event.clientY;
       const moved = distance(drag.startX, drag.startY, event.clientX, event.clientY);
       switch (drag.phase) {
-        case "pending":
-          if (drag.pointerType === "mouse") {
+        case 'pending':
+          if (drag.pointerType === 'mouse') {
             if (moved >= DRAG_START_PX) startDragging(drag);
           } else if (moved > LONG_PRESS_SLOP_PX) {
             // A swipe: the list scrolls as usual.
             teardown();
           }
           break;
-        case "armed":
-          if (distance(drag.armX, drag.armY, event.clientX, event.clientY) >= DRAG_START_PX) startDragging(drag);
+        case 'armed':
+          if (distance(drag.armX, drag.armY, event.clientX, event.clientY) >= DRAG_START_PX)
+            startDragging(drag);
           break;
-        case "dragging":
+        case 'dragging':
           updateDrag();
           break;
       }
@@ -338,14 +369,15 @@ export function useGroupDrag(options: GroupDragOptions): GroupDragApi {
     function onPointerUp(event: PointerEvent) {
       const drag = dragRef.current;
       if (!drag || event.pointerId !== drag.pointerId) return;
-      if (drag.phase === "dragging") {
+      if (drag.phase === 'dragging') {
         drag.clientX = event.clientX;
         drag.clientY = event.clientY;
         const drop = dropFor(drag);
         if (drop) optionsRef.current.onMove(drag.projectKey, drop.anchorKey, drop.position);
       }
       // A plain click (still pending) toggles the group; after a pick-up it must not.
-      if (drag.phase !== "pending") suppressClickUntilRef.current = event.timeStamp + CLICK_SUPPRESS_MS;
+      if (drag.phase !== 'pending')
+        suppressClickUntilRef.current = event.timeStamp + CLICK_SUPPRESS_MS;
       teardown();
     }
 
@@ -363,7 +395,8 @@ export function useGroupDrag(options: GroupDragOptions): GroupDragApi {
     // leaves it alone. A press not picked up yet lets Escape through.
     function onKeyDown(event: KeyboardEvent) {
       const drag = dragRef.current;
-      if (!drag || event.key !== "Escape" || (drag.phase !== "armed" && drag.phase !== "dragging")) return;
+      if (!drag || event.key !== 'Escape' || (drag.phase !== 'armed' && drag.phase !== 'dragging'))
+        return;
       event.preventDefault();
       event.stopPropagation();
       cancel();
@@ -374,7 +407,7 @@ export function useGroupDrag(options: GroupDragOptions): GroupDragApi {
     function onContextMenu(event: MouseEvent) {
       const drag = dragRef.current;
       if (!drag) return;
-      if (drag.phase === "pending") {
+      if (drag.phase === 'pending') {
         teardown();
         return;
       }
@@ -387,29 +420,29 @@ export function useGroupDrag(options: GroupDragOptions): GroupDragApi {
     }
 
     function onVisibilityChange() {
-      if (document.visibilityState === "hidden") teardown();
+      if (document.visibilityState === 'hidden') teardown();
     }
 
     function addListeners() {
-      window.addEventListener("pointermove", onPointerMove, true);
-      window.addEventListener("pointerup", onPointerUp, true);
-      window.addEventListener("pointercancel", onPointerCancel, true);
-      window.addEventListener("pointerdown", onOtherPointerDown, true);
-      window.addEventListener("keydown", onKeyDown, true);
-      window.addEventListener("contextmenu", onContextMenu, true);
-      window.addEventListener("blur", onBlur);
-      document.addEventListener("visibilitychange", onVisibilityChange);
+      window.addEventListener('pointermove', onPointerMove, true);
+      window.addEventListener('pointerup', onPointerUp, true);
+      window.addEventListener('pointercancel', onPointerCancel, true);
+      window.addEventListener('pointerdown', onOtherPointerDown, true);
+      window.addEventListener('keydown', onKeyDown, true);
+      window.addEventListener('contextmenu', onContextMenu, true);
+      window.addEventListener('blur', onBlur);
+      document.addEventListener('visibilitychange', onVisibilityChange);
     }
 
     function removeListeners() {
-      window.removeEventListener("pointermove", onPointerMove, true);
-      window.removeEventListener("pointerup", onPointerUp, true);
-      window.removeEventListener("pointercancel", onPointerCancel, true);
-      window.removeEventListener("pointerdown", onOtherPointerDown, true);
-      window.removeEventListener("keydown", onKeyDown, true);
-      window.removeEventListener("contextmenu", onContextMenu, true);
-      window.removeEventListener("blur", onBlur);
-      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener('pointermove', onPointerMove, true);
+      window.removeEventListener('pointerup', onPointerUp, true);
+      window.removeEventListener('pointercancel', onPointerCancel, true);
+      window.removeEventListener('pointerdown', onOtherPointerDown, true);
+      window.removeEventListener('keydown', onKeyDown, true);
+      window.removeEventListener('contextmenu', onContextMenu, true);
+      window.removeEventListener('blur', onBlur);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
     }
 
     const handlers: GroupDragHandlers = {
@@ -418,7 +451,8 @@ export function useGroupDrag(options: GroupDragOptions): GroupDragApi {
         if (!optionsRef.current.enabled || dragRef.current) return;
         if (!event.isPrimary || event.button !== 0 || event.ctrlKey) return;
         // "+" and ⋯ keep their own clicks.
-        if (event.target instanceof Element && event.target.closest(".session-tree-group-actions")) return;
+        if (event.target instanceof Element && event.target.closest('.session-tree-group-actions'))
+          return;
         const element = event.currentTarget;
         const drag: DragState = {
           pointerId: event.pointerId,
@@ -431,22 +465,22 @@ export function useGroupDrag(options: GroupDragOptions): GroupDragApi {
           armY: event.clientY,
           clientX: event.clientX,
           clientY: event.clientY,
-          phase: "pending",
+          phase: 'pending',
           timer: null,
           frame: null,
           expectedScrollTop: 0,
           drop: null,
-          ghost: null,
+          ghost: null
         };
         dragRef.current = drag;
         addListeners();
         // Touch and pen scroll the list natively: they pick a group up with a long-press.
-        if (event.pointerType !== "mouse") drag.timer = window.setTimeout(arm, LONG_PRESS_MS);
+        if (event.pointerType !== 'mouse') drag.timer = window.setTimeout(arm, LONG_PRESS_MS);
       },
       onTouchMove(event) {
         const drag = dragRef.current;
         // Before the long-press the list scrolls as usual (pointercancel ends the press).
-        if (!drag || (drag.phase !== "armed" && drag.phase !== "dragging")) return;
+        if (!drag || (drag.phase !== 'armed' && drag.phase !== 'dragging')) return;
         if (event.cancelable) {
           event.preventDefault();
           return;
@@ -455,7 +489,7 @@ export function useGroupDrag(options: GroupDragOptions): GroupDragApi {
         // Only a list the browser really scrolled ends the drag.
         const scroll = scrollElement();
         if (scroll && scroll.scrollTop !== drag.expectedScrollTop) teardown();
-      },
+      }
     };
 
     return { handlers, cancel, teardown, updateDrag, placeGhost };
@@ -465,8 +499,9 @@ export function useGroupDrag(options: GroupDragOptions): GroupDragApi {
   // be gone (archived or deleted in another window), else the target moved.
   useLayoutEffect(() => {
     const drag = dragRef.current;
-    if (!drag || (drag.phase !== "armed" && drag.phase !== "dragging")) return;
-    if (!rows.some((row) => row.kind === "group" && row.project.key === drag.projectKey)) machine.cancel();
+    if (!drag || (drag.phase !== 'armed' && drag.phase !== 'dragging')) return;
+    if (!rows.some((row) => row.kind === 'group' && row.project.key === drag.projectKey))
+      machine.cancel();
     else machine.updateDrag();
   }, [rows, offsets, machine]);
 
@@ -474,7 +509,7 @@ export function useGroupDrag(options: GroupDragOptions): GroupDragApi {
     if (!enabled) machine.cancel();
   }, [enabled, machine]);
 
-  const dragging = state?.phase === "dragging";
+  const dragging = state?.phase === 'dragging';
   // The ghost mounts with the drag; it gets its place before it is painted.
   useLayoutEffect(() => {
     if (dragging) machine.placeGhost();
@@ -496,7 +531,10 @@ export function useGroupDrag(options: GroupDragOptions): GroupDragApi {
 
   const view = useMemo<GroupDragView | null>(() => {
     if (!state) return null;
-    const source = state.phase === "dragging" ? blocks.find((block) => block.key === state.projectKey) ?? null : null;
+    const source =
+      state.phase === 'dragging'
+        ? (blocks.find((block) => block.key === state.projectKey) ?? null)
+        : null;
     return { ...state, source };
   }, [state, blocks]);
 

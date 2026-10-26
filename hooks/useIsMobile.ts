@@ -1,21 +1,21 @@
-"use client";
+'use client';
 
-import { useSyncExternalStore } from "react";
+import { useSyncExternalStore } from 'react';
 
 // Mobile breakpoint shared with app/globals.css (max-width: 640px).
-const MOBILE_QUERY = "(max-width: 640px)";
+const MOBILE_QUERY = '(max-width: 640px)';
 // Narrow phones keep secondary toolbar actions behind the More button.
-const NARROW_MOBILE_QUERY = "(max-width: 480px)";
+const NARROW_MOBILE_QUERY = '(max-width: 480px)';
 
 function subscribeToQuery(query: string, cb: () => void): () => void {
-  if (typeof window === "undefined" || !window.matchMedia) return () => {};
+  if (typeof window === 'undefined' || !window.matchMedia) return () => {};
   const mql = window.matchMedia(query);
-  mql.addEventListener("change", cb);
-  return () => mql.removeEventListener("change", cb);
+  mql.addEventListener('change', cb);
+  return () => mql.removeEventListener('change', cb);
 }
 
 function queryMatches(query: string): boolean {
-  if (typeof window === "undefined" || !window.matchMedia) return false;
+  if (typeof window === 'undefined' || !window.matchMedia) return false;
   return window.matchMedia(query).matches;
 }
 

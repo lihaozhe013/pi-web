@@ -1,14 +1,14 @@
-import { NextResponse } from "next/server";
-import { statSync, type Stats } from "fs";
-import { homedir } from "os";
-import { isAbsolute, resolve } from "path";
-import { allowFileRoot } from "@/lib/file-access";
-import { projectIdentityKey } from "@/lib/project-identity";
-import { resolveProject } from "@/lib/worktree";
+import { NextResponse } from 'next/server';
+import { statSync, type Stats } from 'fs';
+import { homedir } from 'os';
+import { isAbsolute, resolve } from 'path';
+import { allowFileRoot } from '@/lib/file-access';
+import { projectIdentityKey } from '@/lib/project-identity';
+import { resolveProject } from '@/lib/worktree';
 
 function normalizeCwd(cwd: string): string {
-  if (cwd === "~") return homedir();
-  if (cwd.startsWith("~/")) return resolve(homedir(), cwd.slice(2));
+  if (cwd === '~') return homedir();
+  if (cwd.startsWith('~/')) return resolve(homedir(), cwd.slice(2));
   return isAbsolute(cwd) ? cwd : resolve(cwd);
 }
 
@@ -16,11 +16,11 @@ function normalizeCwd(cwd: string): string {
 // Validates a candidate workspace before the UI selects it.
 export async function POST(req: Request) {
   try {
-    const body = await req.json() as { cwd?: unknown };
-    const cwd = typeof body.cwd === "string" ? body.cwd.trim() : "";
+    const body = (await req.json()) as { cwd?: unknown };
+    const cwd = typeof body.cwd === 'string' ? body.cwd.trim() : '';
 
     if (!cwd) {
-      return NextResponse.json({ error: "Path is required" }, { status: 400 });
+      return NextResponse.json({ error: 'Path is required' }, { status: 400 });
     }
 
     const normalizedCwd = normalizeCwd(cwd);
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
       success: true,
       cwd: normalizedCwd,
       projectRoot: project.projectRoot,
-      projectKey: projectIdentityKey(project.projectRoot),
+      projectKey: projectIdentityKey(project.projectRoot)
     });
   } catch (error) {
     return NextResponse.json({ error: String(error) }, { status: 500 });

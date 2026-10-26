@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import { useEffect, useId, useRef, useState } from "react";
-import type { McpServerInfo, McpSignInFlowInfo } from "@/lib/api-types";
-import { useI18n } from "@/hooks/useI18n";
-import { revealHiddenCharacters } from "@/lib/mcp-server-display";
-import { focusIfLost } from "@/lib/stacked-dialog";
-import { OAuthPastePanel } from "./OAuthPastePanel";
-import { ConfigButton, ConfigDetailGridRow } from "./SettingsUi";
-import type { McpActionFailure, McpTestBlock } from "./mcp-config-helpers";
+import { useEffect, useId, useRef, useState } from 'react';
+import type { McpServerInfo, McpSignInFlowInfo } from '@/lib/api-types';
+import { useI18n } from '@/hooks/useI18n';
+import { revealHiddenCharacters } from '@/lib/mcp-server-display';
+import { focusIfLost } from '@/lib/stacked-dialog';
+import { OAuthPastePanel } from './OAuthPastePanel';
+import { ConfigButton, ConfigDetailGridRow } from './SettingsUi';
+import type { McpActionFailure, McpTestBlock } from './mcp-config-helpers';
 import {
   MCP_SIGN_IN_BLOCK_KEYS,
   MCP_SIGN_IN_PHASE_KEYS,
@@ -17,21 +17,27 @@ import {
   mcpSignInOutcomeKey,
   mcpSignInOutcomeTone,
   mcpSignInShared,
-  type McpSignInRun,
-} from "./mcp-sign-in-helpers";
+  type McpSignInRun
+} from './mcp-sign-in-helpers';
 
-type Translate = ReturnType<typeof useI18n>["t"];
+type Translate = ReturnType<typeof useI18n>['t'];
 
 /**
  * Why a sign-in request or Sign out failed, in sign-in words where the reason
  * has them. A sign-in request that timed out may still have started one,
  * which Sign in joins; a Sign out that did may still have been made.
  */
-function signInFailureText(failure: McpActionFailure, t: Translate, timedOutKey = "mcp.signIn.requestTimedOut"): string {
+function signInFailureText(
+  failure: McpActionFailure,
+  t: Translate,
+  timedOutKey = 'mcp.signIn.requestTimedOut'
+): string {
   if (failure.timedOut) return t(timedOutKey);
   const key = failure.reason ? MCP_SIGN_IN_REFUSAL_KEYS[failure.reason] : undefined;
   if (key) return t(key);
-  return failure.reason && failure.reason !== "internal" ? t(`mcp.reason.${failure.reason}`) : failure.error;
+  return failure.reason && failure.reason !== 'internal'
+    ? t(`mcp.reason.${failure.reason}`)
+    : failure.error;
 }
 
 /**
@@ -54,7 +60,7 @@ export function McpSignInRow({
   onSignIn,
   onSignOut,
   onPaste,
-  onCancel,
+  onCancel
 }: {
   server: McpServerInfo;
   /** The panel's sign-in for this server, if it started or joined one. */
@@ -90,12 +96,16 @@ export function McpSignInRow({
 
   if (!server.usesOAuth) {
     // Its own Authorization header, which the Headers row lists, is how it signs in: nothing to add.
-    if (server.authProvider === undefined && server.headerNames.some((header) => header.toLowerCase() === "authorization")) return null;
+    if (
+      server.authProvider === undefined &&
+      server.headerNames.some((header) => header.toLowerCase() === 'authorization')
+    )
+      return null;
     return (
-      <ConfigDetailGridRow label={t("mcp.detail.signIn")}>
+      <ConfigDetailGridRow label={t('mcp.detail.signIn')}>
         {server.authProvider !== undefined
-          ? t("mcp.signIn.provider", { provider: revealHiddenCharacters(server.authProvider) })
-          : t("mcp.signIn.header")}
+          ? t('mcp.signIn.provider', { provider: revealHiddenCharacters(server.authProvider) })
+          : t('mcp.signIn.header')}
       </ConfigDetailGridRow>
     );
   }
@@ -112,22 +122,27 @@ export function McpSignInRow({
   const signInDisabled = starting || signingOut || block !== undefined;
   const signOutDisabled = controlsBusy || starting || signOutBlock !== undefined;
   // The authorization server has answered: a code exchange or a reconnect is on its way.
-  const cancelLocked = flow?.phase === "finishing";
+  const cancelLocked = flow?.phase === 'finishing';
   return (
-    <ConfigDetailGridRow label={t("mcp.detail.signIn")} tone="plain">
+    <ConfigDetailGridRow label={t('mcp.detail.signIn')} tone="plain">
       <div className="mcp-config-lines">
         <span className="mcp-config-line">
           {server.signedIn === true
-            ? t("mcp.signIn.signedIn")
+            ? t('mcp.signIn.signedIn')
             : server.signedIn === false
-              ? t(server.oauthStateStored ? "mcp.signIn.registrationOnly" : "mcp.signIn.notSignedIn")
-              : t("mcp.signIn.unknown")}
+              ? t(
+                  server.oauthStateStored ? 'mcp.signIn.registrationOnly' : 'mcp.signIn.notSignedIn'
+                )
+              : t('mcp.signIn.unknown')}
         </span>
         {flow && active && shared && (
-          <span className="mcp-config-line is-dim">{t("mcp.signIn.shared", { name: revealHiddenCharacters(flow.name) })}</span>
+          <span className="mcp-config-line is-dim">
+            {t('mcp.signIn.shared', { name: revealHiddenCharacters(flow.name) })}
+          </span>
         )}
-        {flow && active && (
-          flow.phase === "authorize" ? (
+        {flow &&
+          active &&
+          (flow.phase === 'authorize' ? (
             <McpSignInAuthorize
               key={flow.flowId}
               flow={flow}
@@ -136,38 +151,53 @@ export function McpSignInRow({
               onPaste={(value) => onPaste(server, flow.flowId, value)}
             />
           ) : (
-            <span role="status" className="mcp-config-line">{t(MCP_SIGN_IN_PHASE_KEYS[flow.phase] ?? "mcp.signIn.phase.connecting")}</span>
-          )
-        )}
+            <span role="status" className="mcp-config-line">
+              {t(MCP_SIGN_IN_PHASE_KEYS[flow.phase] ?? 'mcp.signIn.phase.connecting')}
+            </span>
+          ))}
         {flow && active && cancelLocked && (
-          <span id={noCancelId} className="mcp-config-line is-dim">{t("mcp.signIn.phase.noCancel")}</span>
+          <span id={noCancelId} className="mcp-config-line is-dim">
+            {t('mcp.signIn.phase.noCancel')}
+          </span>
         )}
         {flow && !active && !run?.gone && <McpSignInOutcome flow={flow} shared={shared} />}
-        {run?.gone && <span role="alert" className="mcp-config-line is-warning">{t("mcp.signIn.gone")}</span>}
+        {run?.gone && (
+          <span role="alert" className="mcp-config-line is-warning">
+            {t('mcp.signIn.gone')}
+          </span>
+        )}
         {run?.error && (
           <span role="alert" className="mcp-config-line is-error">
-            {t("mcp.signIn.requestFailed")} {signInFailureText(run.error, t)}
+            {t('mcp.signIn.requestFailed')} {signInFailureText(run.error, t)}
           </span>
         )}
         {/* Only while the flow runs: once it ended, how it ended is the answer. */}
         {active && run?.cancelError && (
           <span role="alert" className="mcp-config-line is-error">
-            {t("mcp.signIn.cancelFailed")} {signInFailureText(run.cancelError, t, "mcp.signIn.cancelTimedOut")}
+            {t('mcp.signIn.cancelFailed')}{' '}
+            {signInFailureText(run.cancelError, t, 'mcp.signIn.cancelTimedOut')}
           </span>
         )}
         {run?.signOutError && (
           <span role="alert" className="mcp-config-line is-error">
-            {t("mcp.signIn.signOutFailed")} {signInFailureText(run.signOutError, t, "mcp.actionTimedOut")}
+            {t('mcp.signIn.signOutFailed')}{' '}
+            {signInFailureText(run.signOutError, t, 'mcp.actionTimedOut')}
           </span>
         )}
         {run?.signedOut && (
           <span role="status" className="mcp-config-line">
-            {t(run.signedOut.removed ? "mcp.signIn.signedOutDone" : "mcp.signIn.signedOutNothing")}
+            {t(run.signedOut.removed ? 'mcp.signIn.signedOutDone' : 'mcp.signIn.signedOutNothing')}
           </span>
         )}
-        {block && <span id={blockId} className="mcp-config-line is-dim">{t(MCP_SIGN_IN_BLOCK_KEYS[block])}</span>}
+        {block && (
+          <span id={blockId} className="mcp-config-line is-dim">
+            {t(MCP_SIGN_IN_BLOCK_KEYS[block])}
+          </span>
+        )}
         {!block && signOutBlock && offersSignOut && !active && (
-          <span id={signOutBlockId} className="mcp-config-line is-dim">{t(MCP_SIGN_IN_BLOCK_KEYS[signOutBlock])}</span>
+          <span id={signOutBlockId} className="mcp-config-line is-dim">
+            {t(MCP_SIGN_IN_BLOCK_KEYS[signOutBlock])}
+          </span>
         )}
         <div className="mcp-sign-in-actions">
           {active && flow ? (
@@ -179,7 +209,7 @@ export function McpSignInRow({
               aria-describedby={cancelLocked ? noCancelId : undefined}
               onClick={() => onCancel(server, flow.flowId)}
             >
-              {run?.cancelling ? t("mcp.signIn.cancelling") : t("mcp.signIn.cancel")}
+              {run?.cancelling ? t('mcp.signIn.cancelling') : t('mcp.signIn.cancel')}
             </ConfigButton>
           ) : (
             <ConfigButton
@@ -191,7 +221,7 @@ export function McpSignInRow({
               aria-describedby={block ? blockId : undefined}
               onClick={() => onSignIn(server)}
             >
-              {starting ? t("mcp.signIn.starting") : t("mcp.signIn.button")}
+              {starting ? t('mcp.signIn.starting') : t('mcp.signIn.button')}
             </ConfigButton>
           )}
           {offersSignOut && !active && (
@@ -202,14 +232,18 @@ export function McpSignInRow({
               aria-describedby={signOutBlock ? (block ? blockId : signOutBlockId) : undefined}
               onClick={() => onSignOut(server)}
             >
-              {signingOut ? t("mcp.signIn.signingOut") : t("mcp.signIn.signOut")}
+              {signingOut ? t('mcp.signIn.signingOut') : t('mcp.signIn.signOut')}
             </ConfigButton>
           )}
         </div>
         {/* What the buttons change, while they are offered; each sentence on its own line, so no locale has to join two.
             Only while something is stored for the URL: with nothing stored there is nothing to replace. */}
-        {!block && !active && offersSignOut && <span className="mcp-config-line is-dim">{t("mcp.signIn.replaces")}</span>}
-        {offersSignOut && !signOutBlock && !active && <span className="mcp-config-line is-dim">{t("mcp.signIn.signOutExplain")}</span>}
+        {!block && !active && offersSignOut && (
+          <span className="mcp-config-line is-dim">{t('mcp.signIn.replaces')}</span>
+        )}
+        {offersSignOut && !signOutBlock && !active && (
+          <span className="mcp-config-line is-dim">{t('mcp.signIn.signOutExplain')}</span>
+        )}
       </div>
     </ConfigDetailGridRow>
   );
@@ -224,7 +258,7 @@ function McpSignInAuthorize({
   flow,
   pasting,
   pasteError,
-  onPaste,
+  onPaste
 }: {
   flow: McpSignInFlowInfo;
   pasting: boolean;
@@ -232,7 +266,7 @@ function McpSignInAuthorize({
   onPaste: (value: string) => void;
 }) {
   const { t } = useI18n();
-  const [value, setValue] = useState("");
+  const [value, setValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   // The box waits while a paste is checked, which drops focus to the page; a
   // refused paste gives it back, so the address can be corrected at once.
@@ -246,22 +280,28 @@ function McpSignInAuthorize({
   return (
     <>
       <OAuthPastePanel
-        message={t("mcp.signIn.authorize.message")}
-        hint={link ? (
-          <>
-            {t("mcp.signIn.authorize.link")}{" "}
-            <a href={link} target="_blank" rel="noopener noreferrer">{revealHiddenCharacters(link)}</a>
-          </>
-        ) : (
-          <>
-            {t("mcp.signIn.authorize.notALink")}{" "}
-            <code className="mcp-config-chip">{revealHiddenCharacters(flow.authorizationUrl ?? "")}</code>
-          </>
-        )}
+        message={t('mcp.signIn.authorize.message')}
+        hint={
+          link ? (
+            <>
+              {t('mcp.signIn.authorize.link')}{' '}
+              <a href={link} target="_blank" rel="noopener noreferrer">
+                {revealHiddenCharacters(link)}
+              </a>
+            </>
+          ) : (
+            <>
+              {t('mcp.signIn.authorize.notALink')}{' '}
+              <code className="mcp-config-chip">
+                {revealHiddenCharacters(flow.authorizationUrl ?? '')}
+              </code>
+            </>
+          )
+        }
         value={value}
-        placeholder={t("mcp.signIn.paste.placeholder")}
-        inputLabel={t("mcp.signIn.paste.label")}
-        submitLabel={pasting ? t("mcp.signIn.paste.checking") : t("mcp.signIn.paste.submit")}
+        placeholder={t('mcp.signIn.paste.placeholder')}
+        inputLabel={t('mcp.signIn.paste.label')}
+        submitLabel={pasting ? t('mcp.signIn.paste.checking') : t('mcp.signIn.paste.submit')}
         disabled={pasting}
         plainEnterSubmits={false}
         inputRef={inputRef}
@@ -270,19 +310,23 @@ function McpSignInAuthorize({
       />
       {pasteError && (
         <span role="alert" className="mcp-config-line is-error">
-          {t("mcp.signIn.paste.refused")} {signInFailureText(pasteError, t, "mcp.signIn.paste.timedOut")}
+          {t('mcp.signIn.paste.refused')}{' '}
+          {signInFailureText(pasteError, t, 'mcp.signIn.paste.timedOut')}
           {/* The authorization server's own words: what the pasted address carried as its error. */}
-          {pasteError.reason === "redirect-denied" && pasteError.error && (
-            <> <code className="mcp-config-chip">{revealHiddenCharacters(pasteError.error)}</code></>
+          {pasteError.reason === 'redirect-denied' && pasteError.error && (
+            <>
+              {' '}
+              <code className="mcp-config-chip">{revealHiddenCharacters(pasteError.error)}</code>
+            </>
           )}
         </span>
       )}
       {flow.redirectUrl && (
         <span className="mcp-config-line is-dim">
-          {t("mcp.signIn.authorize.redirect", { url: revealHiddenCharacters(flow.redirectUrl) })}
+          {t('mcp.signIn.authorize.redirect', { url: revealHiddenCharacters(flow.redirectUrl) })}
         </span>
       )}
-      <span className="mcp-config-line is-dim">{t("mcp.signIn.authorize.wait")}</span>
+      <span className="mcp-config-line is-dim">{t('mcp.signIn.authorize.wait')}</span>
     </>
   );
 }
@@ -297,13 +341,21 @@ function McpSignInOutcome({ flow, shared }: { flow: McpSignInFlowInfo; shared: b
   const key = mcpSignInOutcomeKey(flow, shared);
   if (!key) return null;
   const tone = mcpSignInOutcomeTone(flow, shared);
-  const lineClass = tone === "error" ? "mcp-config-line is-error" : tone === "warning" ? "mcp-config-line is-warning" : "mcp-config-line";
+  const lineClass =
+    tone === 'error'
+      ? 'mcp-config-line is-error'
+      : tone === 'warning'
+        ? 'mcp-config-line is-warning'
+        : 'mcp-config-line';
   return (
     <>
-      <span role="status" className={lineClass}>{t(key, { name: revealHiddenCharacters(flow.name) })}</span>
+      <span role="status" className={lineClass}>
+        {t(key, { name: revealHiddenCharacters(flow.name) })}
+      </span>
       {flow.error && (
         <span className="mcp-config-line is-error">
-          {t("mcp.test.error")} <code className="mcp-config-chip">{revealHiddenCharacters(flow.error)}</code>
+          {t('mcp.test.error')}{' '}
+          <code className="mcp-config-chip">{revealHiddenCharacters(flow.error)}</code>
         </span>
       )}
     </>

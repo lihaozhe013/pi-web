@@ -1,13 +1,14 @@
-import type { AuthEvent, AuthPrompt } from "@earendil-works/pi-ai";
-import { randomUUID } from "node:crypto";
-import { invalidateModelsCache } from "@/lib/models-cache";
-import { createModelRuntimeWithExtensions } from "@/lib/model-runtime";
+import type { AuthEvent, AuthPrompt } from '@earendil-works/pi-ai';
+import { randomUUID } from 'node:crypto';
+import { invalidateModelsCache } from '@/lib/models-cache';
+import { createModelRuntimeWithExtensions } from '@/lib/model-runtime';
 
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
 // In-memory registry: loginToken -> resolve/reject for the manualCodeInput promise
 declare global {
-  var __piLoginCallbacks: Map<string, { resolve: (v: string) => void; reject: (e: Error) => void }> | undefined;
+  var __piLoginCallbacks:
+    Map<string, { resolve: (v: string) => void; reject: (e: Error) => void }> | undefined;
 }
 
 function getCallbackRegistry() {
@@ -16,25 +17,22 @@ function getCallbackRegistry() {
 }
 
 // POST /api/auth/login/[provider] — frontend sends redirect URL or auth code
-export async function POST(
-  req: Request,
-  { params }: { params: Promise<{ provider: string }> }
-) {
+export async function POST(req: Request, { params }: { params: Promise<{ provider: string }> }) {
   const { provider } = await params;
   const { token, code } = (await req.json()) as { token?: string; code?: string };
 
   if (!token || !code) {
-    return Response.json({ error: "token and code required" }, { status: 400 });
+    return Response.json({ error: 'token and code required' }, { status: 400 });
   }
 
   const registry = getCallbackRegistry();
   const callbacks = registry.get(token);
   if (!callbacks) {
-    return Response.json({ error: "No pending login for token" }, { status: 404 });
+    return Response.json({ error: 'No pending login for token' }, { status: 404 });
   }
   // Verify token belongs to this provider (token format: "<provider>-<uuid>")
   if (!token.startsWith(`${provider}-`)) {
-    return Response.json({ error: "Token does not match provider" }, { status: 400 });
+    return Response.json({ error: 'Token does not match provider' }, { status: 400 });
   }
 
   callbacks.resolve(code);
@@ -43,10 +41,7 @@ export async function POST(
 }
 
 // GET /api/auth/login/[provider] — SSE stream for OAuth flow
-export async function GET(
-  req: Request,
-  { params }: { params: Promise<{ provider: string }> }
-) {
+export async function GET(req: Request, { params }: { params: Promise<{ provider: string }> }) {
   const { provider } = await params;
 
   const encoder = new TextEncoder();
@@ -56,13 +51,13 @@ export async function GET(
 
   // AbortController propagates client disconnect into ModelRuntime.login().
   const abort = new AbortController();
-  req.signal.addEventListener("abort", () => abort.abort());
+  req.signal.addEventListener('abort', () => abort.abort());
 
   const stream = new ReadableStream({
     async start(controller) {
       const modelRuntime = await createModelRuntimeWithExtensions();
       if (!modelRuntime.getProvider(provider)?.auth.oauth) {
-        send(controller, { type: "error", message: `Unknown provider: ${provider}` });
+        send(controller, { type: 'error', message: `Unknown provider: ${provider}` });
         controller.close();
         return;
       }
@@ -88,7 +83,7 @@ export async function GET(
               activeTokens.delete(token);
               registry.delete(token);
               reject(error);
-            },
+            }
           });
         });
 
@@ -110,70 +105,69 @@ export async function GET(
       // Cleanup: remove pending token and abort any waiting promise
       const cleanup = () => {
         for (const token of activeTokens) {
-          registry.get(token)?.reject(new Error("Login cancelled"));
+          registry.get(token)?.reject(new Error('Login cancelled'));
           registry.delete(token);
         }
         activeTokens.clear();
       };
 
       // Also cancel on client disconnect
-      abort.signal.addEventListener("abort", cleanup);
+      abort.signal.addEventListener('abort', cleanup);
 
       try {
-        await modelRuntime.login(provider, "oauth", {
+        await modelRuntime.login(provider, 'oauth', {
           prompt: async (prompt: AuthPrompt) => {
-            const request = prompt.type === "manual_code"
-              ? getManualInputRequest()
-              : createClientInputRequest();
-            if (prompt.type === "select") {
+            const request =
+              prompt.type === 'manual_code' ? getManualInputRequest() : createClientInputRequest();
+            if (prompt.type === 'select') {
               send(controller, {
-                type: "select_request",
+                type: 'select_request',
                 message: prompt.message,
                 options: prompt.options,
-                token: request.token,
+                token: request.token
               });
             } else {
               send(controller, {
-                type: "prompt_request",
+                type: 'prompt_request',
                 message: prompt.message,
                 placeholder: prompt.placeholder ?? null,
-                token: request.token,
+                token: request.token
               });
             }
             return request.promise;
           },
           notify: (event: AuthEvent) => {
-            if (event.type === "auth_url") {
+            if (event.type === 'auth_url') {
               const request = getManualInputRequest();
               send(controller, {
-                type: "auth",
+                type: 'auth',
                 url: event.url,
                 instructions: event.instructions ?? null,
-                token: request.token,
+                token: request.token
               });
-            } else if (event.type === "device_code") {
+            } else if (event.type === 'device_code') {
               send(controller, {
-                type: "device_code",
+                type: 'device_code',
                 userCode: event.userCode,
                 verificationUri: event.verificationUri,
                 intervalSeconds: event.intervalSeconds ?? null,
-                expiresInSeconds: event.expiresInSeconds ?? null,
+                expiresInSeconds: event.expiresInSeconds ?? null
               });
             } else {
-              send(controller, { type: "progress", message: event.message });
+              send(controller, { type: 'progress', message: event.message });
             }
           },
-          signal: abort.signal,
+          signal: abort.signal
         });
 
         invalidateModelsCache();
-        send(controller, { type: "success" });
+        send(controller, { type: 'success' });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        if (msg !== "Login cancelled") {
-          send(controller, { type: "error", message: msg });
+        if (msg !== 'Login cancelled') {
+          send(controller, { type: 'error', message: msg });
         } else {
-          send(controller, { type: "cancelled" });
+          send(controller, { type: 'cancelled' });
         }
       } finally {
         cleanup();
@@ -182,14 +176,14 @@ export async function GET(
     },
     cancel() {
       abort.abort();
-    },
+    }
   });
 
   return new Response(stream, {
     headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    },
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive'
+    }
   });
 }

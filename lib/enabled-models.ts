@@ -92,7 +92,7 @@ export interface EnabledModelsProviderView {
    * hidden through `enabledModels`. `custom` providers come from models.json,
    * where a model can simply be deleted, so they are switched as a whole.
    */
-  kind: "builtin" | "custom";
+  kind: 'builtin' | 'custom';
   enabledCount: number;
   models: EnabledModelsModelView[];
 }
@@ -108,7 +108,7 @@ export interface EnabledModelsView {
   availableTotal: number;
   providers: EnabledModelsProviderView[];
   /** Which settings file the effective value comes from. */
-  scope: "global" | "project";
+  scope: 'global' | 'project';
   /** That file's path, shortened for display, e.g. `~/.pi/agent/settings.json`. */
   settingsPath: string;
   /** False when project settings shadow the global value pi-web can write. */
@@ -118,11 +118,11 @@ export interface EnabledModelsView {
 
 export type EnabledModelsEdit =
   | { ok: true; patterns: string[] | undefined; changed: boolean }
-  | { ok: false; reason: "last-model" };
+  | { ok: false; reason: 'last-model' };
 
 /** Provider id of a `provider/modelId` reference (model ids may contain `/`). */
 export function modelRefProvider(ref: string): string {
-  const slash = ref.indexOf("/");
+  const slash = ref.indexOf('/');
   return slash < 0 ? ref : ref.slice(0, slash);
 }
 
@@ -137,7 +137,7 @@ function toEntries(resolutions: readonly PatternResolution[]): Entry[] {
   return resolutions.map((resolution) => ({
     pattern: resolution.pattern,
     matched: [...resolution.matched],
-    ...(resolution.pin ? { pin: resolution.pin } : {}),
+    ...(resolution.pin ? { pin: resolution.pin } : {})
   }));
 }
 
@@ -210,10 +210,13 @@ function collapseProvider(entries: Entry[], input: EnabledModelsInput, provider:
   const involved = entries.filter((entry) => entry.matched.some((ref) => providerSet.has(ref)));
   if (involved.some((entry) => entry.pin)) return entries;
 
-  const covered = new Set(involved.flatMap((entry) => entry.matched.filter((ref) => providerSet.has(ref))));
+  const covered = new Set(
+    involved.flatMap((entry) => entry.matched.filter((ref) => providerSet.has(ref)))
+  );
   if (providerRefs.some((ref) => !covered.has(ref))) return entries;
 
-  const isSubset = (entry: Entry) => entry.matched.length > 0 && entry.matched.every((ref) => providerSet.has(ref));
+  const isSubset = (entry: Entry) =>
+    entry.matched.length > 0 && entry.matched.every((ref) => providerSet.has(ref));
   // Merging needs at least two entries. A lone exact reference is a deliberate
   // pick, not an enumeration to tidy up, even when it happens to be the only
   // model the provider offers today.
@@ -223,7 +226,9 @@ function collapseProvider(entries: Entry[], input: EnabledModelsInput, provider:
 
   // A `**` or a cross-provider pattern already covering everything makes the
   // provider's own entries redundant; leave that list alone.
-  const wider = new Set(involved.filter((entry) => !isSubset(entry)).flatMap((entry) => entry.matched));
+  const wider = new Set(
+    involved.filter((entry) => !isSubset(entry)).flatMap((entry) => entry.matched)
+  );
   if (providerRefs.every((ref) => wider.has(ref))) return entries;
 
   const glob: Entry = { pattern: providerGlob, matched: providerRefs };
@@ -284,7 +289,9 @@ export function computeEnabledModelsState(input: EnabledModelsInput): EnabledMod
     allEnabled,
     enabled: allEnabled ? [...input.availableRefs] : enabled,
     pins,
-    stalePatterns: entries.filter((entry) => entry.matched.length === 0).map((entry) => entry.pattern),
+    stalePatterns: entries
+      .filter((entry) => entry.matched.length === 0)
+      .map((entry) => entry.pattern)
   };
 }
 
@@ -298,7 +305,7 @@ export function computeEnabledModelsState(input: EnabledModelsInput): EnabledMod
 export function setModelsEnabled(
   input: EnabledModelsInput,
   refs: readonly string[],
-  enabled: boolean,
+  enabled: boolean
 ): EnabledModelsEdit {
   const available = new Set(input.availableRefs);
   const targets = [...new Set(refs.filter((ref) => available.has(ref)))];
@@ -323,10 +330,14 @@ export function setModelsEnabled(
       }
       // Expand only this pattern, keeping its thinking pin on each survivor.
       for (const ref of entry.matched.filter((matched) => !removed.has(matched))) {
-        next.push({ pattern: formatEntry(ref, entry.pin), matched: [ref], ...(entry.pin ? { pin: entry.pin } : {}) });
+        next.push({
+          pattern: formatEntry(ref, entry.pin),
+          matched: [ref],
+          ...(entry.pin ? { pin: entry.pin } : {})
+        });
       }
     }
-    if (enabledRefs(next).length === 0) return { ok: false, reason: "last-model" };
+    if (enabledRefs(next).length === 0) return { ok: false, reason: 'last-model' };
     entries = next;
   }
 
@@ -348,7 +359,15 @@ export interface ProviderRename {
 }
 
 /** Suffixes `formatEntry()` may have appended, so a rename can carry them over. */
-const THINKING_LEVEL_SUFFIXES = new Set(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
+const THINKING_LEVEL_SUFFIXES = new Set([
+  'off',
+  'minimal',
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+  'max'
+]);
 
 /**
  * Point renamed models' entries at their new reference.
@@ -363,10 +382,12 @@ const THINKING_LEVEL_SUFFIXES = new Set(["off", "minimal", "low", "medium", "hig
  */
 export function renameModelPatterns(
   patterns: string[] | undefined,
-  renames: readonly ProviderRename[],
+  renames: readonly ProviderRename[]
 ): string[] | undefined {
   if (!patterns) return patterns;
-  const applicable = renames.filter((rename) => rename.from && rename.to && rename.from !== rename.to);
+  const applicable = renames.filter(
+    (rename) => rename.from && rename.to && rename.from !== rename.to
+  );
   if (applicable.length === 0) return patterns;
   return patterns.map((pattern) => {
     for (const { from, to } of applicable) {
@@ -390,10 +411,12 @@ export function renameModelPatterns(
  */
 export function renameProviderPatterns(
   patterns: string[] | undefined,
-  renames: readonly ProviderRename[],
+  renames: readonly ProviderRename[]
 ): string[] | undefined {
   if (!patterns) return patterns;
-  const applicable = renames.filter((rename) => rename.from && rename.to && rename.from !== rename.to);
+  const applicable = renames.filter(
+    (rename) => rename.from && rename.to && rename.from !== rename.to
+  );
   if (applicable.length === 0) return patterns;
   return patterns.map((pattern) => {
     const rename = applicable.find((candidate) => pattern.startsWith(`${candidate.from}/`));
@@ -419,8 +442,8 @@ export function constrainProviderEntries(input: EnabledModelsInput): EnabledMode
   const next: Entry[] = [];
   let cutBack = false;
   for (const entry of toEntries(input.resolutions)) {
-    const slash = entry.pattern.indexOf("/");
-    const prefix = slash > 0 ? entry.pattern.slice(0, slash) : "";
+    const slash = entry.pattern.indexOf('/');
+    const prefix = slash > 0 ? entry.pattern.slice(0, slash) : '';
     const inside = providers.has(prefix)
       ? entry.matched.filter((ref) => modelRefProvider(ref) === prefix)
       : [];
@@ -430,7 +453,11 @@ export function constrainProviderEntries(input: EnabledModelsInput): EnabledMode
     }
     cutBack = true;
     for (const ref of inside) {
-      next.push({ pattern: formatEntry(ref, entry.pin), matched: [ref], ...(entry.pin ? { pin: entry.pin } : {}) });
+      next.push({
+        pattern: formatEntry(ref, entry.pin),
+        matched: [ref],
+        ...(entry.pin ? { pin: entry.pin } : {})
+      });
     }
   }
   // Repair only. Whether the setting can be dropped altogether is for the

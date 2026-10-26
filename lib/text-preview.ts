@@ -1,5 +1,5 @@
-import fs from "fs";
-import { TEXT_PREVIEW_MAX_BYTES } from "./file-types";
+import fs from 'fs';
+import { TEXT_PREVIEW_MAX_BYTES } from './file-types';
 
 export interface TextPreviewChunk {
   content: string;
@@ -17,11 +17,11 @@ function utf8SequenceLength(byte: number): number {
 export function readTextPreviewChunk(
   filePath: string,
   fileSize: number,
-  offset: number,
+  offset: number
 ): TextPreviewChunk {
   const length = Math.min(TEXT_PREVIEW_MAX_BYTES + 1, fileSize - offset);
   const buffer = Buffer.alloc(length);
-  const descriptor = fs.openSync(filePath, "r");
+  const descriptor = fs.openSync(filePath, 'r');
   let bytesRead: number;
   try {
     bytesRead = fs.readSync(descriptor, buffer, 0, length, offset);
@@ -42,8 +42,8 @@ export function readTextPreviewChunk(
   const nextOffset = offset + end;
 
   return {
-    content: buffer.toString("utf8", 0, end),
+    content: buffer.toString('utf8', 0, end),
     nextOffset,
-    truncated: nextOffset < fileSize,
+    truncated: nextOffset < fileSize
   };
 }

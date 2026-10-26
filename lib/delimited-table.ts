@@ -21,7 +21,7 @@ export interface DelimitedTableData {
   rowLines: number[];
 }
 
-const CSV_DELIMITER_CANDIDATES = [",", ";", "\t", "|"] as const;
+const CSV_DELIMITER_CANDIDATES = [',', ';', '\t', '|'] as const;
 const DETECT_SAMPLE_CHARS = 64 * 1024;
 const DETECT_SAMPLE_RECORDS = 20;
 
@@ -30,7 +30,7 @@ export function delimiterForPath(filePath: string): string | null {
   // An extension, not a whole name: a file called "csv" is no table.
   const match = /\.(csv|tsv)$/i.exec(filePath);
   if (!match) return null;
-  return match[1].toLowerCase() === "tsv" ? "\t" : ",";
+  return match[1].toLowerCase() === 'tsv' ? '\t' : ',';
 }
 
 export function isDelimitedTablePath(filePath: string): boolean {
@@ -46,7 +46,7 @@ export function isDelimitedTablePath(filePath: string): boolean {
 export function parseDelimitedRecords(
   text: string,
   delimiter: string,
-  options: { complete?: boolean; maxRecords?: number } = {},
+  options: { complete?: boolean; maxRecords?: number } = {}
 ): ParsedRecords {
   const complete = options.complete ?? true;
   const maxRecords = options.maxRecords ?? Infinity;
@@ -61,7 +61,7 @@ export function parseDelimitedRecords(
 
   const endRecord = () => {
     // A blank line parses as one empty field.
-    if (!(record.length === 1 && record[0] === "")) {
+    if (!(record.length === 1 && record[0] === '')) {
       records.push(record);
       lines.push(recordLine);
     }
@@ -69,14 +69,14 @@ export function parseDelimitedRecords(
   };
 
   while (index < length && records.length < maxRecords) {
-    let value = "";
+    let value = '';
     let quotedOpen = false;
     if (text.charCodeAt(index) === 34 /* " */) {
       index += 1;
       quotedOpen = true;
       let segment = index;
       while (index < length) {
-        const quote = text.indexOf("\"", index);
+        const quote = text.indexOf('"', index);
         if (quote === -1) break;
         if (text.charCodeAt(quote + 1) === 34) {
           value += text.slice(segment, quote + 1);
@@ -105,7 +105,8 @@ export function parseDelimitedRecords(
     }
     const stop = end < length ? text.charCodeAt(end) : -1;
     // CRLF ends a record like LF; so does a CR left at the very end of a file.
-    const fieldEnd = stop !== delimiterCode && end > index && text.charCodeAt(end - 1) === 13 ? end - 1 : end;
+    const fieldEnd =
+      stop !== delimiterCode && end > index && text.charCodeAt(end - 1) === 13 ? end - 1 : end;
     value += text.slice(index, fieldEnd);
     record.push(value);
     index = end;
@@ -114,7 +115,7 @@ export function parseDelimitedRecords(
       index += 1;
       // "a,b," at the very end: the trailing delimiter opens an empty field.
       if (index === length) {
-        record.push("");
+        record.push('');
         if (complete) endRecord();
       }
     } else if (stop === 10) {
@@ -134,10 +135,10 @@ export function parseDelimitedRecords(
 
 function countLineFeeds(value: string): number {
   let count = 0;
-  let from = value.indexOf("\n");
+  let from = value.indexOf('\n');
   while (from !== -1) {
     count += 1;
-    from = value.indexOf("\n", from + 1);
+    from = value.indexOf('\n', from + 1);
   }
   return count;
 }
@@ -151,12 +152,12 @@ function countLineFeeds(value: string): number {
 export function detectCsvDelimiter(text: string): string {
   const sample = text.slice(0, DETECT_SAMPLE_CHARS);
   const sampleComplete = sample.length === text.length;
-  let best: string = ",";
+  let best: string = ',';
   let bestScore = 0;
   for (const candidate of CSV_DELIMITER_CANDIDATES) {
     const { records } = parseDelimitedRecords(sample, candidate, {
       complete: sampleComplete,
-      maxRecords: DETECT_SAMPLE_RECORDS,
+      maxRecords: DETECT_SAMPLE_RECORDS
     });
     const width = records[0]?.length ?? 0;
     if (width < 2) continue;
@@ -172,17 +173,22 @@ export function detectCsvDelimiter(text: string): string {
 }
 
 /** The table of a delimited file: the first record is the header row. */
-export function parseDelimitedTable(text: string, filePath: string, complete = true): DelimitedTableData {
-  const fixed = delimiterForPath(filePath) ?? ",";
-  const delimiter = fixed === "," ? detectCsvDelimiter(text) : fixed;
+export function parseDelimitedTable(
+  text: string,
+  filePath: string,
+  complete = true
+): DelimitedTableData {
+  const fixed = delimiterForPath(filePath) ?? ',';
+  const delimiter = fixed === ',' ? detectCsvDelimiter(text) : fixed;
   const { records, lines } = parseDelimitedRecords(text, delimiter, { complete });
   if (records.length === 0) return { columns: [], headerLine: 0, rows: [], rowLines: [] };
   let width = 0;
   for (const record of records) if (record.length > width) width = record.length;
   const header = records[0];
-  const columns = header.length === width
-    ? header
-    : [...header, ...Array.from({ length: width - header.length }, () => "")];
+  const columns =
+    header.length === width
+      ? header
+      : [...header, ...Array.from({ length: width - header.length }, () => '')];
   return { columns, headerLine: lines[0], rows: records.slice(1), rowLines: lines.slice(1) };
 }
 
@@ -195,7 +201,7 @@ export const MAX_COLUMN_WIDTH = 420;
 
 /** Monospace columns a value's first line takes; wide (CJK) characters take two. */
 function displayColumns(value: string): number {
-  const breakAt = value.indexOf("\n");
+  const breakAt = value.indexOf('\n');
   const firstLine = breakAt === -1 ? value : value.slice(0, breakAt);
   let columns = 0;
   for (let index = 0; index < firstLine.length; index += 1) {
@@ -212,7 +218,10 @@ function displayColumns(value: string): number {
  * spends the panel on empty space, and sampling keeps a large file's
  * measurement from scanning every cell.
  */
-export function measureColumnWidths(columns: readonly string[], rows: readonly string[][]): number[] {
+export function measureColumnWidths(
+  columns: readonly string[],
+  rows: readonly string[][]
+): number[] {
   const step = Math.max(1, Math.ceil(rows.length / MEASURE_SAMPLE_ROWS));
   return columns.map((column, columnIndex) => {
     let widest = displayColumns(column);
@@ -237,7 +246,7 @@ export function visibleRowRange(
   rowHeight: number,
   scrollTop: number,
   viewportHeight: number,
-  overscan: number,
+  overscan: number
 ): { start: number; end: number } {
   if (rowCount <= 0) return { start: 0, end: 0 };
   const top = Number.isFinite(scrollTop) ? Math.max(0, scrollTop) : 0;

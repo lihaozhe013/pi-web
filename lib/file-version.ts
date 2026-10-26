@@ -6,8 +6,10 @@
  * restart playback and lose the PDF's scroll position. Null when either part is
  * missing, which always counts as a change.
  */
-export function fileVersion(meta: { size?: unknown; mtime?: unknown } | null | undefined): string | null {
-  if (!meta || typeof meta.size !== "number" || typeof meta.mtime !== "string") return null;
+export function fileVersion(
+  meta: { size?: unknown; mtime?: unknown } | null | undefined
+): string | null {
+  if (!meta || typeof meta.size !== 'number' || typeof meta.mtime !== 'string') return null;
   return `${meta.size}:${meta.mtime}`;
 }
 

@@ -12,7 +12,7 @@
  * Stored in localStorage; best-effort (silently ignored when unavailable).
  */
 
-const STORAGE_KEY = "pi-web:last-open-by-workspace";
+const STORAGE_KEY = 'pi-web:last-open-by-workspace';
 
 interface StorageLike {
   getItem(key: string): string | null;
@@ -21,7 +21,7 @@ interface StorageLike {
 }
 
 function getBrowserStorage(): StorageLike | null {
-  if (typeof window === "undefined") return null;
+  if (typeof window === 'undefined') return null;
   try {
     return window.localStorage;
   } catch {
@@ -34,8 +34,8 @@ function readMap(storage: StorageLike): Record<string, string | undefined> {
   if (!raw) return {};
   try {
     const parsed: unknown = JSON.parse(raw);
-    return parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
-      ? parsed as Record<string, string | undefined>
+    return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, string | undefined>)
       : {};
   } catch {
     return {};
@@ -45,12 +45,12 @@ function readMap(storage: StorageLike): Record<string, string | undefined> {
 /** The remembered session id for a workspace, or null when none/stale. */
 export function getLastOpenSession(
   workspaceKey: string,
-  storage: StorageLike | null = getBrowserStorage(),
+  storage: StorageLike | null = getBrowserStorage()
 ): string | null {
   if (!storage) return null;
   try {
     const id = readMap(storage)[workspaceKey];
-    return typeof id === "string" && id.length > 0 ? id : null;
+    return typeof id === 'string' && id.length > 0 ? id : null;
   } catch {
     return null;
   }
@@ -59,7 +59,7 @@ export function getLastOpenSession(
 export function setLastOpenSession(
   workspaceKey: string,
   sessionId: string,
-  storage: StorageLike | null = getBrowserStorage(),
+  storage: StorageLike | null = getBrowserStorage()
 ): void {
   if (!storage) return;
   try {
@@ -73,7 +73,7 @@ export function setLastOpenSession(
 
 export function clearLastOpen(
   workspaceKey: string,
-  storage: StorageLike | null = getBrowserStorage(),
+  storage: StorageLike | null = getBrowserStorage()
 ): void {
   if (!storage) return;
   try {

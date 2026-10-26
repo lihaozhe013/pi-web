@@ -1,5 +1,5 @@
-import type { BranchPreview } from "@/lib/types";
-import { withoutMessageSignatures } from "./message-signatures";
+import type { BranchPreview } from '@/lib/types';
+import { withoutMessageSignatures } from './message-signatures';
 
 // BranchNavigator still traverses recursively, so keep the response tree shallow.
 export const MAX_PROJECTED_TREE_DEPTH = 200;
@@ -46,7 +46,10 @@ interface SummaryInputNode {
 export function toSummaryTree(nodes: readonly SummaryInputNode[]): SummaryTreeNode[] {
   const summaryRoots: SummaryTreeNode[] = [];
   // Frames pair each input node with the summary node under construction.
-  const stack: Array<{ input: SummaryInputNode; into: SummaryTreeNode[] } | { input: SummaryInputNode; summary: SummaryTreeNode }> = [];
+  const stack: Array<
+    | { input: SummaryInputNode; into: SummaryTreeNode[] }
+    | { input: SummaryInputNode; summary: SummaryTreeNode }
+  > = [];
   for (let i = nodes.length - 1; i >= 0; i--) stack.push({ input: nodes[i], into: summaryRoots });
 
   while (stack.length > 0) {
@@ -57,11 +60,11 @@ export function toSummaryTree(nodes: readonly SummaryInputNode[]): SummaryTreeNo
         id: input.entry.id,
         parentId: input.entry.parentId ?? null,
         type: input.entry.type,
-        timestamp: input.entry.timestamp ?? "",
+        timestamp: input.entry.timestamp ?? ''
       },
       children: [],
       ...(input.compressedEntryIds?.length ? { compressedEntryIds: input.compressedEntryIds } : {}),
-      ...(input.branchPreview ? { branchPreview: input.branchPreview } : {}),
+      ...(input.branchPreview ? { branchPreview: input.branchPreview } : {})
     };
     (frame as { into?: SummaryTreeNode[] }).into!.push(summary);
     for (let i = input.children.length - 1; i >= 0; i--) {
@@ -79,14 +82,14 @@ type ProjectableTreeNode<T> = {
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function appendPreviewText(current: string, value: unknown): string {
-  if (typeof value !== "string" || current.length > MAX_BRANCH_PREVIEW_LENGTH) return current;
-  const normalized = value.replace(/\s+/g, " ").trim();
+  if (typeof value !== 'string' || current.length > MAX_BRANCH_PREVIEW_LENGTH) return current;
+  const normalized = value.replace(/\s+/g, ' ').trim();
   if (!normalized) return current;
-  const separator = current ? " " : "";
+  const separator = current ? ' ' : '';
   const prefix = current + separator;
   if (prefix.length >= MAX_BRANCH_PREVIEW_LENGTH + 1) {
     return prefix.slice(0, MAX_BRANCH_PREVIEW_LENGTH + 1);
@@ -96,39 +99,40 @@ function appendPreviewText(current: string, value: unknown): string {
 }
 
 function previewForEntry(entry: ProjectableEntry): BranchPreview | undefined {
-  if (entry.type !== "message" || !isRecord(entry.message) || typeof entry.message.role !== "string") {
+  if (
+    entry.type !== 'message' ||
+    !isRecord(entry.message) ||
+    typeof entry.message.role !== 'string'
+  ) {
     return undefined;
   }
   // Transcript system messages (Pi >= 0.86) carry the prompt text, not a turn.
-  if (entry.message.role === "system") return undefined;
+  if (entry.message.role === 'system') return undefined;
 
   const content = entry.message.content;
-  let text = "";
+  let text = '';
   let hasImage = false;
-  if (typeof content === "string") {
+  if (typeof content === 'string') {
     text = appendPreviewText(text, content);
   } else if (Array.isArray(content)) {
     for (const block of content) {
       if (!isRecord(block)) continue;
-      if (block.type === "image") hasImage = true;
-      if (block.type === "text") text = appendPreviewText(text, block.text);
+      if (block.type === 'image') hasImage = true;
+      if (block.type === 'text') text = appendPreviewText(text, block.text);
       if (text.length > MAX_BRANCH_PREVIEW_LENGTH) break;
     }
   }
 
   if (text.length > MAX_BRANCH_PREVIEW_LENGTH) {
-    text = text.slice(0, MAX_BRANCH_PREVIEW_LENGTH) + "…";
+    text = text.slice(0, MAX_BRANCH_PREVIEW_LENGTH) + '…';
   } else if (!text) {
-    text = hasImage
-      ? "[image]"
-      : entry.message.role === "assistant"
-        ? "[assistant]"
-        : "message";
+    text = hasImage ? '[image]' : entry.message.role === 'assistant' ? '[assistant]' : 'message';
   }
 
-  const role = entry.message.role === "user" || entry.message.role === "assistant"
-    ? entry.message.role
-    : undefined;
+  const role =
+    entry.message.role === 'user' || entry.message.role === 'assistant'
+      ? entry.message.role
+      : undefined;
   return { ...(role ? { role } : {}), text };
 }
 
@@ -138,9 +142,7 @@ function previewForEntry(entry: ProjectableEntry): BranchPreview | undefined {
  * without recursive traversal. Contracted entry IDs are attached to the next
  * visible node so the UI can still recognize an active leaf inside the chain.
  */
-export function projectTreeForResponse<T extends ProjectableTreeNode<T>>(
-  nodes: T[]
-): T[] {
+export function projectTreeForResponse<T extends ProjectableTreeNode<T>>(nodes: T[]): T[] {
   const keep = new Set<T>();
   const roots = new Set(nodes);
   const seen = new Set<T>();
@@ -151,10 +153,7 @@ export function projectTreeForResponse<T extends ProjectableTreeNode<T>>(
     if (seen.has(node)) continue;
     seen.add(node);
 
-    if (
-      roots.has(node) ||
-      node.children.length !== 1
-    ) {
+    if (roots.has(node) || node.children.length !== 1) {
       keep.add(node);
     }
 
@@ -164,30 +163,35 @@ export function projectTreeForResponse<T extends ProjectableTreeNode<T>>(
   }
 
   const cloneNode = (node: T, compressedEntryIds?: string[], branchPreview?: BranchPreview): T => {
-    const message = node.entry.type === "message"
-      ? withoutMessageSignatures(node.entry.message)
-      : node.entry.message;
+    const message =
+      node.entry.type === 'message'
+        ? withoutMessageSignatures(node.entry.message)
+        : node.entry.message;
     return {
       ...node,
       entry: message === node.entry.message ? node.entry : { ...node.entry, message },
       children: [],
       ...(compressedEntryIds?.length ? { compressedEntryIds } : {}),
-      ...(branchPreview ? { branchPreview } : {}),
+      ...(branchPreview ? { branchPreview } : {})
     };
   };
-  const projectedRoots = nodes.map((node) => cloneNode(node, undefined, previewForEntry(node.entry)));
+  const projectedRoots = nodes.map((node) =>
+    cloneNode(node, undefined, previewForEntry(node.entry))
+  );
   const tasks = nodes.map((source, index) => ({
     source,
     projected: projectedRoots[index],
-    depth: 1,
+    depth: 1
   }));
 
   const appendFlattenedKeptDescendants = (source: T, projectedParent: T) => {
-    const pending = [{
-      node: source,
-      compressedEntryIds: [] as string[],
-      branchPreview: undefined as BranchPreview | undefined,
-    }];
+    const pending = [
+      {
+        node: source,
+        compressedEntryIds: [] as string[],
+        branchPreview: undefined as BranchPreview | undefined
+      }
+    ];
     const flattenedSeen = new Set<T>();
 
     while (pending.length > 0) {
@@ -203,10 +207,8 @@ export function projectTreeForResponse<T extends ProjectableTreeNode<T>>(
       for (let i = node.children.length - 1; i >= 0; i--) {
         pending.push({
           node: node.children[i],
-          compressedEntryIds: keep.has(node)
-            ? []
-            : [...compressedEntryIds, node.entry.id],
-          branchPreview: keep.has(node) ? undefined : nextPreview,
+          compressedEntryIds: keep.has(node) ? [] : [...compressedEntryIds, node.entry.id],
+          branchPreview: keep.has(node) ? undefined : nextPreview
         });
       }
     }

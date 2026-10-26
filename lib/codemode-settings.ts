@@ -1,14 +1,14 @@
-import { join } from "node:path";
-import { CONFIG_DIR_NAME, SettingsManager } from "@earendil-works/pi-coding-agent";
-import type { CodemodeInlineBudgetSetting, CodemodeMode, CodemodeModeSetting } from "./api-types";
+import { join } from 'node:path';
+import { CONFIG_DIR_NAME, SettingsManager } from '@earendil-works/pi-coding-agent';
+import type { CodemodeInlineBudgetSetting, CodemodeMode, CodemodeModeSetting } from './api-types';
 import {
   defaultToolEntries,
   getGlobalSettingsPath,
   readGlobalSettings,
-  updateGlobalSettings,
-} from "./global-settings-file";
-import { resolveDefaultToolEntries } from "./powershell-settings";
-import { PROJECT_SETTINGS_MAX_BYTES, readRegularFileText } from "./regular-file";
+  updateGlobalSettings
+} from './global-settings-file';
+import { resolveDefaultToolEntries } from './powershell-settings';
+import { PROJECT_SETTINGS_MAX_BYTES, readRegularFileText } from './regular-file';
 
 // Code mode offers one choice (ADR 0006, "Code mode"):
 // - "automatic" writes nothing: `codemode` registers inactive, and the MCP
@@ -20,17 +20,17 @@ import { PROJECT_SETTINGS_MAX_BYTES, readRegularFileText } from "./regular-file"
 // (below): `codemode.mode` and `codemode.inlineBudget`. `autoEnableCodemode`
 // stays file-only.
 
-export const CODEMODE_PREFERENCES = ["automatic", "always"] as const;
-export type CodemodePreference = typeof CODEMODE_PREFERENCES[number];
+export const CODEMODE_PREFERENCES = ['automatic', 'always'] as const;
+export type CodemodePreference = (typeof CODEMODE_PREFERENCES)[number];
 
-const CODEMODE = "codemode";
+const CODEMODE = 'codemode';
 
 export function isCodemodePreference(value: unknown): value is CodemodePreference {
-  return typeof value === "string" && (CODEMODE_PREFERENCES as readonly string[]).includes(value);
+  return typeof value === 'string' && (CODEMODE_PREFERENCES as readonly string[]).includes(value);
 }
 
 function isToolModifier(entry: string): boolean {
-  return entry.startsWith("+") || entry.startsWith("-");
+  return entry.startsWith('+') || entry.startsWith('-');
 }
 
 function namesCodemode(entry: string): boolean {
@@ -39,7 +39,9 @@ function namesCodemode(entry: string): boolean {
 
 /** "always" when the resolved `defaultTools` list starts sessions with `codemode` active. */
 export function codemodePreferenceOf(entries: readonly string[] | undefined): CodemodePreference {
-  return entries !== undefined && resolveDefaultToolEntries(entries).includes(CODEMODE) ? "always" : "automatic";
+  return entries !== undefined && resolveDefaultToolEntries(entries).includes(CODEMODE)
+    ? 'always'
+    : 'automatic';
 }
 
 /**
@@ -51,24 +53,28 @@ export function codemodePreferenceOf(entries: readonly string[] | undefined): Co
  */
 export function withCodemodePreference(
   entries: readonly string[] | undefined,
-  preference: CodemodePreference,
+  preference: CodemodePreference
 ): string[] | undefined {
   const kept = (entries ?? []).filter((entry) => !namesCodemode(entry));
-  if (preference === "always") return [...kept, `+${CODEMODE}`];
+  if (preference === 'always') return [...kept, `+${CODEMODE}`];
   if (kept.length > 0) return kept;
   return entries !== undefined && entries.some((entry) => !isToolModifier(entry)) ? [] : undefined;
 }
 
-export async function readCodemodePreference(settingsPath = getGlobalSettingsPath()): Promise<CodemodePreference> {
-  return readGlobalSettings(settingsPath, (settings) => codemodePreferenceOf(defaultToolEntries(settings)));
+export async function readCodemodePreference(
+  settingsPath = getGlobalSettingsPath()
+): Promise<CodemodePreference> {
+  return readGlobalSettings(settingsPath, (settings) =>
+    codemodePreferenceOf(defaultToolEntries(settings))
+  );
 }
 
 /** Writes the global settings only when the preference changes them. */
 export async function writeCodemodePreference(
   preference: CodemodePreference,
-  settingsPath = getGlobalSettingsPath(),
+  settingsPath = getGlobalSettingsPath()
 ): Promise<CodemodePreference> {
-  if (await readCodemodePreference(settingsPath) === preference) return preference;
+  if ((await readCodemodePreference(settingsPath)) === preference) return preference;
   return updateGlobalSettings(settingsPath, (settings) => {
     const next = withCodemodePreference(defaultToolEntries(settings), preference);
     if (next === undefined) delete settings.defaultTools;
@@ -91,7 +97,7 @@ export interface ProjectCodemodeOverride {
 /** Global settings for each choice, reduced to what decides Code mode: other entries never do. */
 const GLOBAL_SETTINGS_FOR: Record<CodemodePreference, string | undefined> = {
   automatic: undefined,
-  always: JSON.stringify({ defaultTools: [`+${CODEMODE}`] }),
+  always: JSON.stringify({ defaultTools: [`+${CODEMODE}`] })
 };
 
 /** Global and project settings texts merged by pi's own SettingsManager, as a trusted project's session merges them. */
@@ -100,7 +106,7 @@ function mergedSettings(globalText: string | undefined, projectText: string): Se
   const storage: Parameters<typeof SettingsManager.fromStorage>[0] = {
     withLock: (scope, fn) => {
       fn(texts[scope]);
-    },
+    }
   };
   return SettingsManager.fromStorage(storage, { projectTrusted: true });
 }
@@ -120,15 +126,17 @@ function startsWithCodemode(globalText: string | undefined, projectText: string)
  * exactly, malformed values included; the two agreeing is what overriding
  * means. A text that does not parse reads as empty, as pi reads it.
  */
-export function projectCodemodePreference(projectText: string | undefined): CodemodePreference | undefined {
+export function projectCodemodePreference(
+  projectText: string | undefined
+): CodemodePreference | undefined {
   if (projectText === undefined) return undefined;
   const automatic = startsWithCodemode(GLOBAL_SETTINGS_FOR.automatic, projectText);
   if (automatic !== startsWithCodemode(GLOBAL_SETTINGS_FOR.always, projectText)) return undefined;
-  return automatic ? "always" : "automatic";
+  return automatic ? 'always' : 'automatic';
 }
 
 export function projectSettingsPath(cwd: string): string {
-  return join(cwd, CONFIG_DIR_NAME, "settings.json");
+  return join(cwd, CONFIG_DIR_NAME, 'settings.json');
 }
 
 /**
@@ -160,10 +168,10 @@ function readProjectSettingsText(settingsPath: string): string | undefined {
 // The `codemode` object: codemode.mode and codemode.inlineBudget
 // ---------------------------------------------------------------------------
 
-type CodemodeKey = "mode" | "inlineBudget";
+type CodemodeKey = 'mode' | 'inlineBudget';
 
 function isSettingsObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /** One key of `codemode`. A `codemode` that is not an object holds none, as `settings.codemode?.[key]` reads it. */
@@ -176,7 +184,9 @@ const INVALID_VALUE_MAX_CHARS = 60;
 /** A value pi does not use, as JSON shortened for a notice. */
 function invalidValueText(raw: unknown): string {
   const json = JSON.stringify(raw) ?? String(raw);
-  return json.length > INVALID_VALUE_MAX_CHARS ? `${json.slice(0, INVALID_VALUE_MAX_CHARS - 1)}…` : json;
+  return json.length > INVALID_VALUE_MAX_CHARS
+    ? `${json.slice(0, INVALID_VALUE_MAX_CHARS - 1)}…`
+    : json;
 }
 
 /** Both global `codemode` settings, in one read. */
@@ -186,7 +196,7 @@ export async function readCodemodeSettings(settingsPath = getGlobalSettingsPath(
 }> {
   return readGlobalSettings(settingsPath, (settings) => ({
     mode: codemodeModeOf(settings),
-    inlineBudget: codemodeInlineBudgetOf(settings),
+    inlineBudget: codemodeInlineBudgetOf(settings)
   }));
 }
 
@@ -202,14 +212,16 @@ async function writeCodemodeValue<T>(
   key: CodemodeKey,
   value: unknown,
   setting: (raw: unknown) => T,
-  unchanged: (stored: unknown) => boolean = (stored) => stored === value,
+  unchanged: (stored: unknown) => boolean = (stored) => stored === value
 ): Promise<T> {
-  const stored = await readGlobalSettings(settingsPath, (settings) => codemodeValueOf(settings, key));
+  const stored = await readGlobalSettings(settingsPath, (settings) =>
+    codemodeValueOf(settings, key)
+  );
   if (unchanged(stored)) return setting(stored);
   return updateGlobalSettings(settingsPath, (settings) => {
     const codemode = settings.codemode;
     if (codemode !== undefined && !isSettingsObject(codemode)) {
-      throw new Error("Invalid settings.json: codemode must be an object");
+      throw new Error('Invalid settings.json: codemode must be an object');
     }
     if (value !== undefined) {
       if (codemode) codemode[key] = value;
@@ -225,7 +237,10 @@ async function writeCodemodeValue<T>(
 /** The merged `codemode[key]` a trusted project's session reads, with `globalValue` in the global settings. */
 function mergedCodemodeValue(key: CodemodeKey, globalValue: unknown, projectText: string): unknown {
   const globalText = JSON.stringify({ codemode: { [key]: globalValue } });
-  return codemodeValueOf({ codemode: mergedSettings(globalText, projectText).getSettings().codemode }, key);
+  return codemodeValueOf(
+    { codemode: mergedSettings(globalText, projectText).getSettings().codemode },
+    key
+  );
 }
 
 /**
@@ -240,11 +255,14 @@ function mergedCodemodeValue(key: CodemodeKey, globalValue: unknown, projectText
 function projectCodemodeValue(
   key: CodemodeKey,
   globalValues: readonly [unknown, unknown],
-  projectText: string | undefined,
+  projectText: string | undefined
 ): { raw: unknown } | undefined {
   if (projectText === undefined) return undefined;
   const first = mergedCodemodeValue(key, globalValues[0], projectText);
-  if (JSON.stringify(first) !== JSON.stringify(mergedCodemodeValue(key, globalValues[1], projectText))) return undefined;
+  if (
+    JSON.stringify(first) !== JSON.stringify(mergedCodemodeValue(key, globalValues[1], projectText))
+  )
+    return undefined;
   return { raw: first };
 }
 
@@ -252,10 +270,10 @@ function projectCodemodeValue(
 // codemode.mode
 // ---------------------------------------------------------------------------
 
-export const CODEMODE_MODES = ["on", "only"] as const satisfies readonly CodemodeMode[];
+export const CODEMODE_MODES = ['on', 'only'] as const satisfies readonly CodemodeMode[];
 
 export function isCodemodeMode(value: unknown): value is CodemodeMode {
-  return typeof value === "string" && (CODEMODE_MODES as readonly string[]).includes(value);
+  return typeof value === 'string' && (CODEMODE_MODES as readonly string[]).includes(value);
 }
 
 /**
@@ -263,14 +281,14 @@ export function isCodemodeMode(value: unknown): value is CodemodeMode {
  * "only" when it is exactly that, anything else "on".
  */
 function codemodeModeSetting(raw: unknown): CodemodeModeSetting {
-  if (raw === "only") return { value: "only" };
-  if (raw === undefined || raw === "on") return { value: "on" };
-  return { value: "on", invalid: invalidValueText(raw) };
+  if (raw === 'only') return { value: 'only' };
+  if (raw === undefined || raw === 'on') return { value: 'on' };
+  return { value: 'on', invalid: invalidValueText(raw) };
 }
 
 /** The `codemode.mode` of one settings object. */
 export function codemodeModeOf(settings: Record<string, unknown>): CodemodeModeSetting {
-  return codemodeModeSetting(codemodeValueOf(settings, "mode"));
+  return codemodeModeSetting(codemodeValueOf(settings, 'mode'));
 }
 
 /**
@@ -282,14 +300,14 @@ export function codemodeModeOf(settings: Record<string, unknown>): CodemodeModeS
  */
 export async function writeCodemodeMode(
   mode: CodemodeMode,
-  settingsPath = getGlobalSettingsPath(),
+  settingsPath = getGlobalSettingsPath()
 ): Promise<CodemodeModeSetting> {
   return writeCodemodeValue(
     settingsPath,
-    "mode",
-    mode === "only" ? "only" : undefined,
+    'mode',
+    mode === 'only' ? 'only' : undefined,
     codemodeModeSetting,
-    (stored) => (mode === "only" ? stored === "only" : stored === undefined || stored === "on"),
+    (stored) => (mode === 'only' ? stored === 'only' : stored === undefined || stored === 'on')
   );
 }
 
@@ -303,8 +321,10 @@ export interface ProjectCodemodeMode extends CodemodeModeSetting {
  * no longer matters there, undefined when the global value still decides
  * (`projectCodemodeValue()`).
  */
-export function projectCodemodeMode(projectText: string | undefined): CodemodeModeSetting | undefined {
-  const decided = projectCodemodeValue("mode", ["on", "only"], projectText);
+export function projectCodemodeMode(
+  projectText: string | undefined
+): CodemodeModeSetting | undefined {
+  const decided = projectCodemodeValue('mode', ['on', 'only'], projectText);
   return decided && codemodeModeSetting(decided.raw);
 }
 
@@ -335,7 +355,12 @@ export const CODEMODE_INLINE_BUDGET_MAX = 1_000_000;
 
 /** A budget Settings may write: a whole number from 0 to `CODEMODE_INLINE_BUDGET_MAX`. */
 export function isCodemodeInlineBudget(value: unknown): value is number {
-  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 && value <= CODEMODE_INLINE_BUDGET_MAX;
+  return (
+    typeof value === 'number' &&
+    Number.isSafeInteger(value) &&
+    value >= 0 &&
+    value <= CODEMODE_INLINE_BUDGET_MAX
+  );
 }
 
 /**
@@ -345,13 +370,15 @@ export function isCodemodeInlineBudget(value: unknown): value is number {
  */
 function inlineBudgetSetting(raw: unknown): CodemodeInlineBudgetSetting {
   if (raw === undefined) return {};
-  if (typeof raw === "number" && Number.isFinite(raw) && raw >= 0) return { value: raw };
+  if (typeof raw === 'number' && Number.isFinite(raw) && raw >= 0) return { value: raw };
   return { invalid: invalidValueText(raw) };
 }
 
 /** The `codemode.inlineBudget` of one settings object. */
-export function codemodeInlineBudgetOf(settings: Record<string, unknown>): CodemodeInlineBudgetSetting {
-  return inlineBudgetSetting(codemodeValueOf(settings, "inlineBudget"));
+export function codemodeInlineBudgetOf(
+  settings: Record<string, unknown>
+): CodemodeInlineBudgetSetting {
+  return inlineBudgetSetting(codemodeValueOf(settings, 'inlineBudget'));
 }
 
 /**
@@ -362,9 +389,9 @@ export function codemodeInlineBudgetOf(settings: Record<string, unknown>): Codem
  */
 export async function writeCodemodeInlineBudget(
   budget: number | undefined,
-  settingsPath = getGlobalSettingsPath(),
+  settingsPath = getGlobalSettingsPath()
 ): Promise<CodemodeInlineBudgetSetting> {
-  return writeCodemodeValue(settingsPath, "inlineBudget", budget, inlineBudgetSetting);
+  return writeCodemodeValue(settingsPath, 'inlineBudget', budget, inlineBudgetSetting);
 }
 
 /** What a trusted project's `.pi/settings.json` makes of the budget for its sessions, whatever the global value. */
@@ -377,8 +404,10 @@ export interface ProjectCodemodeInlineBudget extends CodemodeInlineBudgetSetting
  * value no longer matters there, undefined when the global value still
  * decides (`projectCodemodeValue()`).
  */
-export function projectCodemodeInlineBudget(projectText: string | undefined): CodemodeInlineBudgetSetting | undefined {
-  const decided = projectCodemodeValue("inlineBudget", [1, 2], projectText);
+export function projectCodemodeInlineBudget(
+  projectText: string | undefined
+): CodemodeInlineBudgetSetting | undefined {
+  const decided = projectCodemodeValue('inlineBudget', [1, 2], projectText);
   return decided && inlineBudgetSetting(decided.raw);
 }
 
@@ -387,7 +416,9 @@ export function projectCodemodeInlineBudget(projectText: string | undefined): Co
  * `.pi/settings.json`; read as `readProjectCodemodeOverride()` reads it, and
  * only for a project whose settings sessions read.
  */
-export function readProjectCodemodeInlineBudget(cwd: string): ProjectCodemodeInlineBudget | undefined {
+export function readProjectCodemodeInlineBudget(
+  cwd: string
+): ProjectCodemodeInlineBudget | undefined {
   const settingsPath = projectSettingsPath(cwd);
   const budget = projectCodemodeInlineBudget(readProjectSettingsText(settingsPath));
   return budget ? { settingsPath, ...budget } : undefined;

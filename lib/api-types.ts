@@ -1,6 +1,6 @@
-import type { McpExposure, ResourceDiagnostic } from "@earendil-works/pi-coding-agent";
-import type { McpImportNote } from "./mcp-import-core";
-import type { SubagentProfile } from "./subagents";
+import type { McpExposure, ResourceDiagnostic } from '@earendil-works/pi-coding-agent';
+import type { McpImportNote } from './mcp-import-core';
+import type { SubagentProfile } from './subagents';
 
 export interface SubagentProfilesResponse {
   profiles: SubagentProfile[];
@@ -12,7 +12,7 @@ export interface SubagentSettingsResponse {
 }
 
 /** Code mode's one choice (ADR 0006): Automatic writes nothing, Always on adds `+codemode` to the global defaultTools. */
-export type McpCodemodePreference = "automatic" | "always";
+export type McpCodemodePreference = 'automatic' | 'always';
 
 /** One settings layer's `codemode.inlineBudget`, as the codemode extension reads it. */
 export interface CodemodeInlineBudgetSetting {
@@ -28,7 +28,7 @@ export interface CodemodeInlineBudgetSetting {
  * active `direct` ones (built-in, extension and direct MCP tools) from the
  * model and lists them in the codemode description, so scripts call them.
  */
-export type CodemodeMode = "on" | "only";
+export type CodemodeMode = 'on' | 'only';
 
 /** One settings layer's `codemode.mode`, as the codemode extension reads it. */
 export interface CodemodeModeSetting {
@@ -55,7 +55,7 @@ export interface SkillSearchResult {
   url: string;
 }
 
-export type SkillInstallScope = "global" | "project";
+export type SkillInstallScope = 'global' | 'project';
 
 export interface SkillInstallInfo {
   package: string;
@@ -69,11 +69,7 @@ export interface SkillInstallInfo {
   canCheckForUpdates: boolean;
 }
 
-export type SkillUpdateState =
-  | "up-to-date"
-  | "update-available"
-  | "unsupported"
-  | "error";
+export type SkillUpdateState = 'up-to-date' | 'update-available' | 'unsupported' | 'error';
 
 export interface SkillUpdateResult {
   package: string;
@@ -152,7 +148,14 @@ export interface ProjectTrustStatus {
  *   such a project (`path` is the folder itself).
  */
 export interface FreshFolderTrustBreadth {
-  kind: "home" | "root" | "contains-home" | "contains-agent-dir" | "contains-folder" | "contains-project" | "too-many-folders";
+  kind:
+    | 'home'
+    | 'root'
+    | 'contains-home'
+    | 'contains-agent-dir'
+    | 'contains-folder'
+    | 'contains-project'
+    | 'too-many-folders';
   path: string;
 }
 
@@ -165,22 +168,22 @@ export interface FreshFolderTrustBreadth {
  */
 export type McpTrustFolderInfo =
   | { allowed: true }
-  | { allowed: false; reason: "trust-too-broad"; breadth: FreshFolderTrustBreadth }
-  | { allowed: false; reason: "folder-not-fresh" };
+  | { allowed: false; reason: 'trust-too-broad'; breadth: FreshFolderTrustBreadth }
+  | { allowed: false; reason: 'folder-not-fresh' };
 
 // ---------------------------------------------------------------------------
 // Settings › MCP (ADR 0006). Every refusal carries `{ error, reason }`: `error`
 // is an English diagnostic, `reason` a code the panel translates.
 // ---------------------------------------------------------------------------
 
-export type McpScope = "global" | "project";
-export type McpTransportKind = "stdio" | "http";
+export type McpScope = 'global' | 'project';
+export type McpTransportKind = 'stdio' | 'http';
 /** What a project entry may change of the global server of its name (the SDK's `OVERRIDE_KEYS`). */
-export type McpOverrideKey = "enabled" | "exposure" | "toolExposure";
+export type McpOverrideKey = 'enabled' | 'exposure' | 'toolExposure';
 
 /** A value the SDK resolves before it connects: a stdio `env` value, an HTTP header, or `oauth.clientSecret`. */
 export interface McpConfigFieldRef {
-  kind: "env" | "header" | "oauth-client-secret";
+  kind: 'env' | 'header' | 'oauth-client-secret';
   /** The variable or header name; absent for `oauth.clientSecret`. */
   name?: string;
 }
@@ -197,22 +200,22 @@ export interface McpVariableReference extends McpConfigFieldRef {
 
 export type McpConfigFileProblemReason =
   /** The file is not JSON. */
-  | "unparsable"
+  | 'unparsable'
   /** Not an object with an `mcpServers` object. */
-  | "invalid-shape"
+  | 'invalid-shape'
   /** `autoEnableCodemode` is set to something other than a boolean; the servers still load. */
-  | "auto-enable-codemode-invalid"
+  | 'auto-enable-codemode-invalid'
   /** A project file that is a symbolic link to nothing. */
-  | "link-dangling"
+  | 'link-dangling'
   /** A project file whose real path is outside the folders Pi Web may read. */
-  | "link-outside"
+  | 'link-outside'
   /** Not a regular file (a directory, a FIFO, a device). */
-  | "not-a-file"
+  | 'not-a-file'
   /** A project file larger than 1 MiB. */
-  | "too-large"
+  | 'too-large'
   /** A project file that declares more servers than Pi Web lists (`MCP_PROJECT_MAX_SERVERS`, 200). */
-  | "too-many-servers"
-  | "unreadable";
+  | 'too-many-servers'
+  | 'unreadable';
 
 export interface McpConfigFileProblem {
   reason: McpConfigFileProblemReason;
@@ -324,7 +327,7 @@ export interface McpServerInfo {
 }
 
 /** How a connection test ended (`POST /api/mcp/test`). */
-export type McpTestState = "connected" | "needs-auth" | "failed";
+export type McpTestState = 'connected' | 'needs-auth' | 'failed';
 
 /** One tool a tested server listed. */
 export interface McpTestTool {
@@ -385,13 +388,13 @@ export interface McpTestResult {
  *   did not read the file because no decision trusted the project.
  */
 export type McpSessionState =
-  | "connecting"
-  | "connected"
-  | "needs-auth"
-  | "failed"
-  | "disconnected"
-  | "conflict"
-  | "not-trusted";
+  | 'connecting'
+  | 'connected'
+  | 'needs-auth'
+  | 'failed'
+  | 'disconnected'
+  | 'conflict'
+  | 'not-trusted';
 
 /**
  * A server's state as a session's MCP host recorded it. Sessions report what
@@ -400,7 +403,7 @@ export type McpSessionState =
  * so `cwd` says which one this is. Masked like a test's messages.
  */
 export interface McpSessionStatus {
-  origin: "session";
+  origin: 'session';
   state: McpSessionState;
   sessionId: string;
   /** The session's folder: a stdio server runs relative to it, and it is the MCP root the server is sent. */
@@ -422,7 +425,7 @@ export interface McpSessionStatus {
 }
 
 /** A server's last known connection state: the newest of a test (`origin: "test"`) and an open session's report. */
-export type McpServerStatus = ({ origin: "test" } & McpTestResult) | McpSessionStatus;
+export type McpServerStatus = ({ origin: 'test' } & McpTestResult) | McpSessionStatus;
 
 /**
  * An open session whose MCP host hands no server to the SDK, because the
@@ -445,7 +448,8 @@ export interface McpTestResponse extends McpServerRef {
   result: McpTestResult;
 }
 
-export type McpUnavailableReason = "operator-disabled" | "internals-unavailable" | "builtin-disabled";
+export type McpUnavailableReason =
+  'operator-disabled' | 'internals-unavailable' | 'builtin-disabled';
 
 export type McpAvailability =
   | { available: true }
@@ -461,9 +465,7 @@ export type McpAvailability =
 
 export type CodemodeSandboxStatus =
   /** No normal session has started since the server did, so the self-test has not run. */
-  | { state: "not-checked" }
-  | { state: "available" }
-  | { state: "unavailable"; error: string };
+  { state: 'not-checked' } | { state: 'available' } | { state: 'unavailable'; error: string };
 
 export interface McpCodemodeInfo {
   /** Absent when the global settings file cannot be read; see `preferenceError`. */
@@ -579,87 +581,87 @@ export interface McpResponse {
  */
 export type McpRefusalReason =
   /** `cwd` is empty or not an absolute path. */
-  | "cwd-invalid"
+  | 'cwd-invalid'
   /** `cwd` is outside the folders Pi Web may read, has a `..` segment, or does not exist. */
-  | "cwd-denied"
+  | 'cwd-denied'
   /** `cwd` is not a directory (anymore). */
-  | "cwd-not-directory"
+  | 'cwd-not-directory'
   /** A mutating request that did not come from Pi Web's own page (origin or host check). */
-  | "request-denied"
+  | 'request-denied'
   /** A mutating request whose body is not sent as JSON. */
-  | "content-type"
+  | 'content-type'
   /** `trust.json` cannot be read, or is locked by another process: 500 from `GET /api/project-trust`, 409 from writes, add, Test and sign-in. */
-  | "trust-unreadable"
+  | 'trust-unreadable'
   /** The project has no resources that need trust (anymore), so there is nothing to trust (`/api/project-trust`). */
-  | "trust-not-required"
+  | 'trust-not-required'
   /** A session in the folder is running, and trusting would rebuild it mid-run (`/api/project-trust`). */
-  | "session-busy"
+  | 'session-busy'
   /** The body is not a request the route can act on. */
-  | "invalid-request"
+  | 'invalid-request'
   /** MCP is off on this server (`PI_WEB_DISABLE_MCP`, or the SDK's MCP modules cannot load), so Pi Web neither writes `mcp.json` nor connects a server. */
-  | "mcp-off"
+  | 'mcp-off'
   /** A project entry, and no decision trusts the project, so its `.pi/mcp.json` is neither written nor connected. */
-  | "project-untrusted"
+  | 'project-untrusted'
   /** The file to write is not JSON; it was left as it is (`path`). */
-  | "unparsable"
+  | 'unparsable'
   /** The file to write is not an object with an `mcpServers` object; left as it is (`path`). */
-  | "invalid-shape"
+  | 'invalid-shape'
   /** The file does not define the server (anymore) (`path`, `name`). */
-  | "server-missing"
+  | 'server-missing'
   /** The entry is not a JSON object, so it cannot be switched on or off, only removed (`path`, `name`). */
-  | "entry-not-object"
+  | 'entry-not-object'
   /** The entry references `PI_WEB_PASSWORD`, so Pi Web does not turn it on, add, test or sign in to it (`name`). */
-  | "web-password"
+  | 'web-password'
   /** The SDK's validator refuses the entry (`name`; `error` is the validator's message, which names fields, never values). */
-  | "server-invalid"
+  | 'server-invalid'
   /** The undo token is unknown, used, or past its 60 seconds. */
-  | "undo-unavailable"
+  | 'undo-unavailable'
   /** Undo would put back a name the file defines again since the removal (`name`). */
-  | "undo-name-taken"
+  | 'undo-name-taken'
   /** The file already defines a server of that name (`name`; `path` when the writer found it under the lock; `suggestedName` on add). */
-  | "name-taken"
+  | 'name-taken'
   /** A project file that is a symbolic link to nothing (`path`). */
-  | "link-dangling"
+  | 'link-dangling'
   /** A project file whose real path is outside the folders Pi Web may read (`path`). */
-  | "link-outside"
+  | 'link-outside'
   /** The path is not a regular file (`path`). */
-  | "not-a-file"
+  | 'not-a-file'
   /** A project file larger than 1 MiB (`path`). */
-  | "too-large"
+  | 'too-large'
   /** A project file that declares more than 200 servers, which Pi Web neither lists nor acts on (`path`). */
-  | "too-many-servers"
+  | 'too-many-servers'
   /** Another process held the file's lock for longer than the writer waits (`path`). */
-  | "locked"
+  | 'locked'
   /** Sign-in or sign-out of a server that does not use OAuth: only an HTTP server without an `Authorization` header does (`name`). */
-  | "sign-in-not-oauth"
+  | 'sign-in-not-oauth'
   /** No sign-in has that id: it ended over a minute ago, or Pi Web restarted (`/api/mcp/sign-in/[flowId]`). */
-  | "sign-in-unknown"
+  | 'sign-in-unknown'
   /** The sign-in is not waiting for a redirected address: not yet, or not anymore. */
-  | "sign-in-not-waiting"
+  | 'sign-in-not-waiting'
   /** The pasted text is not a URL. The sign-in keeps waiting. */
-  | "redirect-invalid"
+  | 'redirect-invalid'
   /** The pasted URL's `state` is not this sign-in's: it belongs to another one. The sign-in keeps waiting. */
-  | "redirect-state-mismatch"
+  | 'redirect-state-mismatch'
   /** The pasted URL carries no authorization `code`. The sign-in keeps waiting. */
-  | "redirect-no-code"
+  | 'redirect-no-code'
   /** The pasted URL is the authorization server's refusal (`error`); `error` holds its description. The sign-in keeps waiting. */
-  | "redirect-denied"
+  | 'redirect-denied'
   /** `add`: nothing in the pasted text could be read as a server (`notes`). */
-  | "import-failed"
+  | 'import-failed'
   /** `add`: a value the paste left to fill in is missing or invalid (`notes`). */
-  | "fields-incomplete"
+  | 'fields-incomplete'
   /** `add`: the name is not one pi accepts (letters, digits, `_` and `-`) (`name`). */
-  | "name-invalid"
+  | 'name-invalid'
   /** `add`: the server holds a literal secret (`fields`), so it is saved only in the global `mcp.json`. */
-  | "secret-global-only"
+  | 'secret-global-only'
   /** `add`: the server sends variables of the Pi Web host to a remote party (`names`); the request must confirm them. */
-  | "host-env-confirm"
+  | 'host-env-confirm'
   /** `add` with `trustFolder`: the folder is no longer fresh (a decision, or resources that need one), so it was not trusted (`trust`). */
-  | "folder-not-fresh"
+  | 'folder-not-fresh'
   /** `add` with `trustFolder`: trusting the folder would trust more than it (`breadth`), so Pi Web does not do it by itself. */
-  | "trust-too-broad"
+  | 'trust-too-broad'
   /** Reading failed unexpectedly; `error` says how. */
-  | "internal";
+  | 'internal';
 
 export interface McpErrorResponse {
   error: string;
@@ -689,7 +691,8 @@ export interface McpErrorResponse {
 }
 
 /** What `POST /api/mcp` can do to a server of either file (ADR 0006: Add, a switch, Remove, Undo, and Sign out). */
-export type McpServerAction = "enable" | "disable" | "remove" | "undo" | "set-enabled" | "sign-out" | "add";
+export type McpServerAction =
+  'enable' | 'disable' | 'remove' | 'undo' | 'set-enabled' | 'sign-out' | 'add';
 
 export interface McpServerRef {
   scope: McpScope;
@@ -746,17 +749,25 @@ export interface McpActionResponse extends McpResponse {
  * - `done`, `failed`, `cancelled`, `expired` (not finished within the SDK's
  *   5 minutes): ended.
  */
-export type McpSignInPhase = "connecting" | "starting" | "authorize" | "finishing" | "done" | "failed" | "cancelled" | "expired";
+export type McpSignInPhase =
+  | 'connecting'
+  | 'starting'
+  | 'authorize'
+  | 'finishing'
+  | 'done'
+  | 'failed'
+  | 'cancelled'
+  | 'expired';
 
 /** Why a sign-in ended `failed`. */
 export type McpSignInFailure =
   /** The first connection failed without asking for a sign-in, so there is nothing to sign in to; `result` says how. */
-  | "connect-failed"
+  | 'connect-failed'
   /** Another test of a server that runs a shell command held the queue too long, so the sign-in never connected. */
-  | "queue-timed-out"
+  | 'queue-timed-out'
   /** The SDK's sign-in failed (discovery, registration, the token exchange, a `!command` client secret); `error` says how. */
-  | "sign-in-failed"
-  | "internal";
+  | 'sign-in-failed'
+  | 'internal';
 
 /** `/api/mcp/sign-in`: one sign-in, as the browser polls it. URLs aside, server text in it is masked like a test's. */
 export interface McpSignInFlowInfo extends McpServerRef {
@@ -808,15 +819,15 @@ export interface ProjectTrustResponse extends ProjectTrustStatus, ProjectMcpList
  */
 export interface ProjectTrustUnreadableResponse extends ProjectMcpListing {
   error: string;
-  reason: "trust-unreadable";
+  reason: 'trust-unreadable';
 }
 
 export interface PushConfigResponse {
   publicKey: string;
 }
 
-export type PluginScope = "global" | "project";
-export type PluginResourceKind = "extension" | "skill" | "prompt" | "theme";
+export type PluginScope = 'global' | 'project';
+export type PluginResourceKind = 'extension' | 'skill' | 'prompt' | 'theme';
 
 export interface PluginResourceCounts {
   extensions: number;
@@ -826,7 +837,7 @@ export interface PluginResourceCounts {
 }
 
 export interface PluginDiagnostic {
-  type: "warning" | "error";
+  type: 'warning' | 'error';
   message: string;
   source?: string;
   path?: string;
@@ -840,22 +851,18 @@ export interface PluginResourceInfo {
 }
 
 export interface PluginStandaloneExtensionInfo extends PluginResourceInfo {
-  kind: "extension";
+  kind: 'extension';
   scope: PluginScope;
   enabled: boolean;
 }
 
-export type PluginUpdateState =
-  | "update-available"
-  | "up-to-date"
-  | "unsupported"
-  | "error";
+export type PluginUpdateState = 'update-available' | 'up-to-date' | 'unsupported' | 'error';
 
 export interface PluginUpdateResult {
   source: string;
   scope: PluginScope;
   displayName: string;
-  type: "npm" | "git";
+  type: 'npm' | 'git';
   state: PluginUpdateState;
   message?: string;
 }
@@ -873,7 +880,7 @@ export interface PluginPackageInfo {
   description?: string;
   counts: PluginResourceCounts;
   resources: PluginResourceInfo[];
-  status: "loaded" | "installed" | "missing" | "disabled";
+  status: 'loaded' | 'installed' | 'missing' | 'disabled';
 }
 
 export interface PluginsResponse {

@@ -1,4 +1,4 @@
-import type { BlockingExtensionUiRequest, ExtensionUiRequest } from "./types";
+import type { BlockingExtensionUiRequest, ExtensionUiRequest } from './types';
 
 /**
  * Blocking extension UI waits in arrival order, one entry per request id: the
@@ -20,15 +20,15 @@ import type { BlockingExtensionUiRequest, ExtensionUiRequest } from "./types";
  * one that is only working.
  */
 export function isBlockingExtensionUiRequest(
-  request: ExtensionUiRequest,
+  request: ExtensionUiRequest
 ): request is BlockingExtensionUiRequest {
   switch (request.method) {
-    case "select":
-    case "confirm":
-    case "input":
-    case "editor":
+    case 'select':
+    case 'confirm':
+    case 'input':
+    case 'editor':
       return true;
-    case "custom":
+    case 'custom':
       return request.closed !== true;
     default:
       return false;
@@ -50,7 +50,7 @@ export function upsertExtensionUiRequest<T extends { id: string }>(queue: T[], r
   const index = queue.findIndex((item) => item.id === request.id);
   if (index === -1) return [...queue, request];
   if (queue[index] === request) return queue;
-  return queue.map((item, itemIndex) => itemIndex === index ? request : item);
+  return queue.map((item, itemIndex) => (itemIndex === index ? request : item));
 }
 
 /**
@@ -58,7 +58,10 @@ export function upsertExtensionUiRequest<T extends { id: string }>(queue: T[], r
  * event stream was down never arrives, and the stale request would otherwise stay
  * at the head of the queue, hiding every request behind it.
  */
-export function retainExtensionUiRequests<T extends { id: string }>(queue: T[], ids: ReadonlySet<string>): T[] {
+export function retainExtensionUiRequests<T extends { id: string }>(
+  queue: T[],
+  ids: ReadonlySet<string>
+): T[] {
   if (queue.every((item) => ids.has(item.id))) return queue;
   return queue.filter((item) => ids.has(item.id));
 }

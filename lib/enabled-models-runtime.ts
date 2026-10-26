@@ -1,12 +1,12 @@
-import { homedir } from "os";
-import { join, sep } from "path";
-import { getBuiltinProviders } from "@earendil-works/pi-ai/providers/all";
-import type { Api, Model } from "@earendil-works/pi-ai";
+import { homedir } from 'os';
+import { join, sep } from 'path';
+import { getBuiltinProviders } from '@earendil-works/pi-ai/providers/all';
+import type { Api, Model } from '@earendil-works/pi-ai';
 import {
   resolveModelScopeWithDiagnostics,
   SettingsManager,
-  type ModelRuntime,
-} from "@earendil-works/pi-coding-agent";
+  type ModelRuntime
+} from '@earendil-works/pi-coding-agent';
 import {
   computeEnabledModelsState,
   modelRefProvider,
@@ -14,8 +14,8 @@ import {
   type EnabledModelsModelView,
   type EnabledModelsProviderView,
   type EnabledModelsView,
-  type PatternResolution,
-} from "./enabled-models";
+  type PatternResolution
+} from './enabled-models';
 
 /**
  * SDK adapter for the pure `enabledModels` editor in `lib/enabled-models.ts`.
@@ -27,7 +27,7 @@ import {
  * the pattern responsible for a given model.
  */
 
-const modelNameCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+const modelNameCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
 
 export function modelRef(model: { provider: string; id: string }): string {
   return `${model.provider}/${model.id}`;
@@ -42,7 +42,7 @@ export function modelRef(model: { provider: string; id: string }): string {
  */
 export async function resolvePatternMatches(
   patterns: readonly string[],
-  models: readonly Model<Api>[],
+  models: readonly Model<Api>[]
 ): Promise<PatternResolution[]> {
   const snapshotRuntime = { getAvailable: async () => models } as ModelRuntime;
   const resolutions: PatternResolution[] = [];
@@ -59,14 +59,14 @@ export async function resolvePatternMatches(
     resolutions.push({
       pattern,
       matched: scopedModels.map((scoped) => modelRef(scoped.model)),
-      ...(pin ? { pin } : {}),
+      ...(pin ? { pin } : {})
     });
   }
   return resolutions;
 }
 
 /** Glob shapes tried for a provider, shortest first. */
-const PROVIDER_GLOB_CANDIDATES = ["*", "**"];
+const PROVIDER_GLOB_CANDIDATES = ['*', '**'];
 
 /**
  * For each provider, the shortest glob that resolves to exactly its models.
@@ -79,7 +79,7 @@ const PROVIDER_GLOB_CANDIDATES = ["*", "**"];
  * that no candidate covers is simply absent here and gets explicit entries.
  */
 export async function resolveProviderGlobs(
-  models: readonly Model<Api>[],
+  models: readonly Model<Api>[]
 ): Promise<Record<string, string>> {
   const refsByProvider = new Map<string, Set<string>>();
   for (const model of models) {
@@ -104,14 +104,14 @@ export async function resolveProviderGlobs(
 export async function buildEnabledModelsInput(
   patterns: string[] | undefined,
   models: readonly Model<Api>[],
-  options: { withProviderGlobs?: boolean } = {},
+  options: { withProviderGlobs?: boolean } = {}
 ): Promise<EnabledModelsInput> {
   return {
     patterns,
     availableRefs: models.map(modelRef),
     resolutions: await resolvePatternMatches(patterns ?? [], models),
     // Only an edit needs them; the read-only view never writes a pattern.
-    ...(options.withProviderGlobs ? { providerGlobs: await resolveProviderGlobs(models) } : {}),
+    ...(options.withProviderGlobs ? { providerGlobs: await resolveProviderGlobs(models) } : {})
   };
 }
 
@@ -122,9 +122,15 @@ export async function buildEnabledModelsInput(
  * runtime; everything else is defined by models.json.
  */
 export function customProviderIds(modelRuntime: ModelRuntime): Set<string> {
-  const known = new Set<string>([...getBuiltinProviders(), ...modelRuntime.getRegisteredProviderIds()]);
+  const known = new Set<string>([
+    ...getBuiltinProviders(),
+    ...modelRuntime.getRegisteredProviderIds()
+  ]);
   return new Set(
-    modelRuntime.getProviders().map((provider) => provider.id).filter((id) => !known.has(id)),
+    modelRuntime
+      .getProviders()
+      .map((provider) => provider.id)
+      .filter((id) => !known.has(id))
   );
 }
 
@@ -133,7 +139,7 @@ export interface EnabledModelsViewOptions {
   models: readonly Model<Api>[];
   providerNames: Map<string, string>;
   customProviders: ReadonlySet<string>;
-  scope: "global" | "project";
+  scope: 'global' | 'project';
   settingsPath: string;
   modelError?: string;
 }
@@ -145,7 +151,7 @@ export function buildEnabledModelsView({
   customProviders,
   scope,
   settingsPath,
-  modelError,
+  modelError
 }: EnabledModelsViewOptions): EnabledModelsView {
   const state = computeEnabledModelsState(input);
   const enabled = new Set(state.enabled);
@@ -160,7 +166,7 @@ export function buildEnabledModelsView({
       ref,
       enabled: enabled.has(ref),
       ...(model.contextWindow === undefined ? {} : { contextWindow: model.contextWindow }),
-      ...(pin ? { thinkingPin: pin } : {}),
+      ...(pin ? { thinkingPin: pin } : {})
     };
     const list = byProvider.get(model.provider);
     if (list) list.push(entry);
@@ -168,16 +174,20 @@ export function buildEnabledModelsView({
   }
 
   const providers: EnabledModelsProviderView[] = [...byProvider.entries()].map(([id, entries]) => {
-    entries.sort((a, b) => modelNameCollator.compare(a.name, b.name) || modelNameCollator.compare(a.id, b.id));
+    entries.sort(
+      (a, b) => modelNameCollator.compare(a.name, b.name) || modelNameCollator.compare(a.id, b.id)
+    );
     return {
       id,
       name: providerNames.get(id) ?? id,
-      kind: customProviders.has(id) ? "custom" : "builtin",
+      kind: customProviders.has(id) ? 'custom' : 'builtin',
       enabledCount: entries.filter((entry) => entry.enabled).length,
-      models: entries,
+      models: entries
     };
   });
-  providers.sort((a, b) => modelNameCollator.compare(a.name, b.name) || modelNameCollator.compare(a.id, b.id));
+  providers.sort(
+    (a, b) => modelNameCollator.compare(a.name, b.name) || modelNameCollator.compare(a.id, b.id)
+  );
 
   return {
     allEnabled: state.allEnabled,
@@ -188,15 +198,15 @@ export function buildEnabledModelsView({
     providers,
     scope,
     settingsPath,
-    editable: scope === "global",
-    ...(modelError ? { modelError } : {}),
+    editable: scope === 'global',
+    ...(modelError ? { modelError } : {})
   };
 }
 
 export interface EnabledModelsSettings {
   /** Effective value, i.e. what the model selector actually applies. */
   patterns: string[] | undefined;
-  scope: "global" | "project";
+  scope: 'global' | 'project';
   /** The file that value came from, with the home directory shortened to `~`. */
   path: string;
 }
@@ -206,7 +216,7 @@ export function displaySettingsPath(path: string): string {
   const home = homedir();
   if (!home || !path.startsWith(home)) return path;
   const rest = path.slice(home.length);
-  return rest === "" || rest.startsWith(sep) ? `~${rest}` : path;
+  return rest === '' || rest.startsWith(sep) ? `~${rest}` : path;
 }
 
 /**
@@ -219,16 +229,16 @@ export function displaySettingsPath(path: string): string {
  */
 export function readEnabledModelsSettings(
   settingsManager: SettingsManager,
-  { cwd, agentDir }: { cwd: string; agentDir: string },
+  { cwd, agentDir }: { cwd: string; agentDir: string }
 ): EnabledModelsSettings {
   const projectPatterns = settingsManager.getProjectSettings().enabledModels;
-  const scope = projectPatterns === undefined ? "global" : "project";
+  const scope = projectPatterns === undefined ? 'global' : 'project';
   return {
     patterns: settingsManager.getEnabledModels(),
     scope,
-    path: displaySettingsPath(scope === "project"
-      ? join(cwd, ".pi", "settings.json")
-      : join(agentDir, "settings.json")),
+    path: displaySettingsPath(
+      scope === 'project' ? join(cwd, '.pi', 'settings.json') : join(agentDir, 'settings.json')
+    )
   };
 }
 
@@ -241,10 +251,10 @@ export function readEnabledModelsSettings(
  */
 export async function writeEnabledModels(
   settingsManager: SettingsManager,
-  patterns: string[] | undefined,
+  patterns: string[] | undefined
 ): Promise<void> {
   const loadErrors = settingsManager.drainErrors();
-  const globalLoadError = loadErrors.find((entry) => entry.scope === "global");
+  const globalLoadError = loadErrors.find((entry) => entry.scope === 'global');
   if (globalLoadError) throw globalLoadError.error;
   settingsManager.setEnabledModels(patterns);
   await settingsManager.flush();

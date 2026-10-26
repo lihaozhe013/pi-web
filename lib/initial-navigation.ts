@@ -1,4 +1,4 @@
-import type { TabOpen } from "./tab-session";
+import type { TabOpen } from './tab-session';
 
 export interface InitialNavigation {
   requestedCwd: string | null;
@@ -9,14 +9,14 @@ export interface InitialNavigation {
 }
 
 export function getInitialNavigation(
-  searchParams: Pick<URLSearchParams, "get">,
+  searchParams: Pick<URLSearchParams, 'get'>
 ): InitialNavigation {
-  const requestedCwd = searchParams.get("cwd")?.trim() || null;
+  const requestedCwd = searchParams.get('cwd')?.trim() || null;
 
   return {
     requestedCwd,
-    sessionId: requestedCwd ? null : (searchParams.get("session") || null),
-    sidebarCollapsed: searchParams.get("sidebar") === "collapsed",
+    sessionId: requestedCwd ? null : searchParams.get('session') || null,
+    sidebarCollapsed: searchParams.get('sidebar') === 'collapsed'
   };
 }
 
@@ -36,12 +36,12 @@ export function getInitialNavigation(
  */
 export function withTabOpen(
   navigation: InitialNavigation,
-  tabOpen: TabOpen | null,
+  tabOpen: TabOpen | null
 ): InitialNavigation {
   if (navigation.requestedCwd || navigation.sessionId || !tabOpen) {
     return navigation;
   }
-  if (tabOpen.kind === "session") {
+  if (tabOpen.kind === 'session') {
     return { ...navigation, sessionId: tabOpen.sessionId, sessionFromTab: true };
   }
   return { ...navigation, requestedCwd: tabOpen.cwd };

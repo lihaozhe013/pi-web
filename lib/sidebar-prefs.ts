@@ -8,33 +8,37 @@
  * quota errors fall back to defaults.
  */
 
-const SIDEBAR_TAB_STORAGE_KEY = "pi-web:sidebar-tab";
-const GROUP_EXPANSION_STORAGE_KEY = "pi-web:sidebar-groups-v2";
+const SIDEBAR_TAB_STORAGE_KEY = 'pi-web:sidebar-tab';
+const GROUP_EXPANSION_STORAGE_KEY = 'pi-web:sidebar-groups-v2';
 /**
  * The group choices before v2. A group that stopped being current was saved
  * there as open, so every project ever visited came back expanded; its
  * `true` entries cannot be told from the user's own, and only its collapses
  * move to v2 (loadGroupExpansion).
  */
-const LEGACY_GROUP_EXPANSION_STORAGE_KEY = "pi-web:sidebar-groups";
-const ARCHIVE_COLLAPSED_STORAGE_KEY = "pi-web:sidebar-archive-collapsed";
-const PINNED_COLLAPSED_STORAGE_KEY = "pi-web:sidebar-pins-collapsed";
-const SHOW_IGNORED_FILES_STORAGE_KEY = "pi-web:sidebar-files-show-ignored";
-const FILES_COLLAPSED_STORAGE_KEY = "pi-web:sidebar-files-collapsed";
-const NON_GIT_CWDS_STORAGE_KEY = "pi-web:sidebar-non-git-cwds";
+const LEGACY_GROUP_EXPANSION_STORAGE_KEY = 'pi-web:sidebar-groups';
+const ARCHIVE_COLLAPSED_STORAGE_KEY = 'pi-web:sidebar-archive-collapsed';
+const PINNED_COLLAPSED_STORAGE_KEY = 'pi-web:sidebar-pins-collapsed';
+const SHOW_IGNORED_FILES_STORAGE_KEY = 'pi-web:sidebar-files-show-ignored';
+const FILES_COLLAPSED_STORAGE_KEY = 'pi-web:sidebar-files-collapsed';
+const NON_GIT_CWDS_STORAGE_KEY = 'pi-web:sidebar-non-git-cwds';
 /**
  * Keys nothing reads now: the sessions/explorer split's, which the two tabs
  * replaced, and the group choices before v2 (loadGroupExpansion reads them
  * only while v2 is missing).
  */
-const RETIRED_STORAGE_KEYS = ["pi-web:file-explorer:open", "pi-web:sidebar-session-pane-height", LEGACY_GROUP_EXPANSION_STORAGE_KEY];
+const RETIRED_STORAGE_KEYS = [
+  'pi-web:file-explorer:open',
+  'pi-web:sidebar-session-pane-height',
+  LEGACY_GROUP_EXPANSION_STORAGE_KEY
+];
 
 /** Oldest choices are dropped beyond this many project keys. */
 const MAX_GROUP_EXPANSION_ENTRIES = 300;
 /** Oldest folders are dropped beyond this many. */
 const MAX_NON_GIT_CWDS = 50;
 
-export type SidebarTab = "sessions" | "files";
+export type SidebarTab = 'sessions' | 'files';
 
 interface StorageLike {
   getItem(key: string): string | null;
@@ -43,7 +47,7 @@ interface StorageLike {
 }
 
 function getBrowserStorage(): StorageLike | null {
-  if (typeof window === "undefined") return null;
+  if (typeof window === 'undefined') return null;
   try {
     return window.localStorage;
   } catch {
@@ -52,15 +56,18 @@ function getBrowserStorage(): StorageLike | null {
 }
 
 export function loadSidebarTab(storage: StorageLike | null = getBrowserStorage()): SidebarTab {
-  if (!storage) return "sessions";
+  if (!storage) return 'sessions';
   try {
-    return storage.getItem(SIDEBAR_TAB_STORAGE_KEY) === "files" ? "files" : "sessions";
+    return storage.getItem(SIDEBAR_TAB_STORAGE_KEY) === 'files' ? 'files' : 'sessions';
   } catch {
-    return "sessions";
+    return 'sessions';
   }
 }
 
-export function saveSidebarTab(tab: SidebarTab, storage: StorageLike | null = getBrowserStorage()): void {
+export function saveSidebarTab(
+  tab: SidebarTab,
+  storage: StorageLike | null = getBrowserStorage()
+): void {
   if (!storage) return;
   try {
     storage.setItem(SIDEBAR_TAB_STORAGE_KEY, tab);
@@ -72,9 +79,9 @@ export function saveSidebarTab(tab: SidebarTab, storage: StorageLike | null = ge
 /** Only boolean entries survive; "__proto__" is never a project key. */
 function cleanGroupExpansion(value: unknown): Record<string, boolean> {
   const result: Record<string, boolean> = {};
-  if (value === null || typeof value !== "object" || Array.isArray(value)) return result;
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return result;
   for (const [key, expanded] of Object.entries(value)) {
-    if (key === "__proto__" || typeof expanded !== "boolean") continue;
+    if (key === '__proto__' || typeof expanded !== 'boolean') continue;
     result[key] = expanded;
   }
   return result;
@@ -87,7 +94,9 @@ function cleanGroupExpansion(value: unknown): Record<string, boolean> {
  * expansions are dropped: the defaults (current and pinned projects open)
  * come back once.
  */
-export function loadGroupExpansion(storage: StorageLike | null = getBrowserStorage()): Record<string, boolean> {
+export function loadGroupExpansion(
+  storage: StorageLike | null = getBrowserStorage()
+): Record<string, boolean> {
   if (!storage) return {};
   try {
     const raw = storage.getItem(GROUP_EXPANSION_STORAGE_KEY);
@@ -115,14 +124,15 @@ export function loadGroupExpansion(storage: StorageLike | null = getBrowserStora
  */
 export function saveGroupExpansion(
   value: Record<string, boolean>,
-  storage: StorageLike | null = getBrowserStorage(),
+  storage: StorageLike | null = getBrowserStorage()
 ): void {
   if (!storage) return;
   try {
     const entries = Object.entries(cleanGroupExpansion(value));
-    const kept = entries.length > MAX_GROUP_EXPANSION_ENTRIES
-      ? entries.slice(entries.length - MAX_GROUP_EXPANSION_ENTRIES)
-      : entries;
+    const kept =
+      entries.length > MAX_GROUP_EXPANSION_ENTRIES
+        ? entries.slice(entries.length - MAX_GROUP_EXPANSION_ENTRIES)
+        : entries;
     storage.setItem(GROUP_EXPANSION_STORAGE_KEY, JSON.stringify(Object.fromEntries(kept)));
   } catch {
     // Persistence is best-effort.
@@ -140,7 +150,7 @@ export function loadArchiveCollapsed(storage: StorageLike | null = getBrowserSto
     const raw = storage.getItem(ARCHIVE_COLLAPSED_STORAGE_KEY);
     const value: unknown = raw === null ? [] : JSON.parse(raw);
     if (!Array.isArray(value)) return [];
-    const keys = value.filter((key): key is string => typeof key === "string" && key !== "");
+    const keys = value.filter((key): key is string => typeof key === 'string' && key !== '');
     return [...new Set(keys)].slice(-MAX_GROUP_EXPANSION_ENTRIES);
   } catch {
     return [];
@@ -150,11 +160,14 @@ export function loadArchiveCollapsed(storage: StorageLike | null = getBrowserSto
 /** Keeps the newest 300 keys; to mark one as recent, put it last. */
 export function saveArchiveCollapsed(
   keys: readonly string[],
-  storage: StorageLike | null = getBrowserStorage(),
+  storage: StorageLike | null = getBrowserStorage()
 ): void {
   if (!storage) return;
   try {
-    storage.setItem(ARCHIVE_COLLAPSED_STORAGE_KEY, JSON.stringify([...new Set(keys)].slice(-MAX_GROUP_EXPANSION_ENTRIES)));
+    storage.setItem(
+      ARCHIVE_COLLAPSED_STORAGE_KEY,
+      JSON.stringify([...new Set(keys)].slice(-MAX_GROUP_EXPANSION_ENTRIES))
+    );
   } catch {
     // Persistence is best-effort.
   }
@@ -163,7 +176,7 @@ export function saveArchiveCollapsed(
 export function loadPinnedCollapsed(storage: StorageLike | null = getBrowserStorage()): boolean {
   if (!storage) return false;
   try {
-    return storage.getItem(PINNED_COLLAPSED_STORAGE_KEY) === "true";
+    return storage.getItem(PINNED_COLLAPSED_STORAGE_KEY) === 'true';
   } catch {
     return false;
   }
@@ -171,7 +184,7 @@ export function loadPinnedCollapsed(storage: StorageLike | null = getBrowserStor
 
 export function savePinnedCollapsed(
   collapsed: boolean,
-  storage: StorageLike | null = getBrowserStorage(),
+  storage: StorageLike | null = getBrowserStorage()
 ): void {
   if (!storage) return;
   try {
@@ -185,7 +198,7 @@ export function savePinnedCollapsed(
 export function loadShowIgnoredFiles(storage: StorageLike | null = getBrowserStorage()): boolean {
   if (!storage) return false;
   try {
-    return storage.getItem(SHOW_IGNORED_FILES_STORAGE_KEY) === "true";
+    return storage.getItem(SHOW_IGNORED_FILES_STORAGE_KEY) === 'true';
   } catch {
     return false;
   }
@@ -193,7 +206,7 @@ export function loadShowIgnoredFiles(storage: StorageLike | null = getBrowserSto
 
 export function saveShowIgnoredFiles(
   show: boolean,
-  storage: StorageLike | null = getBrowserStorage(),
+  storage: StorageLike | null = getBrowserStorage()
 ): void {
   if (!storage) return;
   try {
@@ -210,7 +223,7 @@ export function saveShowIgnoredFiles(
 export function loadFilesCollapsed(storage: StorageLike | null = getBrowserStorage()): boolean {
   if (!storage) return false;
   try {
-    return storage.getItem(FILES_COLLAPSED_STORAGE_KEY) === "true";
+    return storage.getItem(FILES_COLLAPSED_STORAGE_KEY) === 'true';
   } catch {
     return false;
   }
@@ -218,7 +231,7 @@ export function loadFilesCollapsed(storage: StorageLike | null = getBrowserStora
 
 export function saveFilesCollapsed(
   collapsed: boolean,
-  storage: StorageLike | null = getBrowserStorage(),
+  storage: StorageLike | null = getBrowserStorage()
 ): void {
   if (!storage) return;
   try {
@@ -240,7 +253,9 @@ export function loadNonGitCwds(storage: StorageLike | null = getBrowserStorage()
     const raw = storage.getItem(NON_GIT_CWDS_STORAGE_KEY);
     const value: unknown = raw === null ? [] : JSON.parse(raw);
     if (!Array.isArray(value)) return [];
-    return value.filter((cwd): cwd is string => typeof cwd === "string" && cwd !== "").slice(-MAX_NON_GIT_CWDS);
+    return value
+      .filter((cwd): cwd is string => typeof cwd === 'string' && cwd !== '')
+      .slice(-MAX_NON_GIT_CWDS);
   } catch {
     return [];
   }
@@ -255,7 +270,7 @@ export function loadNonGitCwds(storage: StorageLike | null = getBrowserStorage()
 export function rememberCwdGitStatus(
   cwd: string,
   isGit: boolean,
-  storage: StorageLike | null = getBrowserStorage(),
+  storage: StorageLike | null = getBrowserStorage()
 ): void {
   if (!storage || !cwd) return;
   const known = loadNonGitCwds(storage);

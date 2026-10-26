@@ -23,8 +23,8 @@ function cancelsComposition(event: KeyboardEvent): boolean {
 
 /** The part of `document` these listeners use. */
 export interface EscapeKeyTarget {
-  addEventListener(type: "keydown", listener: KeyDownListener, capture: boolean): void;
-  removeEventListener(type: "keydown", listener: KeyDownListener, capture: boolean): void;
+  addEventListener(type: 'keydown', listener: KeyDownListener, capture: boolean): void;
+  removeEventListener(type: 'keydown', listener: KeyDownListener, capture: boolean): void;
 }
 
 /** The part of `document` a dialog opening above another uses: where focus is now, and its keys. */
@@ -44,17 +44,20 @@ interface Focusable {
  * `defaultPrevented`. An Escape that cancels an IME composition is stopped
  * too, but does not close the dialog. Returns the cleanup.
  */
-export function listenForStackedDialogEscape(target: EscapeKeyTarget, onEscape: () => void): () => void {
+export function listenForStackedDialogEscape(
+  target: EscapeKeyTarget,
+  onEscape: () => void
+): () => void {
   const handleKeyDown: KeyDownListener = (event) => {
-    if (event.key !== "Escape") return;
+    if (event.key !== 'Escape') return;
     // Nothing below the dialog reacts to it, whatever it is for.
     event.stopPropagation();
     if (cancelsComposition(event)) return;
     event.preventDefault();
     onEscape();
   };
-  target.addEventListener("keydown", handleKeyDown, true);
-  return () => target.removeEventListener("keydown", handleKeyDown, true);
+  target.addEventListener('keydown', handleKeyDown, true);
+  return () => target.removeEventListener('keydown', handleKeyDown, true);
 }
 
 /**
@@ -67,12 +70,12 @@ export function listenForStackedDialogEscape(target: EscapeKeyTarget, onEscape: 
  */
 export function listenForPanelEscape(target: EscapeKeyTarget, onEscape: () => void): () => void {
   const handleKeyDown: KeyDownListener = (event) => {
-    if (event.key !== "Escape" || event.defaultPrevented || cancelsComposition(event)) return;
+    if (event.key !== 'Escape' || event.defaultPrevented || cancelsComposition(event)) return;
     event.preventDefault();
     onEscape();
   };
-  target.addEventListener("keydown", handleKeyDown, false);
-  return () => target.removeEventListener("keydown", handleKeyDown, false);
+  target.addEventListener('keydown', handleKeyDown, false);
+  return () => target.removeEventListener('keydown', handleKeyDown, false);
 }
 
 /**
@@ -87,7 +90,7 @@ export function listenForPanelEscape(target: EscapeKeyTarget, onEscape: () => vo
 export function openStackedDialog(
   doc: StackedDialogDocument,
   dialog: Focusable | null,
-  onEscape: () => void,
+  onEscape: () => void
 ): () => void {
   const opener = doc.activeElement;
   dialog?.focus({ preventScroll: true });
@@ -96,7 +99,7 @@ export function openStackedDialog(
     stopListening();
     if (!opener || !opener.isConnected) return;
     const focusable = opener as Element & Partial<Focusable>;
-    if (typeof focusable.focus === "function") focusable.focus({ preventScroll: true });
+    if (typeof focusable.focus === 'function') focusable.focus({ preventScroll: true });
   };
 }
 
@@ -116,10 +119,21 @@ interface Opener {
 function entersText(element: Opener): boolean {
   if (element.isContentEditable) return true;
   const tag = element.tagName?.toUpperCase();
-  if (tag === "TEXTAREA") return true;
-  if (tag !== "INPUT") return false;
-  const type = ((element as Opener & { type?: string }).type ?? "text").toLowerCase();
-  return !["button", "checkbox", "color", "file", "hidden", "image", "radio", "range", "reset", "submit"].includes(type);
+  if (tag === 'TEXTAREA') return true;
+  if (tag !== 'INPUT') return false;
+  const type = ((element as Opener & { type?: string }).type ?? 'text').toLowerCase();
+  return ![
+    'button',
+    'checkbox',
+    'color',
+    'file',
+    'hidden',
+    'image',
+    'radio',
+    'range',
+    'reset',
+    'submit'
+  ].includes(type);
 }
 
 /**
@@ -142,7 +156,7 @@ function entersText(element: Opener): boolean {
 export function focusModalPanel(
   doc: FocusDocument,
   panel: FocusContainer | null,
-  { restoreTextEntry = true }: { restoreTextEntry?: boolean } = {},
+  { restoreTextEntry = true }: { restoreTextEntry?: boolean } = {}
 ): () => void {
   const active = doc.activeElement;
   const inside = Boolean(active && panel && panel.contains(active));
@@ -154,7 +168,7 @@ export function focusModalPanel(
     const now = doc.activeElement;
     if (now && now !== doc.body && !(panel && panel.contains(now))) return;
     const focusable = opener as Element & Partial<Focusable>;
-    if (typeof focusable.focus === "function") focusable.focus({ preventScroll: true });
+    if (typeof focusable.focus === 'function') focusable.focus({ preventScroll: true });
   };
 }
 
@@ -195,7 +209,11 @@ export interface PressedControl extends Focusable {
  * `focusIfLost()`, only when focus fell to the page. Nothing moves when no
  * control had focus to begin with (a click that focuses nothing, as in Safari).
  */
-export function focusAfterChange(doc: FocusDocument, control: PressedControl | null, fallback: Focusable | null): boolean {
+export function focusAfterChange(
+  doc: FocusDocument,
+  control: PressedControl | null,
+  fallback: Focusable | null
+): boolean {
   if (!control) return false;
   return focusIfLost(doc, control.isConnected && !control.disabled ? control : fallback);
 }

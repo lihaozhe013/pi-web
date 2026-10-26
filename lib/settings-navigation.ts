@@ -1,19 +1,19 @@
 export const SETTINGS_SECTION_VALUES = [
-  "general",
-  "models",
-  "skills",
-  "agents",
-  "plugins",
-  "mcp",
+  'general',
+  'models',
+  'skills',
+  'agents',
+  'plugins',
+  'mcp'
 ] as const;
 
 export type SettingsSection = (typeof SETTINGS_SECTION_VALUES)[number];
-export type SettingsDetailSection = Exclude<SettingsSection, "general">;
+export type SettingsDetailSection = Exclude<SettingsSection, 'general'>;
 
-const STORAGE_KEY = "pi-web:settings-navigation";
+const STORAGE_KEY = 'pi-web:settings-navigation';
 // Sections that need a project to show anything. Settings › MCP is not one: it
 // lists the global mcp.json without a project and adds a Project group with one.
-const PROJECT_SECTIONS = new Set<SettingsSection>(["skills", "agents", "plugins"]);
+const PROJECT_SECTIONS = new Set<SettingsSection>(['skills', 'agents', 'plugins']);
 
 /** Whether a section is unavailable until a project is open. */
 export function settingsSectionRequiresProject(section: SettingsSection): boolean {
@@ -31,7 +31,7 @@ interface SettingsNavigationState {
 }
 
 function getBrowserStorage(): StorageLike | null {
-  if (typeof window === "undefined") return null;
+  if (typeof window === 'undefined') return null;
   try {
     return window.localStorage;
   } catch {
@@ -40,8 +40,7 @@ function getBrowserStorage(): StorageLike | null {
 }
 
 function isSettingsSection(value: unknown): value is SettingsSection {
-  return typeof value === "string"
-    && SETTINGS_SECTION_VALUES.includes(value as SettingsSection);
+  return typeof value === 'string' && SETTINGS_SECTION_VALUES.includes(value as SettingsSection);
 }
 
 function readState(storage: StorageLike): SettingsNavigationState {
@@ -49,15 +48,16 @@ function readState(storage: StorageLike): SettingsNavigationState {
   if (!raw) return {};
   try {
     const parsed: unknown = JSON.parse(raw);
-    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
     const state = parsed as SettingsNavigationState;
     return {
-      section: typeof state.section === "string" ? state.section : undefined,
-      selections: state.selections !== null
-        && typeof state.selections === "object"
-        && !Array.isArray(state.selections)
-        ? state.selections
-        : undefined,
+      section: typeof state.section === 'string' ? state.section : undefined,
+      selections:
+        state.selections !== null &&
+        typeof state.selections === 'object' &&
+        !Array.isArray(state.selections)
+          ? state.selections
+          : undefined
     };
   } catch {
     return {};
@@ -65,30 +65,30 @@ function readState(storage: StorageLike): SettingsNavigationState {
 }
 
 function selectionKey(section: SettingsDetailSection, cwd?: string | null): string | null {
-  if (section === "models") return section;
+  if (section === 'models') return section;
   if (cwd) return JSON.stringify([section, cwd]);
   // MCP works without a project; its selection then lives under the bare name,
   // which no project key (always an array) can collide with.
-  return section === "mcp" ? section : null;
+  return section === 'mcp' ? section : null;
 }
 
 export function getLastSettingsSection(
   cwd: string | null,
-  storage: StorageLike | null = getBrowserStorage(),
+  storage: StorageLike | null = getBrowserStorage()
 ): SettingsSection {
-  if (!storage) return "general";
+  if (!storage) return 'general';
   try {
     const section = readState(storage).section;
-    if (!isSettingsSection(section)) return "general";
-    return settingsSectionRequiresProject(section) && !cwd ? "general" : section;
+    if (!isSettingsSection(section)) return 'general';
+    return settingsSectionRequiresProject(section) && !cwd ? 'general' : section;
   } catch {
-    return "general";
+    return 'general';
   }
 }
 
 export function setLastSettingsSection(
   section: SettingsSection,
-  storage: StorageLike | null = getBrowserStorage(),
+  storage: StorageLike | null = getBrowserStorage()
 ): void {
   if (!storage) return;
   try {
@@ -103,14 +103,14 @@ export function setLastSettingsSection(
 export function getLastSettingsSelection(
   section: SettingsDetailSection,
   cwd?: string | null,
-  storage: StorageLike | null = getBrowserStorage(),
+  storage: StorageLike | null = getBrowserStorage()
 ): string | null {
   if (!storage) return null;
   const key = selectionKey(section, cwd);
   if (!key) return null;
   try {
     const value = readState(storage).selections?.[key];
-    return typeof value === "string" && value.length > 0 ? value : null;
+    return typeof value === 'string' && value.length > 0 ? value : null;
   } catch {
     return null;
   }
@@ -120,7 +120,7 @@ export function setLastSettingsSelection(
   section: SettingsDetailSection,
   value: string,
   cwd?: string | null,
-  storage: StorageLike | null = getBrowserStorage(),
+  storage: StorageLike | null = getBrowserStorage()
 ): void {
   if (!storage || !value) return;
   const key = selectionKey(section, cwd);

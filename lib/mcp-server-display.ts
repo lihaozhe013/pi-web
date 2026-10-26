@@ -1,4 +1,10 @@
-import type { McpConfigFieldRef, McpConfigFileProblem, McpOverrideKey, McpServerInfo, McpVariableReference } from "./api-types";
+import type {
+  McpConfigFieldRef,
+  McpConfigFileProblem,
+  McpOverrideKey,
+  McpServerInfo,
+  McpVariableReference
+} from './api-types';
 
 // Display helpers for MCP server descriptions (`McpServerInfo`), shared by the
 // trust dialog and Settings › MCP. Client-safe: types only, no Node imports.
@@ -13,10 +19,10 @@ import type { McpConfigFieldRef, McpConfigFileProblem, McpOverrideKey, McpServer
 // Braille define, and every space but U+0020, which CSS does not collapse and
 // which reads as an ordinary space.
 const HIDDEN_CHARACTERS =
-  "\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}\\u00A0\\u1680\\u2000-\\u200A\\u202F\\u205F\\u3000"
-  + "\\uFE00-\\uFE0F\\u{E0100}-\\u{E01EF}\\u115F\\u1160\\u3164\\uFFA0\\u2800";
-const HIDDEN_CHARACTER = new RegExp(`[${HIDDEN_CHARACTERS}]`, "gu");
-const HAS_HIDDEN_CHARACTER = new RegExp(`[${HIDDEN_CHARACTERS}]`, "u");
+  '\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}\\u00A0\\u1680\\u2000-\\u200A\\u202F\\u205F\\u3000' +
+  '\\uFE00-\\uFE0F\\u{E0100}-\\u{E01EF}\\u115F\\u1160\\u3164\\uFFA0\\u2800';
+const HIDDEN_CHARACTER = new RegExp(`[${HIDDEN_CHARACTERS}]`, 'gu');
+const HAS_HIDDEN_CHARACTER = new RegExp(`[${HIDDEN_CHARACTERS}]`, 'u');
 
 /** Whether `text` holds a character `revealHiddenCharacters()` would replace. */
 export function hasHiddenCharacters(text: string): boolean {
@@ -31,7 +37,7 @@ export function hasHiddenCharacters(text: string): boolean {
 export function revealHiddenCharacters(text: string): string {
   return text.replace(HIDDEN_CHARACTER, (character) => {
     const code = character.codePointAt(0) ?? 0;
-    return `\\u{${code.toString(16).toUpperCase().padStart(4, "0")}}`;
+    return `\\u{${code.toString(16).toUpperCase().padStart(4, '0')}}`;
   });
 }
 
@@ -45,7 +51,7 @@ const NEEDS_QUOTES = /[\s"'`$|&;<>()*?#~]/;
 function displayArgument(argument: string): string {
   const hidden = hasHiddenCharacters(argument);
   const shown = revealHiddenCharacters(argument);
-  if (shown !== "" && !hidden && !NEEDS_QUOTES.test(shown)) return shown;
+  if (shown !== '' && !hidden && !NEEDS_QUOTES.test(shown)) return shown;
   return `"${shown.replace(/"/g, '\\"')}"`;
 }
 
@@ -57,7 +63,7 @@ function displayArgument(argument: string): string {
  * `lint --check`, not `lint` with an option.
  */
 export function formatMcpCommandLine(command: string, args: readonly string[] = []): string {
-  return [command, ...args].map(displayArgument).join(" ");
+  return [command, ...args].map(displayArgument).join(' ');
 }
 
 /**
@@ -65,11 +71,14 @@ export function formatMcpCommandLine(command: string, args: readonly string[] = 
  * a stdio entry, and for an entry the validator refused (no transport) its URL
  * or command, whichever it has. Hidden characters are shown escaped.
  */
-export function mcpServerTarget(server: Pick<McpServerInfo, "transport" | "command" | "args" | "url">): string | undefined {
-  const commandLine = server.command !== undefined ? formatMcpCommandLine(server.command, server.args) : undefined;
+export function mcpServerTarget(
+  server: Pick<McpServerInfo, 'transport' | 'command' | 'args' | 'url'>
+): string | undefined {
+  const commandLine =
+    server.command !== undefined ? formatMcpCommandLine(server.command, server.args) : undefined;
   const url = server.url !== undefined ? revealHiddenCharacters(server.url) : undefined;
-  if (server.transport === "http") return url;
-  if (server.transport === "stdio") return commandLine;
+  if (server.transport === 'http') return url;
+  if (server.transport === 'stdio') return commandLine;
   return url ?? commandLine;
 }
 
@@ -79,18 +88,31 @@ export function mcpServerTarget(server: Pick<McpServerInfo, "transport" | "comma
  * reader can be told that the escapes they see are not literal text.
  */
 export function mcpServerHasHiddenCharacters(
-  server: Pick<McpServerInfo, "name" | "command" | "args" | "cwd" | "url" | "envNames" | "headerNames">,
+  server: Pick<
+    McpServerInfo,
+    'name' | 'command' | 'args' | 'cwd' | 'url' | 'envNames' | 'headerNames'
+  >
 ): boolean {
-  return [server.name, server.command, server.cwd, server.url, ...(server.args ?? []), ...server.envNames, ...server.headerNames]
-    .some((text) => text !== undefined && hasHiddenCharacters(text));
+  return [
+    server.name,
+    server.command,
+    server.cwd,
+    server.url,
+    ...(server.args ?? []),
+    ...server.envNames,
+    ...server.headerNames
+  ].some((text) => text !== undefined && hasHiddenCharacters(text));
 }
 
 /** The i18n key and params naming a value the SDK resolves: `env NAME`, `header NAME`, `oauth.clientSecret`. */
-export function mcpFieldLabel(field: McpConfigFieldRef): { key: string; params?: { name: string } } {
-  if (field.kind === "oauth-client-secret") return { key: "mcp.field.oauthClientSecret" };
+export function mcpFieldLabel(field: McpConfigFieldRef): {
+  key: string;
+  params?: { name: string };
+} {
+  if (field.kind === 'oauth-client-secret') return { key: 'mcp.field.oauthClientSecret' };
   return {
-    key: field.kind === "env" ? "mcp.field.env" : "mcp.field.header",
-    params: { name: revealHiddenCharacters(field.name ?? "") },
+    key: field.kind === 'env' ? 'mcp.field.env' : 'mcp.field.header',
+    params: { name: revealHiddenCharacters(field.name ?? '') }
   };
 }
 
@@ -98,20 +120,27 @@ export function mcpFieldLabel(field: McpConfigFieldRef): { key: string; params?:
  * The i18n key for the line above an entry's variable references: an HTTP
  * entry sends them to its URL, a stdio entry hands them to its process.
  */
-export function mcpVariableReferencesKey(server: Pick<McpServerInfo, "transport">): string {
-  return server.transport === "http" ? "mcp.server.sendsVariables" : "mcp.server.passesVariables";
+export function mcpVariableReferencesKey(server: Pick<McpServerInfo, 'transport'>): string {
+  return server.transport === 'http' ? 'mcp.server.sendsVariables' : 'mcp.server.passesVariables';
 }
 
 /** What a project override changes of the global server of its name (`McpServerInfo.override`), as a message key. */
-export function mcpOverrideNotice(keys: readonly McpOverrideKey[]): { key: string; params?: Record<string, string> } {
+export function mcpOverrideNotice(keys: readonly McpOverrideKey[]): {
+  key: string;
+  params?: Record<string, string>;
+} {
   return keys.length > 0
-    ? { key: "mcp.server.overridesGlobal", params: { keys: keys.join(", ") } }
-    : { key: "mcp.server.overridesGlobalNothing" };
+    ? { key: 'mcp.server.overridesGlobal', params: { keys: keys.join(', ') } }
+    : { key: 'mcp.server.overridesGlobalNothing' };
 }
 
 /** One chip per variable: the variable, and the field that reads it. */
-export function mcpVariableChips(references: readonly McpVariableReference[]): { variable: string; field: McpConfigFieldRef }[] {
-  return references.flatMap(({ variables, ...field }) => variables.map((variable) => ({ variable, field })));
+export function mcpVariableChips(
+  references: readonly McpVariableReference[]
+): { variable: string; field: McpConfigFieldRef }[] {
+  return references.flatMap(({ variables, ...field }) =>
+    variables.map((variable) => ({ variable, field }))
+  );
 }
 
 /**
@@ -120,8 +149,13 @@ export function mcpVariableChips(references: readonly McpVariableReference[]): {
  * unreadable one, and where an outside link leads. The other reasons say all
  * there is in their translation.
  */
-export function mcpFileProblemDetail(problem: McpConfigFileProblem, realPath?: string): string | undefined {
-  if (problem.reason === "unparsable" || problem.reason === "unreadable") return revealHiddenCharacters(problem.error);
-  if (problem.reason === "link-outside") return realPath === undefined ? undefined : revealHiddenCharacters(realPath);
+export function mcpFileProblemDetail(
+  problem: McpConfigFileProblem,
+  realPath?: string
+): string | undefined {
+  if (problem.reason === 'unparsable' || problem.reason === 'unreadable')
+    return revealHiddenCharacters(problem.error);
+  if (problem.reason === 'link-outside')
+    return realPath === undefined ? undefined : revealHiddenCharacters(realPath);
   return undefined;
 }

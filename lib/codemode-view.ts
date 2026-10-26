@@ -3,9 +3,9 @@
 // mirror the SDK's `CodemodeToolDetails` / `CodemodeNestedCall`, read
 // defensively because a third-party tool may also be called `codemode`.
 
-export const CODEMODE_TOOL_NAME = "codemode";
+export const CODEMODE_TOOL_NAME = 'codemode';
 
-export type CodemodeCallStatus = "running" | "ok" | "error" | "cancelled";
+export type CodemodeCallStatus = 'running' | 'ok' | 'error' | 'cancelled';
 
 export interface CodemodeCallView {
   id: string;
@@ -25,36 +25,37 @@ export interface CodemodeCalls {
   omitted: number;
 }
 
-const STATUSES = new Set<string>(["running", "ok", "error", "cancelled"]);
+const STATUSES = new Set<string>(['running', 'ok', 'error', 'cancelled']);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function finiteNumber(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
 /** The script of a codemode call, or null when the input has none. */
 export function codemodeScript(input: unknown): string | null {
-  return isRecord(input) && typeof input.code === "string" ? input.code : null;
+  return isRecord(input) && typeof input.code === 'string' ? input.code : null;
 }
 
 function toCall(value: unknown): CodemodeCallView | null {
-  if (!isRecord(value) || typeof value.name !== "string") return null;
-  const status = typeof value.status === "string" && STATUSES.has(value.status)
-    ? value.status as CodemodeCallStatus
-    : "ok";
+  if (!isRecord(value) || typeof value.name !== 'string') return null;
+  const status =
+    typeof value.status === 'string' && STATUSES.has(value.status)
+      ? (value.status as CodemodeCallStatus)
+      : 'ok';
   const durationMs = finiteNumber(value.durationMs);
   const cost = finiteNumber(value.cost);
   return {
-    id: typeof value.id === "string" ? value.id : "",
+    id: typeof value.id === 'string' ? value.id : '',
     name: value.name,
-    args: typeof value.args === "string" ? value.args : "",
+    args: typeof value.args === 'string' ? value.args : '',
     status,
     ...(durationMs !== undefined ? { durationMs } : {}),
-    ...(typeof value.error === "string" && value.error ? { error: value.error } : {}),
-    ...(cost !== undefined && cost > 0 ? { cost } : {}),
+    ...(typeof value.error === 'string' && value.error ? { error: value.error } : {}),
+    ...(cost !== undefined && cost > 0 ? { cost } : {})
   };
 }
 
@@ -76,15 +77,17 @@ const SCRIPT_HEADER = /^Script (completed|failed)\nWall time ([\d.]+) seconds\nO
  * Output:" header, which the card already shows as its colour and duration.
  * Rejected input (invalid `// @options:`) has no header and is kept whole.
  */
-export function stripCodemodeHeader<T extends { type: string; text?: string }>(content: readonly T[]): T[] {
+export function stripCodemodeHeader<T extends { type: string; text?: string }>(
+  content: readonly T[]
+): T[] {
   const [first, ...rest] = content;
-  return first?.type === "text" && typeof first.text === "string" && SCRIPT_HEADER.test(first.text)
+  return first?.type === 'text' && typeof first.text === 'string' && SCRIPT_HEADER.test(first.text)
     ? rest
     : [...content];
 }
 
 export function formatCodemodeDuration(ms: number | undefined): string {
-  if (ms === undefined) return "";
+  if (ms === undefined) return '';
   return ms < 1000 ? `${Math.round(ms)}ms` : `${(ms / 1000).toFixed(1)}s`;
 }
 
@@ -106,9 +109,9 @@ export function codemodeTotalCost(calls: readonly CodemodeCallView[]): number | 
 export function codemodeScriptPreview(code: string): string {
   for (const line of code.split(/\r?\n/)) {
     const trimmed = line.trim();
-    if (trimmed && !trimmed.startsWith("// @options:")) return trimmed;
+    if (trimmed && !trimmed.startsWith('// @options:')) return trimmed;
   }
-  return "";
+  return '';
 }
 
 const PROGRESS_ARGS_LENGTH = 120;
@@ -121,10 +124,11 @@ const PROGRESS_ARGS_LENGTH = 120;
 export function getCodemodeProgress(partialResult: unknown): string | null {
   if (!isRecord(partialResult)) return null;
   const { calls } = codemodeCalls(partialResult.details);
-  const call = calls.findLast((candidate) => candidate.status === "running") ?? calls.at(-1);
+  const call = calls.findLast((candidate) => candidate.status === 'running') ?? calls.at(-1);
   if (!call) return null;
-  const args = call.args.length > PROGRESS_ARGS_LENGTH
-    ? `${call.args.slice(0, PROGRESS_ARGS_LENGTH - 3)}...`
-    : call.args;
+  const args =
+    call.args.length > PROGRESS_ARGS_LENGTH
+      ? `${call.args.slice(0, PROGRESS_ARGS_LENGTH - 3)}...`
+      : call.args;
   return args ? `${call.name} ${args}` : call.name;
 }

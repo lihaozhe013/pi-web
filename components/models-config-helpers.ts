@@ -8,7 +8,7 @@ export interface HeaderRow {
   value: string;
 }
 
-export const MODEL_COST_KEYS = ["input", "output", "cacheRead", "cacheWrite"] as const;
+export const MODEL_COST_KEYS = ['input', 'output', 'cacheRead', 'cacheWrite'] as const;
 
 export type ModelCostKey = (typeof MODEL_COST_KEYS)[number];
 
@@ -18,10 +18,10 @@ export type ModelCostDraft = Record<ModelCostKey, string>;
 
 export function modelCostToDraft(cost?: Partial<ModelCostRates>): ModelCostDraft {
   return {
-    input: cost?.input === undefined ? "" : String(cost.input),
-    output: cost?.output === undefined ? "" : String(cost.output),
-    cacheRead: cost?.cacheRead === undefined ? "" : String(cost.cacheRead),
-    cacheWrite: cost?.cacheWrite === undefined ? "" : String(cost.cacheWrite),
+    input: cost?.input === undefined ? '' : String(cost.input),
+    output: cost?.output === undefined ? '' : String(cost.output),
+    cacheRead: cost?.cacheRead === undefined ? '' : String(cost.cacheRead),
+    cacheWrite: cost?.cacheWrite === undefined ? '' : String(cost.cacheWrite)
   };
 }
 
@@ -37,20 +37,25 @@ export function parseCompleteModelCost(draft: ModelCostDraft): ModelCostRates | 
   const output = parse(draft.output);
   const cacheRead = parse(draft.cacheRead);
   const cacheWrite = parse(draft.cacheWrite);
-  if (input === undefined || output === undefined || cacheRead === undefined || cacheWrite === undefined) {
+  if (
+    input === undefined ||
+    output === undefined ||
+    cacheRead === undefined ||
+    cacheWrite === undefined
+  ) {
     return undefined;
   }
   return { input, output, cacheRead, cacheWrite };
 }
 
 export function hasModelCostDraftValue(draft: ModelCostDraft): boolean {
-  return MODEL_COST_KEYS.some((key) => draft[key].trim() !== "");
+  return MODEL_COST_KEYS.some((key) => draft[key].trim() !== '');
 }
 
 export function setCompatBool<T extends CompatEntry>(entry: T, key: string, value: boolean): T {
   return {
     ...entry,
-    compat: { ...(entry.compat ?? {}), [key]: value },
+    compat: { ...(entry.compat ?? {}), [key]: value }
   };
 }
 
@@ -59,7 +64,12 @@ export function setCompatBool<T extends CompatEntry>(entry: T, key: string, valu
  * it differs from what the entry inherits (the provider's value, else off), so
  * switching it back leaves no override behind.
  */
-export function setCompatFlag<T extends CompatEntry>(entry: T, key: string, value: boolean, inherited = false): T {
+export function setCompatFlag<T extends CompatEntry>(
+  entry: T,
+  key: string,
+  value: boolean,
+  inherited = false
+): T {
   if (value !== inherited) return setCompatBool(entry, key, value);
   if (!entry.compat || !Object.prototype.hasOwnProperty.call(entry.compat, key)) return entry;
   const rest = { ...entry.compat };
@@ -70,12 +80,14 @@ export function setCompatFlag<T extends CompatEntry>(entry: T, key: string, valu
 export function updateHeaderRow(
   rows: readonly HeaderRow[],
   id: number,
-  changes: Partial<Pick<HeaderRow, "name" | "value">>,
+  changes: Partial<Pick<HeaderRow, 'name' | 'value'>>
 ): HeaderRow[] {
-  return rows.map((row) => row.id === id ? { ...row, ...changes } : row);
+  return rows.map((row) => (row.id === id ? { ...row, ...changes } : row));
 }
 
-export function serializeHeaderRows(rows: readonly HeaderRow[]): Record<string, string> | undefined {
+export function serializeHeaderRows(
+  rows: readonly HeaderRow[]
+): Record<string, string> | undefined {
   const headers: Record<string, string> = {};
   for (const row of rows) {
     const name = row.name.trim();
@@ -91,13 +103,19 @@ export interface ModelsConfigDraft {
 
 /** Snapshot of the model ids models.json holds, by provider and slot. */
 export function savedModelIds(config: ModelsConfigDraft): Map<string, (string | null)[]> {
-  return new Map(Object.entries(config.providers ?? {}).map(([name, provider]) => [
-    name,
-    (provider.models ?? []).map((model) => model.id),
-  ]));
+  return new Map(
+    Object.entries(config.providers ?? {}).map(([name, provider]) => [
+      name,
+      (provider.models ?? []).map((model) => model.id)
+    ])
+  );
 }
 
-export function trackAddedModels(slots: Map<string, (string | null)[]>, providerName: string, count: number) {
+export function trackAddedModels(
+  slots: Map<string, (string | null)[]>,
+  providerName: string,
+  count: number
+) {
   if (count <= 0) return;
   const existing = slots.get(providerName) ?? [];
   slots.set(providerName, [...existing, ...Array.from({ length: count }, () => null)]);
@@ -112,7 +130,7 @@ export function trackAddedModels(slots: Map<string, (string | null)[]>, provider
 export function collectModelRenames(
   config: ModelsConfigDraft,
   slots: Map<string, (string | null)[]>,
-  providerRenames: Map<string, string>,
+  providerRenames: Map<string, string>
 ): { from: string; to: string }[] {
   const originalProvider = (name: string) => {
     for (const [from, to] of providerRenames) if (to === name) return from;
@@ -151,8 +169,8 @@ export interface ProviderRenameTracking {
  * not the original `from`.
  */
 function savedProviderOf(
-  { renames, savedProviders }: Pick<ProviderRenameTracking, "renames" | "savedProviders">,
-  name: string,
+  { renames, savedProviders }: Pick<ProviderRenameTracking, 'renames' | 'savedProviders'>,
+  name: string
 ): string | null {
   for (const [from, to] of renames) {
     if (to === name) return from;
@@ -172,7 +190,7 @@ export function renameProviderEntry<T extends ModelsConfigDraft>(
   config: T,
   tracking: ProviderRenameTracking,
   oldName: string,
-  newName: string,
+  newName: string
 ): T | null {
   const providers = config.providers ?? {};
   if (!Object.hasOwn(providers, oldName)) return null;
@@ -204,7 +222,7 @@ export function renameProviderEntry<T extends ModelsConfigDraft>(
 export function deleteProviderEntry<T extends ModelsConfigDraft>(
   config: T,
   tracking: ProviderRenameTracking,
-  name: string,
+  name: string
 ): T {
   const original = savedProviderOf(tracking, name);
   if (original !== null) {

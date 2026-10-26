@@ -1,12 +1,12 @@
-import type { AgentMessage } from "./types";
+import type { AgentMessage } from './types';
 
 function recordedMs(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined;
 }
 
 /** When a response ended: its request start plus the time pi recorded for it (pi 1.1). */
 function responseEnd(message: AgentMessage): number | undefined {
-  if (message.role !== "assistant") return undefined;
+  if (message.role !== 'assistant') return undefined;
   const start = recordedMs(message.timestamp);
   const duration = recordedMs(message.durationMs);
   return start !== undefined && duration !== undefined ? start + duration : undefined;
@@ -14,7 +14,10 @@ function responseEnd(message: AgentMessage): number | undefined {
 
 /** A reply that answered the turn: a run that follows it was started later, e.g. by an extension's message. */
 function answersTurn(message: AgentMessage): boolean {
-  return message.role === "assistant" && (message.stopReason === "stop" || message.stopReason === "length");
+  return (
+    message.role === 'assistant' &&
+    (message.stopReason === 'stop' || message.stopReason === 'length')
+  );
 }
 
 /**
@@ -24,7 +27,11 @@ function answersTurn(message: AgentMessage): boolean {
  * e.g. pi's `triggerTurn`, is no anchor). Undefined when the anchor has no time, or when the turn's
  * last response predates `durationMs`: its timestamp is when it started, so the turn's end is unknown.
  */
-export function getTurnDurationMs(messages: AgentMessage[], anchorIdx: number, endIdx: number): number | undefined {
+export function getTurnDurationMs(
+  messages: AgentMessage[],
+  anchorIdx: number,
+  endIdx: number
+): number | undefined {
   const start = recordedMs(messages[anchorIdx]?.timestamp);
   if (start === undefined) return undefined;
   let end: number | undefined;
@@ -34,14 +41,15 @@ export function getTurnDurationMs(messages: AgentMessage[], anchorIdx: number, e
   let nextRunAt: number | undefined;
   for (let idx = anchorIdx + 1; idx < endIdx; idx++) {
     const message = messages[idx];
-    if (message.role === "assistant") {
-      if (answeredAt !== undefined && nextRunAt !== undefined) idle += Math.max(0, nextRunAt - answeredAt);
+    if (message.role === 'assistant') {
+      if (answeredAt !== undefined && nextRunAt !== undefined)
+        idle += Math.max(0, nextRunAt - answeredAt);
       answeredAt = nextRunAt = undefined;
       const ended = responseEnd(message);
       lastResponseTimed = ended !== undefined;
       if (ended !== undefined) end = Math.max(end ?? ended, ended);
       if (ended !== undefined && answersTurn(message)) answeredAt = end;
-    } else if (message.role === "toolResult") {
+    } else if (message.role === 'toolResult') {
       const ended = recordedMs(message.timestamp);
       if (ended !== undefined) end = Math.max(end ?? ended, ended);
     } else if (answeredAt !== undefined) {

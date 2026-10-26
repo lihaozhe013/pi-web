@@ -1,11 +1,11 @@
 import {
   createAgentSessionServices,
   getAgentDir,
-  type ModelRuntime,
-} from "@earendil-works/pi-coding-agent";
-import { randomUUID } from "node:crypto";
-import { rememberProviderModels } from "./deferred-provider-models";
-import { serializeByKey } from "./key-serializer";
+  type ModelRuntime
+} from '@earendil-works/pi-coding-agent';
+import { randomUUID } from 'node:crypto';
+import { rememberProviderModels } from './deferred-provider-models';
+import { serializeByKey } from './key-serializer';
 
 /**
  * ModelRuntime that also includes providers registered by extensions (an
@@ -44,7 +44,7 @@ declare global {
 // only a backstop for changes made outside Pi Web: `pi install` from a
 // terminal, an edited extension file.
 const SHARED_MODEL_RUNTIME_TTL_MS = 10 * 60_000;
-const REFRESH_QUEUE_KEY: symbol = Symbol.for("pi-web:shared-model-runtime-refresh");
+const REFRESH_QUEUE_KEY: symbol = Symbol.for('pi-web:shared-model-runtime-refresh');
 
 /**
  * One extension-loaded runtime per agent dir, shared by the routes that only
@@ -90,7 +90,7 @@ function buildSharedModelRuntime(agentDir: string): SharedModelRuntime {
     // with no timeout: one stuck there blocks only this entry's queue, and the
     // entry after an invalidation starts its own.
     queueKey: `${agentDir}\0${randomUUID()}`,
-    expiresAt: Number.POSITIVE_INFINITY,
+    expiresAt: Number.POSITIVE_INFINITY
   };
   entry.runtime.then(
     () => {
@@ -98,8 +98,9 @@ function buildSharedModelRuntime(agentDir: string): SharedModelRuntime {
     },
     () => {
       // A failed build is not kept: the next caller tries again.
-      if (globalThis.__piWebSharedModelRuntime === entry) globalThis.__piWebSharedModelRuntime = undefined;
-    },
+      if (globalThis.__piWebSharedModelRuntime === entry)
+        globalThis.__piWebSharedModelRuntime = undefined;
+    }
   );
   return entry;
 }

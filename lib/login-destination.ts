@@ -7,11 +7,11 @@
  * Resolve against the page origin and require that the origin is unchanged.
  */
 export function safeLoginDestination(next: string | null, origin: string): string {
-  if (!next?.startsWith("/")) return "/";
+  if (!next?.startsWith('/')) return '/';
   try {
     const url = new URL(next, origin);
-    return url.origin === origin ? url.href : "/";
+    return url.origin === origin ? url.href : '/';
   } catch {
-    return "/";
+    return '/';
   }
 }

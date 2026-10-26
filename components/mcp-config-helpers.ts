@@ -24,10 +24,10 @@ import type {
   McpSessionStatus,
   McpTestResponse,
   McpTestResult,
-  ProjectTrustStatus,
-} from "@/lib/api-types";
-import type { McpImportFieldValue, McpImportNote } from "@/lib/mcp-import";
-import { itemsToSwitch } from "./settings-ui-helpers";
+  ProjectTrustStatus
+} from '@/lib/api-types';
+import type { McpImportFieldValue, McpImportNote } from '@/lib/mcp-import';
+import { itemsToSwitch } from './settings-ui-helpers';
 
 // Pure helpers for Settings › MCP (components/McpConfig.tsx): what each row
 // shows, how the groups are built, and how the overview is loaded. Client-safe:
@@ -36,10 +36,10 @@ import { itemsToSwitch } from "./settings-ui-helpers";
 // open session) where the file lets it connect.
 
 /** The sidebar selection of the Code mode row; a server's key always holds a NUL. */
-export const MCP_CODEMODE_SELECTION = "codemode";
+export const MCP_CODEMODE_SELECTION = 'codemode';
 
 /** A server's sidebar selection: its scope and name, which are unique within one listing. */
-export function mcpServerKey(server: Pick<McpServerInfo, "scope" | "name">): string {
+export function mcpServerKey(server: Pick<McpServerInfo, 'scope' | 'name'>): string {
   return `${server.scope}\0${server.name}`;
 }
 
@@ -57,36 +57,36 @@ export function mcpServerKey(server: Pick<McpServerInfo, "scope" | "name">): str
  * that a session would connect it; nothing says whether one did.
  */
 export type McpServerRowState =
-  | "invalid"
-  | "web-password"
-  | "disabled"
-  | "not-trusted"
-  | "replaced"
-  | "overridden"
-  | "mcp-off"
-  | "connected"
-  | "needs-auth"
-  | "failed"
-  | "connecting"
-  | "disconnected"
-  | "conflict"
-  | "on";
+  | 'invalid'
+  | 'web-password'
+  | 'disabled'
+  | 'not-trusted'
+  | 'replaced'
+  | 'overridden'
+  | 'mcp-off'
+  | 'connected'
+  | 'needs-auth'
+  | 'failed'
+  | 'connecting'
+  | 'disconnected'
+  | 'conflict'
+  | 'on';
 
 export const MCP_SERVER_ROW_STATES: readonly McpServerRowState[] = [
-  "invalid",
-  "web-password",
-  "disabled",
-  "not-trusted",
-  "replaced",
-  "overridden",
-  "mcp-off",
-  "connected",
-  "needs-auth",
-  "failed",
-  "connecting",
-  "disconnected",
-  "conflict",
-  "on",
+  'invalid',
+  'web-password',
+  'disabled',
+  'not-trusted',
+  'replaced',
+  'overridden',
+  'mcp-off',
+  'connected',
+  'needs-auth',
+  'failed',
+  'connecting',
+  'disconnected',
+  'conflict',
+  'on'
 ];
 
 export interface McpRowContext {
@@ -108,8 +108,11 @@ export function mcpProjectServersLoad(project: McpProjectInfo | undefined): bool
   return project?.trust?.decision === true;
 }
 
-export function mcpRowContext(data: Pick<McpResponse, "mcp" | "project">): McpRowContext {
-  return { mcpAvailable: data.mcp.available, projectServersLoad: mcpProjectServersLoad(data.project) };
+export function mcpRowContext(data: Pick<McpResponse, 'mcp' | 'project'>): McpRowContext {
+  return {
+    mcpAvailable: data.mcp.available,
+    projectServersLoad: mcpProjectServersLoad(data.project)
+  };
 }
 
 /**
@@ -120,49 +123,60 @@ export function mcpRowContext(data: Pick<McpResponse, "mcp" | "project">): McpRo
  * an older trust than the listing, which says sessions read the project now.
  */
 export function mcpStatusRowState(status: McpServerStatus): McpServerRowState {
-  if (status.origin === "test") return status.state;
-  return status.closedAt !== undefined || status.state === "not-trusted" ? "on" : status.state;
+  if (status.origin === 'test') return status.state;
+  return status.closedAt !== undefined || status.state === 'not-trusted' ? 'on' : status.state;
 }
 
-export function mcpServerRowState(server: McpServerInfo, context: McpRowContext): McpServerRowState {
-  if (server.invalidError !== undefined) return "invalid";
-  if (server.webPasswordField) return "web-password";
-  if (!server.enabled) return "disabled";
-  if (server.scope === "project" && !context.projectServersLoad) return "not-trusted";
+export function mcpServerRowState(
+  server: McpServerInfo,
+  context: McpRowContext
+): McpServerRowState {
+  if (server.invalidError !== undefined) return 'invalid';
+  if (server.webPasswordField) return 'web-password';
+  if (!server.enabled) return 'disabled';
+  if (server.scope === 'project' && !context.projectServersLoad) return 'not-trusted';
   // The project's entry replaces this one, or its override changes it, only where it is read.
-  if (server.scope === "global" && server.shadowedByProject && context.projectServersLoad) return "replaced";
-  if (server.scope === "global" && server.overriddenByProject && context.projectServersLoad) return "overridden";
-  if (!context.mcpAvailable) return "mcp-off";
-  return server.status ? mcpStatusRowState(server.status) : "on";
+  if (server.scope === 'global' && server.shadowedByProject && context.projectServersLoad)
+    return 'replaced';
+  if (server.scope === 'global' && server.overriddenByProject && context.projectServersLoad)
+    return 'overridden';
+  if (!context.mcpAvailable) return 'mcp-off';
+  return server.status ? mcpStatusRowState(server.status) : 'on';
 }
 
 /** The full state text, for the row's accessible name and the detail pane. */
 export const MCP_ROW_STATE_LABEL_KEYS: Record<McpServerRowState, string> = {
-  invalid: "mcp.state.invalid",
-  "web-password": "mcp.state.web-password",
-  disabled: "mcp.state.disabled",
-  "not-trusted": "mcp.state.not-trusted",
-  replaced: "mcp.state.replaced",
-  overridden: "mcp.state.overridden",
-  "mcp-off": "mcp.state.mcp-off",
-  connected: "mcp.state.connected",
-  "needs-auth": "mcp.state.needs-auth",
-  failed: "mcp.state.failed",
-  connecting: "mcp.state.connecting",
-  disconnected: "mcp.state.disconnected",
-  conflict: "mcp.state.conflict",
-  on: "mcp.state.on",
+  invalid: 'mcp.state.invalid',
+  'web-password': 'mcp.state.web-password',
+  disabled: 'mcp.state.disabled',
+  'not-trusted': 'mcp.state.not-trusted',
+  replaced: 'mcp.state.replaced',
+  overridden: 'mcp.state.overridden',
+  'mcp-off': 'mcp.state.mcp-off',
+  connected: 'mcp.state.connected',
+  'needs-auth': 'mcp.state.needs-auth',
+  failed: 'mcp.state.failed',
+  connecting: 'mcp.state.connecting',
+  disconnected: 'mcp.state.disconnected',
+  conflict: 'mcp.state.conflict',
+  on: 'mcp.state.on'
 };
 
 /** The labels that say where a state was seen, for a state an open session reported rather than a test. */
 export const MCP_SESSION_ROW_STATE_LABEL_KEYS: Partial<Record<McpServerRowState, string>> = {
-  connected: "mcp.state.session.connected",
-  failed: "mcp.state.session.failed",
+  connected: 'mcp.state.session.connected',
+  failed: 'mcp.state.session.failed'
 };
 
 /** A row's full state text: in a session's words when an open session reported it. */
-export function mcpRowStateLabelKey(state: McpServerRowState, status: McpServerStatus | undefined): string {
-  return (status?.origin === "session" ? MCP_SESSION_ROW_STATE_LABEL_KEYS[state] : undefined) ?? MCP_ROW_STATE_LABEL_KEYS[state];
+export function mcpRowStateLabelKey(
+  state: McpServerRowState,
+  status: McpServerStatus | undefined
+): string {
+  return (
+    (status?.origin === 'session' ? MCP_SESSION_ROW_STATE_LABEL_KEYS[state] : undefined) ??
+    MCP_ROW_STATE_LABEL_KEYS[state]
+  );
 }
 
 /**
@@ -176,8 +190,8 @@ export function mcpRowStateLabelKey(state: McpServerRowState, status: McpServerS
  * `replaced`, `overridden`, `mcp-off`; MCP off is also said above the list).
  */
 export const MCP_ROW_STATE_DETAIL_KEYS: Partial<Record<McpServerRowState, string>> = {
-  disconnected: "mcp.stateDetail.disconnected",
-  conflict: "mcp.stateDetail.conflict",
+  disconnected: 'mcp.stateDetail.disconnected',
+  conflict: 'mcp.stateDetail.conflict'
 };
 
 export function mcpRowStateDetailKey(state: McpServerRowState): string | undefined {
@@ -191,39 +205,41 @@ export function mcpRowStateDetailKey(state: McpServerRowState): string | undefin
  * row.
  */
 export const MCP_ROW_STATE_BADGE_KEYS: Partial<Record<McpServerRowState, string>> = {
-  invalid: "mcp.stateShort.invalid",
-  "web-password": "mcp.stateShort.web-password",
-  disabled: "mcp.stateShort.disabled",
-  "not-trusted": "mcp.stateShort.not-trusted",
-  replaced: "mcp.stateShort.replaced",
-  overridden: "mcp.stateShort.overridden",
-  "needs-auth": "mcp.stateShort.needs-auth",
-  failed: "mcp.stateShort.failed",
-  connecting: "mcp.stateShort.connecting",
-  disconnected: "mcp.stateShort.disconnected",
-  conflict: "mcp.stateShort.conflict",
+  invalid: 'mcp.stateShort.invalid',
+  'web-password': 'mcp.stateShort.web-password',
+  disabled: 'mcp.stateShort.disabled',
+  'not-trusted': 'mcp.stateShort.not-trusted',
+  replaced: 'mcp.stateShort.replaced',
+  overridden: 'mcp.stateShort.overridden',
+  'needs-auth': 'mcp.stateShort.needs-auth',
+  failed: 'mcp.stateShort.failed',
+  connecting: 'mcp.stateShort.connecting',
+  disconnected: 'mcp.stateShort.disconnected',
+  conflict: 'mcp.stateShort.conflict'
 };
 
-export type McpStateTone = "on" | "off" | "warning" | "error";
+export type McpStateTone = 'on' | 'off' | 'warning' | 'error';
 
 /** How a state is colored: the dot, and the state text in the detail pane. */
 export function mcpRowStateTone(state: McpServerRowState): McpStateTone {
-  if (state === "on" || state === "connected") return "on";
-  if (state === "invalid" || state === "web-password" || state === "failed" || state === "conflict") return "error";
-  if (state === "not-trusted" || state === "needs-auth" || state === "disconnected") return "warning";
-  return "off";
+  if (state === 'on' || state === 'connected') return 'on';
+  if (state === 'invalid' || state === 'web-password' || state === 'failed' || state === 'conflict')
+    return 'error';
+  if (state === 'not-trusted' || state === 'needs-auth' || state === 'disconnected')
+    return 'warning';
+  return 'off';
 }
 
 /** `ConfigStatusDot` props for a tone: the accent for on, dim for off, else a warning or error color. */
 export function mcpStatusDot(tone: McpStateTone): { active?: boolean; color?: string } {
-  if (tone === "on") return { active: true };
-  if (tone === "off") return { active: false };
-  return { color: tone === "error" ? "#ef4444" : "#f59e0b" };
+  if (tone === 'on') return { active: true };
+  if (tone === 'off') return { active: false };
+  return { color: tone === 'error' ? '#ef4444' : '#f59e0b' };
 }
 
 /** When a status was written: a test's end, or a session's report, or its closing of that connection. */
 export function mcpStatusTime(status: McpServerStatus): number {
-  return status.origin === "test" ? status.testedAt : status.closedAt ?? status.updatedAt;
+  return status.origin === 'test' ? status.testedAt : (status.closedAt ?? status.updatedAt);
 }
 
 /**
@@ -234,63 +250,69 @@ export function mcpStatusTime(status: McpServerStatus): number {
 export function mcpStatusTimeText(time: number, locale: string, now: number = Date.now()): string {
   const date = new Date(time);
   const today = new Date(now);
-  const sameDay = date.getFullYear() === today.getFullYear()
-    && date.getMonth() === today.getMonth()
-    && date.getDate() === today.getDate();
+  const sameDay =
+    date.getFullYear() === today.getFullYear() &&
+    date.getMonth() === today.getMonth() &&
+    date.getDate() === today.getDate();
   return sameDay
-    ? date.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })
-    : date.toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" });
+    ? date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
+    : date.toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' });
 }
 
 /** The state word of a session's report in the Status row, when the entry's state came from elsewhere. */
 export const MCP_SESSION_STATE_KEYS: Record<McpSessionState, string> = {
-  connecting: "mcp.session.state.connecting",
-  connected: "mcp.session.state.connected",
-  "needs-auth": "mcp.session.state.needs-auth",
-  failed: "mcp.session.state.failed",
-  disconnected: "mcp.session.state.disconnected",
-  conflict: "mcp.session.state.conflict",
-  "not-trusted": "mcp.session.state.not-trusted",
+  connecting: 'mcp.session.state.connecting',
+  connected: 'mcp.session.state.connected',
+  'needs-auth': 'mcp.session.state.needs-auth',
+  failed: 'mcp.session.state.failed',
+  disconnected: 'mcp.session.state.disconnected',
+  conflict: 'mcp.session.state.conflict',
+  'not-trusted': 'mcp.session.state.not-trusted'
 };
 
 /** The sentence after it: which session (by its folder) saw what, and when. */
 export const MCP_SESSION_SUMMARY_KEYS: Record<McpSessionState, string> = {
-  connecting: "mcp.session.summary.connecting",
-  connected: "mcp.session.summary.connected",
-  "needs-auth": "mcp.session.summary.needs-auth",
-  failed: "mcp.session.summary.failed",
-  disconnected: "mcp.session.summary.disconnected",
-  conflict: "mcp.session.summary.conflict",
-  "not-trusted": "mcp.session.summary.not-trusted",
+  connecting: 'mcp.session.summary.connecting',
+  connected: 'mcp.session.summary.connected',
+  'needs-auth': 'mcp.session.summary.needs-auth',
+  failed: 'mcp.session.summary.failed',
+  disconnected: 'mcp.session.summary.disconnected',
+  conflict: 'mcp.session.summary.conflict',
+  'not-trusted': 'mcp.session.summary.not-trusted'
 };
 
 const SESSION_STATE_TONES: Record<McpSessionState, McpStateTone> = {
-  connecting: "off",
-  connected: "on",
-  "needs-auth": "warning",
-  failed: "error",
-  disconnected: "warning",
-  conflict: "error",
-  "not-trusted": "warning",
+  connecting: 'off',
+  connected: 'on',
+  'needs-auth': 'warning',
+  failed: 'error',
+  disconnected: 'warning',
+  conflict: 'error',
+  'not-trusted': 'warning'
 };
 
 /** The state line of a session's report: its word and tone; a connection the session closed since is neutral. */
-export function mcpSessionStateView(status: Pick<McpSessionStatus, "state" | "closedAt">): { key: string; tone: McpStateTone } {
-  if (status.closedAt !== undefined) return { key: "mcp.session.state.closed", tone: "off" };
+export function mcpSessionStateView(status: Pick<McpSessionStatus, 'state' | 'closedAt'>): {
+  key: string;
+  tone: McpStateTone;
+} {
+  if (status.closedAt !== undefined) return { key: 'mcp.session.state.closed', tone: 'off' };
   return { key: MCP_SESSION_STATE_KEYS[status.state], tone: SESSION_STATE_TONES[status.state] };
 }
 
 /** The sentence after the state word: `{path}` and `{time}`, and `{closedTime}` for a connection closed since. */
-export function mcpSessionSummaryKey(status: Pick<McpSessionStatus, "state" | "closedAt">): string {
-  return status.closedAt !== undefined ? "mcp.session.summary.closed" : MCP_SESSION_SUMMARY_KEYS[status.state];
+export function mcpSessionSummaryKey(status: Pick<McpSessionStatus, 'state' | 'closedAt'>): string {
+  return status.closedAt !== undefined
+    ? 'mcp.session.summary.closed'
+    : MCP_SESSION_SUMMARY_KEYS[status.state];
 }
 
 /** How a validated entry's tools reach the model (the SDK's `exposure`, `codemode` by default). */
-export const MCP_EXPOSURE_KEYS: Record<NonNullable<McpServerInfo["exposure"]>, string> = {
-  codemode: "mcp.exposure.codemode",
-  deferred: "mcp.exposure.deferred",
-  direct: "mcp.exposure.direct",
-  hidden: "mcp.exposure.hidden",
+export const MCP_EXPOSURE_KEYS: Record<NonNullable<McpServerInfo['exposure']>, string> = {
+  codemode: 'mcp.exposure.codemode',
+  deferred: 'mcp.exposure.deferred',
+  direct: 'mcp.exposure.direct',
+  hidden: 'mcp.exposure.hidden'
 };
 
 /**
@@ -299,24 +321,24 @@ export const MCP_EXPOSURE_KEYS: Record<NonNullable<McpServerInfo["exposure"]>, s
  * none at all. An entry still holding the old `codemode-deferred` reads as
  * `codemode` (GET reports the validator's copy), which is what it now means.
  */
-export const MCP_EXPOSURE_OPTIONS: readonly NonNullable<McpServerInfo["exposure"]>[] = [
-  "codemode",
-  "deferred",
-  "direct",
-  "hidden",
+export const MCP_EXPOSURE_OPTIONS: readonly NonNullable<McpServerInfo['exposure']>[] = [
+  'codemode',
+  'deferred',
+  'direct',
+  'hidden'
 ];
 
 /** The same, as a tag beside one tested tool whose `toolExposure` differs from its server's. */
-export const MCP_EXPOSURE_SHORT_KEYS: Record<NonNullable<McpServerInfo["exposure"]>, string> = {
-  codemode: "mcp.exposureShort.codemode",
-  deferred: "mcp.exposureShort.deferred",
-  direct: "mcp.exposureShort.direct",
-  hidden: "mcp.exposureShort.hidden",
+export const MCP_EXPOSURE_SHORT_KEYS: Record<NonNullable<McpServerInfo['exposure']>, string> = {
+  codemode: 'mcp.exposureShort.codemode',
+  deferred: 'mcp.exposureShort.deferred',
+  direct: 'mcp.exposureShort.direct',
+  hidden: 'mcp.exposureShort.hidden'
 };
 
 /** A file problem other than this one means none of the file's servers is listed. */
 export function isBlockingFileProblem(problem: McpConfigFileProblem): boolean {
-  return problem.reason !== "auto-enable-codemode-invalid";
+  return problem.reason !== 'auto-enable-codemode-invalid';
 }
 
 export interface McpServerGroup {
@@ -331,38 +353,49 @@ export interface McpServerGroup {
  * project; Global always. The project group stays when its file is missing or
  * was not read, so the panel says so instead of hiding where project servers go.
  */
-export function mcpServerGroups(data: Pick<McpResponse, "files" | "servers">, hasProject: boolean): McpServerGroup[] {
-  const scopes: McpScope[] = hasProject ? ["project", "global"] : ["global"];
+export function mcpServerGroups(
+  data: Pick<McpResponse, 'files' | 'servers'>,
+  hasProject: boolean
+): McpServerGroup[] {
+  const scopes: McpScope[] = hasProject ? ['project', 'global'] : ['global'];
   return scopes.map((scope) => {
     const file = data.files.find((info) => info.scope === scope);
     return {
       scope,
       ...(file ? { file } : {}),
-      servers: data.servers.filter((server) => server.scope === scope),
+      servers: data.servers.filter((server) => server.scope === scope)
     };
   });
 }
 
 /** Turned-on and total entries, the `n/m` a group heading shows. */
-export function mcpGroupCounts(servers: readonly Pick<McpServerInfo, "enabled">[]): { enabled: number; total: number } {
+export function mcpGroupCounts(servers: readonly Pick<McpServerInfo, 'enabled'>[]): {
+  enabled: number;
+  total: number;
+} {
   return { enabled: servers.filter((server) => server.enabled).length, total: servers.length };
 }
 
 /** Why a group lists nothing, when it lists nothing. */
 export function mcpGroupEmptyKey(group: McpServerGroup): string | undefined {
   if (group.servers.length > 0) return undefined;
-  if (!group.file) return "mcp.group.notListed";
-  if (group.file.problems.some(isBlockingFileProblem)) return "mcp.group.fileProblem";
-  return "mcp.group.empty";
+  if (!group.file) return 'mcp.group.notListed';
+  if (group.file.problems.some(isBlockingFileProblem)) return 'mcp.group.fileProblem';
+  return 'mcp.group.empty';
 }
 
 /**
  * What the detail pane says with no row selected: to pick one, or, with
  * nothing listed, that a file problem hides the servers or that there are none.
  */
-export function mcpEmptyDetailKey(serverCount: number, files: readonly McpConfigFileInfo[]): string {
-  if (serverCount > 0) return "mcp.selectItem";
-  return files.some((file) => file.problems.some(isBlockingFileProblem)) ? "mcp.emptyFileProblem" : "mcp.empty";
+export function mcpEmptyDetailKey(
+  serverCount: number,
+  files: readonly McpConfigFileInfo[]
+): string {
+  if (serverCount > 0) return 'mcp.selectItem';
+  return files.some((file) => file.problems.some(isBlockingFileProblem))
+    ? 'mcp.emptyFileProblem'
+    : 'mcp.empty';
 }
 
 /**
@@ -370,9 +403,13 @@ export function mcpEmptyDetailKey(serverCount: number, files: readonly McpConfig
  * else the first server (the project's first), else none, which shows the
  * empty state. Code mode is always there.
  */
-export function pickMcpSelection(groups: readonly McpServerGroup[], current: string | null): string | null {
+export function pickMcpSelection(
+  groups: readonly McpServerGroup[],
+  current: string | null
+): string | null {
   const keys = groups.flatMap((group) => group.servers.map(mcpServerKey));
-  if (current === MCP_CODEMODE_SELECTION || (current !== null && keys.includes(current))) return current;
+  if (current === MCP_CODEMODE_SELECTION || (current !== null && keys.includes(current)))
+    return current;
   return keys[0] ?? null;
 }
 
@@ -384,19 +421,24 @@ export interface McpNoticeText {
 /** Why no session connects any server: MCP is off, with the reason the route gave. */
 export function mcpUnavailableNotice(mcp: McpAvailability): McpNoticeText | undefined {
   if (mcp.available) return undefined;
-  if (mcp.reason === "builtin-disabled") {
+  if (mcp.reason === 'builtin-disabled') {
     return mcp.settingsPath
-      ? { key: "mcp.unavailable.builtin-disabled", params: { path: mcp.settingsPath } }
-      : { key: "mcp.unavailable.builtin-disabled-unknown" };
+      ? { key: 'mcp.unavailable.builtin-disabled', params: { path: mcp.settingsPath } }
+      : { key: 'mcp.unavailable.builtin-disabled-unknown' };
   }
-  return { key: mcp.reason === "operator-disabled" ? "mcp.unavailable.operator-disabled" : "mcp.unavailable.internals-unavailable" };
+  return {
+    key:
+      mcp.reason === 'operator-disabled'
+        ? 'mcp.unavailable.operator-disabled'
+        : 'mcp.unavailable.internals-unavailable'
+  };
 }
 
 export type McpTrustNotice =
   /** The project servers do not connect; the trust notice, with Trust where `mcpProjectTrustable()` says so. */
-  | (McpNoticeText & { kind: "untrusted" })
+  | (McpNoticeText & { kind: 'untrusted' })
   /** They connect because an ancestor is trusted, which every folder under it shares. */
-  | (McpNoticeText & { kind: "inherited" });
+  | (McpNoticeText & { kind: 'inherited' });
 
 /**
  * What the panel says about the project's trust, only when the project has a
@@ -412,20 +454,28 @@ export type McpTrustNotice =
  * nothing to trust (`POST /api/project-trust` answers `trust-not-required`).
  * The footer's file problem explains that file instead.
  */
-export function mcpTrustNotice(project: McpProjectInfo | undefined, projectFile: McpConfigFileInfo | undefined): McpTrustNotice | undefined {
-  if (!project || !projectFile || (!projectFile.exists && projectFile.problems.length === 0)) return undefined;
+export function mcpTrustNotice(
+  project: McpProjectInfo | undefined,
+  projectFile: McpConfigFileInfo | undefined
+): McpTrustNotice | undefined {
+  if (!project || !projectFile || (!projectFile.exists && projectFile.problems.length === 0))
+    return undefined;
   const { trust } = project;
-  if (!trust) return { kind: "untrusted", key: "mcp.trust.unreadable" };
+  if (!trust) return { kind: 'untrusted', key: 'mcp.trust.unreadable' };
   if (!trust.requiresTrust && trust.decision !== false) return undefined;
   if (trust.decision === true) {
     return trust.inherited && trust.decisionPath
-      ? { kind: "inherited", key: "mcp.trust.trustedThrough", params: { path: trust.decisionPath } }
+      ? { kind: 'inherited', key: 'mcp.trust.trustedThrough', params: { path: trust.decisionPath } }
       : undefined;
   }
   if (trust.decision === false && trust.inherited && trust.decisionPath) {
-    return { kind: "untrusted", key: "mcp.trust.untrustedThrough", params: { path: trust.decisionPath } };
+    return {
+      kind: 'untrusted',
+      key: 'mcp.trust.untrustedThrough',
+      params: { path: trust.decisionPath }
+    };
   }
-  return { kind: "untrusted", key: "mcp.trust.untrusted" };
+  return { kind: 'untrusted', key: 'mcp.trust.untrusted' };
 }
 
 /**
@@ -442,9 +492,11 @@ export function mcpProjectTrustable(project: McpProjectInfo | undefined): boolea
 }
 
 /** Every file problem, the global file's first, for the footer. */
-export function mcpFileProblems(files: readonly McpConfigFileInfo[]): { file: McpConfigFileInfo; problem: McpConfigFileProblem }[] {
+export function mcpFileProblems(
+  files: readonly McpConfigFileInfo[]
+): { file: McpConfigFileInfo; problem: McpConfigFileProblem }[] {
   return [...files]
-    .sort((a, b) => (a.scope === b.scope ? 0 : a.scope === "global" ? -1 : 1))
+    .sort((a, b) => (a.scope === b.scope ? 0 : a.scope === 'global' ? -1 : 1))
     .flatMap((file) => file.problems.map((problem) => ({ file, problem })));
 }
 
@@ -457,14 +509,20 @@ export type McpAutoEnableCodemode = { value: true; path?: string } | { value: fa
  * true. The MCP extension reads it on `session_start`, so it applies to
  * sessions started (or reloaded) afterwards.
  */
-export function mcpEffectiveAutoEnableCodemode(data: Pick<McpResponse, "files" | "project">): McpAutoEnableCodemode {
-  const project = data.files.find((file) => file.scope === "project");
+export function mcpEffectiveAutoEnableCodemode(
+  data: Pick<McpResponse, 'files' | 'project'>
+): McpAutoEnableCodemode {
+  const project = data.files.find((file) => file.scope === 'project');
   if (project?.autoEnableCodemode !== undefined && mcpProjectServersLoad(data.project)) {
-    return project.autoEnableCodemode ? { value: true, path: project.path } : { value: false, path: project.path };
+    return project.autoEnableCodemode
+      ? { value: true, path: project.path }
+      : { value: false, path: project.path };
   }
-  const global = data.files.find((file) => file.scope === "global");
+  const global = data.files.find((file) => file.scope === 'global');
   if (global?.autoEnableCodemode !== undefined) {
-    return global.autoEnableCodemode ? { value: true, path: global.path } : { value: false, path: global.path };
+    return global.autoEnableCodemode
+      ? { value: true, path: global.path }
+      : { value: false, path: global.path };
   }
   return { value: true };
 }
@@ -474,7 +532,9 @@ export function mcpEffectiveAutoEnableCodemode(data: Pick<McpResponse, "files" |
  * project's settings decide, where they decide it (`projectOverride`), else
  * the global choice; undefined when the global settings cannot be read.
  */
-export function mcpEffectiveCodemodePreference(codemode: McpCodemodeInfo): McpCodemodePreference | undefined {
+export function mcpEffectiveCodemodePreference(
+  codemode: McpCodemodeInfo
+): McpCodemodePreference | undefined {
   return codemode.projectOverride?.preference ?? codemode.preference;
 }
 
@@ -489,11 +549,14 @@ export function mcpEffectiveCodemodePreference(codemode: McpCodemodeInfo): McpCo
  * start its sessions with Code mode on needs no warning, and one that starts
  * them without it does. Undefined when a session turns Code mode on for them.
  */
-export function mcpCodemodeReachNotice(codemode: McpCodemodeInfo, autoEnable: McpAutoEnableCodemode): McpNoticeText | undefined {
-  if (codemode.sandbox.state === "unavailable") return { key: "mcp.exposure.sandboxUnavailable" };
-  if (codemode.builtinDisabled) return { key: "mcp.exposure.builtinDisabled" };
-  if (!autoEnable.value && mcpEffectiveCodemodePreference(codemode) !== "always") {
-    return { key: "mcp.exposure.autoEnableOff", params: { path: autoEnable.path } };
+export function mcpCodemodeReachNotice(
+  codemode: McpCodemodeInfo,
+  autoEnable: McpAutoEnableCodemode
+): McpNoticeText | undefined {
+  if (codemode.sandbox.state === 'unavailable') return { key: 'mcp.exposure.sandboxUnavailable' };
+  if (codemode.builtinDisabled) return { key: 'mcp.exposure.builtinDisabled' };
+  if (!autoEnable.value && mcpEffectiveCodemodePreference(codemode) !== 'always') {
+    return { key: 'mcp.exposure.autoEnableOff', params: { path: autoEnable.path } };
   }
   return undefined;
 }
@@ -506,14 +569,16 @@ export function mcpCodemodeReachNotice(codemode: McpCodemodeInfo, autoEnable: Mc
  * scripts alone. Undefined when a session reaches them.
  */
 export function mcpExposureReachNotice(
-  exposure: NonNullable<McpServerInfo["exposure"]>,
-  data: Pick<McpResponse, "codemode" | "toolSearchDisabled">,
-  autoEnable: McpAutoEnableCodemode,
+  exposure: NonNullable<McpServerInfo['exposure']>,
+  data: Pick<McpResponse, 'codemode' | 'toolSearchDisabled'>,
+  autoEnable: McpAutoEnableCodemode
 ): McpNoticeText | undefined {
-  if (exposure === "codemode") return mcpCodemodeReachNotice(data.codemode, autoEnable);
-  if (exposure !== "deferred" || !data.toolSearchDisabled) return undefined;
+  if (exposure === 'codemode') return mcpCodemodeReachNotice(data.codemode, autoEnable);
+  if (exposure !== 'deferred' || !data.toolSearchDisabled) return undefined;
   const path = data.toolSearchDisabled.settingsPath;
-  return path ? { key: "mcp.exposure.toolSearchDisabled", params: { path } } : { key: "mcp.exposure.toolSearchDisabledUnknown" };
+  return path
+    ? { key: 'mcp.exposure.toolSearchDisabled', params: { path } }
+    : { key: 'mcp.exposure.toolSearchDisabledUnknown' };
 }
 
 /**
@@ -521,9 +586,13 @@ export function mcpExposureReachNotice(
  * setting keeps it from ever turning Code mode on: the global Automatic, or a
  * project's settings that start its sessions without Code mode.
  */
-export function mcpCodemodeAutomaticNotice(codemode: McpCodemodeInfo, autoEnable: McpAutoEnableCodemode): McpNoticeText | undefined {
-  if (mcpEffectiveCodemodePreference(codemode) !== "automatic" || autoEnable.value) return undefined;
-  return { key: "mcp.codemode.autoEnableOff", params: { path: autoEnable.path } };
+export function mcpCodemodeAutomaticNotice(
+  codemode: McpCodemodeInfo,
+  autoEnable: McpAutoEnableCodemode
+): McpNoticeText | undefined {
+  if (mcpEffectiveCodemodePreference(codemode) !== 'automatic' || autoEnable.value)
+    return undefined;
+  return { key: 'mcp.codemode.autoEnableOff', params: { path: autoEnable.path } };
 }
 
 /**
@@ -539,10 +608,16 @@ export function mcpCodemodeAutomaticNotice(codemode: McpCodemodeInfo, autoEnable
  * from. A sandbox nobody has checked yet leaves it available; the Sandbox
  * line says so.
  */
-export function mcpCodemodeAlwaysUnavailableNotice(codemode: McpCodemodeInfo): McpNoticeText | undefined {
-  if (codemode.sandbox.state === "unavailable") return { key: "mcp.codemode.alwaysUnavailable.sandbox" };
+export function mcpCodemodeAlwaysUnavailableNotice(
+  codemode: McpCodemodeInfo
+): McpNoticeText | undefined {
+  if (codemode.sandbox.state === 'unavailable')
+    return { key: 'mcp.codemode.alwaysUnavailable.sandbox' };
   if (!codemode.globalBuiltinSettingsPath) return undefined;
-  return { key: "mcp.codemode.alwaysUnavailable.builtin", params: { path: codemode.globalBuiltinSettingsPath } };
+  return {
+    key: 'mcp.codemode.alwaysUnavailable.builtin',
+    params: { path: codemode.globalBuiltinSettingsPath }
+  };
 }
 
 /**
@@ -554,15 +629,15 @@ export function mcpCodemodeAlwaysUnavailableNotice(codemode: McpCodemodeInfo): M
 export function mcpCodemodeBuiltinNotice(codemode: McpCodemodeInfo): McpNoticeText | undefined {
   if (!codemode.builtinDisabled) return undefined;
   const path = codemode.builtinSettingsPath;
-  if (!path) return { key: "mcp.codemode.builtinDisabledUnknown" };
+  if (!path) return { key: 'mcp.codemode.builtinDisabledUnknown' };
   return codemode.globalBuiltinSettingsPath
-    ? { key: "mcp.codemode.builtinDisabled", params: { path } }
-    : { key: "mcp.codemode.builtinDisabledProject", params: { path } };
+    ? { key: 'mcp.codemode.builtinDisabled', params: { path } }
+    : { key: 'mcp.codemode.builtinDisabledProject', params: { path } };
 }
 
 export const MCP_CODEMODE_PROJECT_OVERRIDE_KEYS: Record<McpCodemodePreference, string> = {
-  always: "mcp.codemode.projectOverride.always",
-  automatic: "mcp.codemode.projectOverride.automatic",
+  always: 'mcp.codemode.projectOverride.always',
+  automatic: 'mcp.codemode.projectOverride.automatic'
 };
 
 /**
@@ -572,32 +647,40 @@ export const MCP_CODEMODE_PROJECT_OVERRIDE_KEYS: Record<McpCodemodePreference, s
  * default does. Said whether or not it agrees with the global choice: either
  * way, changing the choice changes nothing there.
  */
-export function mcpCodemodeProjectOverrideNotice(codemode: McpCodemodeInfo): McpNoticeText | undefined {
+export function mcpCodemodeProjectOverrideNotice(
+  codemode: McpCodemodeInfo
+): McpNoticeText | undefined {
   const override = codemode.projectOverride;
   if (!override) return undefined;
-  return { key: MCP_CODEMODE_PROJECT_OVERRIDE_KEYS[override.preference], params: { path: override.settingsPath } };
+  return {
+    key: MCP_CODEMODE_PROJECT_OVERRIDE_KEYS[override.preference],
+    params: { path: override.settingsPath }
+  };
 }
 
 /** The overview after a save: the stored preference, and no read error, since the file was just read. */
-export function withMcpCodemodePreference(data: McpResponse, preference: McpCodemodePreference): McpResponse {
+export function withMcpCodemodePreference(
+  data: McpResponse,
+  preference: McpCodemodePreference
+): McpResponse {
   const codemode: McpCodemodeInfo = { ...data.codemode, preference };
   delete codemode.preferenceError;
   return { ...data, codemode };
 }
 
 export const MCP_CODEMODE_MODE_KEYS: Record<CodemodeMode, string> = {
-  on: "mcp.codemode.toolMode.on",
-  only: "mcp.codemode.toolMode.only",
+  on: 'mcp.codemode.toolMode.on',
+  only: 'mcp.codemode.toolMode.only'
 };
 
 export const MCP_CODEMODE_MODE_DESCRIPTION_KEYS: Record<CodemodeMode, string> = {
-  on: "mcp.codemode.toolMode.onDescription",
-  only: "mcp.codemode.toolMode.onlyDescription",
+  on: 'mcp.codemode.toolMode.onDescription',
+  only: 'mcp.codemode.toolMode.onlyDescription'
 };
 
 const MCP_CODEMODE_MODE_PROJECT_OVERRIDE_KEYS: Record<CodemodeMode, string> = {
-  on: "mcp.codemode.toolMode.projectOverride.on",
-  only: "mcp.codemode.toolMode.projectOverride.only",
+  on: 'mcp.codemode.toolMode.projectOverride.on',
+  only: 'mcp.codemode.toolMode.projectOverride.only'
 };
 
 /**
@@ -623,14 +706,23 @@ export function mcpCodemodeModeNotices(codemode: McpCodemodeInfo): McpNoticeText
   if (!mode) return [];
   const notices: McpNoticeText[] = [];
   if (mode.invalid !== undefined) {
-    notices.push({ key: "mcp.codemode.toolMode.invalid", params: { path: mode.settingsPath, value: mode.invalid } });
+    notices.push({
+      key: 'mcp.codemode.toolMode.invalid',
+      params: { path: mode.settingsPath, value: mode.invalid }
+    });
   }
   const project = mode.projectOverride;
   if (project) {
-    notices.push({ key: MCP_CODEMODE_MODE_PROJECT_OVERRIDE_KEYS[project.value], params: { path: project.settingsPath } });
+    notices.push({
+      key: MCP_CODEMODE_MODE_PROJECT_OVERRIDE_KEYS[project.value],
+      params: { path: project.settingsPath }
+    });
   }
-  if ((project ?? mode).value === "only" && mcpEffectiveCodemodePreference(codemode) === "automatic") {
-    notices.push({ key: "mcp.codemode.toolMode.automaticNote" });
+  if (
+    (project ?? mode).value === 'only' &&
+    mcpEffectiveCodemodePreference(codemode) === 'automatic'
+  ) {
+    notices.push({ key: 'mcp.codemode.toolMode.automaticNote' });
   }
   return notices;
 }
@@ -642,13 +734,16 @@ export function withMcpCodemodeMode(data: McpResponse, stored: CodemodeModeSetti
   const mode: McpCodemodeMode = {
     settingsPath: current.settingsPath,
     ...(current.projectOverride ? { projectOverride: current.projectOverride } : {}),
-    ...stored,
+    ...stored
   };
   return { ...data, codemode: { ...data.codemode, mode } };
 }
 
 /** The overview after a budget save: the stored value, keeping the default, the limit and the project's own. */
-export function withMcpCodemodeInlineBudget(data: McpResponse, stored: CodemodeInlineBudgetSetting): McpResponse {
+export function withMcpCodemodeInlineBudget(
+  data: McpResponse,
+  stored: CodemodeInlineBudgetSetting
+): McpResponse {
   const current = data.codemode.inlineBudget;
   if (!current) return data;
   const inlineBudget: McpCodemodeInlineBudget = {
@@ -656,14 +751,14 @@ export function withMcpCodemodeInlineBudget(data: McpResponse, stored: CodemodeI
     default: current.default,
     max: current.max,
     ...(current.projectOverride ? { projectOverride: current.projectOverride } : {}),
-    ...stored,
+    ...stored
   };
   return { ...data, codemode: { ...data.codemode, inlineBudget } };
 }
 
 /** The budget field's text for a stored value: empty for pi's default, which the placeholder shows. */
-export function mcpInlineBudgetDraftOf(budget: Pick<McpCodemodeInlineBudget, "value">): string {
-  return budget.value === undefined ? "" : String(budget.value);
+export function mcpInlineBudgetDraftOf(budget: Pick<McpCodemodeInlineBudget, 'value'>): string {
+  return budget.value === undefined ? '' : String(budget.value);
 }
 
 /** What the budget field asks to save: a whole number up to `max`, or null (empty) for pi's default. */
@@ -671,7 +766,7 @@ export type McpInlineBudgetDraft = { ok: true; value: number | null } | { ok: fa
 
 export function parseMcpInlineBudgetDraft(text: string, max: number): McpInlineBudgetDraft {
   const trimmed = text.trim();
-  if (trimmed === "") return { ok: true, value: null };
+  if (trimmed === '') return { ok: true, value: null };
   if (!/^\d+$/.test(trimmed)) return { ok: false };
   const value = Number(trimmed);
   return value <= max ? { ok: true, value } : { ok: false };
@@ -681,7 +776,10 @@ export function parseMcpInlineBudgetDraft(text: string, max: number): McpInlineB
  * Whether saving the draft changes the global settings: a different budget,
  * or an empty field over a value pi ignores, which saving removes.
  */
-export function mcpInlineBudgetDraftChanges(budget: McpCodemodeInlineBudget, draft: McpInlineBudgetDraft): boolean {
+export function mcpInlineBudgetDraftChanges(
+  budget: McpCodemodeInlineBudget,
+  draft: McpInlineBudgetDraft
+): boolean {
   if (!draft.ok) return false;
   if (draft.value === null) return budget.value !== undefined || budget.invalid !== undefined;
   return draft.value !== budget.value;
@@ -696,20 +794,28 @@ export function mcpCodemodeInlineBudgetNotices(budget: McpCodemodeInlineBudget):
   const notices: McpNoticeText[] = [];
   if (budget.invalid !== undefined) {
     notices.push({
-      key: "mcp.codemode.inlineBudget.invalid",
-      params: { path: budget.settingsPath, value: budget.invalid, default: String(budget.default) },
+      key: 'mcp.codemode.inlineBudget.invalid',
+      params: { path: budget.settingsPath, value: budget.invalid, default: String(budget.default) }
     });
   }
   const project = budget.projectOverride;
   if (project) {
-    notices.push(project.value !== undefined
-      ? { key: "mcp.codemode.inlineBudget.projectOverride", params: { path: project.settingsPath, value: String(project.value) } }
-      : { key: "mcp.codemode.inlineBudget.projectOverrideDefault", params: { path: project.settingsPath, default: String(budget.default) } });
+    notices.push(
+      project.value !== undefined
+        ? {
+            key: 'mcp.codemode.inlineBudget.projectOverride',
+            params: { path: project.settingsPath, value: String(project.value) }
+          }
+        : {
+            key: 'mcp.codemode.inlineBudget.projectOverrideDefault',
+            params: { path: project.settingsPath, default: String(budget.default) }
+          }
+    );
   }
   return notices;
 }
 
-export type McpCodemodeRowState = "automatic" | "always" | "unavailable" | "unknown";
+export type McpCodemodeRowState = 'automatic' | 'always' | 'unavailable' | 'unknown';
 
 /**
  * The Code mode row's state: unavailable when no session can offer it (its
@@ -717,20 +823,20 @@ export type McpCodemodeRowState = "automatic" | "always" | "unavailable" | "unkn
  * when the global settings file cannot be read, else the preference.
  */
 export function mcpCodemodeRowState(codemode: McpCodemodeInfo): McpCodemodeRowState {
-  if (codemode.builtinDisabled || codemode.sandbox.state === "unavailable") return "unavailable";
-  return codemode.preference ?? "unknown";
+  if (codemode.builtinDisabled || codemode.sandbox.state === 'unavailable') return 'unavailable';
+  return codemode.preference ?? 'unknown';
 }
 
 export const MCP_CODEMODE_STATE_KEYS: Record<McpCodemodeRowState, string> = {
-  automatic: "mcp.codemode.automatic",
-  always: "mcp.codemode.always",
-  unavailable: "mcp.codemode.unavailable",
-  unknown: "i18n.unknown",
+  automatic: 'mcp.codemode.automatic',
+  always: 'mcp.codemode.always',
+  unavailable: 'mcp.codemode.unavailable',
+  unknown: 'i18n.unknown'
 };
 
 export function mcpCodemodeTone(state: McpCodemodeRowState): McpStateTone {
-  if (state === "unavailable") return "error";
-  return state === "unknown" ? "off" : "on";
+  if (state === 'unavailable') return 'error';
+  return state === 'unknown' ? 'off' : 'on';
 }
 
 // ---------------------------------------------------------------------------
@@ -762,9 +868,13 @@ export type McpLoadResult =
     }
   | { ok: false; error: McpLoadFailure };
 
-export type FetchLike = (input: string, init?: RequestInit) => Promise<Pick<Response, "ok" | "status" | "json">>;
+export type FetchLike = (
+  input: string,
+  init?: RequestInit
+) => Promise<Pick<Response, 'ok' | 'status' | 'json'>>;
 
-const isStringList = (value: unknown): value is string[] => Array.isArray(value) && value.every((item) => typeof item === "string");
+const isStringList = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.every((item) => typeof item === 'string');
 
 /**
  * A refusal's diagnostic and reason code (with the file and server it names,
@@ -775,17 +885,27 @@ export function refusalFailure(data: unknown, status: number): McpActionFailure 
   const breadth = refusal.breadth as Partial<FreshFolderTrustBreadth> | undefined;
   const trust = refusal.trust as Partial<ProjectTrustStatus> | undefined;
   return {
-    error: typeof refusal.error === "string" ? refusal.error : `HTTP ${status}`,
-    ...(typeof refusal.reason === "string" ? { reason: refusal.reason as McpRefusalReason } : {}),
-    ...(typeof refusal.path === "string" ? { path: refusal.path } : {}),
-    ...(typeof refusal.name === "string" ? { name: refusal.name } : {}),
-    ...(typeof refusal.suggestedName === "string" ? { suggestedName: refusal.suggestedName } : {}),
+    error: typeof refusal.error === 'string' ? refusal.error : `HTTP ${status}`,
+    ...(typeof refusal.reason === 'string' ? { reason: refusal.reason as McpRefusalReason } : {}),
+    ...(typeof refusal.path === 'string' ? { path: refusal.path } : {}),
+    ...(typeof refusal.name === 'string' ? { name: refusal.name } : {}),
+    ...(typeof refusal.suggestedName === 'string' ? { suggestedName: refusal.suggestedName } : {}),
     ...(isStringList(refusal.names) ? { names: refusal.names } : {}),
     ...(isStringList(refusal.fields) ? { fields: refusal.fields } : {}),
-    ...(Array.isArray(refusal.notes) ? { notes: refusal.notes.filter((note): note is McpImportNote => typeof note?.code === "string") } : {}),
-    ...(typeof breadth?.kind === "string" && typeof breadth.path === "string" ? { breadth: breadth as FreshFolderTrustBreadth } : {}),
-    ...(typeof trust?.requiresTrust === "boolean" && typeof trust.trusted === "boolean" ? { trust: trust as ProjectTrustStatus } : {}),
-    ...(refusal.trustKept === true ? { trustKept: true } : {}),
+    ...(Array.isArray(refusal.notes)
+      ? {
+          notes: refusal.notes.filter(
+            (note): note is McpImportNote => typeof note?.code === 'string'
+          )
+        }
+      : {}),
+    ...(typeof breadth?.kind === 'string' && typeof breadth.path === 'string'
+      ? { breadth: breadth as FreshFolderTrustBreadth }
+      : {}),
+    ...(typeof trust?.requiresTrust === 'boolean' && typeof trust.trusted === 'boolean'
+      ? { trust: trust as ProjectTrustStatus }
+      : {}),
+    ...(refusal.trustKept === true ? { trustKept: true } : {})
   };
 }
 
@@ -803,12 +923,12 @@ export async function withinDeadline<T>(
   timedOut: () => T,
   timeoutMs: number,
   signal?: AbortSignal,
-  { abortAtDeadline = true }: { abortAtDeadline?: boolean } = {},
+  { abortAtDeadline = true }: { abortAtDeadline?: boolean } = {}
 ): Promise<T> {
   const controller = new AbortController();
   const forward = () => controller.abort();
   if (signal?.aborted) controller.abort();
-  else signal?.addEventListener("abort", forward, { once: true });
+  else signal?.addEventListener('abort', forward, { once: true });
   let timer: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<T>((resolve) => {
     timer = setTimeout(() => {
@@ -821,26 +941,36 @@ export async function withinDeadline<T>(
     return await Promise.race([run(controller.signal), deadline]);
   } finally {
     clearTimeout(timer);
-    signal?.removeEventListener("abort", forward);
+    signal?.removeEventListener('abort', forward);
   }
 }
 
 function isMcpResponse(value: unknown): value is McpResponse {
-  if (value === null || typeof value !== "object") return false;
+  if (value === null || typeof value !== 'object') return false;
   const data = value as Partial<McpResponse>;
-  return typeof data.mcp === "object" && data.mcp !== null && typeof data.codemode === "object" && data.codemode !== null
-    && Array.isArray(data.files) && Array.isArray(data.servers);
+  return (
+    typeof data.mcp === 'object' &&
+    data.mcp !== null &&
+    typeof data.codemode === 'object' &&
+    data.codemode !== null &&
+    Array.isArray(data.files) &&
+    Array.isArray(data.servers)
+  );
 }
 
 /** The URL of the overview: the global file alone without a project. */
 export function mcpOverviewUrl(cwd: string | null): string {
-  return cwd ? `/api/mcp?cwd=${encodeURIComponent(cwd)}` : "/api/mcp";
+  return cwd ? `/api/mcp?cwd=${encodeURIComponent(cwd)}` : '/api/mcp';
 }
 
-async function requestMcpOverview(cwd: string | null, fetchImpl: FetchLike, signal?: AbortSignal): Promise<McpLoadResult> {
+async function requestMcpOverview(
+  cwd: string | null,
+  fetchImpl: FetchLike,
+  signal?: AbortSignal
+): Promise<McpLoadResult> {
   let response: Awaited<ReturnType<FetchLike>>;
   try {
-    response = await fetchImpl(mcpOverviewUrl(cwd), { cache: "no-store", signal });
+    response = await fetchImpl(mcpOverviewUrl(cwd), { cache: 'no-store', signal });
   } catch (error) {
     return { ok: false, error: { error: error instanceof Error ? error.message : String(error) } };
   }
@@ -854,11 +984,16 @@ async function requestMcpOverview(cwd: string | null, fetchImpl: FetchLike, sign
   return { ok: false, error: refusalFailure(data, response.status) };
 }
 
-const CWD_REFUSALS = new Set<McpRefusalReason>(["cwd-invalid", "cwd-denied", "cwd-not-directory"]);
+const CWD_REFUSALS = new Set<McpRefusalReason>(['cwd-invalid', 'cwd-denied', 'cwd-not-directory']);
 
-async function loadWithin(cwd: string | null, fetchImpl: FetchLike, signal: AbortSignal): Promise<McpLoadResult> {
+async function loadWithin(
+  cwd: string | null,
+  fetchImpl: FetchLike,
+  signal: AbortSignal
+): Promise<McpLoadResult> {
   const first = await requestMcpOverview(cwd, fetchImpl, signal);
-  if (first.ok || !cwd || !first.error.reason || !CWD_REFUSALS.has(first.error.reason)) return first;
+  if (first.ok || !cwd || !first.error.reason || !CWD_REFUSALS.has(first.error.reason))
+    return first;
   const global = await requestMcpOverview(null, fetchImpl, signal);
   return global.ok ? { ...global, projectError: first.error } : global;
 }
@@ -875,13 +1010,16 @@ export async function loadMcpOverview(
   cwd: string | null,
   fetchImpl: FetchLike = (input, init) => fetch(input, init),
   signal?: AbortSignal,
-  timeoutMs: number = MCP_OVERVIEW_TIMEOUT_MS,
+  timeoutMs: number = MCP_OVERVIEW_TIMEOUT_MS
 ): Promise<McpLoadResult> {
   return withinDeadline<McpLoadResult>(
     (deadlineSignal) => loadWithin(cwd, fetchImpl, deadlineSignal),
-    () => ({ ok: false, error: { error: `GET /api/mcp did not answer within ${timeoutMs} ms`, timedOut: true } }),
+    () => ({
+      ok: false,
+      error: { error: `GET /api/mcp did not answer within ${timeoutMs} ms`, timedOut: true }
+    }),
     timeoutMs,
-    signal,
+    signal
   );
 }
 
@@ -893,33 +1031,34 @@ export async function loadMcpOverview(
 export const MCP_CODEMODE_SAVE_TIMEOUT_MS = 15_000;
 
 export type McpCodemodeSaveResult =
-  | { ok: true; preference: McpCodemodePreference }
-  | { ok: false; error: McpLoadFailure };
+  { ok: true; preference: McpCodemodePreference } | { ok: false; error: McpLoadFailure };
 
 export type McpCodemodeModeSaveResult =
-  | { ok: true; mode: CodemodeModeSetting }
-  | { ok: false; error: McpLoadFailure };
+  { ok: true; mode: CodemodeModeSetting } | { ok: false; error: McpLoadFailure };
 
 export type McpCodemodeInlineBudgetSaveResult =
-  | { ok: true; inlineBudget: CodemodeInlineBudgetSetting }
-  | { ok: false; error: McpLoadFailure };
+  { ok: true; inlineBudget: CodemodeInlineBudgetSetting } | { ok: false; error: McpLoadFailure };
 
 function isCodemodePreferenceValue(value: unknown): value is McpCodemodePreference {
-  return value === "automatic" || value === "always";
+  return value === 'automatic' || value === 'always';
 }
 
 function isCodemodeModeSetting(value: unknown): value is CodemodeModeSetting {
-  if (value === null || typeof value !== "object") return false;
+  if (value === null || typeof value !== 'object') return false;
   const setting = value as Record<string, unknown>;
-  return (setting.value === "on" || setting.value === "only")
-    && (setting.invalid === undefined || typeof setting.invalid === "string");
+  return (
+    (setting.value === 'on' || setting.value === 'only') &&
+    (setting.invalid === undefined || typeof setting.invalid === 'string')
+  );
 }
 
 function isInlineBudgetSetting(value: unknown): value is CodemodeInlineBudgetSetting {
-  if (value === null || typeof value !== "object") return false;
+  if (value === null || typeof value !== 'object') return false;
   const setting = value as Record<string, unknown>;
-  return (setting.value === undefined || typeof setting.value === "number")
-    && (setting.invalid === undefined || typeof setting.invalid === "string");
+  return (
+    (setting.value === undefined || typeof setting.value === 'number') &&
+    (setting.invalid === undefined || typeof setting.invalid === 'string')
+  );
 }
 
 /**
@@ -931,16 +1070,16 @@ async function requestToolSettingsChange<T>(
   change: Record<string, unknown>,
   stored: (data: Record<string, unknown>) => T | undefined,
   fetchImpl: FetchLike,
-  signal: AbortSignal,
+  signal: AbortSignal
 ): Promise<{ ok: true; stored: T } | { ok: false; error: McpLoadFailure }> {
   let response: Awaited<ReturnType<FetchLike>>;
   try {
-    response = await fetchImpl("/api/tools/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
+    response = await fetchImpl('/api/tools/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(change),
-      cache: "no-store",
-      signal,
+      cache: 'no-store',
+      signal
     });
   } catch (error) {
     return { ok: false, error: { error: error instanceof Error ? error.message : String(error) } };
@@ -951,7 +1090,10 @@ async function requestToolSettingsChange<T>(
   } catch {
     return { ok: false, error: { error: `HTTP ${response.status}` } };
   }
-  const value = response.ok && data !== null && typeof data === "object" ? stored(data as Record<string, unknown>) : undefined;
+  const value =
+    response.ok && data !== null && typeof data === 'object'
+      ? stored(data as Record<string, unknown>)
+      : undefined;
   if (value !== undefined) return { ok: true, stored: value };
   return { ok: false, error: refusalFailure(data, response.status) };
 }
@@ -959,13 +1101,13 @@ async function requestToolSettingsChange<T>(
 async function requestCodemodeSave(
   preference: McpCodemodePreference,
   fetchImpl: FetchLike,
-  signal: AbortSignal,
+  signal: AbortSignal
 ): Promise<McpCodemodeSaveResult> {
   const result = await requestToolSettingsChange(
     { codemode: preference },
     (data) => (isCodemodePreferenceValue(data.codemode) ? data.codemode : undefined),
     fetchImpl,
-    signal,
+    signal
   );
   return result.ok ? { ok: true, preference: result.stored } : result;
 }
@@ -980,13 +1122,19 @@ export async function saveMcpCodemodePreference(
   preference: McpCodemodePreference,
   fetchImpl: FetchLike = (input, init) => fetch(input, init),
   signal?: AbortSignal,
-  timeoutMs: number = MCP_CODEMODE_SAVE_TIMEOUT_MS,
+  timeoutMs: number = MCP_CODEMODE_SAVE_TIMEOUT_MS
 ): Promise<McpCodemodeSaveResult> {
   return withinDeadline<McpCodemodeSaveResult>(
     (deadlineSignal) => requestCodemodeSave(preference, fetchImpl, deadlineSignal),
-    () => ({ ok: false, error: { error: `PUT /api/tools/settings did not answer within ${timeoutMs} ms`, timedOut: true } }),
+    () => ({
+      ok: false,
+      error: {
+        error: `PUT /api/tools/settings did not answer within ${timeoutMs} ms`,
+        timedOut: true
+      }
+    }),
     timeoutMs,
-    signal,
+    signal
   );
 }
 
@@ -999,7 +1147,7 @@ export async function saveMcpCodemodeMode(
   mode: CodemodeMode,
   fetchImpl: FetchLike = (input, init) => fetch(input, init),
   signal?: AbortSignal,
-  timeoutMs: number = MCP_CODEMODE_SAVE_TIMEOUT_MS,
+  timeoutMs: number = MCP_CODEMODE_SAVE_TIMEOUT_MS
 ): Promise<McpCodemodeModeSaveResult> {
   return withinDeadline<McpCodemodeModeSaveResult>(
     async (deadlineSignal) => {
@@ -1007,13 +1155,19 @@ export async function saveMcpCodemodeMode(
         { codemodeMode: mode },
         (data) => (isCodemodeModeSetting(data.codemodeMode) ? data.codemodeMode : undefined),
         fetchImpl,
-        deadlineSignal,
+        deadlineSignal
       );
       return result.ok ? { ok: true, mode: result.stored } : result;
     },
-    () => ({ ok: false, error: { error: `PUT /api/tools/settings did not answer within ${timeoutMs} ms`, timedOut: true } }),
+    () => ({
+      ok: false,
+      error: {
+        error: `PUT /api/tools/settings did not answer within ${timeoutMs} ms`,
+        timedOut: true
+      }
+    }),
     timeoutMs,
-    signal,
+    signal
   );
 }
 
@@ -1027,21 +1181,28 @@ export async function saveMcpCodemodeInlineBudget(
   budget: number | null,
   fetchImpl: FetchLike = (input, init) => fetch(input, init),
   signal?: AbortSignal,
-  timeoutMs: number = MCP_CODEMODE_SAVE_TIMEOUT_MS,
+  timeoutMs: number = MCP_CODEMODE_SAVE_TIMEOUT_MS
 ): Promise<McpCodemodeInlineBudgetSaveResult> {
   return withinDeadline<McpCodemodeInlineBudgetSaveResult>(
     async (deadlineSignal) => {
       const result = await requestToolSettingsChange(
         { codemodeInlineBudget: budget },
-        (data) => (isInlineBudgetSetting(data.codemodeInlineBudget) ? data.codemodeInlineBudget : undefined),
+        (data) =>
+          isInlineBudgetSetting(data.codemodeInlineBudget) ? data.codemodeInlineBudget : undefined,
         fetchImpl,
-        deadlineSignal,
+        deadlineSignal
       );
       return result.ok ? { ok: true, inlineBudget: result.stored } : result;
     },
-    () => ({ ok: false, error: { error: `PUT /api/tools/settings did not answer within ${timeoutMs} ms`, timedOut: true } }),
+    () => ({
+      ok: false,
+      error: {
+        error: `PUT /api/tools/settings did not answer within ${timeoutMs} ms`,
+        timedOut: true
+      }
+    }),
     timeoutMs,
-    signal,
+    signal
   );
 }
 
@@ -1057,11 +1218,14 @@ export async function saveMcpCodemodeInlineBudget(
  * not depend on the folder Settings was opened from.
  */
 export function mcpWritesOff(mcp: McpAvailability): boolean {
-  return !mcp.available && mcp.reason !== "builtin-disabled";
+  return !mcp.available && mcp.reason !== 'builtin-disabled';
 }
 
 /** Why the panel cannot change a server of a scope; each is also a refusal reason the route gives. */
-export type McpWriteBlock = Extract<McpRefusalReason, "mcp-off" | "project-untrusted" | "trust-unreadable">;
+export type McpWriteBlock = Extract<
+  McpRefusalReason,
+  'mcp-off' | 'project-untrusted' | 'trust-unreadable'
+>;
 
 /**
  * Why no server of `scope` can be changed here, or undefined when they can:
@@ -1069,20 +1233,23 @@ export type McpWriteBlock = Extract<McpRefusalReason, "mcp-off" | "project-untru
  * (the rule sessions read its file by, `mcpProjectServersLoad()`) or
  * `trust.json` cannot be read.
  */
-export function mcpWriteBlock(scope: McpScope, data: Pick<McpResponse, "mcp" | "project">): McpWriteBlock | undefined {
-  if (mcpWritesOff(data.mcp)) return "mcp-off";
-  if (scope === "project") {
-    if (!data.project?.trust) return "trust-unreadable";
-    if (!mcpProjectServersLoad(data.project)) return "project-untrusted";
+export function mcpWriteBlock(
+  scope: McpScope,
+  data: Pick<McpResponse, 'mcp' | 'project'>
+): McpWriteBlock | undefined {
+  if (mcpWritesOff(data.mcp)) return 'mcp-off';
+  if (scope === 'project') {
+    if (!data.project?.trust) return 'trust-unreadable';
+    if (!mcpProjectServersLoad(data.project)) return 'project-untrusted';
   }
   return undefined;
 }
 
 /** What a global server's "This project" row offers: a link to the project's override of it, or a switch for the project alone. */
 export type McpInProjectView =
-  | { kind: "switch" }
+  | { kind: 'switch' }
   /** `applies` is false for an override pi refuses, which leaves the global server as it is. */
-  | { kind: "override"; key: string; keys: McpOverrideKey[]; applies: boolean };
+  | { kind: 'override'; key: string; keys: McpOverrideKey[]; applies: boolean };
 
 /**
  * The "This project" row of a global server, Settings' counterpart of `/mcp`'s
@@ -1095,26 +1262,33 @@ export type McpInProjectView =
  */
 export function mcpInProjectView(
   server: McpServerInfo,
-  data: Pick<McpResponse, "project" | "servers" | "files">,
+  data: Pick<McpResponse, 'project' | 'servers' | 'files'>
 ): McpInProjectView | undefined {
-  if (server.scope !== "global" || server.invalidError !== undefined || server.notAnObject) return undefined;
+  if (server.scope !== 'global' || server.invalidError !== undefined || server.notAnObject)
+    return undefined;
   if (!mcpProjectServersLoad(data.project)) return undefined;
-  const file = data.files.find((item) => item.scope === "project");
-  if (!file || file.problems.some((problem) => problem.reason !== "auto-enable-codemode-invalid")) return undefined;
-  const entry = data.servers.find((item) => item.scope === "project" && item.name === server.name);
-  if (!entry) return { kind: "switch" };
+  const file = data.files.find((item) => item.scope === 'project');
+  if (!file || file.problems.some((problem) => problem.reason !== 'auto-enable-codemode-invalid'))
+    return undefined;
+  const entry = data.servers.find((item) => item.scope === 'project' && item.name === server.name);
+  if (!entry) return { kind: 'switch' };
   if (!entry.override) return undefined;
-  return { kind: "override", key: mcpServerKey(entry), keys: entry.override.keys, applies: server.overriddenByProject === true };
+  return {
+    kind: 'override',
+    key: mcpServerKey(entry),
+    keys: entry.override.keys,
+    applies: server.overriddenByProject === true
+  };
 }
 
 /** The sentence a notice adds when what it reports also keeps the panel from changing servers. */
 export const MCP_READ_ONLY_KEYS: Record<McpWriteBlock, string> = {
-  "mcp-off": "mcp.readOnly.mcp-off",
-  "project-untrusted": "mcp.readOnly.project-untrusted",
-  "trust-unreadable": "mcp.readOnly.trust-unreadable",
+  'mcp-off': 'mcp.readOnly.mcp-off',
+  'project-untrusted': 'mcp.readOnly.project-untrusted',
+  'trust-unreadable': 'mcp.readOnly.trust-unreadable'
 };
 
-type McpSwitchable = Pick<McpServerInfo, "enabled" | "webPasswordField" | "notAnObject">;
+type McpSwitchable = Pick<McpServerInfo, 'enabled' | 'webPasswordField' | 'notAnObject'>;
 
 /** Whether a switch can change the entry at all: one that is not an object has no `enabled` to write. */
 function mcpServerSwitchable(server: McpSwitchable): boolean {
@@ -1133,11 +1307,18 @@ function mcpServerCanTurnOn(server: McpSwitchable): boolean {
  * is never sent (nothing in it can be switched); `keptOff` counts the
  * PI_WEB_PASSWORD ones, for the note under the heading.
  */
-export function mcpGroupSwitchTargets<T extends McpSwitchable>(servers: readonly T[], enabled: boolean): { targets: T[]; keptOff: number } {
+export function mcpGroupSwitchTargets<T extends McpSwitchable>(
+  servers: readonly T[],
+  enabled: boolean
+): { targets: T[]; keptOff: number } {
   const sendable = enabled ? mcpServerCanTurnOn : mcpServerSwitchable;
   return {
     targets: itemsToSwitch(servers, enabled, (server) => server.enabled).filter(sendable),
-    keptOff: enabled ? servers.filter((server) => !server.enabled && mcpServerSwitchable(server) && !mcpServerCanTurnOn(server)).length : 0,
+    keptOff: enabled
+      ? servers.filter(
+          (server) => !server.enabled && mcpServerSwitchable(server) && !mcpServerCanTurnOn(server)
+        ).length
+      : 0
   };
 }
 
@@ -1151,19 +1332,26 @@ export function mcpGroupSwitchTargets<T extends McpSwitchable>(servers: readonly
  * the group could never be switched off from its heading.
  */
 export function mcpGroupSwitchChecked(servers: readonly McpSwitchable[]): boolean {
-  return servers.some((server) => server.enabled && mcpServerSwitchable(server))
-    && servers.every((server) => server.enabled || !mcpServerCanTurnOn(server));
+  return (
+    servers.some((server) => server.enabled && mcpServerSwitchable(server)) &&
+    servers.every((server) => server.enabled || !mcpServerCanTurnOn(server))
+  );
 }
 
 /** What the panel asks `POST /api/mcp` to do. */
 export type McpActionRequest =
-  | { action: "enable" | "disable" | "remove" | "sign-out"; scope: McpScope; name: string }
-  | { action: "set-exposure"; scope: McpScope; name: string; exposure: NonNullable<McpServerInfo["exposure"]> }
-  | { action: "set-in-project"; name: string; enabled: boolean }
-  | { action: "set-enabled"; enabled: boolean; servers: McpServerRef[] }
-  | { action: "undo"; token: string }
+  | { action: 'enable' | 'disable' | 'remove' | 'sign-out'; scope: McpScope; name: string }
   | {
-      action: "add";
+      action: 'set-exposure';
+      scope: McpScope;
+      name: string;
+      exposure: NonNullable<McpServerInfo['exposure']>;
+    }
+  | { action: 'set-in-project'; name: string; enabled: boolean }
+  | { action: 'set-enabled'; enabled: boolean; servers: McpServerRef[] }
+  | { action: 'undo'; token: string }
+  | {
+      action: 'add';
       text: string;
       values: Record<string, McpImportFieldValue>;
       secretReferences?: Record<string, string>;
@@ -1189,20 +1377,25 @@ export interface McpActionFailure extends McpLoadFailure {
   trustKept?: boolean;
 }
 
-export type McpActionResult = { ok: true; data: McpActionResponse } | { ok: false; error: McpActionFailure };
+export type McpActionResult =
+  { ok: true; data: McpActionResponse } | { ok: false; error: McpActionFailure };
 
 /** How long a change may take; the panel's controls wait meanwhile, as the Code mode switch does. */
 export const MCP_ACTION_TIMEOUT_MS = 15_000;
 
-async function requestMcpAction(body: Record<string, unknown>, fetchImpl: FetchLike, signal: AbortSignal): Promise<McpActionResult> {
+async function requestMcpAction(
+  body: Record<string, unknown>,
+  fetchImpl: FetchLike,
+  signal: AbortSignal
+): Promise<McpActionResult> {
   let response: Awaited<ReturnType<FetchLike>>;
   try {
-    response = await fetchImpl("/api/mcp", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+    response = await fetchImpl('/api/mcp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
-      cache: "no-store",
-      signal,
+      cache: 'no-store',
+      signal
     });
   } catch (error) {
     return { ok: false, error: { error: error instanceof Error ? error.message : String(error) } };
@@ -1229,14 +1422,17 @@ export async function postMcpAction(
   cwd: string | null,
   fetchImpl: FetchLike = (input, init) => fetch(input, init),
   signal?: AbortSignal,
-  timeoutMs: number = MCP_ACTION_TIMEOUT_MS,
+  timeoutMs: number = MCP_ACTION_TIMEOUT_MS
 ): Promise<McpActionResult> {
   const body: Record<string, unknown> = { ...request, ...(cwd ? { cwd } : {}) };
   return withinDeadline<McpActionResult>(
     (deadlineSignal) => requestMcpAction(body, fetchImpl, deadlineSignal),
-    () => ({ ok: false, error: { error: `POST /api/mcp did not answer within ${timeoutMs} ms`, timedOut: true } }),
+    () => ({
+      ok: false,
+      error: { error: `POST /api/mcp did not answer within ${timeoutMs} ms`, timedOut: true }
+    }),
     timeoutMs,
-    signal,
+    signal
   );
 }
 
@@ -1252,24 +1448,24 @@ export async function postMcpAction(
  * that cannot be read, an entry pi refuses, and one that references
  * PI_WEB_PASSWORD. A switched-off entry can be tested before it is turned on.
  */
-export type McpTestBlock = McpWriteBlock | "invalid" | "web-password";
+export type McpTestBlock = McpWriteBlock | 'invalid' | 'web-password';
 
 export const MCP_TEST_BLOCK_KEYS: Record<McpTestBlock, string> = {
-  "mcp-off": "mcp.test.blocked.mcp-off",
-  "project-untrusted": "mcp.test.blocked.project-untrusted",
-  "trust-unreadable": "mcp.test.blocked.trust-unreadable",
-  invalid: "mcp.test.blocked.invalid",
-  "web-password": "mcp.test.blocked.web-password",
+  'mcp-off': 'mcp.test.blocked.mcp-off',
+  'project-untrusted': 'mcp.test.blocked.project-untrusted',
+  'trust-unreadable': 'mcp.test.blocked.trust-unreadable',
+  invalid: 'mcp.test.blocked.invalid',
+  'web-password': 'mcp.test.blocked.web-password'
 };
 
 export function mcpTestBlock(
-  server: Pick<McpServerInfo, "scope" | "invalidError" | "validated" | "webPasswordField">,
-  data: Pick<McpResponse, "mcp" | "project">,
+  server: Pick<McpServerInfo, 'scope' | 'invalidError' | 'validated' | 'webPasswordField'>,
+  data: Pick<McpResponse, 'mcp' | 'project'>
 ): McpTestBlock | undefined {
   const block = mcpWriteBlock(server.scope, data);
   if (block) return block;
-  if (server.invalidError !== undefined || !server.validated) return "invalid";
-  if (server.webPasswordField) return "web-password";
+  if (server.invalidError !== undefined || !server.validated) return 'invalid';
+  if (server.webPasswordField) return 'web-password';
   return undefined;
 }
 
@@ -1281,56 +1477,63 @@ export function mcpTestBlock(
  * for both, and `internal` shows the route's diagnostic.
  */
 export const MCP_TEST_REFUSAL_KEYS: Partial<Record<McpRefusalReason, string>> = {
-  "mcp-off": "mcp.test.blocked.mcp-off",
-  "project-untrusted": "mcp.test.blocked.project-untrusted",
-  "trust-unreadable": "mcp.test.blocked.trust-unreadable",
-  "server-invalid": "mcp.test.blocked.invalid",
-  "web-password": "mcp.test.blocked.web-password",
-  "entry-not-object": "mcp.test.refused.entry-not-object",
-  "invalid-request": "mcp.test.refused.invalid-request",
-  unparsable: "mcp.test.refused.unparsable",
-  "invalid-shape": "mcp.test.refused.invalid-shape",
-  "link-dangling": "mcp.test.refused.link-dangling",
-  "link-outside": "mcp.test.refused.link-outside",
-  "not-a-file": "mcp.test.refused.not-a-file",
-  "too-large": "mcp.test.refused.too-large",
-  "too-many-servers": "mcp.test.refused.too-many-servers",
+  'mcp-off': 'mcp.test.blocked.mcp-off',
+  'project-untrusted': 'mcp.test.blocked.project-untrusted',
+  'trust-unreadable': 'mcp.test.blocked.trust-unreadable',
+  'server-invalid': 'mcp.test.blocked.invalid',
+  'web-password': 'mcp.test.blocked.web-password',
+  'entry-not-object': 'mcp.test.refused.entry-not-object',
+  'invalid-request': 'mcp.test.refused.invalid-request',
+  unparsable: 'mcp.test.refused.unparsable',
+  'invalid-shape': 'mcp.test.refused.invalid-shape',
+  'link-dangling': 'mcp.test.refused.link-dangling',
+  'link-outside': 'mcp.test.refused.link-outside',
+  'not-a-file': 'mcp.test.refused.not-a-file',
+  'too-large': 'mcp.test.refused.too-large',
+  'too-many-servers': 'mcp.test.refused.too-many-servers'
 };
 
 /** What a test does, by how the server is reached; a server that runs a shell command adds `MCP_TEST_SERIAL_KEY`. */
-export const MCP_TEST_SERIAL_KEY = "mcp.test.serial";
+export const MCP_TEST_SERIAL_KEY = 'mcp.test.serial';
 
 /** The state line of a test result: its label and tone; a deadline that passed reads as no answer. */
-export function mcpTestStateView(result: Pick<McpTestResult, "state" | "timedOut">): { key: string; tone: McpStateTone } {
-  if (result.timedOut) return { key: MCP_TEST_STATE_KEYS.timedOut, tone: "error" };
+export function mcpTestStateView(result: Pick<McpTestResult, 'state' | 'timedOut'>): {
+  key: string;
+  tone: McpStateTone;
+} {
+  if (result.timedOut) return { key: MCP_TEST_STATE_KEYS.timedOut, tone: 'error' };
   return { key: MCP_TEST_STATE_KEYS[result.state], tone: mcpRowStateTone(result.state) };
 }
 
-export const MCP_TEST_STATE_KEYS: Record<McpTestResult["state"] | "timedOut", string> = {
-  connected: "mcp.test.state.connected",
-  "needs-auth": "mcp.test.state.needs-auth",
-  failed: "mcp.test.state.failed",
-  timedOut: "mcp.test.state.timedOut",
+export const MCP_TEST_STATE_KEYS: Record<McpTestResult['state'] | 'timedOut', string> = {
+  connected: 'mcp.test.state.connected',
+  'needs-auth': 'mcp.test.state.needs-auth',
+  failed: 'mcp.test.state.failed',
+  timedOut: 'mcp.test.state.timedOut'
 };
 
 /** The sentence after the state: what was listed, or why nothing was, with when and how long. */
-export const MCP_TEST_SUMMARY_KEYS: Record<McpTestResult["state"] | "timedOut", string> = {
-  connected: "mcp.test.summary.connected",
-  "needs-auth": "mcp.test.summary.needs-auth",
-  failed: "mcp.test.summary.failed",
-  timedOut: "mcp.test.summary.timedOut",
+export const MCP_TEST_SUMMARY_KEYS: Record<McpTestResult['state'] | 'timedOut', string> = {
+  connected: 'mcp.test.summary.connected',
+  'needs-auth': 'mcp.test.summary.needs-auth',
+  failed: 'mcp.test.summary.failed',
+  timedOut: 'mcp.test.summary.timedOut'
 };
 
 /** The same for the connection a sign-in made right after storing new tokens (`afterSignIn`), which no Test made. */
-export const MCP_SIGN_IN_SUMMARY_KEYS: Record<McpTestResult["state"] | "timedOut", string> = {
-  connected: "mcp.signIn.summary.connected",
-  "needs-auth": "mcp.signIn.summary.needs-auth",
-  failed: "mcp.signIn.summary.failed",
-  timedOut: "mcp.signIn.summary.timedOut",
+export const MCP_SIGN_IN_SUMMARY_KEYS: Record<McpTestResult['state'] | 'timedOut', string> = {
+  connected: 'mcp.signIn.summary.connected',
+  'needs-auth': 'mcp.signIn.summary.needs-auth',
+  failed: 'mcp.signIn.summary.failed',
+  timedOut: 'mcp.signIn.summary.timedOut'
 };
 
-export function mcpTestSummaryKey(result: Pick<McpTestResult, "state" | "timedOut" | "afterSignIn">): string {
-  return (result.afterSignIn ? MCP_SIGN_IN_SUMMARY_KEYS : MCP_TEST_SUMMARY_KEYS)[result.timedOut ? "timedOut" : result.state];
+export function mcpTestSummaryKey(
+  result: Pick<McpTestResult, 'state' | 'timedOut' | 'afterSignIn'>
+): string {
+  return (result.afterSignIn ? MCP_SIGN_IN_SUMMARY_KEYS : MCP_TEST_SUMMARY_KEYS)[
+    result.timedOut ? 'timedOut' : result.state
+  ];
 }
 
 /** Milliseconds as seconds with one decimal, for `{seconds}`. */
@@ -1368,19 +1571,37 @@ export interface McpTestRun {
  * beside a note); a failed request keeps the last answer and says why.
  * `pressedConfigKey` is the entry the panel listed when Test was pressed.
  */
-export function mcpTestRunAfter(previous: McpTestRun | undefined, result: McpTestRequestResult, pressedConfigKey?: string): McpTestRun {
+export function mcpTestRunAfter(
+  previous: McpTestRun | undefined,
+  result: McpTestRequestResult,
+  pressedConfigKey?: string
+): McpTestRun {
   const signedOutAt = previous?.signedOutAt;
   const marks = {
     ...(previous?.startedAt !== undefined ? { startedAt: previous.startedAt } : {}),
-    ...(signedOutAt !== undefined ? { signedOutAt } : {}),
+    ...(signedOutAt !== undefined ? { signedOutAt } : {})
   };
   // Sent before a Sign out that worked: whatever it found was found with the tokens it removed.
-  if (signedOutAt !== undefined && (previous?.startedAt ?? 0) <= signedOutAt) return { running: false, ...marks };
+  if (signedOutAt !== undefined && (previous?.startedAt ?? 0) <= signedOutAt)
+    return { running: false, ...marks };
   const kept = previous?.response ? { response: previous.response } : {};
   if (!result.ok) {
-    return { running: false, ...marks, ...kept, error: result.error, ...(pressedConfigKey !== undefined ? { configKey: pressedConfigKey } : {}) };
+    return {
+      running: false,
+      ...marks,
+      ...kept,
+      error: result.error,
+      ...(pressedConfigKey !== undefined ? { configKey: pressedConfigKey } : {})
+    };
   }
-  if (result.data.result.queueTimedOut) return { running: false, ...marks, ...kept, queueTimedOut: true, configKey: result.data.configKey };
+  if (result.data.result.queueTimedOut)
+    return {
+      running: false,
+      ...marks,
+      ...kept,
+      queueTimedOut: true,
+      configKey: result.data.configKey
+    };
   return { running: false, ...marks, response: result.data };
 }
 
@@ -1391,17 +1612,23 @@ export function mcpTestRunAfter(previous: McpTestRun | undefined, result: McpTes
  * still running stays running, and its answer is dropped when it comes
  * (`signedOutAt`). No run, nothing to change.
  */
-export function mcpTestRunAfterSignOut(previous: McpTestRun | undefined, now: number): McpTestRun | undefined {
+export function mcpTestRunAfterSignOut(
+  previous: McpTestRun | undefined,
+  now: number
+): McpTestRun | undefined {
   if (!previous) return undefined;
   return {
     running: previous.running,
     ...(previous.startedAt !== undefined ? { startedAt: previous.startedAt } : {}),
-    signedOutAt: now,
+    signedOutAt: now
   };
 }
 
 /** A server's run as its pane shows it: a failure or a queue timeout about another version of the entry is left out. */
-export function mcpTestRunFor(run: McpTestRun | undefined, server: Pick<McpServerInfo, "configKey">): McpTestRun | undefined {
+export function mcpTestRunFor(
+  run: McpTestRun | undefined,
+  server: Pick<McpServerInfo, 'configKey'>
+): McpTestRun | undefined {
   if (!run || run.configKey === undefined || run.configKey === server.configKey) return run;
   return { running: run.running, ...(run.response ? { response: run.response } : {}) };
 }
@@ -1417,7 +1644,7 @@ export function mcpTestRunFor(run: McpTestRun | undefined, server: Pick<McpServe
  */
 export function mcpTestAnswerOutdates(
   result: McpTestRequestResult,
-  listed: Pick<McpServerInfo, "configKey"> | undefined,
+  listed: Pick<McpServerInfo, 'configKey'> | undefined
 ): boolean {
   if (!result.ok) return result.error.reason !== undefined && !result.error.timedOut;
   return listed?.configKey !== result.data.configKey;
@@ -1430,14 +1657,17 @@ export function mcpTestAnswerOutdates(
  * started before the test finished then cannot hide its result, and a result
  * for an entry edited since is not shown for the edited one.
  */
-export function mcpWithTestResults(data: McpResponse, runs: Readonly<Record<string, McpTestRun>>): McpResponse {
+export function mcpWithTestResults(
+  data: McpResponse,
+  runs: Readonly<Record<string, McpTestRun>>
+): McpResponse {
   let changed = false;
   const servers = data.servers.map((server) => {
     const response = runs[mcpServerKey(server)]?.response;
     if (!response || response.configKey !== server.configKey) return server;
     if (server.status && mcpStatusTime(server.status) >= response.result.testedAt) return server;
     changed = true;
-    const status: McpServerStatus = { ...response.result, origin: "test" };
+    const status: McpServerStatus = { ...response.result, origin: 'test' };
     return { ...server, status };
   });
   return changed ? { ...data, servers } : data;
@@ -1455,26 +1685,38 @@ export function mcpWithTestResults(data: McpResponse, runs: Readonly<Record<stri
  */
 export const MCP_TEST_TIMEOUT_MS = 60_000;
 
-export type McpTestRequestResult = { ok: true; data: McpTestResponse } | { ok: false; error: McpActionFailure };
+export type McpTestRequestResult =
+  { ok: true; data: McpTestResponse } | { ok: false; error: McpActionFailure };
 
 function isMcpTestResponse(value: unknown): value is McpTestResponse {
-  if (value === null || typeof value !== "object") return false;
+  if (value === null || typeof value !== 'object') return false;
   const data = value as Partial<McpTestResponse>;
   const result = data.result as Partial<McpTestResult> | undefined;
-  return typeof data.configKey === "string" && typeof data.name === "string" && (data.scope === "global" || data.scope === "project")
-    && typeof result === "object" && result !== null && typeof result.state === "string" && Array.isArray(result.tools)
-    && typeof result.testedAt === "number";
+  return (
+    typeof data.configKey === 'string' &&
+    typeof data.name === 'string' &&
+    (data.scope === 'global' || data.scope === 'project') &&
+    typeof result === 'object' &&
+    result !== null &&
+    typeof result.state === 'string' &&
+    Array.isArray(result.tools) &&
+    typeof result.testedAt === 'number'
+  );
 }
 
-async function requestMcpTest(body: Record<string, unknown>, fetchImpl: FetchLike, signal: AbortSignal): Promise<McpTestRequestResult> {
+async function requestMcpTest(
+  body: Record<string, unknown>,
+  fetchImpl: FetchLike,
+  signal: AbortSignal
+): Promise<McpTestRequestResult> {
   let response: Awaited<ReturnType<FetchLike>>;
   try {
-    response = await fetchImpl("/api/mcp/test", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+    response = await fetchImpl('/api/mcp/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
-      cache: "no-store",
-      signal,
+      cache: 'no-store',
+      signal
     });
   } catch (error) {
     return { ok: false, error: { error: error instanceof Error ? error.message : String(error) } };
@@ -1502,14 +1744,21 @@ export async function postMcpTest(
   cwd: string | null,
   fetchImpl: FetchLike = (input, init) => fetch(input, init),
   signal?: AbortSignal,
-  timeoutMs: number = MCP_TEST_TIMEOUT_MS,
+  timeoutMs: number = MCP_TEST_TIMEOUT_MS
 ): Promise<McpTestRequestResult> {
-  const body: Record<string, unknown> = { scope: server.scope, name: server.name, ...(cwd ? { cwd } : {}) };
+  const body: Record<string, unknown> = {
+    scope: server.scope,
+    name: server.name,
+    ...(cwd ? { cwd } : {})
+  };
   return withinDeadline<McpTestRequestResult>(
     (deadlineSignal) => requestMcpTest(body, fetchImpl, deadlineSignal),
-    () => ({ ok: false, error: { error: `POST /api/mcp/test did not answer within ${timeoutMs} ms`, timedOut: true } }),
+    () => ({
+      ok: false,
+      error: { error: `POST /api/mcp/test did not answer within ${timeoutMs} ms`, timedOut: true }
+    }),
     timeoutMs,
     signal,
-    { abortAtDeadline: false },
+    { abortAtDeadline: false }
   );
 }

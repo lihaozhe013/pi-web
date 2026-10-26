@@ -16,9 +16,9 @@
 // bare `/mcp` (ADR 0006). This module has no imports, so the browser can load it.
 
 /** The `sourceInfo.path` of everything pi's built-in MCP extension registers. */
-export const MCP_EXTENSION_PATH = "builtin:mcp";
+export const MCP_EXTENSION_PATH = 'builtin:mcp';
 
-export const MCP_COMMAND_NAME = "mcp";
+export const MCP_COMMAND_NAME = 'mcp';
 
 /** The fields of a command entry (`pi.getCommands()`, `get_commands`) this module reads. */
 export interface McpCommandCandidate {
@@ -41,7 +41,7 @@ export function isBuiltinMcpCommand(command: McpCommandCandidate): boolean {
  * as `skill:<name>` and never match.
  */
 export function isMcpExtensionCommand(command: McpCommandCandidate): boolean {
-  if (command.source === "prompt") return false;
+  if (command.source === 'prompt') return false;
   return command.name === MCP_COMMAND_NAME || /^mcp:\d+$/.test(command.name);
 }
 
@@ -58,13 +58,16 @@ export function isMcpExtensionCommand(command: McpCommandCandidate): boolean {
  * up to the first space. A prompt template or a skill (`/skill:name`) is no
  * extension command and starts a run.
  */
-export function mcpPromptPreparation(message: string, commands: readonly McpCommandCandidate[]): "wait" | "register" | "none" {
-  if (!message.startsWith("/")) return "wait";
-  const space = message.indexOf(" ");
+export function mcpPromptPreparation(
+  message: string,
+  commands: readonly McpCommandCandidate[]
+): 'wait' | 'register' | 'none' {
+  if (!message.startsWith('/')) return 'wait';
+  const space = message.indexOf(' ');
   const name = space === -1 ? message.slice(1) : message.slice(1, space);
   const command = commands.find((candidate) => candidate.name === name);
-  if (!command) return "wait";
-  return isBuiltinMcpCommand(command) ? "register" : "none";
+  if (!command) return 'wait';
+  return isBuiltinMcpCommand(command) ? 'register' : 'none';
 }
 
 /** Whether a composer message is `/mcp` alone, with no subcommand. */

@@ -1,7 +1,7 @@
-import { readFileSync, realpathSync, statSync } from "fs";
-import { relative, resolve } from "path";
-import { isPathWithinRoots } from "./path-security";
-import { toSlashPath } from "./paths";
+import { readFileSync, realpathSync, statSync } from 'fs';
+import { relative, resolve } from 'path';
+import { isPathWithinRoots } from './path-security';
+import { toSlashPath } from './paths';
 
 export const MAX_SUBAGENT_INPUT_FILES = 8;
 export const MAX_SUBAGENT_INPUT_BYTES = 512 * 1024;
@@ -29,12 +29,14 @@ export interface SubagentInputLimits {
  * text. A model whose window is unknown (0) keeps the flat limit.
  */
 export function subagentInputLimits(
-  model: { provider: string; id: string; contextWindow?: number } | undefined,
+  model: { provider: string; id: string; contextWindow?: number } | undefined
 ): SubagentInputLimits {
   const contextWindow = model?.contextWindow;
   if (!model || !contextWindow || contextWindow < 0) return {};
   const maxBytes = Math.floor((contextWindow * CHARS_PER_TOKEN) / CONTEXT_WINDOW_SHARE);
-  return maxBytes < MAX_SUBAGENT_INPUT_BYTES ? { maxBytes, model: `${model.provider}/${model.id}` } : {};
+  return maxBytes < MAX_SUBAGENT_INPUT_BYTES
+    ? { maxBytes, model: `${model.provider}/${model.id}` }
+    : {};
 }
 
 function formatInputLimit(bytes: number): string {
@@ -44,7 +46,7 @@ function formatInputLimit(bytes: number): string {
 export function loadSubagentInputFiles(
   cwd: string,
   requestedPaths: readonly string[],
-  limits: SubagentInputLimits = {},
+  limits: SubagentInputLimits = {}
 ): SubagentInputFile[] {
   const maxBytes = limits.maxBytes ?? MAX_SUBAGENT_INPUT_BYTES;
   if (requestedPaths.length > MAX_SUBAGENT_INPUT_FILES) {
@@ -53,13 +55,13 @@ export function loadSubagentInputFiles(
 
   const realCwd = realpathSync(cwd);
   const allowedRoots = new Set([realCwd]);
-  const decoder = new TextDecoder("utf-8", { fatal: true });
+  const decoder = new TextDecoder('utf-8', { fatal: true });
   const seen = new Set<string>();
   const files: SubagentInputFile[] = [];
   let totalBytes = 0;
 
   for (const requestedPath of requestedPaths) {
-    if (!requestedPath.trim()) throw new Error("Agent input_files paths must not be empty");
+    if (!requestedPath.trim()) throw new Error('Agent input_files paths must not be empty');
 
     let filePath: string;
     try {
@@ -79,10 +81,10 @@ export function loadSubagentInputFiles(
     const buffer = readFileSync(filePath);
     totalBytes += buffer.byteLength;
     if (totalBytes > maxBytes) {
-      const scope = limits.model ? ` for ${limits.model}, about a tenth of its context window` : "";
+      const scope = limits.model ? ` for ${limits.model}, about a tenth of its context window` : '';
       throw new Error(
-        `Agent input_files exceeds the ${formatInputLimit(maxBytes)} total limit${scope}. `
-        + "Pass fewer or smaller files, or name the paths in prompt if the subagent can read them.",
+        `Agent input_files exceeds the ${formatInputLimit(maxBytes)} total limit${scope}. ` +
+          'Pass fewer or smaller files, or name the paths in prompt if the subagent can read them.'
       );
     }
 
@@ -94,17 +96,20 @@ export function loadSubagentInputFiles(
     }
     files.push({
       path: toSlashPath(relative(realCwd, filePath)),
-      content,
+      content
     });
   }
 
   return files;
 }
 
-export function appendSubagentInputFiles(task: string, files: readonly SubagentInputFile[]): string {
+export function appendSubagentInputFiles(
+  task: string,
+  files: readonly SubagentInputFile[]
+): string {
   if (files.length === 0) return task;
-  const documents = files.map((file) =>
-    `<document path=${JSON.stringify(file.path)}>\n${file.content}\n</document>`
-  ).join("\n\n");
+  const documents = files
+    .map((file) => `<document path=${JSON.stringify(file.path)}>\n${file.content}\n</document>`)
+    .join('\n\n');
   return `${task}\n\n<documents>\n${documents}\n</documents>`;
 }

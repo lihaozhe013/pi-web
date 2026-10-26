@@ -1,9 +1,18 @@
-import { randomUUID } from "node:crypto";
-import { chmodSync, lstatSync, mkdirSync, readlinkSync, realpathSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
-import type { McpExposure } from "@earendil-works/pi-coding-agent";
-import lockfile from "proper-lockfile";
-import { serializeByKey } from "./key-serializer";
+import { randomUUID } from 'node:crypto';
+import {
+  chmodSync,
+  lstatSync,
+  mkdirSync,
+  readlinkSync,
+  realpathSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync
+} from 'node:fs';
+import { basename, dirname, join, resolve } from 'node:path';
+import type { McpExposure } from '@earendil-works/pi-coding-agent';
+import lockfile from 'proper-lockfile';
+import { serializeByKey } from './key-serializer';
 import {
   globalMcpConfigPath,
   isMcpOverrideEntry,
@@ -11,8 +20,8 @@ import {
   locateProjectMcpConfig,
   PROJECT_MCP_CONFIG_MAX_BYTES,
   projectMcpConfigCreatePath,
-  readResolvedConfigFile,
-} from "./mcp-config-read";
+  readResolvedConfigFile
+} from './mcp-config-read';
 
 // Pi Web's `mcp.json` writer (ADR 0006, "Writes"). The SDK's editors
 // (`dist/extensions/mcp/config.js` add/update/removeMcpServerConfig, which the
@@ -34,8 +43,8 @@ import {
 
 /** Which file to write: the global `mcp.json`, or a project's `.pi/mcp.json` under the link rule. */
 export type McpConfigFileTarget =
-  | { scope: "global"; agentDir: string }
-  | { scope: "project"; cwd: string; allowedRoots: Set<string> };
+  | { scope: 'global'; agentDir: string }
+  | { scope: 'project'; cwd: string; allowedRoots: Set<string> };
 
 /** The SDK's server patch: `enabled: true` and `exposure: "codemode"` remove their key, except in a project override. */
 export interface McpServerConfigPatch {
@@ -45,26 +54,26 @@ export interface McpServerConfigPatch {
 
 export type McpConfigWriteReason =
   /** The file is not JSON; it was left as it is. */
-  | "unparsable"
+  | 'unparsable'
   /** Not an object with an `mcpServers` object; left as it is. */
-  | "invalid-shape"
+  | 'invalid-shape'
   /** The file does not define the server (anymore). */
-  | "server-missing"
+  | 'server-missing'
   /** The file already defines a server of that name. */
-  | "name-taken"
+  | 'name-taken'
   /** A project file that is a symbolic link to nothing. */
-  | "link-dangling"
+  | 'link-dangling'
   /** A project file whose real path is outside the folders Pi Web may read. */
-  | "link-outside"
+  | 'link-outside'
   /** Not a regular file. */
-  | "not-a-file"
+  | 'not-a-file'
   /** A project file larger than 1 MiB. */
-  | "too-large"
+  | 'too-large'
   /** Another process held the lock for longer than the writer waits. */
-  | "locked"
-  | "unreadable";
+  | 'locked'
+  | 'unreadable';
 
-const WRITE_ERROR_BRAND: unique symbol = Symbol.for("pi-web:mcp-config-write-error");
+const WRITE_ERROR_BRAND: unique symbol = Symbol.for('pi-web:mcp-config-write-error');
 
 /** A refused write: nothing was written. `path` is the configured path, as the panel shows it. */
 export class McpConfigWriteError extends Error {
@@ -75,7 +84,7 @@ export class McpConfigWriteError extends Error {
 
   constructor(reason: McpConfigWriteReason, path: string, message: string, serverName?: string) {
     super(message);
-    this.name = "McpConfigWriteError";
+    this.name = 'McpConfigWriteError';
     this.reason = reason;
     this.path = path;
     if (serverName !== undefined) this.serverName = serverName;
@@ -84,11 +93,15 @@ export class McpConfigWriteError extends Error {
 
 /** Tells a refused write by its brand, so a second copy of this module (hot reload, a test loader) still counts. */
 export function isMcpConfigWriteError(error: unknown): error is McpConfigWriteError {
-  return typeof error === "object" && error !== null && (error as Record<symbol, unknown>)[WRITE_ERROR_BRAND] === true;
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as Record<symbol, unknown>)[WRITE_ERROR_BRAND] === true
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function errorMessage(error: unknown): string {
@@ -108,13 +121,21 @@ function errorCode(error: unknown): string | undefined {
  * named `__proto__` (or `constructor`) is never read off Object.prototype and
  * a patch can never write to it.
  */
-export function ownServerEntry(servers: Record<string, unknown> | undefined, name: string): unknown {
+export function ownServerEntry(
+  servers: Record<string, unknown> | undefined,
+  name: string
+): unknown {
   return servers !== undefined && Object.hasOwn(servers, name) ? servers[name] : undefined;
 }
 
 /** Sets an own enumerable property, as JSON.parse does, so `__proto__` is a key like any other. */
 function defineEntry(target: Record<string, unknown>, key: string, value: unknown): void {
-  Object.defineProperty(target, key, { value, enumerable: true, writable: true, configurable: true });
+  Object.defineProperty(target, key, {
+    value,
+    enumerable: true,
+    writable: true,
+    configurable: true
+  });
 }
 
 /**
@@ -125,28 +146,31 @@ function defineEntry(target: Record<string, unknown>, key: string, value: unknow
  * Returns whether the entry changed; one that already says what the patch
  * says is left alone, so its file is not rewritten.
  */
-export function patchMcpServerEntry(entry: Record<string, unknown>, patch: McpServerConfigPatch): boolean {
+export function patchMcpServerEntry(
+  entry: Record<string, unknown>,
+  patch: McpServerConfigPatch
+): boolean {
   const keepDefaults = isMcpOverrideEntry(entry);
   let changed = false;
   if (patch.enabled !== undefined) {
     if (patch.enabled && !keepDefaults) {
-      if (Object.hasOwn(entry, "enabled")) {
+      if (Object.hasOwn(entry, 'enabled')) {
         delete entry.enabled;
         changed = true;
       }
     } else if (entry.enabled !== patch.enabled) {
-      defineEntry(entry, "enabled", patch.enabled);
+      defineEntry(entry, 'enabled', patch.enabled);
       changed = true;
     }
   }
   if (patch.exposure !== undefined) {
-    if (patch.exposure === "codemode" && !keepDefaults) {
-      if (Object.hasOwn(entry, "exposure")) {
+    if (patch.exposure === 'codemode' && !keepDefaults) {
+      if (Object.hasOwn(entry, 'exposure')) {
         delete entry.exposure;
         changed = true;
       }
     } else if (entry.exposure !== patch.exposure) {
-      defineEntry(entry, "exposure", patch.exposure);
+      defineEntry(entry, 'exposure', patch.exposure);
       changed = true;
     }
   }
@@ -163,11 +187,20 @@ export function insertMcpServerEntry(
   document: Record<string, unknown>,
   name: string,
   entry: unknown,
-  index?: number,
+  index?: number
 ): void {
   const servers = isRecord(document.mcpServers) ? document.mcpServers : undefined;
   if (!servers) {
-    defineEntry(document, "mcpServers", Object.defineProperty({}, name, { value: entry, enumerable: true, writable: true, configurable: true }));
+    defineEntry(
+      document,
+      'mcpServers',
+      Object.defineProperty({}, name, {
+        value: entry,
+        enumerable: true,
+        writable: true,
+        configurable: true
+      })
+    );
     return;
   }
   const entries = Object.entries(servers);
@@ -181,8 +214,11 @@ export function insertMcpServerEntry(
 }
 
 /** The SDK's output for a document read from `originalText`: its first indentation, then a newline. */
-export function serializeMcpConfig(document: Record<string, unknown>, originalText: string | undefined): string {
-  const indent = (originalText && /^([ \t]+)\S/m.exec(originalText)?.[1]) || "  ";
+export function serializeMcpConfig(
+  document: Record<string, unknown>,
+  originalText: string | undefined
+): string {
+  const indent = (originalText && /^([ \t]+)\S/m.exec(originalText)?.[1]) || '  ';
   return `${JSON.stringify(document, null, indent)}\n`;
 }
 
@@ -192,15 +228,26 @@ export function serializeMcpConfig(document: Record<string, unknown>, originalTe
  * present. No byte-order mark is stripped, as the SDK strips none. A syntax
  * error never quotes the file (`jsonErrorMessage()`), which may hold secrets.
  */
-export function parseMcpConfigDocument(text: string | undefined, path: string): Record<string, unknown> {
+export function parseMcpConfigDocument(
+  text: string | undefined,
+  path: string
+): Record<string, unknown> {
   let parsed: unknown;
   try {
     parsed = text === undefined ? {} : JSON.parse(text);
   } catch (error) {
-    throw new McpConfigWriteError("unparsable", path, `${path}: ${jsonErrorMessage(error, text ?? "")}`);
+    throw new McpConfigWriteError(
+      'unparsable',
+      path,
+      `${path}: ${jsonErrorMessage(error, text ?? '')}`
+    );
   }
   if (!isRecord(parsed) || (parsed.mcpServers !== undefined && !isRecord(parsed.mcpServers))) {
-    throw new McpConfigWriteError("invalid-shape", path, `${path}: expected an object with an "mcpServers" object`);
+    throw new McpConfigWriteError(
+      'invalid-shape',
+      path,
+      `${path}: expected an object with an "mcpServers" object`
+    );
   }
   return parsed;
 }
@@ -235,7 +282,8 @@ function resolveGlobalTarget(agentDir: string): ResolvedTarget {
   try {
     return { ...target, realPath: realpathSync(path) };
   } catch (error) {
-    if (errorCode(error) !== "ENOENT") throw new McpConfigWriteError("unreadable", path, `${path}: ${errorMessage(error)}`);
+    if (errorCode(error) !== 'ENOENT')
+      throw new McpConfigWriteError('unreadable', path, `${path}: ${errorMessage(error)}`);
   }
   let current = resolve(path);
   for (let hop = 0; ; hop += 1) {
@@ -244,10 +292,12 @@ function resolveGlobalTarget(agentDir: string): ResolvedTarget {
       link = lstatSync(current).isSymbolicLink();
     } catch (error) {
       const code = errorCode(error);
-      if (code !== "ENOENT" && code !== "ENOTDIR") throw new McpConfigWriteError("unreadable", path, `${path}: ${errorMessage(error)}`);
+      if (code !== 'ENOENT' && code !== 'ENOTDIR')
+        throw new McpConfigWriteError('unreadable', path, `${path}: ${errorMessage(error)}`);
     }
     if (!link) break;
-    if (hop >= MAX_LINK_HOPS) throw new McpConfigWriteError("unreadable", path, `${path}: too many symbolic links`);
+    if (hop >= MAX_LINK_HOPS)
+      throw new McpConfigWriteError('unreadable', path, `${path}: too many symbolic links`);
     current = resolve(dirname(current), readlinkSync(current));
   }
   // `current` names a file that does not exist; its folder may hold links of its own.
@@ -271,19 +321,30 @@ function resolveProjectTarget(cwd: string, allowedRoots: Set<string>): ResolvedT
   const target = {
     path: location.path,
     maxBytes: PROJECT_MCP_CONFIG_MAX_BYTES,
-    mode: (existing: number | undefined) => existing ?? 0o644,
+    mode: (existing: number | undefined) => existing ?? 0o644
   };
-  if (location.kind === "refused") {
-    throw new McpConfigWriteError(location.reason, location.path, `${location.path}: ${location.error}`);
+  if (location.kind === 'refused') {
+    throw new McpConfigWriteError(
+      location.reason,
+      location.path,
+      `${location.path}: ${location.error}`
+    );
   }
-  if (location.kind === "found") return { ...target, realPath: location.realPath };
+  if (location.kind === 'found') return { ...target, realPath: location.realPath };
   const created = projectMcpConfigCreatePath(cwd, allowedRoots);
-  if (!created.ok) throw new McpConfigWriteError(created.reason, location.path, `${location.path}: ${created.error}`);
+  if (!created.ok)
+    throw new McpConfigWriteError(
+      created.reason,
+      location.path,
+      `${location.path}: ${created.error}`
+    );
   return { ...target, realPath: created.realPath };
 }
 
 function resolveTarget(target: McpConfigFileTarget): ResolvedTarget {
-  return target.scope === "global" ? resolveGlobalTarget(target.agentDir) : resolveProjectTarget(target.cwd, target.allowedRoots);
+  return target.scope === 'global'
+    ? resolveGlobalTarget(target.agentDir)
+    : resolveProjectTarget(target.cwd, target.allowedRoots);
 }
 
 // ---------------------------------------------------------------------------
@@ -291,7 +352,7 @@ function resolveTarget(target: McpConfigFileTarget): ResolvedTarget {
 // ---------------------------------------------------------------------------
 
 // Route handlers are bundled separately and hot reload re-evaluates modules; globalThis keeps one queue per process.
-const QUEUE_KEY: symbol = Symbol.for("pi-web:mcp-config-write-queue");
+const QUEUE_KEY: symbol = Symbol.for('pi-web:mcp-config-write-queue');
 
 /** Runs `task` after every earlier task for the same file has settled. */
 function serialize<T>(key: string, task: () => Promise<T>): Promise<T> {
@@ -311,7 +372,7 @@ const LOCK_OPTIONS = {
   retries: { retries: 10, factor: 2, minTimeout: 25, maxTimeout: 500 },
   onCompromised: (error: Error) => {
     console.warn(`[pi-web] an mcp.json lock was compromised: ${error.message}`);
-  },
+  }
 };
 
 /** The file is replaced, never written in place: a temporary file in its folder, then a rename over it. */
@@ -320,7 +381,7 @@ function writeAtomically(realPath: string, text: string, mode: number): void {
   try {
     // `wx` and 0600 while written: text that may hold literal secrets is never readable by
     // others, and nothing already at the temporary path is written through. chmod sets the final mode.
-    writeFileSync(temp, text, { encoding: "utf8", flag: "wx", mode: 0o600, flush: true });
+    writeFileSync(temp, text, { encoding: 'utf8', flag: 'wx', mode: 0o600, flush: true });
     chmodSync(temp, mode);
     renameSync(temp, realPath);
   } catch (error) {
@@ -359,7 +420,7 @@ export interface McpConfigEditOutcome<T> {
  */
 export function editMcpConfigFile<T>(
   target: McpConfigFileTarget,
-  edit: (file: McpConfigDocument) => { changed: boolean; value: T },
+  edit: (file: McpConfigDocument) => { changed: boolean; value: T }
 ): Promise<McpConfigEditOutcome<T>> {
   let resolved: ResolvedTarget;
   try {
@@ -368,13 +429,20 @@ export function editMcpConfigFile<T>(
     return Promise.reject(error);
   }
   return serialize(resolved.realPath, async () => {
-    mkdirSync(dirname(resolved.realPath), { recursive: true, ...(resolved.dirMode ? { mode: resolved.dirMode } : {}) });
+    mkdirSync(dirname(resolved.realPath), {
+      recursive: true,
+      ...(resolved.dirMode ? { mode: resolved.dirMode } : {})
+    });
     let release: () => Promise<void>;
     try {
       release = await lockfile.lock(resolved.realPath, LOCK_OPTIONS);
     } catch (error) {
-      if (errorCode(error) === "ELOCKED") {
-        throw new McpConfigWriteError("locked", resolved.path, `${resolved.path}: another process holds its lock`);
+      if (errorCode(error) === 'ELOCKED') {
+        throw new McpConfigWriteError(
+          'locked',
+          resolved.path,
+          `${resolved.path}: another process holds its lock`
+        );
       }
       throw error;
     }
@@ -385,13 +453,27 @@ export function editMcpConfigFile<T>(
       if (read.ok) {
         text = read.text;
         existingMode = read.mode;
-      } else if (read.code !== "ENOENT") {
-        throw new McpConfigWriteError(read.reason, resolved.path, `${resolved.path}: ${read.error}`);
+      } else if (read.code !== 'ENOENT') {
+        throw new McpConfigWriteError(
+          read.reason,
+          resolved.path,
+          `${resolved.path}: ${read.error}`
+        );
       }
       const document = parseMcpConfigDocument(text, resolved.path);
       const servers = isRecord(document.mcpServers) ? document.mcpServers : undefined;
-      const { changed, value } = edit({ document, servers, exists: text !== undefined, path: resolved.path });
-      if (changed) writeAtomically(resolved.realPath, serializeMcpConfig(document, text), resolved.mode(existingMode));
+      const { changed, value } = edit({
+        document,
+        servers,
+        exists: text !== undefined,
+        path: resolved.path
+      });
+      if (changed)
+        writeAtomically(
+          resolved.realPath,
+          serializeMcpConfig(document, text),
+          resolved.mode(existingMode)
+        );
       return { value, written: changed, path: resolved.path, realPath: resolved.realPath };
     } finally {
       await release();
@@ -404,13 +486,13 @@ export function editMcpConfigFile<T>(
 // ---------------------------------------------------------------------------
 
 export type McpEnabledOutcome<R extends string> =
-  | { name: string; outcome: "changed" | "unchanged" }
+  | { name: string; outcome: 'changed' | 'unchanged' }
   /** The file does not define it (anymore). */
-  | { name: string; outcome: "missing" }
+  | { name: string; outcome: 'missing' }
   /** The file defines it, but not as an object, so there is no `enabled` to write; it is left as it is. */
-  | { name: string; outcome: "not-an-object" }
+  | { name: string; outcome: 'not-an-object' }
   /** `refuse` said why it may not change. */
-  | { name: string; outcome: "refused"; reason: R };
+  | { name: string; outcome: 'refused'; reason: R };
 
 /**
  * Turns the named servers on or off with one write, as the SDK's
@@ -422,19 +504,19 @@ export async function setMcpServersEnabled<R extends string = never>(
   target: McpConfigFileTarget,
   names: readonly string[],
   enabled: boolean,
-  refuse?: (name: string, entry: Record<string, unknown>) => R | undefined,
+  refuse?: (name: string, entry: Record<string, unknown>) => R | undefined
 ): Promise<McpConfigEditOutcome<McpEnabledOutcome<R>[]>> {
   return editMcpConfigFile(target, ({ servers }) => {
     let changed = false;
     const outcomes = [...new Set(names)].map((name): McpEnabledOutcome<R> => {
-      if (!servers || !Object.hasOwn(servers, name)) return { name, outcome: "missing" };
+      if (!servers || !Object.hasOwn(servers, name)) return { name, outcome: 'missing' };
       const entry = servers[name];
-      if (!isRecord(entry)) return { name, outcome: "not-an-object" };
+      if (!isRecord(entry)) return { name, outcome: 'not-an-object' };
       const reason = refuse?.(name, entry);
-      if (reason !== undefined) return { name, outcome: "refused", reason };
+      if (reason !== undefined) return { name, outcome: 'refused', reason };
       const entryChanged = patchMcpServerEntry(entry, { enabled });
       changed ||= entryChanged;
-      return { name, outcome: entryChanged ? "changed" : "unchanged" };
+      return { name, outcome: entryChanged ? 'changed' : 'unchanged' };
     });
     return { changed, value: outcomes };
   });
@@ -449,14 +531,15 @@ export async function setMcpServersEnabled<R extends string = never>(
 export async function setMcpServerExposure(
   target: McpConfigFileTarget,
   name: string,
-  exposure: McpExposure,
+  exposure: McpExposure
 ): Promise<McpConfigEditOutcome<McpEnabledOutcome<never>>> {
   return editMcpConfigFile<McpEnabledOutcome<never>>(target, ({ servers }) => {
-    if (!servers || !Object.hasOwn(servers, name)) return { changed: false, value: { name, outcome: "missing" } };
+    if (!servers || !Object.hasOwn(servers, name))
+      return { changed: false, value: { name, outcome: 'missing' } };
     const entry = servers[name];
-    if (!isRecord(entry)) return { changed: false, value: { name, outcome: "not-an-object" } };
+    if (!isRecord(entry)) return { changed: false, value: { name, outcome: 'not-an-object' } };
     const changed = patchMcpServerEntry(entry, { exposure });
-    return { changed, value: { name, outcome: changed ? "changed" : "unchanged" } };
+    return { changed, value: { name, outcome: changed ? 'changed' : 'unchanged' } };
   });
 }
 
@@ -469,9 +552,9 @@ export async function setMcpServerExposure(
  * project's own server, which a switch of its own changes: `name-taken`.
  */
 export async function setMcpServerEnabledInProject(
-  target: Extract<McpConfigFileTarget, { scope: "project" }>,
+  target: Extract<McpConfigFileTarget, { scope: 'project' }>,
   name: string,
-  enabled: boolean,
+  enabled: boolean
 ): Promise<McpConfigEditOutcome<McpEnabledOutcome<never>>> {
   return editMcpConfigFile<McpEnabledOutcome<never>>(target, ({ document, servers, path }) => {
     const existing = ownServerEntry(servers, name);
@@ -479,14 +562,19 @@ export async function setMcpServerEnabledInProject(
       const entry: Record<string, unknown> = {};
       patchMcpServerEntry(entry, { enabled });
       insertMcpServerEntry(document, name, entry);
-      return { changed: true, value: { name, outcome: "changed" } };
+      return { changed: true, value: { name, outcome: 'changed' } };
     }
-    if (!isRecord(existing)) return { changed: false, value: { name, outcome: "not-an-object" } };
+    if (!isRecord(existing)) return { changed: false, value: { name, outcome: 'not-an-object' } };
     if (!isMcpOverrideEntry(existing)) {
-      throw new McpConfigWriteError("name-taken", path, `${path} already defines MCP server "${name}"`, name);
+      throw new McpConfigWriteError(
+        'name-taken',
+        path,
+        `${path} already defines MCP server "${name}"`,
+        name
+      );
     }
     const changed = patchMcpServerEntry(existing, { enabled });
-    return { changed, value: { name, outcome: changed ? "changed" : "unchanged" } };
+    return { changed, value: { name, outcome: changed ? 'changed' : 'unchanged' } };
   });
 }
 
@@ -499,10 +587,18 @@ export interface McpRemovedServer {
 }
 
 /** Removes a server, as the SDK's `removeMcpServerConfig()` does; one the file does not define is refused. */
-export async function removeMcpServer(target: McpConfigFileTarget, name: string): Promise<McpConfigEditOutcome<McpRemovedServer>> {
+export async function removeMcpServer(
+  target: McpConfigFileTarget,
+  name: string
+): Promise<McpConfigEditOutcome<McpRemovedServer>> {
   return editMcpConfigFile(target, ({ servers, path }) => {
     if (!servers || !Object.hasOwn(servers, name)) {
-      throw new McpConfigWriteError("server-missing", path, `${path} does not define MCP server "${name}"`, name);
+      throw new McpConfigWriteError(
+        'server-missing',
+        path,
+        `${path} does not define MCP server "${name}"`,
+        name
+      );
     }
     const index = Object.keys(servers).indexOf(name);
     const entry = servers[name];
@@ -521,11 +617,16 @@ export async function insertMcpServer(
   target: McpConfigFileTarget,
   name: string,
   entry: unknown,
-  index?: number,
+  index?: number
 ): Promise<McpConfigEditOutcome<void>> {
   return editMcpConfigFile(target, ({ document, servers, path }) => {
     if (ownServerEntry(servers, name) !== undefined) {
-      throw new McpConfigWriteError("name-taken", path, `${path} already defines MCP server "${name}"`, name);
+      throw new McpConfigWriteError(
+        'name-taken',
+        path,
+        `${path} already defines MCP server "${name}"`,
+        name
+      );
     }
     insertMcpServerEntry(document, name, entry, index);
     return { changed: true, value: undefined };

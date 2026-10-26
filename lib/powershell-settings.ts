@@ -2,26 +2,25 @@ import {
   defaultToolEntries,
   getGlobalSettingsPath,
   readGlobalSettings,
-  updateGlobalSettings,
-} from "./global-settings-file";
+  updateGlobalSettings
+} from './global-settings-file';
 
-const DEFAULT_TOOLS = ["read", "bash", "edit", "write"];
-const SHELL_TOOLS = new Set(["bash", "powershell"]);
+const DEFAULT_TOOLS = ['read', 'bash', 'edit', 'write'];
+const SHELL_TOOLS = new Set(['bash', 'powershell']);
 
 export function isPowerShellToolEnabled(
   defaultTools: readonly string[] | undefined,
-  platform: NodeJS.Platform = process.platform,
+  platform: NodeJS.Platform = process.platform
 ): boolean {
-  return platform === "win32"
-    && defaultTools?.includes("powershell") === true
-    && !defaultTools.includes("bash");
+  return (
+    platform === 'win32' &&
+    defaultTools?.includes('powershell') === true &&
+    !defaultTools.includes('bash')
+  );
 }
 
-export function replaceShellTool(
-  toolNames: readonly string[],
-  usePowerShell: boolean,
-): string[] {
-  const shell = usePowerShell ? "powershell" : "bash";
+export function replaceShellTool(toolNames: readonly string[], usePowerShell: boolean): string[] {
+  const shell = usePowerShell ? 'powershell' : 'bash';
   const result: string[] = [];
   for (const name of toolNames) {
     const next = SHELL_TOOLS.has(name) ? shell : name;
@@ -33,7 +32,7 @@ export function replaceShellTool(
 export function resolveShellTools(
   toolNames: readonly string[],
   defaultTools: readonly string[] | undefined,
-  platform: NodeJS.Platform = process.platform,
+  platform: NodeJS.Platform = process.platform
 ): string[] {
   return replaceShellTool(toolNames, isPowerShellToolEnabled(defaultTools, platform));
 }
@@ -43,7 +42,7 @@ export function getPowerShellSettingsPath(agentDir?: string): string {
 }
 
 function isToolModifier(entry: string): boolean {
-  return entry.startsWith("+") || entry.startsWith("-");
+  return entry.startsWith('+') || entry.startsWith('-');
 }
 
 /**
@@ -57,8 +56,8 @@ export function resolveDefaultToolEntries(entries: readonly string[]): string[] 
     if (!isToolModifier(entry)) continue;
     const name = entry.slice(1);
     const index = tools.indexOf(name);
-    if (entry.startsWith("+") && index === -1 && name) tools.push(name);
-    else if (entry.startsWith("-") && index !== -1) tools.splice(index, 1);
+    if (entry.startsWith('+') && index === -1 && name) tools.push(name);
+    else if (entry.startsWith('-') && index !== -1) tools.splice(index, 1);
   }
   return tools;
 }
@@ -74,23 +73,26 @@ function configuredTools(settings: Record<string, unknown>): string[] | undefine
 
 export async function readPowerShellToolEnabled(
   settingsPath = getPowerShellSettingsPath(),
-  platform: NodeJS.Platform = process.platform,
+  platform: NodeJS.Platform = process.platform
 ): Promise<boolean> {
-  return readGlobalSettings(settingsPath, (settings) => isPowerShellToolEnabled(configuredTools(settings), platform));
+  return readGlobalSettings(settingsPath, (settings) =>
+    isPowerShellToolEnabled(configuredTools(settings), platform)
+  );
 }
 
 export async function writePowerShellToolEnabled(
   enabled: boolean,
   settingsPath = getPowerShellSettingsPath(),
-  platform: NodeJS.Platform = process.platform,
+  platform: NodeJS.Platform = process.platform
 ): Promise<boolean> {
-  if (platform !== "win32") throw new Error("PowerShell tool settings are only available on Windows");
+  if (platform !== 'win32')
+    throw new Error('PowerShell tool settings are only available on Windows');
 
   await updateGlobalSettings(settingsPath, (settings) => {
     const currentTools = configuredTools(settings) ?? DEFAULT_TOOLS;
     const nextTools = replaceShellTool(currentTools, enabled);
     if (!currentTools.some((name) => SHELL_TOOLS.has(name))) {
-      nextTools.push(enabled ? "powershell" : "bash");
+      nextTools.push(enabled ? 'powershell' : 'bash');
     }
     settings.defaultTools = nextTools;
   });

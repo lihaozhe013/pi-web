@@ -1,4 +1,4 @@
-import { normalize, parse, sep } from "path";
+import { normalize, parse, sep } from 'path';
 
 // ============================================================================
 // Path primitives.
@@ -24,16 +24,18 @@ import { normalize, parse, sep } from "path";
 const WINDOWS_ABSOLUTE_RE = /^[a-zA-Z]:[\\/]/;
 
 export function isWindowsAbsolutePath(filePath: string): boolean {
-  return WINDOWS_ABSOLUTE_RE.test(filePath) || filePath.startsWith("\\\\") || filePath.startsWith("//");
+  return (
+    WINDOWS_ABSOLUTE_RE.test(filePath) || filePath.startsWith('\\\\') || filePath.startsWith('//')
+  );
 }
 
 /** Rebuild an absolute filesystem path from Next.js catch-all route segments. */
 export function filePathFromApiSegments(segments: string[]): string {
-  const joined = segments.join("/");
+  const joined = segments.join('/');
   const slashJoined = toSlashPath(joined);
   if (/^[a-zA-Z]:$/.test(slashJoined)) return `${slashJoined}/`;
   if (isWindowsAbsolutePath(slashJoined)) return slashJoined;
-  return "/" + joined.replace(/^\/+/, "");
+  return '/' + joined.replace(/^\/+/, '');
 }
 
 /**
@@ -44,13 +46,13 @@ export function filePathFromApiSegments(segments: string[]): string {
  * Only pass paths — a branch name like `feature/x` would become `feature\x`.
  */
 export function toNativePath(p: string): string {
-  if (!p || process.platform !== "win32") return p;
+  if (!p || process.platform !== 'win32') return p;
   return normalize(p);
 }
 
 /** Convert a path to forward slashes. See the form guidance above. */
 export function toSlashPath(p: string): string {
-  return p.replace(/\\/g, "/");
+  return p.replace(/\\/g, '/');
 }
 
 function normalizeForComparison(p: string): string {
@@ -73,7 +75,7 @@ export function samePath(a: string, b: string): boolean {
   if (!a || !b) return false;
   const normalizedA = normalizeForComparison(a);
   const normalizedB = normalizeForComparison(b);
-  if (process.platform === "win32") {
+  if (process.platform === 'win32') {
     return normalizedA.toLowerCase() === normalizedB.toLowerCase();
   }
   return normalizedA === normalizedB;

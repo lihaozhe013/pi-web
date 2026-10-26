@@ -2,8 +2,8 @@ import {
   AGENT_EVENT_HEARTBEAT_MS,
   isEventIncludedInSnapshot,
   toClientAgentEvent,
-  type AgentEventLike,
-} from "./agent-event-wire";
+  type AgentEventLike
+} from './agent-event-wire';
 
 export interface AgentEventStreamSession {
   readonly isStreaming: boolean;
@@ -53,13 +53,15 @@ export const TOOL_UPDATE_COALESCE_MS = 150;
  * client's stream reducer creates and finalizes blocks from them.
  */
 function isDroppableEvent(event: AgentEventLike): boolean {
-  if (event.type === "tool_execution_update") return true;
-  if (event.type !== "message_update") return false;
+  if (event.type === 'tool_execution_update') return true;
+  if (event.type !== 'message_update') return false;
   const update = event.assistantMessageEvent;
-  return typeof update === "object"
-    && update !== null
-    && typeof (update as { type?: unknown }).type === "string"
-    && (update as { type: string }).type.endsWith("_delta");
+  return (
+    typeof update === 'object' &&
+    update !== null &&
+    typeof (update as { type?: unknown }).type === 'string' &&
+    (update as { type: string }).type.endsWith('_delta')
+  );
 }
 function resolveBacklogLimitBytes(): number {
   const raw = Number(process.env.PI_WEB_SSE_BACKLOG_LIMIT_BYTES);
@@ -71,15 +73,17 @@ function logBackpressure(
   queuedBytes: number,
   limitBytes: number,
   droppedEvents: number,
-  closing: boolean,
+  closing: boolean
 ): void {
   const now = Date.now();
   if (now - lastBackpressureLogAt < BACKPRESSURE_LOG_INTERVAL_MS) return;
   lastBackpressureLogAt = now;
   const queued = `${Math.round(queuedBytes / 1024)} KB`;
-  console.warn(closing
-    ? `[pi-web] Agent event stream for ${sessionId} closed: client backlog ${queued} exceeds ${Math.round(limitBytes / 1024)} KB; it reconnects and re-snapshots.`
-    : `[pi-web] Agent event stream for ${sessionId} is behind (${queued} queued): dropping rebuildable deltas (${droppedEvents} so far).`);
+  console.warn(
+    closing
+      ? `[pi-web] Agent event stream for ${sessionId} closed: client backlog ${queued} exceeds ${Math.round(limitBytes / 1024)} KB; it reconnects and re-snapshots.`
+      : `[pi-web] Agent event stream for ${sessionId} is behind (${queued} queued): dropping rebuildable deltas (${droppedEvents} so far).`
+  );
 }
 
 /**
@@ -96,15 +100,20 @@ function logBackpressure(
  * graphs, each with its own copy of this module; a plain module-level Set
  * would be two disconnected registries. Symbol.for + globalThis shares one.
  */
-const CLOSER_REGISTRY: symbol = Symbol.for("pi-web.agentEventStreamClosers");
-type StreamCloser = (closeController: boolean | "error") => void;
-const activeStreamClosers: Set<StreamCloser> =
-  ((globalThis as Record<symbol, Set<StreamCloser>>)[CLOSER_REGISTRY] ??= new Set<StreamCloser>());
+const CLOSER_REGISTRY: symbol = Symbol.for('pi-web.agentEventStreamClosers');
+type StreamCloser = (closeController: boolean | 'error') => void;
+const activeStreamClosers: Set<StreamCloser> = ((globalThis as Record<symbol, Set<StreamCloser>>)[
+  CLOSER_REGISTRY
+] ??= new Set<StreamCloser>());
 
 /** Close every live SSE stream (called on process shutdown signals). */
 export function closeAllAgentEventStreams(): void {
   for (const close of [...activeStreamClosers]) {
-    try { close("error"); } catch { /* stream already closed */ }
+    try {
+      close('error');
+    } catch {
+      /* stream already closed */
+    }
   }
 }
 
@@ -119,191 +128,209 @@ function errorMessage(error: unknown): string {
 export function createAgentEventStream(
   req: Request,
   sessionId: string,
-  sessionPromise: Promise<AgentEventStreamSession>,
+  sessionPromise: Promise<AgentEventStreamSession>
 ): ReadableStream<Uint8Array> {
-  let cancelStream: (closeController: boolean | "error") => void = () => {};
+  let cancelStream: (closeController: boolean | 'error') => void = () => {};
 
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      const encoder = new TextEncoder();
-      let closed = false;
-      let heartbeat: ReturnType<typeof setInterval> | null = null;
-      let unsubscribe: (() => void) | null = null;
-      let abortHandler: (() => void) | null = null;
-      // Latest `tool_execution_update` per tool call id, waiting for the flush.
-      const pendingToolUpdates = new Map<unknown, AgentEventLike>();
-      let toolUpdateTimer: ReturnType<typeof setTimeout> | null = null;
+  return new ReadableStream<Uint8Array>(
+    {
+      start(controller) {
+        const encoder = new TextEncoder();
+        let closed = false;
+        let heartbeat: ReturnType<typeof setInterval> | null = null;
+        let unsubscribe: (() => void) | null = null;
+        let abortHandler: (() => void) | null = null;
+        // Latest `tool_execution_update` per tool call id, waiting for the flush.
+        const pendingToolUpdates = new Map<unknown, AgentEventLike>();
+        let toolUpdateTimer: ReturnType<typeof setTimeout> | null = null;
 
-      // "error": hard-terminate the response (SSE client sees a broken
-      // stream and reconnects). Used on process shutdown: a plain close() is
-      // swallowed by the Next/Node response pipeline without emitting a
-      // chunked termination, so the socket stays ESTABLISHED and Next's
-      // server.close() drain never completes (the original zombie bug).
-      // Also used when a client stops consuming: a graceful close() there
-      // would leave the socket (and the queued backlog) alive.
-      // "true": graceful close after we finished writing a final event.
-      const cleanup = (closeController: boolean | "error", reason?: Error) => {
-        if (closed) return;
-        closed = true;
-        activeStreamClosers.delete(cleanup);
-        if (heartbeat !== null) clearInterval(heartbeat);
-        if (toolUpdateTimer !== null) clearTimeout(toolUpdateTimer);
-        pendingToolUpdates.clear();
-        unsubscribe?.();
-        unsubscribe = null;
-        if (abortHandler) req.signal.removeEventListener("abort", abortHandler);
-        if (closeController === "error") {
-          try { controller.error(reason ?? new Error("pi-web server shutting down")); } catch { /* already closed */ }
-        } else if (closeController) {
-          try { controller.close(); } catch { /* stream already closed */ }
-        }
-      };
-      cancelStream = cleanup;
-      activeStreamClosers.add(cleanup);
-
-      const backlogLimitBytes = resolveBacklogLimitBytes();
-      let droppedEvents = 0;
-      const enqueueText = (text: string, options?: { droppable?: boolean }) => {
-        if (closed) return;
-        const desiredSize = controller.desiredSize;
-        if (desiredSize === null) {
-          cleanup(false);
-          return;
-        }
-        const queuedBytes = STREAM_HIGH_WATER_MARK_BYTES - desiredSize;
-        if (options?.droppable && queuedBytes > STREAM_HIGH_WATER_MARK_BYTES) {
-          droppedEvents += 1;
-          logBackpressure(sessionId, queuedBytes, backlogLimitBytes, droppedEvents, false);
-          return;
-        }
-        if (queuedBytes > backlogLimitBytes) {
-          logBackpressure(sessionId, queuedBytes, backlogLimitBytes, droppedEvents, true);
-          cleanup(
-            "error",
-            new Error(`pi-web agent event stream closed: client backlog exceeded ${Math.round(backlogLimitBytes / 1024)} KB`),
-          );
-          return;
-        }
-        try {
-          controller.enqueue(encoder.encode(text));
-        } catch {
-          cleanup(false);
-        }
-      };
-      const encode = (data: unknown, options?: { droppable?: boolean }) => {
-        enqueueText(`data: ${JSON.stringify(data)}\n\n`, options);
-      };
-      const flushToolUpdates = () => {
-        toolUpdateTimer = null;
-        const updates = [...pendingToolUpdates.values()];
-        pendingToolUpdates.clear();
-        for (const update of updates) encode(update, { droppable: true });
-      };
-      const sendClientEvent = (clientEvent: AgentEventLike) => {
-        if (clientEvent.type === "tool_execution_update") {
-          pendingToolUpdates.set(clientEvent.toolCallId, clientEvent);
-          toolUpdateTimer ??= setTimeout(flushToolUpdates, TOOL_UPDATE_COALESCE_MS);
-          return;
-        }
-        // The end supersedes a partial result still waiting here, and the client
-        // would treat one arriving after the end as a tool that is running again.
-        // agent_end does the same for any tool call whose end never came.
-        if (clientEvent.type === "tool_execution_end") {
-          pendingToolUpdates.delete(clientEvent.toolCallId);
-        } else if (clientEvent.type === "agent_end") {
-          pendingToolUpdates.clear();
-        }
-        encode(clientEvent, { droppable: isDroppableEvent(clientEvent) });
-      };
-      const forwardEvent = (event: AgentEventLike, snapshot: unknown) => {
-        if (isEventIncludedInSnapshot(event, snapshot)) return;
-        const clientEvent = toClientAgentEvent(event);
-        if (clientEvent) sendClientEvent(clientEvent);
-      };
-
-      const publishSession = async () => {
-        try {
-          const session = await sessionPromise;
+        // "error": hard-terminate the response (SSE client sees a broken
+        // stream and reconnects). Used on process shutdown: a plain close() is
+        // swallowed by the Next/Node response pipeline without emitting a
+        // chunked termination, so the socket stays ESTABLISHED and Next's
+        // server.close() drain never completes (the original zombie bug).
+        // Also used when a client stops consuming: a graceful close() there
+        // would leave the socket (and the queued backlog) alive.
+        // "true": graceful close after we finished writing a final event.
+        const cleanup = (closeController: boolean | 'error', reason?: Error) => {
           if (closed) return;
-          if (session.isAlive && !session.isAlive()) {
-            cleanup(true);
+          closed = true;
+          activeStreamClosers.delete(cleanup);
+          if (heartbeat !== null) clearInterval(heartbeat);
+          if (toolUpdateTimer !== null) clearTimeout(toolUpdateTimer);
+          pendingToolUpdates.clear();
+          unsubscribe?.();
+          unsubscribe = null;
+          if (abortHandler) req.signal.removeEventListener('abort', abortHandler);
+          if (closeController === 'error') {
+            try {
+              controller.error(reason ?? new Error('pi-web server shutting down'));
+            } catch {
+              /* already closed */
+            }
+          } else if (closeController) {
+            try {
+              controller.close();
+            } catch {
+              /* stream already closed */
+            }
+          }
+        };
+        cancelStream = cleanup;
+        activeStreamClosers.add(cleanup);
+
+        const backlogLimitBytes = resolveBacklogLimitBytes();
+        let droppedEvents = 0;
+        const enqueueText = (text: string, options?: { droppable?: boolean }) => {
+          if (closed) return;
+          const desiredSize = controller.desiredSize;
+          if (desiredSize === null) {
+            cleanup(false);
             return;
           }
+          const queuedBytes = STREAM_HIGH_WATER_MARK_BYTES - desiredSize;
+          if (options?.droppable && queuedBytes > STREAM_HIGH_WATER_MARK_BYTES) {
+            droppedEvents += 1;
+            logBackpressure(sessionId, queuedBytes, backlogLimitBytes, droppedEvents, false);
+            return;
+          }
+          if (queuedBytes > backlogLimitBytes) {
+            logBackpressure(sessionId, queuedBytes, backlogLimitBytes, droppedEvents, true);
+            cleanup(
+              'error',
+              new Error(
+                `pi-web agent event stream closed: client backlog exceeded ${Math.round(backlogLimitBytes / 1024)} KB`
+              )
+            );
+            return;
+          }
+          try {
+            controller.enqueue(encoder.encode(text));
+          } catch {
+            cleanup(false);
+          }
+        };
+        const encode = (data: unknown, options?: { droppable?: boolean }) => {
+          enqueueText(`data: ${JSON.stringify(data)}\n\n`, options);
+        };
+        const flushToolUpdates = () => {
+          toolUpdateTimer = null;
+          const updates = [...pendingToolUpdates.values()];
+          pendingToolUpdates.clear();
+          for (const update of updates) encode(update, { droppable: true });
+        };
+        const sendClientEvent = (clientEvent: AgentEventLike) => {
+          if (clientEvent.type === 'tool_execution_update') {
+            pendingToolUpdates.set(clientEvent.toolCallId, clientEvent);
+            toolUpdateTimer ??= setTimeout(flushToolUpdates, TOOL_UPDATE_COALESCE_MS);
+            return;
+          }
+          // The end supersedes a partial result still waiting here, and the client
+          // would treat one arriving after the end as a tool that is running again.
+          // agent_end does the same for any tool call whose end never came.
+          if (clientEvent.type === 'tool_execution_end') {
+            pendingToolUpdates.delete(clientEvent.toolCallId);
+          } else if (clientEvent.type === 'agent_end') {
+            pendingToolUpdates.clear();
+          }
+          encode(clientEvent, { droppable: isDroppableEvent(clientEvent) });
+        };
+        const forwardEvent = (event: AgentEventLike, snapshot: unknown) => {
+          if (isEventIncludedInSnapshot(event, snapshot)) return;
+          const clientEvent = toClientAgentEvent(event);
+          if (clientEvent) sendClientEvent(clientEvent);
+        };
 
-          const bufferedEvents: AgentEventLike[] = [];
-          let snapshotPublished = false;
-          const handleEvent = (event: AgentEventLike) => {
-            if (event.type === "session_shutdown") {
+        const publishSession = async () => {
+          try {
+            const session = await sessionPromise;
+            if (closed) return;
+            if (session.isAlive && !session.isAlive()) {
               cleanup(true);
               return;
             }
-            if (!snapshotPublished) {
-              bufferedEvents.push(event);
+
+            const bufferedEvents: AgentEventLike[] = [];
+            let snapshotPublished = false;
+            const handleEvent = (event: AgentEventLike) => {
+              if (event.type === 'session_shutdown') {
+                cleanup(true);
+                return;
+              }
+              if (!snapshotPublished) {
+                bufferedEvents.push(event);
+                return;
+              }
+              forwardEvent(event, snapshot);
+            };
+
+            const stopListening = session.onEvent(handleEvent);
+            if (closed) {
+              stopListening();
               return;
             }
-            forwardEvent(event, snapshot);
-          };
+            if (session.isAlive && !session.isAlive()) {
+              stopListening();
+              cleanup(true);
+              return;
+            }
+            unsubscribe = stopListening;
 
-          const stopListening = session.onEvent(handleEvent);
-          if (closed) {
-            stopListening();
-            return;
-          }
-          if (session.isAlive && !session.isAlive()) {
-            stopListening();
+            const snapshot = session.streamingMessage;
+            encode({
+              type: 'connected',
+              sessionId,
+              isStreaming: session.isStreaming,
+              // onEvent() has just replayed every request the session still holds,
+              // so a reconnecting client can drop the ones closed while it was away.
+              pendingExtensionUiIds: bufferedEvents
+                .filter(
+                  (event) => event.type === 'extension_ui_request' && typeof event.id === 'string'
+                )
+                .map((event) => event.id as string)
+            });
+            for (const event of bufferedEvents) forwardEvent(event, snapshot);
+            if (snapshot !== undefined && snapshot !== null) {
+              forwardEvent({ type: 'message_start', message: snapshot }, undefined);
+            }
+            snapshotPublished = true;
+          } catch (error) {
+            if (closed) return;
+            encode({
+              type: 'startup_error',
+              errorMessage: `Failed to start agent: ${errorMessage(error)}`
+            });
             cleanup(true);
-            return;
           }
-          unsubscribe = stopListening;
+        };
 
-          const snapshot = session.streamingMessage;
-          encode({
-            type: "connected",
-            sessionId,
-            isStreaming: session.isStreaming,
-            // onEvent() has just replayed every request the session still holds,
-            // so a reconnecting client can drop the ones closed while it was away.
-            pendingExtensionUiIds: bufferedEvents
-              .filter((event) => event.type === "extension_ui_request" && typeof event.id === "string")
-              .map((event) => event.id as string),
-          });
-          for (const event of bufferedEvents) forwardEvent(event, snapshot);
-          if (snapshot !== undefined && snapshot !== null) {
-            forwardEvent({ type: "message_start", message: snapshot }, undefined);
-          }
-          snapshotPublished = true;
-        } catch (error) {
-          if (closed) return;
-          encode({
-            type: "startup_error",
-            errorMessage: `Failed to start agent: ${errorMessage(error)}`,
-          });
+        // Attach the rejection handler before checking the request signal. The
+        // route may already have started a shared cold-start promise.
+        void publishSession();
+
+        abortHandler = () => cleanup(true);
+        if (req.signal.aborted) {
           cleanup(true);
+          return;
         }
-      };
+        req.signal.addEventListener('abort', abortHandler, { once: true });
 
-      // Attach the rejection handler before checking the request signal. The
-      // route may already have started a shared cold-start promise.
-      void publishSession();
+        heartbeat = setInterval(
+          () => encode({ type: 'heartbeat' }, { droppable: true }),
+          AGENT_EVENT_HEARTBEAT_MS
+        );
 
-      abortHandler = () => cleanup(true);
-      if (req.signal.aborted) {
-        cleanup(true);
-        return;
+        // Force the response headers through without claiming that the agent is
+        // ready. The client waits for the later `connected` data event.
+        enqueueText(':\n\n');
+      },
+      cancel() {
+        cancelStream(false);
       }
-      req.signal.addEventListener("abort", abortHandler, { once: true });
-
-      heartbeat = setInterval(() => encode({ type: "heartbeat" }, { droppable: true }), AGENT_EVENT_HEARTBEAT_MS);
-
-      // Force the response headers through without claiming that the agent is
-      // ready. The client waits for the later `connected` data event.
-      enqueueText(":\n\n");
     },
-    cancel() {
-      cancelStream(false);
-    },
-  }, {
-    highWaterMark: STREAM_HIGH_WATER_MARK_BYTES,
-    size: (chunk) => chunk.byteLength,
-  });
+    {
+      highWaterMark: STREAM_HIGH_WATER_MARK_BYTES,
+      size: (chunk) => chunk.byteLength
+    }
+  );
 }

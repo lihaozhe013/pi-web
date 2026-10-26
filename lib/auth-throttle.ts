@@ -26,7 +26,7 @@ export interface AuthThrottleState {
   blockedUntil: number;
 }
 
-const STATE_KEY = "pi-web:auth-throttle";
+const STATE_KEY = 'pi-web:auth-throttle';
 
 function freshState(): AuthThrottleState {
   return { failures: 0, lastFailureAt: 0, blockedUntil: 0 };
@@ -48,11 +48,13 @@ function getGlobalState(): AuthThrottleState {
 }
 
 function isState(value: unknown): value is AuthThrottleState {
-  return typeof value === "object"
-    && value !== null
-    && typeof (value as AuthThrottleState).failures === "number"
-    && typeof (value as AuthThrottleState).lastFailureAt === "number"
-    && typeof (value as AuthThrottleState).blockedUntil === "number";
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as AuthThrottleState).failures === 'number' &&
+    typeof (value as AuthThrottleState).lastFailureAt === 'number' &&
+    typeof (value as AuthThrottleState).blockedUntil === 'number'
+  );
 }
 
 function expireIfStale(state: AuthThrottleState, now: number): void {
@@ -73,7 +75,7 @@ export function backoffDelayMs(failures: number): number {
  */
 export function getAuthRetryAfterMs(
   now = Date.now(),
-  state: AuthThrottleState = getGlobalState(),
+  state: AuthThrottleState = getGlobalState()
 ): number {
   expireIfStale(state, now);
   return Math.max(0, state.blockedUntil - now);
@@ -82,7 +84,7 @@ export function getAuthRetryAfterMs(
 /** Records a failed attempt and returns the delay now imposed on the next one. */
 export function recordAuthFailure(
   now = Date.now(),
-  state: AuthThrottleState = getGlobalState(),
+  state: AuthThrottleState = getGlobalState()
 ): number {
   expireIfStale(state, now);
   state.failures += 1;

@@ -1,7 +1,4 @@
-import {
-  MAX_ATTACHED_IMAGES,
-  isBase64ImageWithinLimits,
-} from "./image-attachments";
+import { MAX_ATTACHED_IMAGES, isBase64ImageWithinLimits } from './image-attachments';
 
 export interface ChatDraftImage {
   data: string;
@@ -18,7 +15,7 @@ const drafts = new Map<string, ChatDraft>();
 function cloneDraft(draft: ChatDraft): ChatDraft {
   return {
     value: draft.value,
-    images: draft.images.map((image) => ({ ...image })),
+    images: draft.images.map((image) => ({ ...image }))
   };
 }
 
@@ -53,7 +50,7 @@ export function mergeRestoredSubmissionDraft(
   submittedText: string,
   submittedImages: ChatDraftImage[] | undefined,
   currentText: string,
-  currentImages: ChatDraftImage[],
+  currentImages: ChatDraftImage[]
 ): ChatDraft {
   const images = [...(submittedImages ?? []), ...currentImages]
     .filter(isBase64ImageWithinLimits)
@@ -62,22 +59,17 @@ export function mergeRestoredSubmissionDraft(
 
   return {
     value: mergeRestoredSubmissionText(submittedText, currentText),
-    images,
+    images
   };
 }
 
 export function restoreDraftSubmission(
   key: string,
   text: string,
-  images?: ChatDraftImage[],
+  images?: ChatDraftImage[]
 ): ChatDraft {
-  const current = getDraft(key) ?? { value: "", images: [] };
-  const restored = mergeRestoredSubmissionDraft(
-    text,
-    images,
-    current.value,
-    current.images,
-  );
+  const current = getDraft(key) ?? { value: '', images: [] };
+  const restored = mergeRestoredSubmissionDraft(text, images, current.value, current.images);
   setDraft(key, restored);
   return restored;
 }
@@ -85,14 +77,15 @@ export function restoreDraftSubmission(
 export function rekeyDraft(
   previousKey: string,
   nextKey: string,
-  currentDraft?: ChatDraft,
+  currentDraft?: ChatDraft
 ): ChatDraft | null {
   if (previousKey === nextKey) return currentDraft ? cloneDraft(currentDraft) : getDraft(nextKey);
 
   const storedPrevious = getDraft(previousKey);
-  const previous = currentDraft && !isEmptyDraft(currentDraft)
-    ? cloneDraft(currentDraft)
-    : (storedPrevious ?? (currentDraft ? cloneDraft(currentDraft) : null));
+  const previous =
+    currentDraft && !isEmptyDraft(currentDraft)
+      ? cloneDraft(currentDraft)
+      : (storedPrevious ?? (currentDraft ? cloneDraft(currentDraft) : null));
   const next = getDraft(nextKey);
   clearDraft(previousKey);
   if (!previous) return next;

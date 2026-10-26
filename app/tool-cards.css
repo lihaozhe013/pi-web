@@ -11,7 +11,7 @@
   background: var(--bg-subtle);
 }
 
-.tool-card[data-state="error"] {
+.tool-card[data-state='error'] {
   background: rgba(248, 113, 113, 0.07);
 }
 
@@ -22,8 +22,13 @@
 
 /* A quiet hover: the text token at a whisper, so the tint deepens instead of
    an opaque wash covering it. */
-.tool-card-header:hover { background: color-mix(in srgb, var(--text) 4.5%, transparent) !important; }
-.tool-card-header:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.tool-card-header:hover {
+  background: color-mix(in srgb, var(--text) 4.5%, transparent) !important;
+}
+.tool-card-header:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
 
 .tool-status {
   display: inline-flex;
@@ -42,24 +47,76 @@
   line-height: 1.5;
 }
 
-.tool-status[data-state="running"] { color: var(--accent); }
-.tool-status[data-state="error"] { color: var(--error, #f87171); }
-.tool-status-mark { display: inline-block; width: 1ch; text-align: center; }
-.tool-status[data-state="running"] .tool-status-mark {
+.tool-status[data-state='running'] {
+  color: var(--accent);
+}
+.tool-status[data-state='error'] {
+  color: var(--error, #f87171);
+}
+.tool-status-mark {
+  display: inline-block;
+  width: 1ch;
+  text-align: center;
+}
+.tool-status[data-state='running'] .tool-status-mark {
   animation: tool-card-cursor 1.1s steps(2, jump-none) infinite;
 }
 
-@keyframes tool-card-cursor { from { opacity: 1; } to { opacity: 0.25; } }
-@media (prefers-reduced-motion: reduce) {
-  .tool-status[data-state="running"] .tool-status-mark { animation: none; }
-  .tool-card-header svg { transition: none !important; }
+@keyframes tool-card-cursor {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.25;
+  }
 }
-@media (pointer: coarse) { .tool-card-header { min-height: 44px; } }
+@media (prefers-reduced-motion: reduce) {
+  .tool-status[data-state='running'] .tool-status-mark {
+    animation: none;
+  }
+  .tool-card-header svg {
+    transition: none !important;
+  }
+}
+@media (pointer: coarse) {
+  .tool-card-header {
+    min-height: 44px;
+  }
+}
 
 /* Live reading and reasoning leave no cards in the main transcript. */
-.live-agent-activity { padding: 8px 0; color: var(--text-muted); font-size: 13px; }
-.live-agent-activity-line { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 24px; }
-.live-agent-activity-line > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.live-agent-activity-dot { width: 5px; height: 5px; flex-shrink: 0; border-radius: 50%; background: currentColor; animation: activity-pulse 1.4s ease-in-out infinite; }
-@keyframes activity-pulse { 50% { opacity: 0.35; } }
-@media (prefers-reduced-motion: reduce) { .live-agent-activity-dot { animation: none; } }
+.live-agent-activity {
+  padding: 8px 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.live-agent-activity-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 24px;
+}
+.live-agent-activity-line > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.live-agent-activity-dot {
+  width: 5px;
+  height: 5px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: currentColor;
+  animation: activity-pulse 1.4s ease-in-out infinite;
+}
+@keyframes activity-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-agent-activity-dot {
+    animation: none;
+  }
+}

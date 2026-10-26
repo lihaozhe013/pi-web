@@ -204,7 +204,7 @@
    row, 20px on a phone's 44px), the row's rounded corners never clip it.
    A delete confirmation's red frame stands alone. */
 .session-tree-session.is-selected:not(.is-confirming)::before {
-  content: "";
+  content: '';
   position: absolute;
   top: 7px;
   bottom: 7px;
@@ -259,7 +259,7 @@ a.session-tree-main {
 }
 
 .session-tree-unread::after {
-  content: "";
+  content: '';
   position: absolute;
   inset: -3px;
   border: 1.4px solid #0891b2;
@@ -281,7 +281,7 @@ a.session-tree-main {
 }
 
 .session-tree-awaiting::after {
-  content: "";
+  content: '';
   position: absolute;
   inset: -3px;
   border: 1.4px solid #d97706;
@@ -566,7 +566,7 @@ a.session-tree-main {
 
 /* A dot at the line's left end marks it as the insertion point. */
 .session-tree-drop-line::before {
-  content: "";
+  content: '';
   position: absolute;
   top: -2px;
   left: 0;
@@ -956,7 +956,9 @@ a.session-tree-main {
   font-size: 12px;
   white-space: nowrap;
   cursor: pointer;
-  transition: background 0.12s, color 0.12s;
+  transition:
+    background 0.12s,
+    color 0.12s;
 }
 
 .sidebar-tab,
@@ -1074,23 +1076,23 @@ a.session-tree-main {
    change with the language): New keeps its + (data-fit 1), then the tabs
    their icons, or the brand's versions take a smaller type (2). A hidden
    label is still each one's name. */
-.sidebar-header[data-fit="1"] .sidebar-new-button,
-.sidebar-header[data-fit="2"] .sidebar-new-button {
+.sidebar-header[data-fit='1'] .sidebar-new-button,
+.sidebar-header[data-fit='2'] .sidebar-new-button {
   width: 36px;
   padding: 0;
 }
 
-.sidebar-header[data-fit="2"] .sidebar-tab {
+.sidebar-header[data-fit='2'] .sidebar-tab {
   padding: 0 11px;
 }
 
-.sidebar-header[data-fit="2"] .sidebar-brand {
+.sidebar-header[data-fit='2'] .sidebar-brand {
   font-size: 11px;
 }
 
-.sidebar-header[data-fit="1"] .sidebar-new-label,
-.sidebar-header[data-fit="2"] .sidebar-new-label,
-.sidebar-header[data-fit="2"] .sidebar-tab-label {
+.sidebar-header[data-fit='1'] .sidebar-new-label,
+.sidebar-header[data-fit='2'] .sidebar-new-label,
+.sidebar-header[data-fit='2'] .sidebar-tab-label {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -1512,7 +1514,9 @@ a.session-tree-main {
   background: transparent;
   color: var(--text-dim);
   cursor: pointer;
-  transition: color 0.12s, background 0.12s;
+  transition:
+    color 0.12s,
+    background 0.12s;
 }
 
 .sidebar-tool-button:not(:disabled):hover {

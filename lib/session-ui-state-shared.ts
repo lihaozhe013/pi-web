@@ -30,9 +30,15 @@ export const MAX_PROJECT_NAMES = 1000;
 export const PROJECT_NAMES_MAX_BYTES = 256 * 1024;
 
 /** Epoch ms, keyed by the FAMILY ROOT session id. */
-export interface SessionUiFamilyState { pinnedAt?: number; archivedAt?: number }
+export interface SessionUiFamilyState {
+  pinnedAt?: number;
+  archivedAt?: number;
+}
 /** Keyed by projectKey (`workspaceKeyOf`). */
-export interface SessionUiProjectState { pinnedAt: number; root: string }
+export interface SessionUiProjectState {
+  pinnedAt: number;
+  root: string;
+}
 export interface SessionUiState {
   version: 1;
   /** Monotonic, bumped by the server on every changing write. */
@@ -54,54 +60,73 @@ export interface SessionUiState {
   projectNames?: Record<string, string>;
 }
 /** Where a moved project goes, next to its anchor. */
-export type ProjectMovePosition = "before" | "after";
+export type ProjectMovePosition = 'before' | 'after';
 /** One family's flags before a change, for undo; null = absent. */
-export interface SessionUiFlagsSnapshot { id: string; pinnedAt: number | null; archivedAt: number | null }
+export interface SessionUiFlagsSnapshot {
+  id: string;
+  pinnedAt: number | null;
+  archivedAt: number | null;
+}
 
 export type SessionUiStateRequest =
-  | { action: "set"; ids: string[]; pinned: boolean }
-  | { action: "set"; ids: string[]; archived: boolean }
+  | { action: 'set'; ids: string[]; pinned: boolean }
+  | { action: 'set'; ids: string[]; archived: boolean }
   /** Undo: writes back exact prior values (null = absent). */
-  | { action: "restore"; entries: SessionUiFlagsSnapshot[] }
-  | { action: "pin-project"; projectKey: string; root: string; pinned: boolean }
+  | { action: 'restore'; entries: SessionUiFlagsSnapshot[] }
+  | { action: 'pin-project'; projectKey: string; root: string; pinned: boolean }
   /** New projects, top first: the ones `projectOrder` lacks go in front of it. Never pushes a key out. */
-  | { action: "add-projects"; keys: string[] }
+  | { action: 'add-projects'; keys: string[] }
   /**
    * A drag or Move up/down: `projectKey` goes right before or after
    * `anchorKey`. `add` (the moved project's band's unsaved keys, top first) is
    * added first, so the move lands where the user saw it.
    */
-  | { action: "move-project"; projectKey: string; anchorKey: string; position: ProjectMovePosition; add: string[] }
+  | {
+      action: 'move-project';
+      projectKey: string;
+      anchorKey: string;
+      position: ProjectMovePosition;
+      add: string[];
+    }
   /** A project's display name; null (or an empty name) removes it, and the folder name shows again. */
-  | { action: "rename-project"; projectKey: string; name: string | null };
+  | { action: 'rename-project'; projectKey: string; name: string | null };
 
-export interface SessionUiStateResponse { state: SessionUiState }
+export interface SessionUiStateResponse {
+  state: SessionUiState;
+}
 
 /** Why `POST /api/sessions/ui-state` refused; `error` is English diagnostic text. "full": no room for another project name. */
-export type SessionUiStateRefusalReason = "request-denied" | "content-type" | "invalid-request" | "full" | "locked" | "internal";
-export interface SessionUiStateErrorResponse { error: string; reason: SessionUiStateRefusalReason }
+export type SessionUiStateRefusalReason =
+  'request-denied' | 'content-type' | 'invalid-request' | 'full' | 'locked' | 'internal';
+export interface SessionUiStateErrorResponse {
+  error: string;
+  reason: SessionUiStateRefusalReason;
+}
 
-const hasOwn = (record: object, key: string): boolean => Object.prototype.hasOwnProperty.call(record, key);
+const hasOwn = (record: object, key: string): boolean =>
+  Object.prototype.hasOwnProperty.call(record, key);
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /** Epoch ms as the file and requests carry them. */
 function isTimestamp(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
 }
 
 function isSessionId(value: unknown): value is string {
-  return typeof value === "string" && SESSION_ID_PATTERN.test(value);
+  return typeof value === 'string' && SESSION_ID_PATTERN.test(value);
 }
 
 /** `__proto__` would set the record's prototype instead of adding a key. */
 function isProjectString(value: unknown): value is string {
-  return typeof value === "string"
-    && value.length > 0
-    && value.length <= MAX_PROJECT_STRING_LENGTH
-    && value !== "__proto__";
+  return (
+    typeof value === 'string' &&
+    value.length > 0 &&
+    value.length <= MAX_PROJECT_STRING_LENGTH &&
+    value !== '__proto__'
+  );
 }
 
 // C0 and C1 controls (tab and line breaks among them) and the Unicode line
@@ -116,7 +141,7 @@ const NOT_ONE_LINE = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/;
  */
 export function projectDisplayName(value: unknown): string | null | undefined {
   if (value === null) return null;
-  if (typeof value !== "string") return undefined;
+  if (typeof value !== 'string') return undefined;
   const name = value.trim();
   if (!name) return null;
   if (NOT_ONE_LINE.test(name) || [...name].length > MAX_PROJECT_NAME_LENGTH) return undefined;
@@ -190,7 +215,8 @@ function normalizeFamily(value: unknown): SessionUiFamilyState | null {
 }
 
 function normalizeProject(value: unknown): SessionUiProjectState | null {
-  if (!isPlainObject(value) || !isTimestamp(value.pinnedAt) || !isProjectString(value.root)) return null;
+  if (!isPlainObject(value) || !isTimestamp(value.pinnedAt) || !isProjectString(value.root))
+    return null;
   return { pinnedAt: value.pinnedAt, root: value.root };
 }
 
@@ -203,7 +229,8 @@ export function normalizeSessionUiState(value: unknown): SessionUiState | null {
   if (value.projects !== undefined && !isPlainObject(value.projects)) return null;
   const state = emptySessionUiState();
   const revision = value.revision;
-  if (typeof revision === "number" && Number.isSafeInteger(revision) && revision >= 0) state.revision = revision;
+  if (typeof revision === 'number' && Number.isSafeInteger(revision) && revision >= 0)
+    state.revision = revision;
   for (const [id, entry] of Object.entries(value.sessions ?? {})) {
     if (!isSessionId(id)) continue;
     const family = normalizeFamily(entry);
@@ -234,7 +261,7 @@ export function normalizeSessionUiState(value: unknown): SessionUiState | null {
     let bytes = 1;
     for (const [key, entry] of Object.entries(value.projectNames)) {
       const name = projectDisplayName(entry);
-      if (!isProjectString(key) || typeof name !== "string") continue;
+      if (!isProjectString(key) || typeof name !== 'string') continue;
       const size = nameEntryBytes(key, name);
       if (!namesFit(count + 1, bytes + size)) continue;
       names[key] = name;
@@ -249,14 +276,18 @@ export function normalizeSessionUiState(value: unknown): SessionUiState | null {
 type ParseResult = { ok: true; request: SessionUiStateRequest } | { ok: false; error: string };
 
 function parseIds(value: unknown): { ok: true; ids: string[] } | { ok: false; error: string } {
-  if (!Array.isArray(value) || value.length === 0) return { ok: false, error: "ids must be a non-empty array" };
+  if (!Array.isArray(value) || value.length === 0)
+    return { ok: false, error: 'ids must be a non-empty array' };
   if (value.length > MAX_SESSION_UI_IDS_PER_REQUEST) {
-    return { ok: false, error: `ids may hold at most ${MAX_SESSION_UI_IDS_PER_REQUEST} session ids` };
+    return {
+      ok: false,
+      error: `ids may hold at most ${MAX_SESSION_UI_IDS_PER_REQUEST} session ids`
+    };
   }
   const ids: string[] = [];
   const seen = new Set<string>();
   for (const id of value) {
-    if (!isSessionId(id)) return { ok: false, error: "ids must be session ids" };
+    if (!isSessionId(id)) return { ok: false, error: 'ids must be session ids' };
     if (seen.has(id)) continue;
     seen.add(id);
     ids.push(id);
@@ -270,18 +301,28 @@ function parseSnapshotValue(value: unknown): number | null | undefined {
 }
 
 /** A list of projectKeys: at most MAX_SESSION_UI_IDS_PER_REQUEST, each a project string, deduped keeping the first. */
-function parseProjectKeys(value: unknown, name: string, allowEmpty: boolean): { ok: true; keys: string[] } | { ok: false; error: string } {
+function parseProjectKeys(
+  value: unknown,
+  name: string,
+  allowEmpty: boolean
+): { ok: true; keys: string[] } | { ok: false; error: string } {
   if (!Array.isArray(value) || (!allowEmpty && value.length === 0)) {
-    return { ok: false, error: `${name} must be ${allowEmpty ? "an" : "a non-empty"} array` };
+    return { ok: false, error: `${name} must be ${allowEmpty ? 'an' : 'a non-empty'} array` };
   }
   if (value.length > MAX_SESSION_UI_IDS_PER_REQUEST) {
-    return { ok: false, error: `${name} may hold at most ${MAX_SESSION_UI_IDS_PER_REQUEST} projectKeys` };
+    return {
+      ok: false,
+      error: `${name} may hold at most ${MAX_SESSION_UI_IDS_PER_REQUEST} projectKeys`
+    };
   }
   const keys: string[] = [];
   const seen = new Set<string>();
   for (const key of value) {
     if (!isProjectString(key)) {
-      return { ok: false, error: `${name} must hold non-empty strings of at most ${MAX_PROJECT_STRING_LENGTH} characters` };
+      return {
+        ok: false,
+        error: `${name} must hold non-empty strings of at most ${MAX_PROJECT_STRING_LENGTH} characters`
+      };
     }
     if (seen.has(key)) continue;
     seen.add(key);
@@ -292,82 +333,123 @@ function parseProjectKeys(value: unknown, name: string, allowEmpty: boolean): { 
 
 /** Validates an untrusted body. ids: non-empty, unique after dedupe, each matches SESSION_ID_PATTERN, at most MAX_SESSION_UI_IDS_PER_REQUEST. projectKey/root/anchorKey and every key of keys/add: non-empty strings <= 4096 chars, at most MAX_SESSION_UI_IDS_PER_REQUEST of them. name: null or a string projectDisplayName() takes, stored as it returns it. */
 export function parseSessionUiStateRequest(body: unknown): ParseResult {
-  if (!isPlainObject(body)) return { ok: false, error: "Expected a JSON object" };
+  if (!isPlainObject(body)) return { ok: false, error: 'Expected a JSON object' };
   switch (body.action) {
-    case "set": {
-      const hasPinned = hasOwn(body, "pinned");
-      if (hasPinned === hasOwn(body, "archived")) return { ok: false, error: "Send exactly one of pinned or archived" };
+    case 'set': {
+      const hasPinned = hasOwn(body, 'pinned');
+      if (hasPinned === hasOwn(body, 'archived'))
+        return { ok: false, error: 'Send exactly one of pinned or archived' };
       const value = hasPinned ? body.pinned : body.archived;
-      if (typeof value !== "boolean") return { ok: false, error: `${hasPinned ? "pinned" : "archived"} must be a boolean` };
+      if (typeof value !== 'boolean')
+        return { ok: false, error: `${hasPinned ? 'pinned' : 'archived'} must be a boolean` };
       const ids = parseIds(body.ids);
       if (!ids.ok) return ids;
       return {
         ok: true,
         request: hasPinned
-          ? { action: "set", ids: ids.ids, pinned: value }
-          : { action: "set", ids: ids.ids, archived: value },
+          ? { action: 'set', ids: ids.ids, pinned: value }
+          : { action: 'set', ids: ids.ids, archived: value }
       };
     }
-    case "restore": {
+    case 'restore': {
       const raw = body.entries;
-      if (!Array.isArray(raw)) return { ok: false, error: "entries must be an array" };
+      if (!Array.isArray(raw)) return { ok: false, error: 'entries must be an array' };
       if (raw.length > MAX_SESSION_UI_IDS_PER_REQUEST) {
-        return { ok: false, error: `entries may hold at most ${MAX_SESSION_UI_IDS_PER_REQUEST} sessions` };
+        return {
+          ok: false,
+          error: `entries may hold at most ${MAX_SESSION_UI_IDS_PER_REQUEST} sessions`
+        };
       }
       const entries: SessionUiFlagsSnapshot[] = [];
       const seen = new Set<string>();
       for (const entry of raw) {
-        if (!isPlainObject(entry) || !isSessionId(entry.id)) return { ok: false, error: "Each entry needs a session id" };
+        if (!isPlainObject(entry) || !isSessionId(entry.id))
+          return { ok: false, error: 'Each entry needs a session id' };
         // Two prior values for one family would leave which one wins to chance.
-        if (seen.has(entry.id)) return { ok: false, error: "entries must name each session once" };
+        if (seen.has(entry.id)) return { ok: false, error: 'entries must name each session once' };
         seen.add(entry.id);
         const pinnedAt = parseSnapshotValue(entry.pinnedAt);
         const archivedAt = parseSnapshotValue(entry.archivedAt);
         if (pinnedAt === undefined || archivedAt === undefined) {
-          return { ok: false, error: "pinnedAt and archivedAt must be timestamps or null" };
+          return { ok: false, error: 'pinnedAt and archivedAt must be timestamps or null' };
         }
         entries.push({ id: entry.id, pinnedAt, archivedAt });
       }
-      return { ok: true, request: { action: "restore", entries } };
+      return { ok: true, request: { action: 'restore', entries } };
     }
-    case "pin-project": {
+    case 'pin-project': {
       if (!isProjectString(body.projectKey)) {
-        return { ok: false, error: `projectKey must be a non-empty string of at most ${MAX_PROJECT_STRING_LENGTH} characters` };
+        return {
+          ok: false,
+          error: `projectKey must be a non-empty string of at most ${MAX_PROJECT_STRING_LENGTH} characters`
+        };
       }
       if (!isProjectString(body.root)) {
-        return { ok: false, error: `root must be a non-empty string of at most ${MAX_PROJECT_STRING_LENGTH} characters` };
+        return {
+          ok: false,
+          error: `root must be a non-empty string of at most ${MAX_PROJECT_STRING_LENGTH} characters`
+        };
       }
-      if (typeof body.pinned !== "boolean") return { ok: false, error: "pinned must be a boolean" };
-      return { ok: true, request: { action: "pin-project", projectKey: body.projectKey, root: body.root, pinned: body.pinned } };
+      if (typeof body.pinned !== 'boolean') return { ok: false, error: 'pinned must be a boolean' };
+      return {
+        ok: true,
+        request: {
+          action: 'pin-project',
+          projectKey: body.projectKey,
+          root: body.root,
+          pinned: body.pinned
+        }
+      };
     }
-    case "add-projects": {
-      const keys = parseProjectKeys(body.keys, "keys", false);
+    case 'add-projects': {
+      const keys = parseProjectKeys(body.keys, 'keys', false);
       if (!keys.ok) return keys;
-      return { ok: true, request: { action: "add-projects", keys: keys.keys } };
+      return { ok: true, request: { action: 'add-projects', keys: keys.keys } };
     }
-    case "move-project": {
+    case 'move-project': {
       const { projectKey, anchorKey, position } = body;
       if (!isProjectString(projectKey) || !isProjectString(anchorKey)) {
-        return { ok: false, error: `projectKey and anchorKey must be non-empty strings of at most ${MAX_PROJECT_STRING_LENGTH} characters` };
+        return {
+          ok: false,
+          error: `projectKey and anchorKey must be non-empty strings of at most ${MAX_PROJECT_STRING_LENGTH} characters`
+        };
       }
-      if (projectKey === anchorKey) return { ok: false, error: "projectKey and anchorKey must differ" };
-      if (position !== "before" && position !== "after") return { ok: false, error: "position must be \"before\" or \"after\"" };
-      const add = body.add === undefined ? { ok: true as const, keys: [] } : parseProjectKeys(body.add, "add", true);
+      if (projectKey === anchorKey)
+        return { ok: false, error: 'projectKey and anchorKey must differ' };
+      if (position !== 'before' && position !== 'after')
+        return { ok: false, error: 'position must be "before" or "after"' };
+      const add =
+        body.add === undefined
+          ? { ok: true as const, keys: [] }
+          : parseProjectKeys(body.add, 'add', true);
       if (!add.ok) return add;
-      return { ok: true, request: { action: "move-project", projectKey, anchorKey, position, add: add.keys } };
+      return {
+        ok: true,
+        request: { action: 'move-project', projectKey, anchorKey, position, add: add.keys }
+      };
     }
-    case "rename-project": {
+    case 'rename-project': {
       if (!isProjectString(body.projectKey)) {
-        return { ok: false, error: `projectKey must be a non-empty string of at most ${MAX_PROJECT_STRING_LENGTH} characters` };
+        return {
+          ok: false,
+          error: `projectKey must be a non-empty string of at most ${MAX_PROJECT_STRING_LENGTH} characters`
+        };
       }
       const name = projectDisplayName(body.name);
       if (name === undefined) {
-        return { ok: false, error: `name must be null or one line of at most ${MAX_PROJECT_NAME_LENGTH} characters` };
+        return {
+          ok: false,
+          error: `name must be null or one line of at most ${MAX_PROJECT_NAME_LENGTH} characters`
+        };
       }
-      return { ok: true, request: { action: "rename-project", projectKey: body.projectKey, name } };
+      return { ok: true, request: { action: 'rename-project', projectKey: body.projectKey, name } };
     }
     default:
-      return { ok: false, error: "action must be \"set\", \"restore\", \"pin-project\", \"add-projects\", \"move-project\" or \"rename-project\"" };
+      return {
+        ok: false,
+        error:
+          'action must be "set", "restore", "pin-project", "add-projects", "move-project" or "rename-project"'
+      };
   }
 }
 
@@ -376,7 +458,11 @@ function sameFamily(a: SessionUiFamilyState | undefined, b: SessionUiFamilyState
 }
 
 /** Stores `next` for `id` (an empty entry is removed) and says whether that changed anything. */
-function writeFamily(sessions: Record<string, SessionUiFamilyState>, id: string, next: SessionUiFamilyState): boolean {
+function writeFamily(
+  sessions: Record<string, SessionUiFamilyState>,
+  id: string,
+  next: SessionUiFamilyState
+): boolean {
   const previous = hasOwn(sessions, id) ? sessions[id] : undefined;
   const empty = next.pinnedAt === undefined && next.archivedAt === undefined;
   if (empty) {
@@ -391,11 +477,11 @@ function writeFamily(sessions: Record<string, SessionUiFamilyState>, id: string,
 
 function nextFamily(
   previous: SessionUiFamilyState | undefined,
-  request: Extract<SessionUiStateRequest, { action: "set" }>,
-  now: number,
+  request: Extract<SessionUiStateRequest, { action: 'set' }>,
+  now: number
 ): SessionUiFamilyState {
   const next: SessionUiFamilyState = { ...previous };
-  if ("pinned" in request) {
+  if ('pinned' in request) {
     if (!request.pinned) {
       delete next.pinnedAt;
     } else if (next.pinnedAt === undefined || next.archivedAt !== undefined) {
@@ -497,11 +583,16 @@ function withProjectsAdded(order: readonly string[], keys: readonly string[]): s
  * `key` right before or after `anchor`. A missing anchor goes to the top
  * first, which is where an unsaved project renders.
  */
-function withProjectMoved(order: readonly string[], key: string, anchor: string, position: ProjectMovePosition): string[] {
+function withProjectMoved(
+  order: readonly string[],
+  key: string,
+  anchor: string,
+  position: ProjectMovePosition
+): string[] {
   const list = order.filter((item) => item !== key);
   if (!list.includes(anchor)) list.unshift(anchor);
   const index = list.indexOf(anchor);
-  list.splice(position === "before" ? index : index + 1, 0, key);
+  list.splice(position === 'before' ? index : index + 1, 0, key);
   return list;
 }
 
@@ -511,7 +602,12 @@ function withProjectMoved(order: readonly string[], key: string, anchor: string,
  * top of the others (before the first key not pinned). `pinned` holds the
  * pinned projects after the change.
  */
-function withProjectRebanded(order: readonly string[], key: string, pinned: Record<string, SessionUiProjectState>, nowPinned: boolean): string[] {
+function withProjectRebanded(
+  order: readonly string[],
+  key: string,
+  pinned: Record<string, SessionUiProjectState>,
+  nowPinned: boolean
+): string[] {
   const list = order.filter((item) => item !== key);
   let index: number;
   if (nowPinned) {
@@ -555,18 +651,18 @@ function capProjectOrder(order: string[], keep: ReadonlySet<string>): string[] {
 export function applySessionUiStateRequest(
   state: SessionUiState,
   request: SessionUiStateRequest,
-  now: number,
+  now: number
 ): { state: SessionUiState; changed: boolean } {
   const next = copyState(state);
   let changed = false;
   switch (request.action) {
-    case "set":
+    case 'set':
       for (const id of request.ids) {
         const previous = hasOwn(next.sessions, id) ? next.sessions[id] : undefined;
         if (writeFamily(next.sessions, id, nextFamily(previous, request, now))) changed = true;
       }
       break;
-    case "restore":
+    case 'restore':
       for (const entry of request.entries) {
         const family: SessionUiFamilyState = {};
         if (entry.pinnedAt !== null) family.pinnedAt = entry.pinnedAt;
@@ -574,7 +670,7 @@ export function applySessionUiStateRequest(
         if (writeFamily(next.sessions, entry.id, family)) changed = true;
       }
       break;
-    case "pin-project": {
+    case 'pin-project': {
       const { projectKey, root } = request;
       const previous = hasOwn(next.projects, projectKey) ? next.projects[projectKey] : undefined;
       if (request.pinned) {
@@ -591,23 +687,35 @@ export function applySessionUiStateRequest(
       // cost of another key: a full list leaves a project it lacks unsaved.
       const rebanded = request.pinned ? previous === undefined : previous !== undefined;
       if (rebanded && next.projectOrder) {
-        const order = withProjectRebanded(next.projectOrder, projectKey, next.projects, request.pinned);
-        if (orderFits(order.length, orderBytes(order)) && writeProjectOrder(next, order)) changed = true;
+        const order = withProjectRebanded(
+          next.projectOrder,
+          projectKey,
+          next.projects,
+          request.pinned
+        );
+        if (orderFits(order.length, orderBytes(order)) && writeProjectOrder(next, order))
+          changed = true;
       }
       break;
     }
-    case "add-projects":
-      if (writeProjectOrder(next, withProjectsAdded(next.projectOrder ?? [], request.keys))) changed = true;
+    case 'add-projects':
+      if (writeProjectOrder(next, withProjectsAdded(next.projectOrder ?? [], request.keys)))
+        changed = true;
       break;
-    case "move-project": {
+    case 'move-project': {
       const { projectKey, anchorKey, position, add } = request;
       const order = next.projectOrder ?? [];
-      const moved = withProjectMoved([...missingProjectKeys(order, add), ...order], projectKey, anchorKey, position);
+      const moved = withProjectMoved(
+        [...missingProjectKeys(order, add), ...order],
+        projectKey,
+        anchorKey,
+        position
+      );
       const named = new Set([projectKey, anchorKey, ...add]);
       if (writeProjectOrder(next, capProjectOrder(moved, named))) changed = true;
       break;
     }
-    case "rename-project": {
+    case 'rename-project': {
       // A parsed request's name is clean already; the client's optimistic
       // copy goes through the same rule, so a name the server refuses changes nothing.
       const name = projectDisplayName(request.name);
@@ -623,15 +731,22 @@ export function applySessionUiStateRequest(
  * to more families than one request may carry ("Archive sessions older than 7
  * days" in a busy project, and its Undo) is sent as several requests.
  */
-export function chunkForSessionUiRequests<T>(items: readonly T[], size = MAX_SESSION_UI_IDS_PER_REQUEST): T[][] {
+export function chunkForSessionUiRequests<T>(
+  items: readonly T[],
+  size = MAX_SESSION_UI_IDS_PER_REQUEST
+): T[][] {
   const step = Math.max(1, Math.floor(size));
   const chunks: T[][] = [];
-  for (let start = 0; start < items.length; start += step) chunks.push(items.slice(start, start + step));
+  for (let start = 0; start < items.length; start += step)
+    chunks.push(items.slice(start, start + step));
   return chunks;
 }
 
 /** Snapshot of the current flags for undo; each id once, in the order given. */
-export function snapshotSessionUiFlags(state: SessionUiState, ids: readonly string[]): SessionUiFlagsSnapshot[] {
+export function snapshotSessionUiFlags(
+  state: SessionUiState,
+  ids: readonly string[]
+): SessionUiFlagsSnapshot[] {
   const seen = new Set<string>();
   const snapshot: SessionUiFlagsSnapshot[] = [];
   for (const id of ids) {

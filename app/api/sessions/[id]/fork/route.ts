@@ -1,18 +1,18 @@
-import { NextResponse } from "next/server";
-import { getRpcSession } from "@/lib/rpc-manager";
-import { hasJsonContentType, isApiRequestAllowed } from "@/lib/request-security";
-import { forkSessionBranch, readForkSourceTitle, SessionForkError } from "@/lib/session-fork";
+import { NextResponse } from 'next/server';
+import { getRpcSession } from '@/lib/rpc-manager';
+import { hasJsonContentType, isApiRequestAllowed } from '@/lib/request-security';
+import { forkSessionBranch, readForkSourceTitle, SessionForkError } from '@/lib/session-fork';
 import {
   cacheSessionPath,
   invalidateSessionListCache,
   invalidateSessionPathCache,
   readLatestSessionEntryId,
   readSessionInfo,
-  resolveSessionPath,
-} from "@/lib/session-reader";
-import type { SessionInfo } from "@/lib/types";
+  resolveSessionPath
+} from '@/lib/session-reader';
+import type { SessionInfo } from '@/lib/types';
 
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
 // The sidebar's Fork action copies the current branch into a new session
 // file named after the source plus a short random suffix (lib/session-fork.ts).
@@ -20,7 +20,7 @@ export const dynamic = "force-dynamic";
 // down an AgentSession, so a running source keeps its run and an idle one
 // stays closed.
 
-const NO_STORE = { "Cache-Control": "no-store" };
+const NO_STORE = { 'Cache-Control': 'no-store' };
 
 interface SessionForkResponse {
   sessionId: string;
@@ -34,16 +34,18 @@ function refusal(status: number, code: string, error: string) {
 
 // POST /api/sessions/[id]/fork - body {}; answers with the new session.
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!isApiRequestAllowed(req)) return refusal(403, "request-denied", "Untrusted API request");
-  if (!hasJsonContentType(req)) return refusal(415, "request-denied", "Content-Type must be application/json");
+  if (!isApiRequestAllowed(req)) return refusal(403, 'request-denied', 'Untrusted API request');
+  if (!hasJsonContentType(req))
+    return refusal(415, 'request-denied', 'Content-Type must be application/json');
   const { id } = await params;
 
   try {
     const opened = getRpcSession(id);
-    const sourcePath = (opened?.isAlive() ? opened.sessionFile : "") || await resolveSessionPath(id);
+    const sourcePath =
+      (opened?.isAlive() ? opened.sessionFile : '') || (await resolveSessionPath(id));
     if (!sourcePath) {
       invalidateSessionListCache();
-      return refusal(404, "not_found", "Session not found");
+      return refusal(404, 'not_found', 'Session not found');
     }
     // The title the sidebar shows for the source, which the copy's name
     // starts with (null: the source has none, the copy stays unnamed). Read
@@ -68,13 +70,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     // Read after the name was written: the row carries it.
     const info = await readSessionInfo(fork.path);
-    if (!info) throw new Error("The forked session could not be read");
+    if (!info) throw new Error('The forked session could not be read');
     // Only the copy was scanned, so its origin is added here.
-    const session: SessionInfo = { ...info, parentSessionId: id, relation: { kind: "fork", originSessionId: id } };
-    return NextResponse.json({ sessionId: fork.sessionId, session } satisfies SessionForkResponse, { headers: NO_STORE });
+    const session: SessionInfo = {
+      ...info,
+      parentSessionId: id,
+      relation: { kind: 'fork', originSessionId: id }
+    };
+    return NextResponse.json({ sessionId: fork.sessionId, session } satisfies SessionForkResponse, {
+      headers: NO_STORE
+    });
   } catch (error) {
     if (error instanceof SessionForkError) {
-      if (error.code === "not_found") {
+      if (error.code === 'not_found') {
         // Deleted behind the cached path (the pi CLI, another window): the
         // list drops it on the next load.
         invalidateSessionPathCache(id);
@@ -83,6 +91,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       }
       return refusal(409, error.code, error.message);
     }
-    return refusal(500, "failed", error instanceof Error ? error.message : String(error));
+    return refusal(500, 'failed', error instanceof Error ? error.message : String(error));
   }
 }

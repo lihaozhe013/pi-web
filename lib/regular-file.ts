@@ -1,4 +1,4 @@
-import { closeSync, constants, fstatSync, openSync, readFileSync, readSync } from "node:fs";
+import { closeSync, constants, fstatSync, openSync, readFileSync, readSync } from 'node:fs';
 
 /** Windows defines no O_NONBLOCK; it has no FIFOs either. */
 const OPEN_FLAGS = constants.O_RDONLY | (constants.O_NONBLOCK || 0);
@@ -12,7 +12,7 @@ export const PROJECT_SETTINGS_MAX_BYTES = 1024 * 1024;
 
 function isMissing(error: unknown): boolean {
   const code = (error as NodeJS.ErrnoException | undefined)?.code;
-  return code === "ENOENT" || code === "ENOTDIR";
+  return code === 'ENOENT' || code === 'ENOTDIR';
 }
 
 /**
@@ -39,7 +39,7 @@ export function readRegularFileText(path: string, maxBytes?: number): string | u
   try {
     const stats = fstatSync(fd);
     if (!stats.isFile()) throw new Error(`${path} is not a regular file`);
-    if (maxBytes === undefined) return readFileSync(fd, "utf8");
+    if (maxBytes === undefined) return readFileSync(fd, 'utf8');
     if (stats.size > maxBytes) throw new Error(`${path} is larger than ${maxBytes} bytes`);
     // One byte past the limit: a file still growing past it is refused rather than cut short.
     const limit = maxBytes + 1;
@@ -53,7 +53,7 @@ export function readRegularFileText(path: string, maxBytes?: number): string | u
       length += read;
     }
     if (length > maxBytes) throw new Error(`${path} is larger than ${maxBytes} bytes`);
-    return Buffer.concat(chunks, length).toString("utf8");
+    return Buffer.concat(chunks, length).toString('utf8');
   } finally {
     closeSync(fd);
   }

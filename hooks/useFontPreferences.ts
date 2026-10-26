@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useSyncExternalStore } from "react";
+import { useSyncExternalStore } from 'react';
 import {
   DEFAULT_FONT_PREFERENCES,
   FONT_STORAGE_KEYS,
@@ -9,10 +9,10 @@ import {
   readFontPreference,
   readFontWeight,
   type FontKind,
-  type FontPreferences,
-} from "@/lib/font-preferences";
+  type FontPreferences
+} from '@/lib/font-preferences';
 
-const FONT_KINDS: FontKind[] = ["ui", "mono"];
+const FONT_KINDS: FontKind[] = ['ui', 'mono'];
 const PREFERENCE_KEYS = Object.keys(FONT_STORAGE_KEYS) as (keyof FontPreferences)[];
 let preferences: FontPreferences | null = null;
 const listeners = new Set<() => void>();
@@ -38,13 +38,14 @@ function applyPreferences(next: FontPreferences): void {
     if (value) document.documentElement.style.setProperty(property, value);
     else document.documentElement.style.removeProperty(property);
     const weight = next[`${kind}Weight`];
-    if (weight === FONT_WEIGHT_DEFAULT) document.documentElement.style.removeProperty(`${property}-weight`);
+    if (weight === FONT_WEIGHT_DEFAULT)
+      document.documentElement.style.removeProperty(`${property}-weight`);
     else document.documentElement.style.setProperty(`${property}-weight`, String(weight));
   }
 }
 
 function getSnapshot(): FontPreferences {
-  if (typeof window === "undefined") return DEFAULT_FONT_PREFERENCES;
+  if (typeof window === 'undefined') return DEFAULT_FONT_PREFERENCES;
   if (!preferences) {
     preferences = readStoredPreferences();
     applyPreferences(preferences);
@@ -68,12 +69,12 @@ function onStorage(event: StorageEvent): void {
 
 /** Also used by the terminal: changing a font must not recreate its shell or stream. */
 export function subscribeFontPreferences(listener: () => void): () => void {
-  if (listeners.size === 0) window.addEventListener("storage", onStorage);
+  if (listeners.size === 0) window.addEventListener('storage', onStorage);
   listeners.add(listener);
   getSnapshot();
   return () => {
     listeners.delete(listener);
-    if (listeners.size === 0) window.removeEventListener("storage", onStorage);
+    if (listeners.size === 0) window.removeEventListener('storage', onStorage);
   };
 }
 
@@ -85,7 +86,8 @@ function setPreferences(next: FontPreferences): void {
   applyPreferences(next);
   for (const key of changedKeys) {
     try {
-      if (next[key] === DEFAULT_FONT_PREFERENCES[key]) window.localStorage.removeItem(FONT_STORAGE_KEYS[key]);
+      if (next[key] === DEFAULT_FONT_PREFERENCES[key])
+        window.localStorage.removeItem(FONT_STORAGE_KEYS[key]);
       else window.localStorage.setItem(FONT_STORAGE_KEYS[key], String(next[key]));
     } catch {
       // Apply in memory even if the browser cannot save the preference.
@@ -104,10 +106,14 @@ export function setFontWeight(kind: FontKind, value: number): void {
 
 /** Reset this font's family and weight together, leaving the other font unchanged. */
 export function resetFontPreference(kind: FontKind): void {
-  setPreferences({ ...getSnapshot(), [kind]: "", [`${kind}Weight`]: FONT_WEIGHT_DEFAULT });
+  setPreferences({ ...getSnapshot(), [kind]: '', [`${kind}Weight`]: FONT_WEIGHT_DEFAULT });
 }
 
 export function useFontPreferences() {
-  const snapshot = useSyncExternalStore(subscribeFontPreferences, getSnapshot, () => DEFAULT_FONT_PREFERENCES);
+  const snapshot = useSyncExternalStore(
+    subscribeFontPreferences,
+    getSnapshot,
+    () => DEFAULT_FONT_PREFERENCES
+  );
   return { ...snapshot, setFontPreference, setFontWeight, resetFontPreference };
 }

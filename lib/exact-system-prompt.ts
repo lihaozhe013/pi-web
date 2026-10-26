@@ -1,6 +1,6 @@
-import type { InlineExtension } from "@earendil-works/pi-coding-agent";
+import type { InlineExtension } from '@earendil-works/pi-coding-agent';
 
-export const EXACT_SYSTEM_PROMPT_EXTENSION_NAME = "pi-web-exact-system-prompt";
+export const EXACT_SYSTEM_PROMPT_EXTENSION_NAME = 'pi-web-exact-system-prompt';
 
 /**
  * Replace the whole system prompt of every agent run with the text `getPrompt` returns.
@@ -17,16 +17,16 @@ export const EXACT_SYSTEM_PROMPT_EXTENSION_NAME = "pi-web-exact-system-prompt";
  * its context files sends the new contents on its next prompt.
  */
 export function createExactSystemPromptExtension(
-  getPrompt: () => string | undefined,
+  getPrompt: () => string | undefined
 ): InlineExtension {
   return {
     name: EXACT_SYSTEM_PROMPT_EXTENSION_NAME,
     hidden: true,
     factory: (pi) => {
-      pi.on("before_agent_start", () => {
+      pi.on('before_agent_start', () => {
         const systemPrompt = getPrompt();
         return systemPrompt === undefined ? undefined : { systemPrompt };
       });
-    },
+    }
   };
 }

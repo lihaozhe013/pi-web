@@ -1,4 +1,4 @@
-import { execFile } from "child_process";
+import { execFile } from 'child_process';
 
 // ============================================================================
 // Which directory entries the file tree lists.
@@ -21,18 +21,29 @@ import { execFile } from "child_process";
  * - `excluded`: the name list, where Git has no view of the directory.
  * - `always`: `.git` and `.DS_Store`, never listed.
  */
-export type FileTreeHiddenReason = "ignored" | "excluded" | "always";
+export type FileTreeHiddenReason = 'ignored' | 'excluded' | 'always';
 
 const HIDDEN_NAMES = new Set([
-  "node_modules", ".git", ".next", "dist", "build", "__pycache__",
-  ".turbo", ".cache", "coverage", ".pytest_cache", ".mypy_cache",
-  "target", "vendor", ".DS_Store",
+  'node_modules',
+  '.git',
+  '.next',
+  'dist',
+  'build',
+  '__pycache__',
+  '.turbo',
+  '.cache',
+  'coverage',
+  '.pytest_cache',
+  '.mypy_cache',
+  'target',
+  'vendor',
+  '.DS_Store'
 ]);
 
-const HIDDEN_SUFFIXES = [".pyc"];
+const HIDDEN_SUFFIXES = ['.pyc'];
 
 // Never worth listing, whatever a repository says about them.
-const ALWAYS_HIDDEN_NAMES = new Set([".git", ".DS_Store"]);
+const ALWAYS_HIDDEN_NAMES = new Set(['.git', '.DS_Store']);
 
 // The listing waits on git, so a slow one degrades to the name list rather
 // than stalling the tree.
@@ -48,29 +59,29 @@ export function isHiddenOutsideGit(name: string): boolean {
 
 // Reading the index runs a repository-configured fsmonitor hook, and expanding
 // a folder (a nested checkout, say) must not execute commands.
-const GIT_SAFE_CONFIG = ["-c", "core.fsmonitor=false"];
+const GIT_SAFE_CONFIG = ['-c', 'core.fsmonitor=false'];
 
 /** Run git in `directory`; null when it is missing, fails or times out. */
 function runGit(
   directory: string,
   args: readonly string[],
   input?: string,
-  okExitCodes: readonly number[] = [0],
+  okExitCodes: readonly number[] = [0]
 ): Promise<string | null> {
   return new Promise((resolve) => {
     const child = execFile(
-      "git",
-      ["-C", directory, ...GIT_SAFE_CONFIG, ...args],
-      { timeout: GIT_TIMEOUT_MS, maxBuffer: GIT_MAX_BUFFER, env: { ...process.env, LC_ALL: "C" } },
+      'git',
+      ['-C', directory, ...GIT_SAFE_CONFIG, ...args],
+      { timeout: GIT_TIMEOUT_MS, maxBuffer: GIT_MAX_BUFFER, env: { ...process.env, LC_ALL: 'C' } },
       (error, stdout) => {
-        const exitCode = error && typeof error.code === "number" ? error.code : error ? null : 0;
+        const exitCode = error && typeof error.code === 'number' ? error.code : error ? null : 0;
         resolve(exitCode !== null && okExitCodes.includes(exitCode) ? stdout : null);
-      },
+      }
     );
     // Outside a repository git exits without reading its input; the resulting
     // EPIPE must not surface as an unhandled stream error.
-    child.stdin?.on("error", () => {});
-    child.stdin?.end(input ?? "");
+    child.stdin?.on('error', () => {});
+    child.stdin?.end(input ?? '');
   });
 }
 
@@ -96,16 +107,26 @@ function pathspecBatches(names: readonly string[]): string[][] {
  * Which of `names` hold something Git tracks: the name itself or any path
  * below it. Null when git fails.
  */
-async function readTrackedNames(directory: string, names: readonly string[]): Promise<Set<string> | null> {
+async function readTrackedNames(
+  directory: string,
+  names: readonly string[]
+): Promise<Set<string> | null> {
   const tracked = new Set<string>();
   for (const batch of pathspecBatches(names)) {
     // `--literal-pathspecs` keeps `*`, `[id]` and a leading `:(` literal.
     // ls-files starts from the index range under `directory`, so the cost
     // follows what is tracked below it, not the whole repository.
-    const stdout = await runGit(directory, ["--literal-pathspecs", "ls-files", "-z", "--cached", "--", ...batch]);
+    const stdout = await runGit(directory, [
+      '--literal-pathspecs',
+      'ls-files',
+      '-z',
+      '--cached',
+      '--',
+      ...batch
+    ]);
     if (stdout === null) return null;
-    for (const record of stdout.split("\0")) {
-      if (record) tracked.add(record.split("/", 1)[0]);
+    for (const record of stdout.split('\0')) {
+      if (record) tracked.add(record.split('/', 1)[0]);
     }
   }
   return tracked;
@@ -131,22 +152,25 @@ async function readTrackedNames(directory: string, names: readonly string[]): Pr
  */
 export async function readGitIgnoredNames(
   directory: string,
-  names: readonly string[],
+  names: readonly string[]
 ): Promise<Set<string> | null> {
   // `./` keeps a name such as `:(glob)x` from parsing as pathspec magic, which
   // check-ignore rejects for the whole batch. `.` asks about `directory`.
-  const input = [".", ...names.map((name) => `./${name}`)]
-    .map((entry) => `${entry}\0`)
-    .join("");
+  const input = ['.', ...names.map((name) => `./${name}`)].map((entry) => `${entry}\0`).join('');
   // Exit status 1 means nothing is ignored: an answer, not a failure.
-  const stdout = await runGit(directory, ["check-ignore", "--no-index", "-z", "--stdin"], input, [0, 1]);
+  const stdout = await runGit(
+    directory,
+    ['check-ignore', '--no-index', '-z', '--stdin'],
+    input,
+    [0, 1]
+  );
   if (stdout === null) return null;
 
   let directoryIgnored = false;
   const matched: string[] = [];
-  for (const record of stdout.split("\0")) {
-    if (record === ".") directoryIgnored = true;
-    else if (record.startsWith("./")) matched.push(record.slice(2));
+  for (const record of stdout.split('\0')) {
+    if (record === '.') directoryIgnored = true;
+    else if (record.startsWith('./')) matched.push(record.slice(2));
   }
   if (matched.length === 0) return directoryIgnored ? null : new Set();
 
@@ -158,21 +182,21 @@ export async function readGitIgnoredNames(
 /** Build the test of why an entry of one listing of `directory` is hidden; null when it is shown. */
 export async function getFileTreeHiddenReasons(
   directory: string,
-  names: readonly string[],
+  names: readonly string[]
 ): Promise<(name: string) => FileTreeHiddenReason | null> {
   const candidates = names.filter((name) => !ALWAYS_HIDDEN_NAMES.has(name));
   const ignored = candidates.length > 0 ? await readGitIgnoredNames(directory, candidates) : null;
   return (name) => {
-    if (ALWAYS_HIDDEN_NAMES.has(name)) return "always";
-    if (!ignored) return isHiddenOutsideGit(name) ? "excluded" : null;
-    return ignored.has(name) ? "ignored" : null;
+    if (ALWAYS_HIDDEN_NAMES.has(name)) return 'always';
+    if (!ignored) return isHiddenOutsideGit(name) ? 'excluded' : null;
+    return ignored.has(name) ? 'ignored' : null;
   };
 }
 
 /** Build the visibility test for one listing of `directory`. */
 export async function getFileTreeVisibility(
   directory: string,
-  names: readonly string[],
+  names: readonly string[]
 ): Promise<(name: string) => boolean> {
   const hiddenReason = await getFileTreeHiddenReasons(directory, names);
   return (name) => hiddenReason(name) === null;

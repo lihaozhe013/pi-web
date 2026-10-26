@@ -5,8 +5,8 @@ import type {
   McpServerRef,
   McpSignInFailure,
   McpSignInFlowInfo,
-  McpSignInPhase,
-} from "@/lib/api-types";
+  McpSignInPhase
+} from '@/lib/api-types';
 import {
   mcpTestBlock,
   mcpWriteBlock,
@@ -14,8 +14,8 @@ import {
   withinDeadline,
   type FetchLike,
   type McpActionFailure,
-  type McpTestBlock,
-} from "./mcp-config-helpers";
+  type McpTestBlock
+} from './mcp-config-helpers';
 
 // Pure helpers and requests for Settings › MCP's sign-in (components/McpSignIn.tsx):
 // what a flow says at each phase, why Sign in or Sign out cannot be used, and
@@ -29,7 +29,12 @@ export const MCP_SIGN_IN_REQUEST_TIMEOUT_MS = 15_000;
 /** Poll failures are retried until this long after the flow's own time limit, then the flow is taken for gone. */
 export const MCP_SIGN_IN_GONE_AFTER_MS = 5_000;
 
-const ENDED_PHASES: ReadonlySet<McpSignInPhase> = new Set<McpSignInPhase>(["done", "failed", "cancelled", "expired"]);
+const ENDED_PHASES: ReadonlySet<McpSignInPhase> = new Set<McpSignInPhase>([
+  'done',
+  'failed',
+  'cancelled',
+  'expired'
+]);
 
 export function mcpSignInEnded(phase: McpSignInPhase): boolean {
   return ENDED_PHASES.has(phase);
@@ -71,7 +76,7 @@ export function mcpSignInLink(url: string | undefined): string | undefined {
   if (url === undefined) return undefined;
   try {
     const parsed = new URL(url);
-    return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.href : undefined;
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:' ? parsed.href : undefined;
   } catch {
     return undefined;
   }
@@ -84,8 +89,8 @@ export function mcpSignInLink(url: string | undefined): string | undefined {
  * an entry pi refuses, and one that references PI_WEB_PASSWORD.
  */
 export function mcpSignInBlock(
-  server: Pick<McpServerInfo, "scope" | "invalidError" | "validated" | "webPasswordField">,
-  data: Pick<McpResponse, "mcp" | "project">,
+  server: Pick<McpServerInfo, 'scope' | 'invalidError' | 'validated' | 'webPasswordField'>,
+  data: Pick<McpResponse, 'mcp' | 'project'>
 ): McpTestBlock | undefined {
   return mcpTestBlock(server, data);
 }
@@ -96,20 +101,20 @@ export function mcpSignInBlock(
  * read. An entry that references PI_WEB_PASSWORD can still be signed out of.
  */
 export function mcpSignOutBlock(
-  server: Pick<McpServerInfo, "scope" | "invalidError" | "validated">,
-  data: Pick<McpResponse, "mcp" | "project">,
+  server: Pick<McpServerInfo, 'scope' | 'invalidError' | 'validated'>,
+  data: Pick<McpResponse, 'mcp' | 'project'>
 ): McpTestBlock | undefined {
   const block = mcpWriteBlock(server.scope, data);
   if (block) return block;
-  return server.invalidError !== undefined || !server.validated ? "invalid" : undefined;
+  return server.invalidError !== undefined || !server.validated ? 'invalid' : undefined;
 }
 
 export const MCP_SIGN_IN_BLOCK_KEYS: Record<McpTestBlock, string> = {
-  "mcp-off": "mcp.signIn.blocked.mcp-off",
-  "project-untrusted": "mcp.signIn.blocked.project-untrusted",
-  "trust-unreadable": "mcp.signIn.blocked.trust-unreadable",
-  invalid: "mcp.signIn.blocked.invalid",
-  "web-password": "mcp.test.blocked.web-password",
+  'mcp-off': 'mcp.signIn.blocked.mcp-off',
+  'project-untrusted': 'mcp.signIn.blocked.project-untrusted',
+  'trust-unreadable': 'mcp.signIn.blocked.trust-unreadable',
+  invalid: 'mcp.signIn.blocked.invalid',
+  'web-password': 'mcp.test.blocked.web-password'
 };
 
 /**
@@ -119,35 +124,35 @@ export const MCP_SIGN_IN_BLOCK_KEYS: Record<McpTestBlock, string> = {
  * `mcp.reason.*` words, and `internal` shows the route's diagnostic.
  */
 export const MCP_SIGN_IN_REFUSAL_KEYS: Partial<Record<McpRefusalReason, string>> = {
-  "mcp-off": "mcp.signIn.blocked.mcp-off",
-  "project-untrusted": "mcp.signIn.blocked.project-untrusted",
-  "trust-unreadable": "mcp.signIn.blocked.trust-unreadable",
-  "server-invalid": "mcp.signIn.blocked.invalid",
-  "web-password": "mcp.test.blocked.web-password",
-  "entry-not-object": "mcp.signIn.refused.file",
-  "server-missing": "mcp.signIn.refused.file",
-  unparsable: "mcp.signIn.refused.file",
-  "invalid-shape": "mcp.signIn.refused.file",
-  "link-dangling": "mcp.signIn.refused.file",
-  "link-outside": "mcp.signIn.refused.file",
-  "not-a-file": "mcp.signIn.refused.file",
-  "too-large": "mcp.signIn.refused.file",
-  "too-many-servers": "mcp.signIn.refused.file",
-  "invalid-request": "mcp.signIn.refused.invalid-request",
+  'mcp-off': 'mcp.signIn.blocked.mcp-off',
+  'project-untrusted': 'mcp.signIn.blocked.project-untrusted',
+  'trust-unreadable': 'mcp.signIn.blocked.trust-unreadable',
+  'server-invalid': 'mcp.signIn.blocked.invalid',
+  'web-password': 'mcp.test.blocked.web-password',
+  'entry-not-object': 'mcp.signIn.refused.file',
+  'server-missing': 'mcp.signIn.refused.file',
+  unparsable: 'mcp.signIn.refused.file',
+  'invalid-shape': 'mcp.signIn.refused.file',
+  'link-dangling': 'mcp.signIn.refused.file',
+  'link-outside': 'mcp.signIn.refused.file',
+  'not-a-file': 'mcp.signIn.refused.file',
+  'too-large': 'mcp.signIn.refused.file',
+  'too-many-servers': 'mcp.signIn.refused.file',
+  'invalid-request': 'mcp.signIn.refused.invalid-request'
 };
 
 /** What a flow under way is doing, for the phases that show no page. */
 export const MCP_SIGN_IN_PHASE_KEYS: Partial<Record<McpSignInPhase, string>> = {
-  connecting: "mcp.signIn.phase.connecting",
-  starting: "mcp.signIn.phase.starting",
-  finishing: "mcp.signIn.phase.finishing",
+  connecting: 'mcp.signIn.phase.connecting',
+  starting: 'mcp.signIn.phase.starting',
+  finishing: 'mcp.signIn.phase.finishing'
 };
 
 export const MCP_SIGN_IN_FAILURE_KEYS: Record<McpSignInFailure, string> = {
-  "connect-failed": "mcp.signIn.failed.connect-failed",
-  "queue-timed-out": "mcp.signIn.failed.queue-timed-out",
-  "sign-in-failed": "mcp.signIn.failed.sign-in-failed",
-  internal: "mcp.signIn.failed.internal",
+  'connect-failed': 'mcp.signIn.failed.connect-failed',
+  'queue-timed-out': 'mcp.signIn.failed.queue-timed-out',
+  'sign-in-failed': 'mcp.signIn.failed.sign-in-failed',
+  internal: 'mcp.signIn.failed.internal'
 };
 
 /**
@@ -156,8 +161,8 @@ export const MCP_SIGN_IN_FAILURE_KEYS: Record<McpSignInFailure, string> = {
  * entry only, so this one's Status row does not show it.
  */
 export function mcpSignInShared(
-  flow: Pick<McpSignInFlowInfo, "scope" | "name">,
-  server: Pick<McpServerInfo, "scope" | "name">,
+  flow: Pick<McpSignInFlowInfo, 'scope' | 'name'>,
+  server: Pick<McpServerInfo, 'scope' | 'name'>
 ): boolean {
   return flow.scope !== server.scope || flow.name !== server.name;
 }
@@ -168,43 +173,49 @@ export function mcpSignInShared(
  * entry's Status row, which shows nothing the flow found.
  */
 export function mcpSignInOutcomeKey(
-  flow: Pick<McpSignInFlowInfo, "phase" | "alreadySignedIn" | "refreshed" | "result" | "failure">,
-  shared = false,
+  flow: Pick<McpSignInFlowInfo, 'phase' | 'alreadySignedIn' | 'refreshed' | 'result' | 'failure'>,
+  shared = false
 ): string | undefined {
   switch (flow.phase) {
-    case "done": {
-      if (shared) return flow.alreadySignedIn ? "mcp.signIn.shared.already" : "mcp.signIn.shared.done";
-      if (flow.alreadySignedIn) return "mcp.signIn.done.already";
+    case 'done': {
+      if (shared)
+        return flow.alreadySignedIn ? 'mcp.signIn.shared.already' : 'mcp.signIn.shared.done';
+      if (flow.alreadySignedIn) return 'mcp.signIn.done.already';
       const result = flow.result;
-      if (result && result.state === "needs-auth") return "mcp.signIn.done.needsAuthAfter";
-      if (result && result.state === "failed") return "mcp.signIn.done.failedAfter";
-      if (!result) return "mcp.signIn.done.notConnected";
-      return flow.refreshed ? "mcp.signIn.done.refreshed" : "mcp.signIn.done.signedIn";
+      if (result && result.state === 'needs-auth') return 'mcp.signIn.done.needsAuthAfter';
+      if (result && result.state === 'failed') return 'mcp.signIn.done.failedAfter';
+      if (!result) return 'mcp.signIn.done.notConnected';
+      return flow.refreshed ? 'mcp.signIn.done.refreshed' : 'mcp.signIn.done.signedIn';
     }
-    case "failed":
-      if (shared && flow.failure === "connect-failed") return "mcp.signIn.shared.connect-failed";
-      return MCP_SIGN_IN_FAILURE_KEYS[flow.failure ?? "internal"];
-    case "cancelled":
-      return "mcp.signIn.cancelled";
-    case "expired":
-      return "mcp.signIn.expired";
+    case 'failed':
+      if (shared && flow.failure === 'connect-failed') return 'mcp.signIn.shared.connect-failed';
+      return MCP_SIGN_IN_FAILURE_KEYS[flow.failure ?? 'internal'];
+    case 'cancelled':
+      return 'mcp.signIn.cancelled';
+    case 'expired':
+      return 'mcp.signIn.expired';
     default:
       return undefined;
   }
 }
 
 /** The tone of that sentence; a `shared` flow's connection is the other entry's, so signing in is what counts. */
-export function mcpSignInOutcomeTone(flow: Pick<McpSignInFlowInfo, "phase" | "result">, shared = false): "on" | "off" | "warning" | "error" {
-  if (flow.phase === "done") return !shared && flow.result && flow.result.state !== "connected" ? "warning" : "on";
-  if (flow.phase === "failed") return "error";
-  return flow.phase === "expired" ? "warning" : "off";
+export function mcpSignInOutcomeTone(
+  flow: Pick<McpSignInFlowInfo, 'phase' | 'result'>,
+  shared = false
+): 'on' | 'off' | 'warning' | 'error' {
+  if (flow.phase === 'done')
+    return !shared && flow.result && flow.result.state !== 'connected' ? 'warning' : 'on';
+  if (flow.phase === 'failed') return 'error';
+  return flow.phase === 'expired' ? 'warning' : 'off';
 }
 
 // ---------------------------------------------------------------------------
 // Where a run goes after each answer
 // ---------------------------------------------------------------------------
 
-export type McpSignInRequestResult = { ok: true; data: McpSignInFlowInfo } | { ok: false; error: McpActionFailure };
+export type McpSignInRequestResult =
+  { ok: true; data: McpSignInFlowInfo } | { ok: false; error: McpActionFailure };
 
 /**
  * The run with `flow` as its latest read. Once the flow has ended, what a
@@ -223,13 +234,16 @@ function withFlow(run: McpSignInRun, flow: McpSignInFlowInfo, now: number): McpS
 }
 
 /** After `POST /api/mcp/sign-in`: the flow it started or joined, or why it did not. */
-export function mcpSignInRunAfterStart(result: McpSignInRequestResult, now: number = Date.now()): McpSignInRun {
+export function mcpSignInRunAfterStart(
+  result: McpSignInRequestResult,
+  now: number = Date.now()
+): McpSignInRun {
   return result.ok ? withFlow({}, result.data, now) : { error: result.error };
 }
 
 /** Whether a failure says the server no longer knows the flow. */
 function isGone(failure: McpActionFailure): boolean {
-  return failure.reason === "sign-in-unknown";
+  return failure.reason === 'sign-in-unknown';
 }
 
 /**
@@ -245,18 +259,24 @@ export function mcpSignInRunAfterPoll(
   flowId: string,
   result: McpSignInRequestResult,
   now: number = Date.now(),
-  sentVersion?: number,
+  sentVersion?: number
 ): McpSignInRun | undefined {
   if (!run?.flow || run.flow.flowId !== flowId) return run;
   if (sentVersion !== undefined && (run.version ?? 0) !== sentVersion) return run;
   if (result.ok) return withFlow(run, result.data, now);
   if (isGone(result.error)) return { ...run, gone: true };
-  if (run.deadlineAt !== undefined && now > run.deadlineAt + MCP_SIGN_IN_GONE_AFTER_MS) return { ...run, gone: true };
+  if (run.deadlineAt !== undefined && now > run.deadlineAt + MCP_SIGN_IN_GONE_AFTER_MS)
+    return { ...run, gone: true };
   return run;
 }
 
 /** After a paste: the flow moving on, or why it was refused, while the flow keeps waiting. */
-export function mcpSignInRunAfterPaste(run: McpSignInRun | undefined, flowId: string, result: McpSignInRequestResult, now: number = Date.now()): McpSignInRun | undefined {
+export function mcpSignInRunAfterPaste(
+  run: McpSignInRun | undefined,
+  flowId: string,
+  result: McpSignInRequestResult,
+  now: number = Date.now()
+): McpSignInRun | undefined {
   if (!run?.flow || run.flow.flowId !== flowId) return run;
   const settled = { ...run, pasting: false, version: (run.version ?? 0) + 1 };
   if (result.ok) return { ...withFlow(settled, result.data, now), pasteError: undefined };
@@ -265,16 +285,29 @@ export function mcpSignInRunAfterPaste(run: McpSignInRun | undefined, flowId: st
 }
 
 /** After a cancel: the flow as it ended. */
-export function mcpSignInRunAfterCancel(run: McpSignInRun | undefined, flowId: string, result: McpSignInRequestResult, now: number = Date.now()): McpSignInRun | undefined {
+export function mcpSignInRunAfterCancel(
+  run: McpSignInRun | undefined,
+  flowId: string,
+  result: McpSignInRequestResult,
+  now: number = Date.now()
+): McpSignInRun | undefined {
   if (!run?.flow || run.flow.flowId !== flowId) return run;
-  const settled = { ...run, cancelling: false, cancelError: undefined, version: (run.version ?? 0) + 1 };
+  const settled = {
+    ...run,
+    cancelling: false,
+    cancelError: undefined,
+    version: (run.version ?? 0) + 1
+  };
   if (result.ok) return withFlow(settled, result.data, now);
   if (isGone(result.error)) return { ...settled, gone: true };
   return { ...settled, cancelError: result.error };
 }
 
 /** Whether a run went from waiting to ended (or gone), after which the panel reads the overview again. */
-export function mcpSignInJustEnded(previous: McpSignInRun | undefined, next: McpSignInRun | undefined): boolean {
+export function mcpSignInJustEnded(
+  previous: McpSignInRun | undefined,
+  next: McpSignInRun | undefined
+): boolean {
   return mcpSignInActive(previous) && !mcpSignInActive(next);
 }
 
@@ -283,16 +316,26 @@ export function mcpSignInJustEnded(previous: McpSignInRun | undefined, next: Mcp
 // ---------------------------------------------------------------------------
 
 function isFlowInfo(value: unknown): value is McpSignInFlowInfo {
-  if (value === null || typeof value !== "object") return false;
+  if (value === null || typeof value !== 'object') return false;
   const flow = value as Partial<McpSignInFlowInfo>;
-  return typeof flow.flowId === "string" && typeof flow.phase === "string" && typeof flow.name === "string"
-    && (flow.scope === "global" || flow.scope === "project") && typeof flow.expiresInMs === "number";
+  return (
+    typeof flow.flowId === 'string' &&
+    typeof flow.phase === 'string' &&
+    typeof flow.name === 'string' &&
+    (flow.scope === 'global' || flow.scope === 'project') &&
+    typeof flow.expiresInMs === 'number'
+  );
 }
 
-async function requestSignIn(url: string, init: RequestInit, fetchImpl: FetchLike, signal: AbortSignal): Promise<McpSignInRequestResult> {
+async function requestSignIn(
+  url: string,
+  init: RequestInit,
+  fetchImpl: FetchLike,
+  signal: AbortSignal
+): Promise<McpSignInRequestResult> {
   let response: Awaited<ReturnType<FetchLike>>;
   try {
-    response = await fetchImpl(url, { ...init, cache: "no-store", signal });
+    response = await fetchImpl(url, { ...init, cache: 'no-store', signal });
   } catch (error) {
     return { ok: false, error: { error: error instanceof Error ? error.message : String(error) } };
   }
@@ -312,15 +355,18 @@ function signInRequest(
   fetchImpl: FetchLike,
   signal: AbortSignal | undefined,
   timeoutMs: number,
-  options: { abortAtDeadline?: boolean } = {},
+  options: { abortAtDeadline?: boolean } = {}
 ): Promise<McpSignInRequestResult> {
-  const method = init.method ?? "GET";
+  const method = init.method ?? 'GET';
   return withinDeadline<McpSignInRequestResult>(
     (deadlineSignal) => requestSignIn(url, init, fetchImpl, deadlineSignal),
-    () => ({ ok: false, error: { error: `${method} ${url} did not answer within ${timeoutMs} ms`, timedOut: true } }),
+    () => ({
+      ok: false,
+      error: { error: `${method} ${url} did not answer within ${timeoutMs} ms`, timedOut: true }
+    }),
     timeoutMs,
     signal,
-    options,
+    options
   );
 }
 
@@ -344,13 +390,20 @@ export function postMcpSignIn(
   cwd: string | null,
   fetchImpl: FetchLike = (input, init) => fetch(input, init),
   signal?: AbortSignal,
-  timeoutMs: number = MCP_SIGN_IN_REQUEST_TIMEOUT_MS,
+  timeoutMs: number = MCP_SIGN_IN_REQUEST_TIMEOUT_MS
 ): Promise<McpSignInRequestResult> {
-  return signInRequest("/api/mcp/sign-in", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ scope: server.scope, name: server.name, ...(cwd ? { cwd } : {}) }),
-  }, fetchImpl, signal, timeoutMs, { abortAtDeadline: false });
+  return signInRequest(
+    '/api/mcp/sign-in',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scope: server.scope, name: server.name, ...(cwd ? { cwd } : {}) })
+    },
+    fetchImpl,
+    signal,
+    timeoutMs,
+    { abortAtDeadline: false }
+  );
 }
 
 /** Where a sign-in stands; aborting the poll changes nothing on the server. */
@@ -358,7 +411,7 @@ export function getMcpSignIn(
   flowId: string,
   fetchImpl: FetchLike = (input, init) => fetch(input, init),
   signal?: AbortSignal,
-  timeoutMs: number = MCP_SIGN_IN_REQUEST_TIMEOUT_MS,
+  timeoutMs: number = MCP_SIGN_IN_REQUEST_TIMEOUT_MS
 ): Promise<McpSignInRequestResult> {
   return signInRequest(flowUrl(flowId), {}, fetchImpl, signal, timeoutMs);
 }
@@ -369,13 +422,19 @@ export function pasteMcpSignIn(
   redirectUrl: string,
   fetchImpl: FetchLike = (input, init) => fetch(input, init),
   signal?: AbortSignal,
-  timeoutMs: number = MCP_SIGN_IN_REQUEST_TIMEOUT_MS,
+  timeoutMs: number = MCP_SIGN_IN_REQUEST_TIMEOUT_MS
 ): Promise<McpSignInRequestResult> {
-  return signInRequest(flowUrl(flowId), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ redirectUrl }),
-  }, fetchImpl, signal, timeoutMs);
+  return signInRequest(
+    flowUrl(flowId),
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ redirectUrl })
+    },
+    fetchImpl,
+    signal,
+    timeoutMs
+  );
 }
 
 /** Cancels a sign-in. */
@@ -383,7 +442,7 @@ export function cancelMcpSignInFlow(
   flowId: string,
   fetchImpl: FetchLike = (input, init) => fetch(input, init),
   signal?: AbortSignal,
-  timeoutMs: number = MCP_SIGN_IN_REQUEST_TIMEOUT_MS,
+  timeoutMs: number = MCP_SIGN_IN_REQUEST_TIMEOUT_MS
 ): Promise<McpSignInRequestResult> {
-  return signInRequest(flowUrl(flowId), { method: "DELETE" }, fetchImpl, signal, timeoutMs);
+  return signInRequest(flowUrl(flowId), { method: 'DELETE' }, fetchImpl, signal, timeoutMs);
 }

@@ -15,7 +15,10 @@ const WIDTH_STEP_PX = 40;
  * and never shows up here, which keeps ordinary dialogs at their default width. The
  * result may exceed what the screen can show; the dialog is capped to its container.
  */
-export function fitExtensionDialogWidth(dialogWidth: number, overflows: readonly number[]): number | null {
+export function fitExtensionDialogWidth(
+  dialogWidth: number,
+  overflows: readonly number[]
+): number | null {
   let widest = 0;
   for (const overflow of overflows) {
     if (overflow > OVERFLOW_TOLERANCE_PX && overflow > widest) widest = overflow;

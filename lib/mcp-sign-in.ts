@@ -1,7 +1,13 @@
-import { randomUUID } from "node:crypto";
-import { existsSync } from "node:fs";
-import { join } from "node:path";
-import type { McpRefusalReason, McpSignInFailure, McpSignInFlowInfo, McpSignInPhase, McpTestResult } from "./api-types";
+import { randomUUID } from 'node:crypto';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import type {
+  McpRefusalReason,
+  McpSignInFailure,
+  McpSignInFlowInfo,
+  McpSignInPhase,
+  McpTestResult
+} from './api-types';
 import {
   guardedCredentialStore,
   mcpOAuthUrl,
@@ -9,9 +15,9 @@ import {
   mcpSignInKey,
   mcpSignOutCount,
   noteMcpSignOut,
-  type McpSignInWriteGuard,
-} from "./mcp-sign-out";
-import { recordMcpStatus } from "./mcp-status";
+  type McpSignInWriteGuard
+} from './mcp-sign-out';
+import { recordMcpStatus } from './mcp-status';
 import {
   closeTestConnection,
   createTestRedactor,
@@ -23,19 +29,25 @@ import {
   takeMcpCommandSlot,
   type McpTestInternals,
   type McpTestRun,
-  type McpTestTarget,
-} from "./mcp-test";
+  type McpTestTarget
+} from './mcp-test';
 import type {
   McpOAuthChallenge,
   McpOAuthSettings,
   McpOAuthStateStore,
   McpSignInOptions,
-  PiSdkInternals,
-} from "./pi-sdk-internals";
+  PiSdkInternals
+} from './pi-sdk-internals';
 
 // The URL rule, the sign-out counts and the guarded store live in
 // `lib/mcp-sign-out.ts`, which Tests use too; re-exported for the routes.
-export { guardedCredentialStore, mcpOAuthUrl, McpSignedOutError, mcpSignInKey, type McpSignInWriteGuard };
+export {
+  guardedCredentialStore,
+  mcpOAuthUrl,
+  McpSignedOutError,
+  mcpSignInKey,
+  type McpSignInWriteGuard
+};
 
 // Settings › MCP's sign-in (ADR 0006), run as `pi mcp login` runs it (SDK
 // `extensions/mcp/cli.js` login()): connect once, to learn whether the server
@@ -101,7 +113,12 @@ export const MCP_SIGN_IN_MAX_FLOWS = 100;
 /** The longest redirected address a paste may be. */
 export const MCP_SIGN_IN_MAX_PASTE_CHARS = 16 * 1024;
 
-const ENDED: ReadonlySet<McpSignInPhase> = new Set<McpSignInPhase>(["done", "failed", "cancelled", "expired"]);
+const ENDED: ReadonlySet<McpSignInPhase> = new Set<McpSignInPhase>([
+  'done',
+  'failed',
+  'cancelled',
+  'expired'
+]);
 const DENIAL_MAX_CHARS = 500;
 
 function errorMessage(error: unknown): string {
@@ -109,7 +126,7 @@ function errorMessage(error: unknown): string {
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 // ---------------------------------------------------------------------------
@@ -156,7 +173,8 @@ export interface McpSignInDeps {
   isCancelled(error: unknown): boolean;
 }
 
-export type McpSignInInternals = McpTestInternals & Pick<PiSdkInternals, "signInMcpServer" | "McpSignInCancelledError">;
+export type McpSignInInternals = McpTestInternals &
+  Pick<PiSdkInternals, 'signInMcpServer' | 'McpSignInCancelledError'>;
 
 /**
  * The connection a test opens (`openTestConnection()`), kept open across the
@@ -170,10 +188,14 @@ export type McpSignInInternals = McpTestInternals & Pick<PiSdkInternals, "signIn
 export function openMcpSignInConnection(
   target: McpSignInTarget,
   internals: McpTestInternals,
-  options: { deadlineMs?: number; guard?: McpSignInWriteGuard } = {},
+  options: { deadlineMs?: number; guard?: McpSignInWriteGuard } = {}
 ): McpSignInConnection {
   const deadlineMs = options.deadlineMs ?? MCP_TEST_DEADLINE_MS;
-  const opened = openTestConnection(target, internals, options.guard ? { credentials: guardedCredentialStore(internals, options.guard) } : {});
+  const opened = openTestConnection(
+    target,
+    internals,
+    options.guard ? { credentials: guardedCredentialStore(internals, options.guard) } : {}
+  );
   const resolvedSecrets: string[] = [];
   let settings: { value: McpOAuthSettings } | { error: unknown } | undefined;
   const serial = runsShellCommand(target.config, internals);
@@ -186,51 +208,64 @@ export function openMcpSignInConnection(
       settings = { error };
     }
   };
-  const turn = async (stop: AbortSignal, run: (signal: AbortSignal) => Promise<McpTestRun>): Promise<McpTestRun> => {
+  const turn = async (
+    stop: AbortSignal,
+    run: (signal: AbortSignal) => Promise<McpTestRun>
+  ): Promise<McpTestRun> => {
     const slot = serial ? await takeMcpCommandSlot(stop, deadlineMs) : undefined;
     if (slot && !slot.turn) {
-      return { state: "failed", tools: [], toolCount: 0, durationMs: 0, ...(slot.timedOut ? { queueTimedOut: true } : { timedOut: true }) };
+      return {
+        state: 'failed',
+        tools: [],
+        toolCount: 0,
+        durationMs: 0,
+        ...(slot.timedOut ? { queueTimedOut: true } : { timedOut: true })
+      };
     }
     const controller = new AbortController();
     const abort = () => controller.abort();
     const timer = setTimeout(abort, deadlineMs);
     timer.unref?.();
     if (stop.aborted) abort();
-    else stop.addEventListener("abort", abort, { once: true });
+    else stop.addEventListener('abort', abort, { once: true });
     try {
       return await run(controller.signal);
     } finally {
       clearTimeout(timer);
-      stop.removeEventListener("abort", abort);
+      stop.removeEventListener('abort', abort);
       slot?.release();
     }
   };
   return {
-    connect: (stop) => turn(stop, async (signal) => {
-      const run = await observeTestConnection(opened, target, internals, signal);
-      if (run.state === "needs-auth") readSettings();
-      return run;
-    }),
+    connect: (stop) =>
+      turn(stop, async (signal) => {
+        const run = await observeTestConnection(opened, target, internals, signal);
+        if (run.state === 'needs-auth') readSettings();
+        return run;
+      }),
     get challenge() {
       return opened.connection.challenge;
     },
     oauthSettings() {
       if (!settings) readSettings();
-      if (!settings || "error" in settings) throw settings ? settings.error : new Error("OAuth settings were not read");
+      if (!settings || 'error' in settings)
+        throw settings ? settings.error : new Error('OAuth settings were not read');
       return settings.value;
     },
-    reconnect: (stop) => turn(stop, (signal) => {
-      opened.connection.challenge = undefined;
-      return observeTestConnection(opened, target, internals, signal, {
-        attempt: async () => {
-          await opened.connection.reconnect();
-          return opened.connection.getClient();
-        },
-        resolvedSecrets,
-      });
-    }),
-    redact: (text) => createTestRedactor(target.config, opened.transports, internals, resolvedSecrets)(text),
-    close: () => closeTestConnection(opened),
+    reconnect: (stop) =>
+      turn(stop, (signal) => {
+        opened.connection.challenge = undefined;
+        return observeTestConnection(opened, target, internals, signal, {
+          attempt: async () => {
+            await opened.connection.reconnect();
+            return opened.connection.getClient();
+          },
+          resolvedSecrets
+        });
+      }),
+    redact: (text) =>
+      createTestRedactor(target.config, opened.transports, internals, resolvedSecrets)(text),
+    close: () => closeTestConnection(opened)
   };
 }
 
@@ -240,7 +275,9 @@ export function createMcpSignInDeps(internals: McpSignInInternals): McpSignInDep
     open: (target, guard) => openMcpSignInConnection(target, internals, { guard }),
     signIn: (options) => internals.signInMcpServer(options),
     store: (name, url) => new internals.McpOAuthCredentialStore().forServer(name, url),
-    isCancelled: (error) => error instanceof internals.McpSignInCancelledError || (error instanceof Error && error.name === "McpSignInCancelledError"),
+    isCancelled: (error) =>
+      error instanceof internals.McpSignInCancelledError ||
+      (error instanceof Error && error.name === 'McpSignInCancelledError')
   };
 }
 
@@ -289,7 +326,7 @@ interface Registry {
   tails: Map<string, Promise<void>>;
 }
 
-const REGISTRY_KEY: symbol = Symbol.for("pi-web:mcp-sign-in");
+const REGISTRY_KEY: symbol = Symbol.for('pi-web:mcp-sign-in');
 
 function registry(): Registry {
   const store = globalThis as Record<symbol, Registry | undefined>;
@@ -318,7 +355,11 @@ function setPhase(flow: Flow, phase: McpSignInPhase): void {
  * it `keepMs` later. Its run goes on unwinding in the background and changes
  * nothing about it any more.
  */
-function end(flow: Flow, phase: McpSignInPhase, extra: Partial<Pick<Flow, "alreadySignedIn" | "refreshed" | "result" | "failure" | "error">> = {}): void {
+function end(
+  flow: Flow,
+  phase: McpSignInPhase,
+  extra: Partial<Pick<Flow, 'alreadySignedIn' | 'refreshed' | 'result' | 'failure' | 'error'>> = {}
+): void {
   if (isEnded(flow)) return;
   Object.assign(flow, extra);
   flow.phase = phase;
@@ -326,7 +367,7 @@ function end(flow: Flow, phase: McpSignInPhase, extra: Partial<Pick<Flow, "alrea
   flow.controller.abort();
   const prompt = flow.prompt;
   flow.prompt = undefined;
-  prompt?.("");
+  prompt?.('');
   const { flows, active } = registry();
   if (active.get(flow.key) === flow.id) active.delete(flow.key);
   const forget = setTimeout(() => {
@@ -344,14 +385,17 @@ function describeFlow(flow: Flow): McpSignInFlowInfo {
     configKey: flow.target.configKey,
     phase: flow.phase,
     expiresInMs: ended ? 0 : Math.max(0, flow.expiresAt - Date.now()),
-    ...(flow.phase === "authorize" && flow.authorizationUrl !== undefined
-      ? { authorizationUrl: flow.authorizationUrl, ...(flow.redirectUrl !== undefined ? { redirectUrl: flow.redirectUrl } : {}) }
+    ...(flow.phase === 'authorize' && flow.authorizationUrl !== undefined
+      ? {
+          authorizationUrl: flow.authorizationUrl,
+          ...(flow.redirectUrl !== undefined ? { redirectUrl: flow.redirectUrl } : {})
+        }
       : {}),
     ...(flow.alreadySignedIn ? { alreadySignedIn: true as const } : {}),
     ...(flow.refreshed ? { refreshed: true as const } : {}),
     ...(flow.result ? { result: flow.result } : {}),
     ...(flow.failure ? { failure: flow.failure } : {}),
-    ...(flow.error !== undefined ? { error: flow.error } : {}),
+    ...(flow.error !== undefined ? { error: flow.error } : {})
   };
 }
 
@@ -368,10 +412,14 @@ function prune(flows: Map<string, Flow>): void {
  * it checks a redirect against), whose writes stop once the server was signed
  * out (`guard`, checked right before the SDK's synchronous write).
  */
-function watchedStore(store: McpOAuthStateStore, flow: Flow, guard: McpSignInWriteGuard): McpOAuthStateStore {
+function watchedStore(
+  store: McpOAuthStateStore,
+  flow: Flow,
+  guard: McpSignInWriteGuard
+): McpOAuthStateStore {
   const note = (state: unknown) => {
     const value = isRecord(state) ? state.oauthState : undefined;
-    flow.storedState = typeof value === "string" ? value : undefined;
+    flow.storedState = typeof value === 'string' ? value : undefined;
   };
   return {
     load: async () => {
@@ -383,7 +431,7 @@ function watchedStore(store: McpOAuthStateStore, flow: Flow, guard: McpSignInWri
       guard();
       note(state);
       await store.save(state);
-    },
+    }
   };
 }
 
@@ -391,11 +439,11 @@ function showAuthorizationUrl(flow: Flow, url: URL): void {
   if (isEnded(flow)) return;
   flow.sawPage = true;
   flow.authorizationUrl = url.href;
-  const redirect = url.searchParams.get("redirect_uri");
+  const redirect = url.searchParams.get('redirect_uri');
   if (redirect) flow.redirectUrl = redirect;
   // The SDK reads the stored `state` back right before it shows the page, and compares a redirect with that.
-  flow.expectedState = flow.storedState ?? url.searchParams.get("state") ?? undefined;
-  setPhase(flow, "authorize");
+  flow.expectedState = flow.storedState ?? url.searchParams.get('state') ?? undefined;
+  setPhase(flow, 'authorize');
 }
 
 /**
@@ -410,17 +458,17 @@ function askForRedirect(flow: Flow, signal: AbortSignal): Promise<string | undef
     const settle = (value: string | undefined) => {
       if (settled) return;
       settled = true;
-      signal.removeEventListener("abort", onAbort);
+      signal.removeEventListener('abort', onAbort);
       if (flow.prompt === settle) flow.prompt = undefined;
       resolve(value);
     };
     function onAbort() {
       // The browser reached the loopback listener: the code is being exchanged.
-      if (flow.phase === "authorize") setPhase(flow, "finishing");
+      if (flow.phase === 'authorize') setPhase(flow, 'finishing');
       settle(undefined);
     }
     if (isEnded(flow)) {
-      settle("");
+      settle('');
       return;
     }
     if (signal.aborted) {
@@ -428,14 +476,14 @@ function askForRedirect(flow: Flow, signal: AbortSignal): Promise<string | undef
       return;
     }
     flow.prompt = settle;
-    signal.addEventListener("abort", onAbort, { once: true });
+    signal.addEventListener('abort', onAbort, { once: true });
   });
 }
 
 /** Records what a connect found as the entry's status, as a test would, and returns it as a result. */
 function record(flow: Flow, run: McpTestRun): McpTestResult {
   const result: McpTestResult = { ...run, testedAt: Date.now() };
-  recordMcpStatus(flow.target, flow.target.configKey, { ...result, origin: "test" });
+  recordMcpStatus(flow.target, flow.target.configKey, { ...result, origin: 'test' });
   return result;
 }
 
@@ -463,28 +511,31 @@ async function runFlow(flow: Flow, deps: McpSignInDeps): Promise<void> {
     // Stopped by a cancel or the time limit: what it found says nothing about the server.
     if (isEnded(flow)) return;
     if (first.queueTimedOut) {
-      end(flow, "failed", { failure: "queue-timed-out" });
+      end(flow, 'failed', { failure: 'queue-timed-out' });
       return;
     }
     const firstResult = record(flow, first);
-    if (first.state === "connected") {
-      end(flow, "done", { alreadySignedIn: true, result: firstResult });
+    if (first.state === 'connected') {
+      end(flow, 'done', { alreadySignedIn: true, result: firstResult });
       return;
     }
-    if (first.state !== "needs-auth") {
-      end(flow, "failed", { failure: "connect-failed", result: firstResult });
+    if (first.state !== 'needs-auth') {
+      end(flow, 'failed', { failure: 'connect-failed', result: firstResult });
       return;
     }
     let settings: McpOAuthSettings;
     try {
       settings = connection.oauthSettings();
     } catch (error) {
-      end(flow, "failed", { failure: "sign-in-failed", error: maskStatusError(errorMessage(error), redact) });
+      end(flow, 'failed', {
+        failure: 'sign-in-failed',
+        error: maskStatusError(errorMessage(error), redact)
+      });
       return;
     }
 
     // 2. The SDK's sign-in: discovery, registration, the page, the code, the tokens.
-    setPhase(flow, "starting");
+    setPhase(flow, 'starting');
     try {
       await deps.signIn({
         serverUrl: flow.target.url,
@@ -493,14 +544,18 @@ async function runFlow(flow: Flow, deps: McpSignInDeps): Promise<void> {
         challenge: connection.challenge,
         prompt: {
           showAuthorizationUrl: (url) => showAuthorizationUrl(flow, url),
-          promptForRedirectUrl: (signal) => askForRedirect(flow, signal),
+          promptForRedirectUrl: (signal) => askForRedirect(flow, signal)
         },
-        signal: flow.controller.signal,
+        signal: flow.controller.signal
       });
     } catch (error) {
       if (isEnded(flow)) return;
-      if (deps.isCancelled(error) || error instanceof McpSignedOutError) end(flow, "cancelled");
-      else end(flow, "failed", { failure: "sign-in-failed", error: maskStatusError(errorMessage(error), redact) });
+      if (deps.isCancelled(error) || error instanceof McpSignedOutError) end(flow, 'cancelled');
+      else
+        end(flow, 'failed', {
+          failure: 'sign-in-failed',
+          error: maskStatusError(errorMessage(error), redact)
+        });
       return;
     }
     if (isEnded(flow)) return;
@@ -508,20 +563,23 @@ async function runFlow(flow: Flow, deps: McpSignInDeps): Promise<void> {
     const refreshed = flow.sawPage ? {} : { refreshed: true as const };
 
     // 3. Connect again with the new tokens, and record what the server offers.
-    setPhase(flow, "finishing");
+    setPhase(flow, 'finishing');
     if (flow.target.mayConnect && !flow.target.mayConnect()) {
-      end(flow, "done", refreshed);
+      end(flow, 'done', refreshed);
       return;
     }
     const after = await connection.reconnect(flow.controller.signal);
     if (isEnded(flow)) return;
     if (after.queueTimedOut) {
-      end(flow, "done", refreshed);
+      end(flow, 'done', refreshed);
       return;
     }
-    end(flow, "done", { ...refreshed, result: record(flow, { ...after, afterSignIn: true }) });
+    end(flow, 'done', { ...refreshed, result: record(flow, { ...after, afterSignIn: true }) });
   } catch (error) {
-    end(flow, "failed", { failure: "internal", error: maskStatusError(errorMessage(error), redact) });
+    end(flow, 'failed', {
+      failure: 'internal',
+      error: maskStatusError(errorMessage(error), redact)
+    });
   } finally {
     // The SDK's callback listener is closed by signInMcpServer itself; this closes the connection, briefly.
     if (connection) await connection.close().catch(() => undefined);
@@ -535,13 +593,13 @@ async function runFlow(flow: Flow, deps: McpSignInDeps): Promise<void> {
 /** Ends the flow as expired at `ms`, unless it then has its code: that gets one grace period to finish. */
 function armExpiry(flow: Flow, ms: number): void {
   flow.expiry = setTimeout(() => {
-    if (flow.phase === "finishing" && !flow.graced) {
+    if (flow.phase === 'finishing' && !flow.graced) {
       flow.graced = true;
       flow.expiresAt = Date.now() + flow.graceMs;
       armExpiry(flow, flow.graceMs);
       return;
     }
-    end(flow, "expired");
+    end(flow, 'expired');
   }, ms);
   flow.expiry.unref?.();
 }
@@ -563,7 +621,7 @@ export interface McpSignInStartOptions {
 export function startMcpSignIn(
   target: McpSignInTarget,
   deps: McpSignInDeps,
-  options: McpSignInStartOptions = {},
+  options: McpSignInStartOptions = {}
 ): { flow: McpSignInFlowInfo; joined: boolean } {
   const { flows, active } = registry();
   const key = mcpSignInKey(target.name, target.url);
@@ -577,12 +635,12 @@ export function startMcpSignIn(
     key,
     target,
     signOutsAtStart: mcpSignOutCount(key),
-    phase: "connecting",
+    phase: 'connecting',
     expiresAt: Date.now() + ttlMs,
     keepMs: options.keepMs ?? MCP_SIGN_IN_KEEP_MS,
     graceMs: options.finishGraceMs ?? MCP_SIGN_IN_FINISH_GRACE_MS,
     controller: new AbortController(),
-    sawPage: false,
+    sawPage: false
   };
   flows.set(flow.id, flow);
   active.set(key, flow.id);
@@ -600,7 +658,13 @@ export function readMcpSignIn(flowId: string): McpSignInFlowInfo | undefined {
 
 export type McpSignInPasteResult =
   | { ok: true; flow: McpSignInFlowInfo }
-  | { ok: false; status: number; reason: McpRefusalReason; error: string; flow?: McpSignInFlowInfo };
+  | {
+      ok: false;
+      status: number;
+      reason: McpRefusalReason;
+      error: string;
+      flow?: McpSignInFlowInfo;
+    };
 
 /**
  * Hands a pasted redirected address to the SDK's waiting prompt, after the
@@ -610,32 +674,61 @@ export type McpSignInPasteResult =
  */
 export function pasteMcpSignInRedirect(flowId: string, input: unknown): McpSignInPasteResult {
   const flow = registry().flows.get(flowId);
-  if (!flow) return { ok: false, status: 404, reason: "sign-in-unknown", error: "No sign-in has that id: it ended over a minute ago, or Pi Web restarted" };
-  const refuse = (status: number, reason: McpRefusalReason, error: string): McpSignInPasteResult => ({ ok: false, status, reason, error, flow: describeFlow(flow) });
-  if (typeof input !== "string" || !input.trim() || input.length > MCP_SIGN_IN_MAX_PASTE_CHARS) {
-    return refuse(400, "invalid-request", `redirectUrl must be the redirected address, at most ${MCP_SIGN_IN_MAX_PASTE_CHARS} characters`);
+  if (!flow)
+    return {
+      ok: false,
+      status: 404,
+      reason: 'sign-in-unknown',
+      error: 'No sign-in has that id: it ended over a minute ago, or Pi Web restarted'
+    };
+  const refuse = (
+    status: number,
+    reason: McpRefusalReason,
+    error: string
+  ): McpSignInPasteResult => ({ ok: false, status, reason, error, flow: describeFlow(flow) });
+  if (typeof input !== 'string' || !input.trim() || input.length > MCP_SIGN_IN_MAX_PASTE_CHARS) {
+    return refuse(
+      400,
+      'invalid-request',
+      `redirectUrl must be the redirected address, at most ${MCP_SIGN_IN_MAX_PASTE_CHARS} characters`
+    );
   }
   const prompt = flow.prompt;
-  if (!prompt || flow.phase !== "authorize") {
-    return refuse(409, "sign-in-not-waiting", `The sign-in is ${flow.phase}, not waiting for a redirected address`);
+  if (!prompt || flow.phase !== 'authorize') {
+    return refuse(
+      409,
+      'sign-in-not-waiting',
+      `The sign-in is ${flow.phase}, not waiting for a redirected address`
+    );
   }
   const text = input.trim();
   let url: URL;
   try {
     url = new URL(text);
   } catch {
-    return refuse(400, "redirect-invalid", "Expected the full redirected address from the browser's address bar");
+    return refuse(
+      400,
+      'redirect-invalid',
+      "Expected the full redirected address from the browser's address bar"
+    );
   }
-  if (flow.expectedState === undefined || url.searchParams.get("state") !== flow.expectedState) {
-    return refuse(400, "redirect-state-mismatch", "The address belongs to a different sign-in");
+  if (flow.expectedState === undefined || url.searchParams.get('state') !== flow.expectedState) {
+    return refuse(400, 'redirect-state-mismatch', 'The address belongs to a different sign-in');
   }
-  const denied = url.searchParams.get("error");
+  const denied = url.searchParams.get('error');
   if (denied) {
-    const description = url.searchParams.get("error_description") ?? denied;
-    return refuse(400, "redirect-denied", description.length > DENIAL_MAX_CHARS ? `${description.slice(0, DENIAL_MAX_CHARS - 1)}…` : description);
+    const description = url.searchParams.get('error_description') ?? denied;
+    return refuse(
+      400,
+      'redirect-denied',
+      description.length > DENIAL_MAX_CHARS
+        ? `${description.slice(0, DENIAL_MAX_CHARS - 1)}…`
+        : description
+    );
   }
-  if (!url.searchParams.get("code")) return refuse(400, "redirect-no-code", "The address does not contain an authorization code");
-  setPhase(flow, "finishing");
+  if (!url.searchParams.get('code'))
+    return refuse(400, 'redirect-no-code', 'The address does not contain an authorization code');
+  setPhase(flow, 'finishing');
   prompt(text);
   return { ok: true, flow: describeFlow(flow) };
 }
@@ -644,7 +737,7 @@ export function pasteMcpSignInRedirect(flowId: string, input: unknown): McpSignI
 export function cancelMcpSignIn(flowId: string): McpSignInFlowInfo | undefined {
   const flow = registry().flows.get(flowId);
   if (!flow) return undefined;
-  end(flow, "cancelled");
+  end(flow, 'cancelled');
   return describeFlow(flow);
 }
 
@@ -653,7 +746,7 @@ export function cancelMcpSignInsFor(name: string, url: string): void {
   const { flows, active } = registry();
   const id = active.get(mcpSignInKey(name, url));
   const flow = id === undefined ? undefined : flows.get(id);
-  if (flow) end(flow, "cancelled");
+  if (flow) end(flow, 'cancelled');
 }
 
 /**
@@ -674,18 +767,18 @@ export function signOutMcpServer(
   name: string,
   url: string,
   agentDir: string,
-  internals: Pick<PiSdkInternals, "McpOAuthCredentialStore">,
+  internals: Pick<PiSdkInternals, 'McpOAuthCredentialStore'>
 ): boolean {
   noteMcpSignOut(mcpSignInKey(name, url));
   cancelMcpSignInsFor(name, url);
-  if (!existsSync(join(agentDir, "mcp-auth.json"))) return false;
+  if (!existsSync(join(agentDir, 'mcp-auth.json'))) return false;
   return new internals.McpOAuthCredentialStore().remove(name, url);
 }
 
 /** Ends and forgets every flow; for tests. */
 export function clearMcpSignIns(): void {
   const { flows, active, tails } = registry();
-  for (const flow of flows.values()) end(flow, "cancelled");
+  for (const flow of flows.values()) end(flow, 'cancelled');
   flows.clear();
   active.clear();
   tails.clear();

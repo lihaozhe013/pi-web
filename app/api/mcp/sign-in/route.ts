@@ -1,10 +1,14 @@
-import { NextResponse } from "next/server";
-import type { McpErrorResponse, McpSignInFlowInfo } from "@/lib/api-types";
-import { isMcpDisabledByOperator } from "@/lib/builtin-extensions";
-import { isMcpEntryRefusal, mcpProjectTrustRefusal, readConnectableMcpEntry } from "@/lib/mcp-entry-request";
-import { createMcpSignInDeps, mcpOAuthUrl, startMcpSignIn } from "@/lib/mcp-sign-in";
+import { NextResponse } from 'next/server';
+import type { McpErrorResponse, McpSignInFlowInfo } from '@/lib/api-types';
+import { isMcpDisabledByOperator } from '@/lib/builtin-extensions';
+import {
+  isMcpEntryRefusal,
+  mcpProjectTrustRefusal,
+  readConnectableMcpEntry
+} from '@/lib/mcp-entry-request';
+import { createMcpSignInDeps, mcpOAuthUrl, startMcpSignIn } from '@/lib/mcp-sign-in';
 
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
 // Settings › MCP's sign-in (ADR 0006): starts signing in to one OAuth server
 // of the global `mcp.json` or the panel's project `.pi/mcp.json`, or joins the
@@ -26,22 +30,34 @@ export async function POST(req: Request) {
   const { scope, name, sourcePath, configKey, config, cwd, project, agentDir, internals } = entry;
   const url = mcpOAuthUrl(config);
   if (url === undefined) {
-    return NextResponse.json({
-      error: `MCP server "${name}" does not use OAuth: only an HTTP server without an Authorization header does`,
-      reason: "sign-in-not-oauth",
-      name,
-    } satisfies McpErrorResponse, { status: 409 });
+    return NextResponse.json(
+      {
+        error: `MCP server "${name}" does not use OAuth: only an HTTP server without an Authorization header does`,
+        reason: 'sign-in-not-oauth',
+        name
+      } satisfies McpErrorResponse,
+      { status: 409 }
+    );
   }
   // Asked again before the connection with the new tokens, which can come minutes later.
-  const mayConnect = () => !isMcpDisabledByOperator()
-    && (scope !== "project" || !project || mcpProjectTrustRefusal(project.cwd, agentDir) === undefined);
+  const mayConnect = () =>
+    !isMcpDisabledByOperator() &&
+    (scope !== 'project' ||
+      !project ||
+      mcpProjectTrustRefusal(project.cwd, agentDir) === undefined);
   try {
     const { flow, joined } = startMcpSignIn(
       { scope, name, sourcePath, configKey, config, cwd, url, mayConnect },
-      createMcpSignInDeps(internals),
+      createMcpSignInDeps(internals)
     );
-    return NextResponse.json({ ...flow, ...(joined ? { joined: true as const } : {}) } satisfies McpSignInFlowInfo);
+    return NextResponse.json({
+      ...flow,
+      ...(joined ? { joined: true as const } : {})
+    } satisfies McpSignInFlowInfo);
   } catch (error) {
-    return NextResponse.json({ error: errorMessage(error), reason: "internal" } satisfies McpErrorResponse, { status: 500 });
+    return NextResponse.json(
+      { error: errorMessage(error), reason: 'internal' } satisfies McpErrorResponse,
+      { status: 500 }
+    );
   }
 }

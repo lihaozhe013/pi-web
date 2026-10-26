@@ -18,24 +18,33 @@ export interface ToolField {
 }
 
 /** What an empty argument is worth in a table: something the eye can find. */
-export const EMPTY_FIELD_VALUE = "(empty)";
+export const EMPTY_FIELD_VALUE = '(empty)';
 
 /**
  * The arguments as rows, in the order the tool received them, or `null` when
  * this call is not a flat record — nested, streamed, empty, or not an object.
  */
 export function toolFieldsOfInput(input: unknown): ToolField[] | null {
-  if (input === null || typeof input !== "object" || Array.isArray(input)) return null;
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) return null;
   const entries = Object.entries(input);
   if (entries.length === 0) return null;
 
   const fields: ToolField[] = [];
   for (const [key, value] of entries) {
-    if (value !== null && typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean") {
+    if (
+      value !== null &&
+      typeof value !== 'string' &&
+      typeof value !== 'number' &&
+      typeof value !== 'boolean'
+    ) {
       return null;
     }
-    const text = value === null ? "null" : String(value);
-    fields.push({ key, value: text === "" ? EMPTY_FIELD_VALUE : text, multiline: text.includes("\n") });
+    const text = value === null ? 'null' : String(value);
+    fields.push({
+      key,
+      value: text === '' ? EMPTY_FIELD_VALUE : text,
+      multiline: text.includes('\n')
+    });
   }
   return fields;
 }

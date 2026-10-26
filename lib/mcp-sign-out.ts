@@ -1,5 +1,9 @@
-import type { McpServerConfig } from "@earendil-works/pi-coding-agent";
-import type { McpOAuthCredentialStore, McpOAuthServerStore, PiSdkInternals } from "./pi-sdk-internals";
+import type { McpServerConfig } from '@earendil-works/pi-coding-agent';
+import type {
+  McpOAuthCredentialStore,
+  McpOAuthServerStore,
+  PiSdkInternals
+} from './pi-sdk-internals';
 
 // What a sign-out of an MCP server bars (ADR 0006, Settings › MCP sign-in):
 // every connection Pi Web opened for the server before the sign-out, a
@@ -12,7 +16,7 @@ import type { McpOAuthCredentialStore, McpOAuthServerStore, PiSdkInternals } fro
 // a URL keep separate accounts, and so does everything here.
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /**
@@ -22,9 +26,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * stdio server and for one that authenticates otherwise.
  */
 export function mcpOAuthUrl(config: McpServerConfig | Record<string, unknown>): string | undefined {
-  if (!isRecord(config) || !("url" in config) || typeof config.url !== "string" || config.auth) return undefined;
+  if (!isRecord(config) || !('url' in config) || typeof config.url !== 'string' || config.auth)
+    return undefined;
   const headers = isRecord(config.headers) ? Object.keys(config.headers) : [];
-  return headers.some((header) => header.toLowerCase() === "authorization") ? undefined : config.url;
+  return headers.some((header) => header.toLowerCase() === 'authorization')
+    ? undefined
+    : config.url;
 }
 
 /**
@@ -37,7 +44,7 @@ export function mcpOAuthUrl(config: McpServerConfig | Record<string, unknown>): 
  */
 export function mcpOAuthStoreKeys(name: string, url: string): { key: string; legacyKey: string } {
   const legacyKey = String(new URL(url));
-  return { key: `mcp__${name.replace(/-/g, "_")}|${legacyKey}`, legacyKey };
+  return { key: `mcp__${name.replace(/-/g, '_')}|${legacyKey}`, legacyKey };
 }
 
 /** The key a server's sign-ins, sign-outs and guards are counted under: its `mcp-auth.json` key. */
@@ -55,8 +62,10 @@ export type McpSignInWriteGuard = () => void;
 /** What a guarded store throws when it would write after its URL was signed out. */
 export class McpSignedOutError extends Error {
   constructor() {
-    super("The server was signed out of while this connection was under way, so it stores nothing more");
-    this.name = "McpSignedOutError";
+    super(
+      'The server was signed out of while this connection was under way, so it stores nothing more'
+    );
+    this.name = 'McpSignedOutError';
   }
 }
 
@@ -64,14 +73,17 @@ export class McpSignedOutError extends Error {
 // in the sign-in registry before (`Symbol.for("pi-web:mcp-sign-in")`.signOuts),
 // whose map a dev server may still hold: it is taken over, so a run started
 // before the reload keeps comparing against the same count.
-const SIGN_OUTS_KEY: symbol = Symbol.for("pi-web:mcp-sign-outs");
-const LEGACY_REGISTRY_KEY: symbol = Symbol.for("pi-web:mcp-sign-in");
+const SIGN_OUTS_KEY: symbol = Symbol.for('pi-web:mcp-sign-outs');
+const LEGACY_REGISTRY_KEY: symbol = Symbol.for('pi-web:mcp-sign-in');
 
 /** Sign-in key → how often it was signed out in this process. Never pruned: one number per server signed out of. */
 function signOutCounts(): Map<string, number> {
   const store = globalThis as Record<symbol, unknown>;
   const legacy = store[LEGACY_REGISTRY_KEY] as { signOuts?: Map<string, number> } | undefined;
-  return (store[SIGN_OUTS_KEY] ??= legacy?.signOuts ?? new Map<string, number>()) as Map<string, number>;
+  return (store[SIGN_OUTS_KEY] ??= legacy?.signOuts ?? new Map<string, number>()) as Map<
+    string,
+    number
+  >;
 }
 
 /** How often the sign-in key (`mcpSignInKey()`) was signed out in this process. */
@@ -103,8 +115,8 @@ export function mcpSignOutGuard(name: string, url: string): McpSignInWriteGuard 
  * takes over legacy state moves what is already stored and is not guarded.
  */
 export function guardedCredentialStore(
-  internals: Pick<PiSdkInternals, "McpOAuthCredentialStore">,
-  guard: McpSignInWriteGuard,
+  internals: Pick<PiSdkInternals, 'McpOAuthCredentialStore'>,
+  guard: McpSignInWriteGuard
 ): McpOAuthCredentialStore {
   class GuardedCredentialStore extends internals.McpOAuthCredentialStore {
     forServer(name: string, serverUrl: string): McpOAuthServerStore {
@@ -115,7 +127,7 @@ export function guardedCredentialStore(
           guard();
           return store.save(state);
         },
-        withRefreshLock: (fn) => store.withRefreshLock(fn),
+        withRefreshLock: (fn) => store.withRefreshLock(fn)
       };
     }
   }

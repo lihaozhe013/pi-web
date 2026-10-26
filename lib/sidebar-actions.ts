@@ -12,24 +12,29 @@
  * a project group's "Delete all sessions", with `fetch` passed in.
  */
 
-import { projectNameOf, type SidebarFamilyStatus, type SidebarProject, type SidebarRow } from "./session-tree";
-import type { SessionUiStateRequest } from "./session-ui-state-shared";
+import {
+  projectNameOf,
+  type SidebarFamilyStatus,
+  type SidebarProject,
+  type SidebarRow
+} from './session-tree';
+import type { SessionUiStateRequest } from './session-ui-state-shared';
 
 export type SessionMenuActionId =
-  | "open-new-tab"
-  | "pin"
-  | "unpin"
-  | "rename"
-  | "fork"
-  | "mark-read"
-  | "mark-unread"
-  | "archive"
-  | "unarchive"
-  | "delete";
+  | 'open-new-tab'
+  | 'pin'
+  | 'unpin'
+  | 'rename'
+  | 'fork'
+  | 'mark-read'
+  | 'mark-unread'
+  | 'archive'
+  | 'unarchive'
+  | 'delete';
 
 export type SessionMenuEntry =
-  | { kind: "action"; id: SessionMenuActionId; shortcut: string; disabledReason?: "running" }
-  | { kind: "separator" };
+  | { kind: 'action'; id: SessionMenuActionId; shortcut: string; disabledReason?: 'running' }
+  | { kind: 'separator' };
 
 /**
  * A session row's built-in menu. A transient session has no file yet, so it
@@ -38,42 +43,46 @@ export type SessionMenuEntry =
  * In the archive view, Pin also restores (pin and archive exclude each other).
  */
 export function sessionMenuEntries(
-  context: Extract<SidebarRow, { kind: "session" }>["context"],
-  status: SidebarFamilyStatus,
+  context: Extract<SidebarRow, { kind: 'session' }>['context'],
+  status: SidebarFamilyStatus
 ): SessionMenuEntry[] {
   if (status.transient) return [];
-  const openNewTab: SessionMenuEntry = { kind: "action", id: "open-new-tab", shortcut: "T" };
-  if (context === "archive") {
+  const openNewTab: SessionMenuEntry = { kind: 'action', id: 'open-new-tab', shortcut: 'T' };
+  if (context === 'archive') {
     return [
-      { kind: "action", id: "unarchive", shortcut: "A" },
-      { kind: "action", id: "pin", shortcut: "P" },
-      { kind: "action", id: "rename", shortcut: "R" },
-      { kind: "action", id: "fork", shortcut: "F" },
+      { kind: 'action', id: 'unarchive', shortcut: 'A' },
+      { kind: 'action', id: 'pin', shortcut: 'P' },
+      { kind: 'action', id: 'rename', shortcut: 'R' },
+      { kind: 'action', id: 'fork', shortcut: 'F' },
       openNewTab,
-      { kind: "separator" },
-      { kind: "action", id: "delete", shortcut: "D" },
+      { kind: 'separator' },
+      { kind: 'action', id: 'delete', shortcut: 'D' }
     ];
   }
   return [
-    { kind: "action", id: context === "pinned" ? "unpin" : "pin", shortcut: "P" },
-    { kind: "action", id: "rename", shortcut: "R" },
-    { kind: "action", id: "fork", shortcut: "F" },
-    { kind: "action", id: status.unread ? "mark-read" : "mark-unread", shortcut: "U" },
+    { kind: 'action', id: context === 'pinned' ? 'unpin' : 'pin', shortcut: 'P' },
+    { kind: 'action', id: 'rename', shortcut: 'R' },
+    { kind: 'action', id: 'fork', shortcut: 'F' },
+    { kind: 'action', id: status.unread ? 'mark-read' : 'mark-unread', shortcut: 'U' },
     // A running family would come straight back: archiving waits for the run.
     status.running
-      ? { kind: "action", id: "archive", shortcut: "A", disabledReason: "running" }
-      : { kind: "action", id: "archive", shortcut: "A" },
+      ? { kind: 'action', id: 'archive', shortcut: 'A', disabledReason: 'running' }
+      : { kind: 'action', id: 'archive', shortcut: 'A' },
     openNewTab,
-    { kind: "separator" },
-    { kind: "action", id: "delete", shortcut: "D" },
+    { kind: 'separator' },
+    { kind: 'action', id: 'delete', shortcut: 'D' }
   ];
 }
 
-export type ProjectNameActionId = "rename-project" | "reset-project-name";
+export type ProjectNameActionId = 'rename-project' | 'reset-project-name';
 
 /** A group menu's name entries: Rename…, and Reset name while the project has a display name of its own. */
-export function projectNameMenuEntries(project: Pick<SidebarProject, "customName">): ProjectNameActionId[] {
-  return project.customName === null ? ["rename-project"] : ["rename-project", "reset-project-name"];
+export function projectNameMenuEntries(
+  project: Pick<SidebarProject, 'customName'>
+): ProjectNameActionId[] {
+  return project.customName === null
+    ? ['rename-project']
+    : ['rename-project', 'reset-project-name'];
 }
 
 /**
@@ -83,14 +92,14 @@ export function projectNameMenuEntries(project: Pick<SidebarProject, "customName
  * either way, and a name equal to it would only hide that it is one.
  */
 export function projectRenameRequest(
-  project: Pick<SidebarProject, "key" | "root" | "name" | "customName">,
-  value: string,
-): Extract<SessionUiStateRequest, { action: "rename-project" }> | null {
+  project: Pick<SidebarProject, 'key' | 'root' | 'name' | 'customName'>,
+  value: string
+): Extract<SessionUiStateRequest, { action: 'rename-project' }> | null {
   const name = value.trim();
   if (name === project.name) return null;
-  const clear = name === "" || name === projectNameOf(project.root);
+  const clear = name === '' || name === projectNameOf(project.root);
   if (clear && project.customName === null) return null;
-  return { action: "rename-project", projectKey: project.key, name: clear ? null : name };
+  return { action: 'rename-project', projectKey: project.key, name: clear ? null : name };
 }
 
 /**
@@ -98,15 +107,22 @@ export function projectRenameRequest(
  * message key and its parameters: a known refusal says why in the user's
  * language, anything else shows the server's error.
  */
-export function forkFailureMessage(code: string | undefined, error: string): { key: string; params?: { error: string } } {
+export function forkFailureMessage(
+  code: string | undefined,
+  error: string
+): { key: string; params?: { error: string } } {
   switch (code) {
-    case "not_found": return { key: "sidebar.forkNotFound" };
-    case "unsaved": return { key: "sidebar.forkUnsaved" };
-    case "empty": return { key: "sidebar.forkEmpty" };
-    case "subagent":
-    case "request-denied":
-      return { key: "sidebar.forkUnavailable" };
-    default: return { key: "sidebar.forkFailed", params: { error } };
+    case 'not_found':
+      return { key: 'sidebar.forkNotFound' };
+    case 'unsaved':
+      return { key: 'sidebar.forkUnsaved' };
+    case 'empty':
+      return { key: 'sidebar.forkEmpty' };
+    case 'subagent':
+    case 'request-denied':
+      return { key: 'sidebar.forkUnavailable' };
+    default:
+      return { key: 'sidebar.forkFailed', params: { error } };
   }
 }
 
@@ -132,18 +148,27 @@ export interface ProjectSessionsDeleteOutcome {
  */
 export async function deleteProjectSessions(
   ids: readonly string[],
-  fetchImpl: typeof fetch,
+  fetchImpl: typeof fetch
 ): Promise<ProjectSessionsDeleteOutcome> {
-  const outcome: ProjectSessionsDeleteOutcome = { deletedRoots: [], deleted: [], running: [], error: null };
+  const outcome: ProjectSessionsDeleteOutcome = {
+    deletedRoots: [],
+    deleted: [],
+    running: [],
+    error: null
+  };
   for (let start = 0; start < ids.length; start += PROJECT_DELETE_IDS_PER_REQUEST) {
     const part = ids.slice(start, start + PROJECT_DELETE_IDS_PER_REQUEST);
     try {
-      const res = await fetchImpl("/api/sessions/delete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: part }),
+      const res = await fetchImpl('/api/sessions/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: part })
       });
-      const data = await res.json().catch(() => ({})) as { deleted?: string[]; running?: string[]; error?: string };
+      const data = (await res.json().catch(() => ({}))) as {
+        deleted?: string[];
+        running?: string[];
+        error?: string;
+      };
       if (!res.ok || !Array.isArray(data.deleted)) {
         outcome.error = data.error ?? `HTTP ${res.status}`;
         break;

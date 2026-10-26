@@ -1,4 +1,4 @@
-import type { SessionInfo } from "@/lib/types";
+import type { SessionInfo } from '@/lib/types';
 
 /**
  * Overlay a catalogue row onto the session already on screen.
@@ -17,6 +17,6 @@ export function mergeCatalogRow(current: SessionInfo, refreshed: SessionInfo): S
     detailsPending: refreshed.detailsPending,
     relation: refreshed.relation,
     branch: refreshed.branch,
-    isWorktree: refreshed.isWorktree,
+    isWorktree: refreshed.isWorktree
   };
 }

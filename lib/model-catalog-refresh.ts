@@ -1,6 +1,6 @@
-import type { ModelRuntime } from "@earendil-works/pi-coding-agent";
-import { createModelRuntimeWithExtensions } from "@/lib/model-runtime";
-import { invalidateModelsCache } from "@/lib/models-cache";
+import type { ModelRuntime } from '@earendil-works/pi-coding-agent';
+import { createModelRuntimeWithExtensions } from '@/lib/model-runtime';
+import { invalidateModelsCache } from '@/lib/models-cache';
 
 /**
  * On-demand refresh of pi's remote provider catalogs.
@@ -48,7 +48,7 @@ export interface CatalogRefreshResult {
   /** The visible model list moved, so cached `/api/models` payloads were dropped. */
   changed: boolean;
   /** Set when the pass could not run at all. `offline` means `PI_OFFLINE` is set. */
-  reason?: "offline" | "runtime";
+  reason?: 'offline' | 'runtime';
 }
 
 export interface CatalogRefreshOptions {
@@ -67,7 +67,7 @@ export function modelCatalogSignature(models: readonly CatalogModel[]): string {
   return models
     .map((model) => `${model.provider}\u0000${model.id}\u0000${model.name}`)
     .sort()
-    .join("\n");
+    .join('\n');
 }
 
 /** pi reads any `PI_OFFLINE` value, empty included, as "never touch the network". */
@@ -85,9 +85,9 @@ export function isModelNetworkDisabled(): boolean {
  * Never rejects — a provider that cannot be reached is reported, not thrown.
  */
 export async function refreshModelCatalogs(
-  options: CatalogRefreshOptions = {},
+  options: CatalogRefreshOptions = {}
 ): Promise<CatalogRefreshResult> {
-  if (isModelNetworkDisabled()) return { completed: false, changed: false, reason: "offline" };
+  if (isModelNetworkDisabled()) return { completed: false, changed: false, reason: 'offline' };
 
   const timeout = AbortSignal.timeout(CATALOG_REFRESH_TIMEOUT_MS);
   const signal = options.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
@@ -96,7 +96,7 @@ export async function refreshModelCatalogs(
   try {
     runtime = await createModelRuntimeWithExtensions();
   } catch {
-    return { completed: false, changed: false, reason: "runtime" };
+    return { completed: false, changed: false, reason: 'runtime' };
   }
 
   // `createAgentSessionServices()` has already restored the stored overlay, so
@@ -107,7 +107,7 @@ export async function refreshModelCatalogs(
     const result = await runtime.refresh({
       ...(options.providers ? { providers: options.providers } : {}),
       force: true,
-      signal,
+      signal
     });
     completed = !result.aborted && result.errors.size === 0;
   } catch {
@@ -126,7 +126,8 @@ declare global {
 }
 
 function getPasses(): Map<string, Promise<CatalogRefreshResult>> {
-  if (!globalThis.__piModelCatalogRefreshPasses) globalThis.__piModelCatalogRefreshPasses = new Map();
+  if (!globalThis.__piModelCatalogRefreshPasses)
+    globalThis.__piModelCatalogRefreshPasses = new Map();
   return globalThis.__piModelCatalogRefreshPasses;
 }
 
@@ -138,9 +139,9 @@ function getPasses(): Map<string, Promise<CatalogRefreshResult>> {
  * independent, so they are keyed rather than globally serialized.
  */
 export function shareModelCatalogRefresh(
-  options: CatalogRefreshOptions = {},
+  options: CatalogRefreshOptions = {}
 ): Promise<CatalogRefreshResult> {
-  const key = options.providers ? [...options.providers].sort().join(",") : "";
+  const key = options.providers ? [...options.providers].sort().join(',') : '';
   const passes = getPasses();
   const running = passes.get(key);
   if (running) return running;

@@ -1,8 +1,8 @@
-import { buildAtMentionText } from "./file-fuzzy";
-import { encodeFilePathForApi } from "./file-paths";
+import { buildAtMentionText } from './file-fuzzy';
+import { encodeFilePathForApi } from './file-paths';
 
 /** Browser side of `POST /api/files/[...path]?type=upload`; mirrors `lib/file-upload.ts`. */
-export type UploadConflictStrategy = "error" | "overwrite" | "skip";
+export type UploadConflictStrategy = 'error' | 'overwrite' | 'skip';
 
 export interface UploadError {
   name: string;
@@ -30,24 +30,24 @@ export function uploadFiles(
   targetDirectory: string,
   files: File[],
   strategy: UploadConflictStrategy,
-  onProgress?: (progress: number) => void,
+  onProgress?: (progress: number) => void
 ): Promise<{ status: number; data: UploadResponse }> {
   return new Promise((resolve, reject) => {
     const formData = new FormData();
-    files.forEach((file) => formData.append("files", file, file.name));
+    files.forEach((file) => formData.append('files', file, file.name));
 
     const xhr = new XMLHttpRequest();
     xhr.open(
-      "POST",
-      `/api/files/${encodeFilePathForApi(targetDirectory)}?type=upload&conflict=${strategy}`,
+      'POST',
+      `/api/files/${encodeFilePathForApi(targetDirectory)}?type=upload&conflict=${strategy}`
     );
     xhr.upload.onprogress = (event) => {
       if (onProgress && event.lengthComputable && event.total > 0) {
         onProgress(Math.round((event.loaded / event.total) * 100));
       }
     };
-    xhr.onerror = () => reject(new Error("Network error while uploading files"));
-    xhr.onabort = () => reject(new Error("Upload cancelled"));
+    xhr.onerror = () => reject(new Error('Network error while uploading files'));
+    xhr.onabort = () => reject(new Error('Upload cancelled'));
     xhr.onload = () => {
       let data: UploadResponse = {};
       try {
@@ -62,7 +62,7 @@ export function uploadFiles(
 }
 
 /** One file or folder dropped onto the chat. */
-export type DroppedItem = { kind: "file"; file: File } | { kind: "folder"; name: string };
+export type DroppedItem = { kind: 'file'; file: File } | { kind: 'folder'; name: string };
 
 /**
  * Sorts a chat drop: images are attached to the prompt as before, other files
@@ -71,13 +71,17 @@ export type DroppedItem = { kind: "file"; file: File } | { kind: "folder"; name:
  * @param items The dropped items, in drop order
  * @returns The images, the files to upload, and the names of skipped folders
  */
-export function splitDroppedItems(items: DroppedItem[]): { images: File[]; files: File[]; folders: string[] } {
+export function splitDroppedItems(items: DroppedItem[]): {
+  images: File[];
+  files: File[];
+  folders: string[];
+} {
   const images: File[] = [];
   const files: File[] = [];
   const folders: string[] = [];
   for (const item of items) {
-    if (item.kind === "folder") folders.push(item.name);
-    else if (item.file.type.startsWith("image/")) images.push(item.file);
+    if (item.kind === 'folder') folders.push(item.name);
+    else if (item.file.type.startsWith('image/')) images.push(item.file);
     else files.push(item.file);
   }
   return { images, files, folders };
@@ -94,5 +98,5 @@ export function dropMentionText(files: File[], present: string[]): string {
   return files
     .filter((file) => names.has(file.name))
     .map((file) => buildAtMentionText(file.name, false))
-    .join("");
+    .join('');
 }

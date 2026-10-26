@@ -1,45 +1,54 @@
-import type { Content, Link, Parent, Root } from "mdast";
-import type { Element as HastElement, Root as HastRoot, RootContent as HastContent } from "hast";
-import { defaultUrlTransform, type Options as ReactMarkdownOptions } from "react-markdown";
-import rehypeKatex from "rehype-katex";
-import rehypeRaw from "rehype-raw";
-import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
-import remarkFrontmatter from "remark-frontmatter";
-import remarkGfm from "remark-gfm";
-import remarkCjkFriendly from "remark-cjk-friendly/parseOnly";
-import remarkMath from "remark-math";
-import type { Plugin } from "unified";
-import type { Extension } from "micromark-util-types";
+import type { Content, Link, Parent, Root } from 'mdast';
+import type { Element as HastElement, Root as HastRoot, RootContent as HastContent } from 'hast';
+import { defaultUrlTransform, type Options as ReactMarkdownOptions } from 'react-markdown';
+import rehypeKatex from 'rehype-katex';
+import rehypeRaw from 'rehype-raw';
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
+import remarkFrontmatter from 'remark-frontmatter';
+import remarkGfm from 'remark-gfm';
+import remarkCjkFriendly from 'remark-cjk-friendly/parseOnly';
+import remarkMath from 'remark-math';
+import type { Plugin } from 'unified';
+import type { Extension } from 'micromark-util-types';
 
 // Link schemes of desktop apps that open a note, a file or a meeting (#1108).
 // A fixed list, not "any scheme but javascript:": the text comes from the model
 // and from repository files, and OS handlers such as ms-msdt: or search-ms:
 // have been exploited through a clicked link.
 const appLinkSchemes = [
-  "obsidian", "logseq", "notion",
-  "vscode", "vscode-insiders", "cursor", "zed", "jetbrains",
-  "zoommtg", "zoomus", "msteams", "slack",
+  'obsidian',
+  'logseq',
+  'notion',
+  'vscode',
+  'vscode-insiders',
+  'cursor',
+  'zed',
+  'jetbrains',
+  'zoommtg',
+  'zoomus',
+  'msteams',
+  'slack'
 ];
-const appLinkPattern = new RegExp(`^(?:${appLinkSchemes.join("|")}):`, "i");
+const appLinkPattern = new RegExp(`^(?:${appLinkSchemes.join('|')}):`, 'i');
 
 // The anti-clobber prefix the sanitizer puts in front of every `id` in
 // rendered content, so untrusted Markdown cannot shadow the page's own
 // elements. The fragment-link fix below must use the identical value, so the
 // schema that produces the prefixed ids pins the same constant.
-const markdownClobberPrefix = defaultSchema.clobberPrefix ?? "user-content-";
+const markdownClobberPrefix = defaultSchema.clobberPrefix ?? 'user-content-';
 
 const markdownSanitizeSchema = {
   ...defaultSchema,
   clobberPrefix: markdownClobberPrefix,
   attributes: {
     ...defaultSchema.attributes,
-    code: [["className", /^language-./, "math-inline", "math-display"]],
+    code: [['className', /^language-./, 'math-inline', 'math-display']]
   },
   protocols: {
     ...defaultSchema.protocols,
-    href: [...(defaultSchema.protocols?.href ?? []), "file", ...appLinkSchemes],
+    href: [...(defaultSchema.protocols?.href ?? []), 'file', ...appLinkSchemes]
   },
-  strip: [...(defaultSchema.strip || []), "iframe", "object", "style", "form"],
+  strip: [...(defaultSchema.strip || []), 'iframe', 'object', 'style', 'form']
 };
 
 /** react-markdown's URL filter, plus links to the apps above. */
@@ -64,7 +73,7 @@ interface MarkdownFragmentClick {
   ctrlKey: boolean;
   shiftKey: boolean;
   altKey: boolean;
-  currentTarget: Pick<Element, "getAttribute" | "closest">;
+  currentTarget: Pick<Element, 'getAttribute' | 'closest'>;
   preventDefault(): void;
 }
 
@@ -79,9 +88,17 @@ interface MarkdownFragmentClick {
  * browser's.
  */
 export function jumpToMarkdownFragment(event: MarkdownFragmentClick): void {
-  if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-  const href = event.currentTarget.getAttribute("href");
-  if (!href?.startsWith("#")) return;
+  if (
+    event.defaultPrevented ||
+    event.button !== 0 ||
+    event.metaKey ||
+    event.ctrlKey ||
+    event.shiftKey ||
+    event.altKey
+  )
+    return;
+  const href = event.currentTarget.getAttribute('href');
+  if (!href?.startsWith('#')) return;
   event.preventDefault();
   let id = href.slice(1);
   if (!id) return;
@@ -91,9 +108,10 @@ export function jumpToMarkdownFragment(event: MarkdownFragmentClick): void {
     // A malformed escape is matched as written.
   }
   const name = CSS.escape(id);
-  event.currentTarget.closest(".markdown-body")
+  event.currentTarget
+    .closest('.markdown-body')
     ?.querySelector(`[id="${name}"], a[name="${name}"]`)
-    ?.scrollIntoView({ block: "start" });
+    ?.scrollIntoView({ block: 'start' });
 }
 
 /**
@@ -109,9 +127,9 @@ function replaceNotPrecededBy(
   opener: string,
   notAfter: string,
   pattern: RegExp,
-  replace: (match: RegExpExecArray) => string,
+  replace: (match: RegExpExecArray) => string
 ): string {
-  let result = "";
+  let result = '';
   let copied = 0;
   for (let index = value.indexOf(opener); index !== -1; index = value.indexOf(opener, index + 1)) {
     if (index > 0 && notAfter.includes(value[index - 1])) continue;
@@ -130,16 +148,18 @@ function replaceNotPrecededBy(
 const escapedInlineCodePattern = /`((?:[^`\n]|\\`)*?[^\\`\n])`(?!`)/y;
 
 function rewriteEscapedInlineCodeBackticks(line: string): string {
-  return replaceNotPrecededBy(line, "`", "\\`", escapedInlineCodePattern, ([match, content]) => {
-    const code = content.replace(/\\`/g, "`");
+  return replaceNotPrecededBy(line, '`', '\\`', escapedInlineCodePattern, ([match, content]) => {
+    const code = content.replace(/\\`/g, '`');
     if (code === content) return match;
-    const marker = "`".repeat(Math.max(...(code.match(/`+/g)?.map((run) => run.length) ?? [0])) + 1);
+    const marker = '`'.repeat(
+      Math.max(...(code.match(/`+/g)?.map((run) => run.length) ?? [0])) + 1
+    );
     return `${marker}${code}${marker}`;
   });
 }
 
 export function normalizeDisplayMath(markdown: string): string {
-  const lineBreak = markdown.includes("\r\n") ? "\r\n" : "\n";
+  const lineBreak = markdown.includes('\r\n') ? '\r\n' : '\n';
   const lines = markdown.split(/\r?\n/);
   const normalized: string[] = [];
   let fence: { marker: string; size: number } | null = null;
@@ -152,7 +172,7 @@ export function normalizeDisplayMath(markdown: string): string {
 
     if (rawCodeTag) {
       normalized.push(line);
-      if (new RegExp(`</${rawCodeTag}\\s*>`, "i").test(line)) rawCodeTag = null;
+      if (new RegExp(`</${rawCodeTag}\\s*>`, 'i').test(line)) rawCodeTag = null;
       continue;
     }
 
@@ -176,13 +196,13 @@ export function normalizeDisplayMath(markdown: string): string {
     if (rawCodeOpen) {
       const tag = rawCodeOpen[1].toLowerCase();
       const remainder = line.slice((rawCodeOpen.index ?? 0) + rawCodeOpen[0].length);
-      if (!new RegExp(`</${tag}\\s*>`, "i").test(remainder)) rawCodeTag = tag;
+      if (!new RegExp(`</${tag}\\s*>`, 'i').test(remainder)) rawCodeTag = tag;
       inlineCodeMarkerSize = 0;
       normalized.push(line);
       continue;
     }
 
-    if (/^(?: {4}|\t)/.test(line) || line.trim() === "") {
+    if (/^(?: {4}|\t)/.test(line) || line.trim() === '') {
       inlineCodeMarkerSize = 0;
       normalized.push(line);
       continue;
@@ -190,7 +210,7 @@ export function normalizeDisplayMath(markdown: string): string {
 
     if (!inlineCodeMarkerSize) line = rewriteEscapedInlineCodeBackticks(line);
 
-    if (inlineCodeMarkerSize || line.includes("`")) {
+    if (inlineCodeMarkerSize || line.includes('`')) {
       inlineCodeMarkerSize = updateInlineCodeMarker(line, inlineCodeMarkerSize);
       normalized.push(line);
       continue;
@@ -208,7 +228,7 @@ export function normalizeDisplayMath(markdown: string): string {
         normalized.push(
           `${bracketDisplayOneLine[1]}$$`,
           `${bracketDisplayOneLine[1]}${math}`,
-          `${bracketDisplayOneLine[1]}$$`,
+          `${bracketDisplayOneLine[1]}$$`
         );
         continue;
       }
@@ -221,7 +241,7 @@ export function normalizeDisplayMath(markdown: string): string {
         normalized.push(
           `${looseBracketDisplayOneLine[1]}$$`,
           `${looseBracketDisplayOneLine[1]}${math}`,
-          `${looseBracketDisplayOneLine[1]}$$`,
+          `${looseBracketDisplayOneLine[1]}$$`
         );
         continue;
       }
@@ -235,10 +255,10 @@ export function normalizeDisplayMath(markdown: string): string {
         // column 0 so the block stays parseable when nested inside a list item.
         normalized.push(
           `${bracketDisplayStart[1]}$$`,
-          ...lines.slice(index + 1, closingIndex).map((mathLine) =>
-            indentDisplayMathContent(mathLine, bracketDisplayStart[1]),
-          ),
-          `${bracketDisplayStart[1]}$$`,
+          ...lines
+            .slice(index + 1, closingIndex)
+            .map((mathLine) => indentDisplayMathContent(mathLine, bracketDisplayStart[1])),
+          `${bracketDisplayStart[1]}$$`
         );
         index = closingIndex;
         continue;
@@ -255,7 +275,7 @@ export function normalizeDisplayMath(markdown: string): string {
         normalized.push(
           `${displayMathMatch[1]}$$`,
           `${displayMathMatch[1]}${math}`,
-          `${displayMathMatch[1]}$$`,
+          `${displayMathMatch[1]}$$`
         );
         continue;
       }
@@ -272,13 +292,8 @@ export function normalizeDisplayMath(markdown: string): string {
       const firstLine = displayMathMultiLine[2].trimEnd();
       // Only treat this as a block opener if no other `$$` is embedded mid-line
       // (e.g. `$$x$$ and text` stays untouched and is rendered as inline math).
-      if (firstLine && !firstLine.includes("$$")) {
-        const closing = findDisplayMathClose(
-          lines,
-          index + 1,
-          indent,
-          unmatchedDisplayMathUntil,
-        );
+      if (firstLine && !firstLine.includes('$$')) {
+        const closing = findDisplayMathClose(lines, index + 1, indent, unmatchedDisplayMathUntil);
         if (closing) {
           normalized.push(`${indent}$$`, `${indent}${firstLine}`);
           for (let j = index + 1; j < closing.index; j++) {
@@ -303,13 +318,8 @@ export function normalizeDisplayMath(markdown: string): string {
     const displayMathBareOpen = line.match(/^([ \t]{0,3})\$\$\s*$/);
     if (displayMathBareOpen) {
       const indent = displayMathBareOpen[1];
-      const closing = findDisplayMathClose(
-        lines,
-        index + 1,
-        indent,
-        unmatchedDisplayMathUntil,
-      );
-      if (closing && (closing.glued || indent !== "")) {
+      const closing = findDisplayMathClose(lines, index + 1, indent, unmatchedDisplayMathUntil);
+      if (closing && (closing.glued || indent !== '')) {
         normalized.push(`${indent}$$`);
         for (let j = index + 1; j < closing.index; j++) {
           normalized.push(indentDisplayMathContent(lines[j], indent));
@@ -337,14 +347,14 @@ function findDisplayMathClose(
   lines: string[],
   startIndex: number,
   indent: string,
-  unmatchedUntil: Map<string, number>,
+  unmatchedUntil: Map<string, number>
 ): DisplayMathClose | null {
   const knownUnmatchedUntil = unmatchedUntil.get(indent);
   if (knownUnmatchedUntil !== undefined && startIndex < knownUnmatchedUntil) return null;
 
   for (let index = startIndex; index < lines.length; index++) {
     const line = lines[index];
-    if (isDisplayMathFence(line, indent)) return { index, content: "", glued: false };
+    if (isDisplayMathFence(line, indent)) return { index, content: '', glued: false };
 
     // A new Markdown block cannot belong to the preceding formula. In particular,
     // do not let a later sibling list item provide a closing `$$` for this block.
@@ -364,7 +374,7 @@ function findDisplayMathClose(
 }
 
 function isDisplayMathFence(line: string, indent: string): boolean {
-  if (indent === "") return /^ {0,3}\$\$\s*$/.test(line);
+  if (indent === '') return /^ {0,3}\$\$\s*$/.test(line);
   return line.startsWith(indent) && /^\$\$\s*$/.test(line.slice(indent.length));
 }
 
@@ -375,7 +385,7 @@ function getDisplayMathGluedCloseContent(line: string, indent: string): string |
   if (!match) return null;
 
   const content = match[1].trimEnd();
-  return content && !content.includes("$$") ? content : null;
+  return content && !content.includes('$$') ? content : null;
 }
 
 function isDisplayMathOpeningLine(line: string): boolean {
@@ -393,7 +403,7 @@ function isDisplayMathBlockBoundary(line: string): boolean {
 }
 
 function indentDisplayMathContent(line: string, indent: string): string {
-  if (!indent || !line || line.startsWith("\t")) return line;
+  if (!indent || !line || line.startsWith('\t')) return line;
 
   const leadingSpaces = line.match(/^ */)?.[0].length ?? 0;
   if (leadingSpaces >= indent.length) return line;
@@ -421,13 +431,13 @@ function findBracketDisplayClose(lines: string[], startIndex: number): number {
 function updateInlineCodeMarker(line: string, initialMarkerSize: number): number {
   let markerSize = initialMarkerSize;
   for (let cursor = 0; cursor < line.length;) {
-    if (line[cursor] !== "`") {
+    if (line[cursor] !== '`') {
       cursor++;
       continue;
     }
 
     let end = cursor + 1;
-    while (line[end] === "`") end++;
+    while (line[end] === '`') end++;
     const runSize = end - cursor;
     if (markerSize === 0) markerSize = runSize;
     else if (runSize === markerSize) markerSize = 0;
@@ -450,8 +460,8 @@ function normalizeInlineLatexMath(line: string): string {
     return line;
   }
 
-  return replaceNotPrecededBy(line, "\\(", "\\", inlineLatexMathPattern, ([match, math]) =>
-    math.trim() ? `$${math}$` : match,
+  return replaceNotPrecededBy(line, '\\(', '\\', inlineLatexMathPattern, ([match, math]) =>
+    math.trim() ? `$${math}$` : match
   );
 }
 
@@ -497,9 +507,9 @@ export function splitAutolinkLiteralsAtCjkPunctuation(tree: Root, source: string
     const children = node.children as Content[];
     for (let index = 0; index < children.length; index++) {
       const child = children[index];
-      if (child.type === "link") splitAutolinkLiteral(children, index, child, source);
+      if (child.type === 'link') splitAutolinkLiteral(children, index, child, source);
       const current = children[index];
-      if ("children" in current && Array.isArray(current.children)) walk(current as Parent);
+      if ('children' in current && Array.isArray(current.children)) walk(current as Parent);
     }
   };
   walk(tree);
@@ -509,11 +519,11 @@ function splitAutolinkLiteral(
   siblings: Content[],
   index: number,
   node: Link,
-  source: string,
+  source: string
 ): void {
   if (node.title != null || node.children.length !== 1) return;
   const textNode = node.children[0];
-  if (textNode.type !== "text") return;
+  if (textNode.type !== 'text') return;
 
   const start = node.position?.start;
   const end = node.position?.end;
@@ -532,15 +542,15 @@ function splitAutolinkLiteral(
   textNode.value = head;
   node.position = { start, end: boundary };
   siblings.splice(index + 1, 0, {
-    type: "text",
+    type: 'text',
     value: text.slice(cut),
-    position: { start: boundary, end },
+    position: { start: boundary, end }
   });
 }
 
 function remarkSplitAutolinkLiterals() {
   return (tree: Root, file: { value?: unknown }): void => {
-    splitAutolinkLiteralsAtCjkPunctuation(tree, typeof file.value === "string" ? file.value : "");
+    splitAutolinkLiteralsAtCjkPunctuation(tree, typeof file.value === 'string' ? file.value : '');
   };
 }
 
@@ -554,33 +564,38 @@ const remarkCurrencySafeMath: Plugin = function () {
   const extension = data.micromarkExtensions?.at(-1);
   const constructs = extension?.text?.[36];
   for (const construct of Array.isArray(constructs) ? constructs : constructs ? [constructs] : []) {
-    if (construct.name !== "mathText") continue;
+    if (construct.name !== 'mathText') continue;
     const tokenize = construct.tokenize;
     construct.tokenize = function (effects, ok, nok) {
       const start = this.now();
-      return tokenize.call(this, effects, (code) => {
-        const source = this.sliceSerialize({ start, end: this.now() });
-        if (source.startsWith("$") && !source.startsWith("$$")) {
-          const content = source.slice(1, -1);
-          const startsWithAmount = /^\s*[+-]?(?:\d|\.\d)/.test(content);
-          const closesBeforeNumber = code !== null && code >= 48 && code <= 57;
-          // Balanced padding ($ x + y $) remains supported, as does multiline
-          // math. A one-sided space is prose, not an inline-math boundary.
-          const mismatchedPadding = /^\s/.test(content) !== /\s$/.test(content);
-          if (startsWithAmount && (closesBeforeNumber || mismatchedPadding)) return nok(code);
-        }
-        return ok(code);
-      }, nok);
+      return tokenize.call(
+        this,
+        effects,
+        (code) => {
+          const source = this.sliceSerialize({ start, end: this.now() });
+          if (source.startsWith('$') && !source.startsWith('$$')) {
+            const content = source.slice(1, -1);
+            const startsWithAmount = /^\s*[+-]?(?:\d|\.\d)/.test(content);
+            const closesBeforeNumber = code !== null && code >= 48 && code <= 57;
+            // Balanced padding ($ x + y $) remains supported, as does multiline
+            // math. A one-sided space is prose, not an inline-math boundary.
+            const mismatchedPadding = /^\s/.test(content) !== /\s$/.test(content);
+            if (startsWithAmount && (closesBeforeNumber || mismatchedPadding)) return nok(code);
+          }
+          return ok(code);
+        },
+        nok
+      );
     };
   }
 };
 
-export const markdownRemarkPlugins: ReactMarkdownOptions["remarkPlugins"] = [
-  [remarkFrontmatter, ["yaml"]],
+export const markdownRemarkPlugins: ReactMarkdownOptions['remarkPlugins'] = [
+  [remarkFrontmatter, ['yaml']],
   [remarkGfm, remarkGfmOptions],
   remarkCjkFriendly,
   remarkSplitAutolinkLiterals,
-  remarkCurrencySafeMath,
+  remarkCurrencySafeMath
 ];
 
 // User messages keep every typed line break, as the TUI shows them (#680). The
@@ -600,19 +615,20 @@ interface MarkdownTreeNode {
 }
 
 const LINE_ENDING = /[ \t]*(?:\r\n|\r|\n)[ \t]*/;
-const PHRASING_BLOCK_TYPES = new Set(["paragraph", "heading", "tableCell"]);
+const PHRASING_BLOCK_TYPES = new Set(['paragraph', 'heading', 'tableCell']);
 // Raw-text elements take everything up to their closing tag as text, and
 // rehype-raw leaves that state at the next element, so a <br> placed after an
 // unclosed `<textarea>` or `<script>` garbles or drops the rest of the block.
-const RAW_TEXT_OPEN_TAG = /^<(?:iframe|noembed|noframes|noscript|plaintext|script|style|textarea|title|xmp)(?=[\s/>]|$)/i;
+const RAW_TEXT_OPEN_TAG =
+  /^<(?:iframe|noembed|noframes|noscript|plaintext|script|style|textarea|title|xmp)(?=[\s/>]|$)/i;
 
 function opensRawTextElement(node: MarkdownTreeNode): boolean {
-  if (node.type === "html") return RAW_TEXT_OPEN_TAG.test(node.value ?? "");
+  if (node.type === 'html') return RAW_TEXT_OPEN_TAG.test(node.value ?? '');
   return node.children?.some(opensRawTextElement) ?? false;
 }
 
 function lineBreakNode(): MarkdownTreeNode {
-  return { type: "lineBreak", data: { hName: "br" } };
+  return { type: 'lineBreak', data: { hName: 'br' } };
 }
 
 function keepLineBreaks(parent: MarkdownTreeNode): void {
@@ -621,15 +637,17 @@ function keepLineBreaks(parent: MarkdownTreeNode): void {
   // show through the pre-wrap rule.
   if (PHRASING_BLOCK_TYPES.has(parent.type) && opensRawTextElement(parent)) return;
   parent.children = parent.children.flatMap((node) => {
-    if (node.type === "break") return [lineBreakNode()];
-    if (node.type !== "text" || !node.value) {
+    if (node.type === 'break') return [lineBreakNode()];
+    if (node.type !== 'text' || !node.value) {
       keepLineBreaks(node);
       return [node];
     }
-    return node.value.split(LINE_ENDING).flatMap((line, index) => [
-      ...(index > 0 ? [lineBreakNode()] : []),
-      ...(line ? [{ type: "text", value: line }] : []),
-    ]);
+    return node.value
+      .split(LINE_ENDING)
+      .flatMap((line, index) => [
+        ...(index > 0 ? [lineBreakNode()] : []),
+        ...(line ? [{ type: 'text', value: line }] : [])
+      ]);
   });
 }
 
@@ -637,16 +655,16 @@ function remarkKeepLineBreaks() {
   return (tree: MarkdownTreeNode) => keepLineBreaks(tree);
 }
 
-export const markdownUserRemarkPlugins: ReactMarkdownOptions["remarkPlugins"] = [
+export const markdownUserRemarkPlugins: ReactMarkdownOptions['remarkPlugins'] = [
   ...(markdownRemarkPlugins ?? []),
-  remarkKeepLineBreaks,
+  remarkKeepLineBreaks
 ];
-export const markdownPreviewRemarkPlugins: ReactMarkdownOptions["remarkPlugins"] = [
-  [remarkFrontmatter, ["yaml"]],
+export const markdownPreviewRemarkPlugins: ReactMarkdownOptions['remarkPlugins'] = [
+  [remarkFrontmatter, ['yaml']],
   [remarkGfm, remarkGfmOptions],
   remarkCjkFriendly,
   remarkSplitAutolinkLiterals,
-  remarkCurrencySafeMath,
+  remarkCurrencySafeMath
 ];
 
 interface SanitizedNode {
@@ -678,9 +696,14 @@ interface SanitizedNode {
 function rehypeMatchClobberedIds(): (tree: unknown) => void {
   return (tree: unknown): void => {
     const visit = (node: SanitizedNode): void => {
-      if (!node || typeof node !== "object") return;
+      if (!node || typeof node !== 'object') return;
       const href = node.properties?.href;
-      if (node.type === "element" && typeof href === "string" && href.startsWith("#") && href.length > 1) {
+      if (
+        node.type === 'element' &&
+        typeof href === 'string' &&
+        href.startsWith('#') &&
+        href.length > 1
+      ) {
         node.properties!.href = `#${markdownClobberPrefix}${href.slice(1)}`;
       }
       for (const child of node.children ?? []) visit(child);
@@ -689,52 +712,60 @@ function rehypeMatchClobberedIds(): (tree: unknown) => void {
   };
 }
 
-export const markdownRehypePlugins: ReactMarkdownOptions["rehypePlugins"] = [
+export const markdownRehypePlugins: ReactMarkdownOptions['rehypePlugins'] = [
   rehypeRaw,
   [rehypeSanitize, markdownSanitizeSchema],
   rehypeMatchClobberedIds,
-  [rehypeKatex, { throwOnError: false, strict: false }],
+  [rehypeKatex, { throwOnError: false, strict: false }]
 ];
 
 function hastText(node: HastContent): string {
-  return node.type === "text" ? node.value : node.type === "element" ? node.children.map(hastText).join("") : "";
+  return node.type === 'text'
+    ? node.value
+    : node.type === 'element'
+      ? node.children.map(hastText).join('')
+      : '';
 }
 
 /** GitHub's heading slugs for `#fragment` links, as a data attribute: two rendered documents never share an id. */
 function markdownHeadingAnchors() {
   return (tree: HastRoot) => {
     const seen = new Map<string, number>();
-    const visit = (node: HastRoot | HastElement) => node.children.forEach((child) => {
-      if (child.type !== "element") return;
-      if (/^h[1-6]$/.test(child.tagName)) {
-        const base = hastText(child).toLowerCase().replace(/[^\p{L}\p{M}\p{N}_\- ]/gu, "").replace(/ /g, "-");
-        // As github-slugger numbers repeats: "a", "a", "a-1" become a, a-1, a-1-1.
-        let slug = base;
-        while (seen.has(slug)) {
-          seen.set(base, seen.get(base)! + 1);
-          slug = `${base}-${seen.get(base)}`;
+    const visit = (node: HastRoot | HastElement) =>
+      node.children.forEach((child) => {
+        if (child.type !== 'element') return;
+        if (/^h[1-6]$/.test(child.tagName)) {
+          const base = hastText(child)
+            .toLowerCase()
+            .replace(/[^\p{L}\p{M}\p{N}_\- ]/gu, '')
+            .replace(/ /g, '-');
+          // As github-slugger numbers repeats: "a", "a", "a-1" become a, a-1, a-1-1.
+          let slug = base;
+          while (seen.has(slug)) {
+            seen.set(base, seen.get(base)! + 1);
+            slug = `${base}-${seen.get(base)}`;
+          }
+          seen.set(slug, 0);
+          child.properties.dataHeadingAnchor = slug;
         }
-        seen.set(slug, 0);
-        child.properties.dataHeadingAnchor = slug;
-      }
-      visit(child);
-    });
+        visit(child);
+      });
     visit(tree);
   };
 }
 
 // A document whose `#fragment` links lead to its headings (Settings › Skills).
 // Anchors come before KaTeX, which writes each formula's text twice.
-export const markdownDocumentRehypePlugins: ReactMarkdownOptions["rehypePlugins"] = [
+export const markdownDocumentRehypePlugins: ReactMarkdownOptions['rehypePlugins'] = [
   rehypeRaw,
   [rehypeSanitize, markdownSanitizeSchema],
   markdownHeadingAnchors,
-  [rehypeKatex, { throwOnError: false, strict: false }],
+  [rehypeKatex, { throwOnError: false, strict: false }]
 ];
 
-export const markdownPreviewRehypePlugins: ReactMarkdownOptions["rehypePlugins"] = [
+export const markdownPreviewRehypePlugins: ReactMarkdownOptions['rehypePlugins'] = [
   rehypeRaw,
   [rehypeSanitize, markdownSanitizeSchema],
   rehypeMatchClobberedIds,
-  [rehypeKatex, { throwOnError: false, strict: false }],
+  [rehypeKatex, { throwOnError: false, strict: false }]
 ];

@@ -11,13 +11,13 @@ export const CHAT_ONLY_RESOURCE_LOADER_OPTIONS = {
   noContextFiles: false,
   // Truthy placeholders prevent the loader from discovering configured prompt
   // files. The overrides ensure neither placeholder participates in the prompt.
-  systemPrompt: " ",
-  appendSystemPrompt: [" "],
+  systemPrompt: ' ',
+  appendSystemPrompt: [' '],
   systemPromptOverride: () => undefined,
-  appendSystemPromptOverride: () => [],
+  appendSystemPromptOverride: () => []
 };
 
 /** Preserve Pi's discovery order and include only the context-file contents. */
 export function contextFilesSystemPrompt(files: readonly ContextFileContent[]): string {
-  return files.map((file) => file.content).join("\n\n");
+  return files.map((file) => file.content).join('\n\n');
 }

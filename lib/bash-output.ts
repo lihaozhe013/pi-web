@@ -1,6 +1,6 @@
-import { constants } from "node:fs";
-import { lstat, open } from "node:fs/promises";
-import { basename, dirname, resolve } from "node:path";
+import { constants } from 'node:fs';
+import { lstat, open } from 'node:fs/promises';
+import { basename, dirname, resolve } from 'node:path';
 
 export const MAX_INLINE_BASH_OUTPUT_BYTES = 5 * 1024 * 1024;
 
@@ -13,13 +13,13 @@ export function resolveBashOutputPath(filePath: string, tempRoot: string): strin
 
 export async function openRegularFileNoFollow(filePath: string) {
   const pathInfo = await lstat(filePath);
-  if (!pathInfo.isFile()) throw new Error("Bash output path is not a regular file");
+  if (!pathInfo.isFile()) throw new Error('Bash output path is not a regular file');
 
-  const noFollow = typeof constants.O_NOFOLLOW === "number" ? constants.O_NOFOLLOW : 0;
+  const noFollow = typeof constants.O_NOFOLLOW === 'number' ? constants.O_NOFOLLOW : 0;
   const handle = await open(filePath, constants.O_RDONLY | noFollow);
   try {
     const fileInfo = await handle.stat();
-    if (!fileInfo.isFile()) throw new Error("Bash output path is not a regular file");
+    if (!fileInfo.isFile()) throw new Error('Bash output path is not a regular file');
     return { handle, fileInfo };
   } catch (error) {
     await handle.close();
@@ -29,7 +29,7 @@ export async function openRegularFileNoFollow(filePath: string) {
 
 export async function readUtf8FileWithinLimit(
   filePath: string,
-  maxBytes = MAX_INLINE_BASH_OUTPUT_BYTES,
+  maxBytes = MAX_INLINE_BASH_OUTPUT_BYTES
 ): Promise<{ tooLarge: true; size: number } | { tooLarge: false; content: string; size: number }> {
   const { handle, fileInfo } = await openRegularFileNoFollow(filePath);
   try {
@@ -44,8 +44,8 @@ export async function readUtf8FileWithinLimit(
     }
     return {
       tooLarge: false,
-      content: buffer.subarray(0, bytesRead).toString("utf8"),
-      size: bytesRead,
+      content: buffer.subarray(0, bytesRead).toString('utf8'),
+      size: bytesRead
     };
   } finally {
     await handle.close();

@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useI18n } from "@/hooks/useI18n";
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useI18n } from '@/hooks/useI18n';
 
 /**
  * The sidebar's brand with the files below the sessions (its toolbar row,
@@ -11,16 +11,20 @@ import { useI18n } from "@/hooks/useI18n";
  * VERSION_SHOWN_MS, or at once on a second click.
  */
 
-export const BRAND_TEXT = "Pi Web";
+export const BRAND_TEXT = 'Pi Web';
 /** How long the versions stay, counted from the click that showed them. */
 export const VERSION_SHOWN_MS = 3000;
 /** The text settles left to right over its length times this many frames. */
 export const SCRAMBLE_FRAMES_PER_CHAR = 4;
-export const SCRAMBLE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
+export const SCRAMBLE_CHARS =
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
 
 /** The versions as the brand shows them: "0.11.0p1.1.0". */
-export function brandVersionText(appVersion: string | undefined, piVersion: string | undefined): string {
-  return `${appVersion ?? "0.0.0"}p${piVersion ?? "0.0.0"}`;
+export function brandVersionText(
+  appVersion: string | undefined,
+  piVersion: string | undefined
+): string {
+  return `${appVersion ?? '0.0.0'}p${piVersion ?? '0.0.0'}`;
 }
 
 /** How many frames `target` takes to settle. */
@@ -34,14 +38,21 @@ export function scrambleFrameCount(target: string): number {
  * from the last frame on. The length never changes, so in the brand's code
  * type neither does the width while it scrambles.
  */
-export function scrambleFrame(target: string, frame: number, random: () => number = Math.random): string {
+export function scrambleFrame(
+  target: string,
+  frame: number,
+  random: () => number = Math.random
+): string {
   const total = scrambleFrameCount(target);
   if (frame >= total) return target;
   const settled = Math.floor((frame / total) * target.length);
-  let text = "";
+  let text = '';
   for (let index = 0; index < target.length; index++) {
     const char = target[index];
-    text += char === " " || index < settled ? char : SCRAMBLE_CHARS[Math.floor(random() * SCRAMBLE_CHARS.length)];
+    text +=
+      char === ' ' || index < settled
+        ? char
+        : SCRAMBLE_CHARS[Math.floor(random() * SCRAMBLE_CHARS.length)];
   }
   return text;
 }
@@ -57,7 +68,7 @@ function useScramble(target: string): string {
   useEffect(() => {
     if (shownRef.current === target) return;
     shownRef.current = target;
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
       setText(target);
       return;
     }
@@ -77,7 +88,9 @@ function useScramble(target: string): string {
   return text;
 }
 
-export function PiWebTitle({ onWidthChange }: {
+export function PiWebTitle({
+  onWidthChange
+}: {
   /**
    * After a commit that changed the text's length (in its code type, its
    * width): the toolbar row fits its labels again, before that paints.
@@ -95,9 +108,12 @@ export function PiWebTitle({ onWidthChange }: {
     onWidthChange?.();
   }, [text.length, onWidthChange]);
 
-  useEffect(() => () => {
-    if (revertTimerRef.current) clearTimeout(revertTimerRef.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (revertTimerRef.current) clearTimeout(revertTimerRef.current);
+    },
+    []
+  );
 
   const handleClick = () => {
     if (revertTimerRef.current) clearTimeout(revertTimerRef.current);
@@ -118,8 +134,8 @@ export function PiWebTitle({ onWidthChange }: {
   return (
     <button
       type="button"
-      className={`sidebar-brand${versionShown ? " is-version" : ""}`}
-      aria-label={t("sidebar.brandLabel", { app: appVersion ?? "0.0.0", pi: piVersion ?? "0.0.0" })}
+      className={`sidebar-brand${versionShown ? ' is-version' : ''}`}
+      aria-label={t('sidebar.brandLabel', { app: appVersion ?? '0.0.0', pi: piVersion ?? '0.0.0' })}
       onClick={handleClick}
     >
       {text}

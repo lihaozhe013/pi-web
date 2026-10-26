@@ -1,5 +1,5 @@
-import { closeSync, constants, fstatSync, openSync, readSync, realpathSync } from "node:fs";
-import { join } from "node:path";
+import { closeSync, constants, fstatSync, openSync, readSync, realpathSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   CONFIG_DIR_NAME,
   type ExtensionAPI,
@@ -8,13 +8,13 @@ import {
   type McpExposure,
   type McpServerConfig,
   type McpServerEntry,
-  type McpTransportFactory,
-} from "@earendil-works/pi-coding-agent";
-import type { McpHostInactiveInfo, McpScope, McpSessionState, McpSessionStatus } from "./api-types";
-import { isBuiltinMcpCommand, isMcpExtensionCommand } from "./mcp-command";
-import { canonicalJson, mcpConfigKey, mcpEntryConfigKey } from "./mcp-config-key";
-import { scrubMcpLoadError } from "./mcp-json-error";
-import { isMcpOverrideEntry, mcpOverrideRefusal } from "./mcp-override";
+  type McpTransportFactory
+} from '@earendil-works/pi-coding-agent';
+import type { McpHostInactiveInfo, McpScope, McpSessionState, McpSessionStatus } from './api-types';
+import { isBuiltinMcpCommand, isMcpExtensionCommand } from './mcp-command';
+import { canonicalJson, mcpConfigKey, mcpEntryConfigKey } from './mcp-config-key';
+import { scrubMcpLoadError } from './mcp-json-error';
+import { isMcpOverrideEntry, mcpOverrideRefusal } from './mcp-override';
 import {
   forgetMcpHostInactive,
   forgetMcpStatus,
@@ -23,12 +23,12 @@ import {
   recordMcpHostInactive,
   recordMcpStatus,
   replaceMcpStatus,
-  type McpStatusEntry,
-} from "./mcp-status";
-import { createTestRedactor, maskStatusError, maskStatusStderr } from "./mcp-test";
-import { hasParentDirectorySegment, isPathWithinRoots, resolveRealRoots } from "./path-security";
-import type { McpTransport, PiSdkInternals } from "./pi-sdk-internals";
-import { mayReadProjectConfigNow } from "./project-trust";
+  type McpStatusEntry
+} from './mcp-status';
+import { createTestRedactor, maskStatusError, maskStatusStderr } from './mcp-test';
+import { hasParentDirectorySegment, isPathWithinRoots, resolveRealRoots } from './path-security';
+import type { McpTransport, PiSdkInternals } from './pi-sdk-internals';
+import { mayReadProjectConfigNow } from './project-trust';
 
 export { canonicalJson };
 
@@ -59,7 +59,7 @@ export { canonicalJson };
 // stops it registering one — goes to the status store (`lib/mcp-status.ts`)
 // for Settings › MCP, keyed by the entry as its file holds it.
 
-export const MCP_HOST_EXTENSION_NAME = "pi-web-mcp-host";
+export const MCP_HOST_EXTENSION_NAME = 'pi-web-mcp-host';
 
 const DEFAULT_MCP_IDLE_MS = 10 * 60 * 1000;
 const PROMPT_WAIT_MS = 10_000;
@@ -71,15 +71,17 @@ const PROMPT_WAIT_MS = 10_000;
  * extension's own runtime load is a cache hit.
  */
 const REPLACE_WAIT_MS = 5_000;
-const LIST_METHODS = new Set(["tools/list"]);
+const LIST_METHODS = new Set(['tools/list']);
 
 /**
  * PI_WEB_MCP_IDLE_MS: how long a session's MCP servers stay connected after its
  * last run. Unset or blank is 10 minutes, `0` keeps them until the session
  * closes, and invalid values fall back to the default with a warning.
  */
-export function resolveMcpIdleMs(rawValue: string | undefined = process.env.PI_WEB_MCP_IDLE_MS): number {
-  if (rawValue !== undefined && rawValue.trim() !== "") {
+export function resolveMcpIdleMs(
+  rawValue: string | undefined = process.env.PI_WEB_MCP_IDLE_MS
+): number {
+  if (rawValue !== undefined && rawValue.trim() !== '') {
     const parsed = Number(rawValue);
     if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 2_147_483_647) return parsed;
     console.warn(`[pi-web] invalid PI_WEB_MCP_IDLE_MS "${rawValue}", falling back to 10 minutes`);
@@ -88,7 +90,7 @@ export function resolveMcpIdleMs(rawValue: string | undefined = process.env.PI_W
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function errorMessage(error: unknown): string {
@@ -96,7 +98,7 @@ function errorMessage(error: unknown): string {
 }
 
 // Hot reload re-evaluates this module; globalThis keeps one log line per error per process.
-const CONFIG_ERRORS_LOGGED_KEY: symbol = Symbol.for("pi-web:mcp-config-errors-logged");
+const CONFIG_ERRORS_LOGGED_KEY: symbol = Symbol.for('pi-web:mcp-config-errors-logged');
 const CONFIG_ERRORS_LOGGED_MAX = 200;
 /** How many of `loadMcpConfig().errors` one sync logs; well below what the set holds. */
 const CONFIG_ERRORS_LOGGED_PER_SYNC = 20;
@@ -111,7 +113,8 @@ function logConfigErrorOnce(message: string): void {
   if (logged.has(message)) return;
   // The oldest goes, never the whole set: a file with more errors than the set holds
   // would otherwise log every one of them again at each sync.
-  if (logged.size >= CONFIG_ERRORS_LOGGED_MAX) logged.delete(logged.values().next().value as string);
+  if (logged.size >= CONFIG_ERRORS_LOGGED_MAX)
+    logged.delete(logged.values().next().value as string);
   logged.add(message);
   console.warn(`[pi-web] MCP config: ${message}`);
 }
@@ -128,7 +131,8 @@ export const MCP_UNTRUSTED_REPORT_MAX = 100;
 
 const PROJECT_CONFIG_MAX_BYTES = 1024 * 1024;
 /** Windows defines neither flag; it has no FIFOs, and the realpath check still refuses a link that leads outside. */
-const NAMES_OPEN_FLAGS = constants.O_RDONLY | (constants.O_NONBLOCK || 0) | (constants.O_NOFOLLOW || 0);
+const NAMES_OPEN_FLAGS =
+  constants.O_RDONLY | (constants.O_NONBLOCK || 0) | (constants.O_NOFOLLOW || 0);
 
 /**
  * The entries an untrusted project's `.pi/mcp.json` declares, so the host can
@@ -143,7 +147,7 @@ const NAMES_OPEN_FLAGS = constants.O_RDONLY | (constants.O_NONBLOCK || 0) | (con
  * device is opened without blocking and never read.
  */
 export function untrustedProjectServerEntries(cwd: string): [name: string, value: unknown][] {
-  const path = join(cwd, CONFIG_DIR_NAME, "mcp.json");
+  const path = join(cwd, CONFIG_DIR_NAME, 'mcp.json');
   let fd: number | undefined;
   try {
     if (hasParentDirectorySegment(path)) return [];
@@ -161,7 +165,7 @@ export function untrustedProjectServerEntries(cwd: string): [name: string, value
       length += read;
     }
     if (length > stats.size) return [];
-    const parsed: unknown = JSON.parse(buffer.toString("utf8", 0, length));
+    const parsed: unknown = JSON.parse(buffer.toString('utf8', 0, length));
     return isRecord(parsed) && isRecord(parsed.mcpServers) ? Object.entries(parsed.mcpServers) : [];
   } catch {
     // Missing, unreadable, swapped for a link, or not JSON: there are no names to report.
@@ -177,16 +181,22 @@ export function untrustedProjectServerEntries(cwd: string): [name: string, value
  * config is `loadMcpConfig()`'s, whose validator already resolved the
  * `codemode-deferred` alias to `codemode`.
  */
-export function withReachableExposure(config: McpServerConfig, codemodeAvailable: boolean): McpServerConfig {
+export function withReachableExposure(
+  config: McpServerConfig,
+  codemodeAvailable: boolean
+): McpServerConfig {
   if (codemodeAvailable) return config;
-  const reachable = (value: McpExposure): McpExposure => (value === "codemode" ? "deferred" : value);
+  const reachable = (value: McpExposure): McpExposure =>
+    value === 'codemode' ? 'deferred' : value;
   const toolExposure = config.toolExposure
-    ? Object.fromEntries(Object.entries(config.toolExposure).map(([tool, value]) => [tool, reachable(value)]))
+    ? Object.fromEntries(
+        Object.entries(config.toolExposure).map(([tool, value]) => [tool, reachable(value)])
+      )
     : undefined;
   return {
     ...config,
-    exposure: reachable(config.exposure ?? "codemode"),
-    ...(toolExposure ? { toolExposure } : {}),
+    exposure: reachable(config.exposure ?? 'codemode'),
+    ...(toolExposure ? { toolExposure } : {})
   };
 }
 
@@ -216,13 +226,16 @@ interface ObservedTransport {
  * registered. Listening adds a listener and an own `send` on the
  * instance; the transport keeps its class, which the SDK checks.
  */
-export function watchConnection(transport: ObservedTransport, done: (outcome: "ready" | "closed") => void): void {
+export function watchConnection(
+  transport: ObservedTransport,
+  done: (outcome: 'ready' | 'closed') => void
+): void {
   let finished = false;
   let initialized = false;
   let expectsLists: boolean | undefined;
   let listsSent = 0;
   const pending = new Set<unknown>();
-  const finish = (outcome: "ready" | "closed") => {
+  const finish = (outcome: 'ready' | 'closed') => {
     if (finished) return;
     finished = true;
     done(outcome);
@@ -231,16 +244,16 @@ export function watchConnection(transport: ObservedTransport, done: (outcome: "r
     setImmediate(() => {
       if (finished || !initialized || expectsLists === undefined || pending.size > 0) return;
       if (expectsLists && listsSent === 0) return;
-      finish("ready");
+      finish('ready');
     });
   };
   const send = transport.send.bind(transport);
   transport.send = (message: unknown) => {
-    if (isRecord(message) && typeof message.method === "string") {
+    if (isRecord(message) && typeof message.method === 'string') {
       if (message.id !== undefined && LIST_METHODS.has(message.method)) {
         pending.add(message.id);
         listsSent += 1;
-      } else if (message.id === undefined && message.method === "notifications/initialized") {
+      } else if (message.id === undefined && message.method === 'notifications/initialized') {
         initialized = true;
         check();
       }
@@ -249,7 +262,11 @@ export function watchConnection(transport: ObservedTransport, done: (outcome: "r
   };
   transport.onMessage((message) => {
     if (!isRecord(message) || message.method !== undefined || message.id === undefined) return;
-    if (expectsLists === undefined && isRecord(message.result) && isRecord(message.result.capabilities)) {
+    if (
+      expectsLists === undefined &&
+      isRecord(message.result) &&
+      isRecord(message.result.capabilities)
+    ) {
       const { capabilities } = message.result;
       // As the SDK decides: tools when the capability is set.
       expectsLists = Boolean(capabilities.tools);
@@ -258,20 +275,20 @@ export function watchConnection(transport: ObservedTransport, done: (outcome: "r
     }
     if (pending.delete(message.id)) check();
   });
-  transport.onClose(() => finish("closed"));
+  transport.onClose(() => finish('closed'));
 }
 
 /** What one transport of a server did, as `watchTransport()` reports it. */
 export type McpTransportEvent =
-  | { type: "ready" }
+  | { type: 'ready' }
   /** It closed before the server was ready: the connection failed, or the server asked for a sign-in. */
-  | { type: "failed"; authRequired: boolean; error?: unknown; stderr?: string }
+  | { type: 'failed'; authRequired: boolean; error?: unknown; stderr?: string }
   /**
    * It closed after it was ready: `dropped` when it closed by itself (a stdio
    * server that exited), not when the client closed it (a session ending, a
    * reconnect, a sign-in asked for by a later request, which `authRequired` says).
    */
-  | { type: "closed"; dropped: boolean; authRequired: boolean; stderr?: string };
+  | { type: 'closed'; dropped: boolean; authRequired: boolean; stderr?: string };
 
 function errorName(error: unknown): string | undefined {
   return error instanceof Error ? error.name : undefined;
@@ -288,7 +305,9 @@ function errorName(error: unknown): string | undefined {
  */
 function asksForSignIn(error: unknown, usesOAuth: boolean): boolean {
   const name = errorName(error);
-  return name === "McpOAuthAuthorizationRequiredError" || (usesOAuth && name === "McpAuthRequiredError");
+  return (
+    name === 'McpOAuthAuthorizationRequiredError' || (usesOAuth && name === 'McpAuthRequiredError')
+  );
 }
 
 /**
@@ -307,7 +326,7 @@ function asksForSignIn(error: unknown, usesOAuth: boolean): boolean {
 export function watchTransport(
   transport: ObservedTransport,
   usesOAuth: boolean,
-  report: (event: McpTransportEvent) => void,
+  report: (event: McpTransportEvent) => void
 ): void {
   let ready = false;
   let authRequired = false;
@@ -316,37 +335,45 @@ export function watchTransport(
   let initializeId: unknown;
   const note = (error: unknown) => {
     if (asksForSignIn(error, usesOAuth)) authRequired = true;
-    else if (failure === undefined && errorName(error) !== "McpConnectionClosedError") failure = error;
+    else if (failure === undefined && errorName(error) !== 'McpConnectionClosedError')
+      failure = error;
   };
   const stderr = () => {
-    const text = typeof transport.stderr === "string" ? transport.stderr.trim() : "";
+    const text = typeof transport.stderr === 'string' ? transport.stderr.trim() : '';
     return text ? { stderr: text } : {};
   };
   watchConnection(transport, (outcome) => {
-    if (outcome === "ready") {
+    if (outcome === 'ready') {
       ready = true;
-      report({ type: "ready" });
+      report({ type: 'ready' });
     } else {
-      report({ type: "failed", authRequired, ...(failure === undefined ? {} : { error: failure }), ...stderr() });
+      report({
+        type: 'failed',
+        authRequired,
+        ...(failure === undefined ? {} : { error: failure }),
+        ...stderr()
+      });
     }
   });
-  if (typeof transport.start === "function") {
+  if (typeof transport.start === 'function') {
     const start = transport.start;
-    transport.start = () => start.call(transport).catch((error: unknown) => {
-      note(error);
-      throw error;
-    });
+    transport.start = () =>
+      start.call(transport).catch((error: unknown) => {
+        note(error);
+        throw error;
+      });
   }
   // watchConnection's own `send`, which this one calls in turn.
   const send = transport.send;
   transport.send = (message: unknown) => {
-    if (isRecord(message) && message.method === "initialize" && message.id !== undefined) initializeId = message.id;
+    if (isRecord(message) && message.method === 'initialize' && message.id !== undefined)
+      initializeId = message.id;
     return send.call(transport, message).catch((error: unknown) => {
       note(error);
       throw error;
     });
   };
-  if (typeof transport.close === "function") {
+  if (typeof transport.close === 'function') {
     const close = transport.close;
     transport.close = () => {
       closeCalled = true;
@@ -354,12 +381,19 @@ export function watchTransport(
     };
   }
   transport.onMessage((message) => {
-    if (failure !== undefined || initializeId === undefined || !isRecord(message) || message.id !== initializeId) return;
-    if (isRecord(message.error) && typeof message.error.message === "string") failure = message.error.message;
+    if (
+      failure !== undefined ||
+      initializeId === undefined ||
+      !isRecord(message) ||
+      message.id !== initializeId
+    )
+      return;
+    if (isRecord(message.error) && typeof message.error.message === 'string')
+      failure = message.error.message;
   });
   // After watchConnection's listener, which reports a close before ready itself.
   transport.onClose(() => {
-    if (ready) report({ type: "closed", dropped: !closeCalled, authRequired, ...stderr() });
+    if (ready) report({ type: 'closed', dropped: !closeCalled, authRequired, ...stderr() });
   });
 }
 
@@ -368,17 +402,17 @@ export function watchTransport(
 // ---------------------------------------------------------------------------
 
 export type McpHostServerState =
-  | "connecting"
-  | "ready"
-  | "failed"
+  | 'connecting'
+  | 'ready'
+  | 'failed'
   /** The server asked for an OAuth sign-in. */
-  | "needs-auth"
+  | 'needs-auth'
   /** It was ready, then its transport closed by itself; the extension reconnects at the next call. */
-  | "disconnected"
+  | 'disconnected'
   /** Another extension registered the name first (`conflict` names it), or the extension refused the config. */
-  | "not-registered"
+  | 'not-registered'
   /** The project's `.pi/mcp.json` declares it, but the project is not trusted, so it is not read. */
-  | "not-trusted";
+  | 'not-trusted';
 
 export interface McpHostServerStatus {
   name: string;
@@ -395,20 +429,20 @@ export interface McpHostServerStatus {
 type StatusTarget = McpStatusEntry & { configKey: string };
 
 /** What a session reports to the status store, before the session, folder and time are added. */
-type SessionReport = Pick<McpSessionStatus, "state" | "error" | "stderr" | "conflict">;
+type SessionReport = Pick<McpSessionStatus, 'state' | 'error' | 'stderr' | 'conflict'>;
 
-type AttemptState = "connecting" | "ready" | "failed" | "needs-auth" | "disconnected";
+type AttemptState = 'connecting' | 'ready' | 'failed' | 'needs-auth' | 'disconnected';
 
 const SESSION_STATES: Record<AttemptState, McpSessionState> = {
-  connecting: "connecting",
-  ready: "connected",
-  failed: "failed",
-  "needs-auth": "needs-auth",
-  disconnected: "disconnected",
+  connecting: 'connecting',
+  ready: 'connected',
+  failed: 'failed',
+  'needs-auth': 'needs-auth',
+  disconnected: 'disconnected'
 };
 
 /** For a transport that closed before the server was ready, when nothing said why. */
-const NOT_READY_MESSAGE = "The connection closed before the server was ready";
+const NOT_READY_MESSAGE = 'The connection closed before the server was ready';
 
 /** One registration of a server, and every transport the extension opens for it until the host lets it go. */
 class ConnectAttempt {
@@ -430,7 +464,7 @@ class ConnectAttempt {
    * transports do afterwards is the extension closing them, not news.
    */
   released = false;
-  state: AttemptState = "connecting";
+  state: AttemptState = 'connecting';
   error: string | undefined;
   stderr: string | undefined;
   /** The transport the extension opened last; an older one that closes late no longer says how the server is. */
@@ -440,9 +474,15 @@ class ConnectAttempt {
   private readonly startedListeners = new Set<() => void>();
   private readonly settledListeners = new Set<() => void>();
 
-  constructor(readonly configKey: string, readonly scope: McpScope, readonly target: StatusTarget, config: McpServerConfig) {
-    this.declaresTools = (config.exposure ?? "codemode") === "direct"
-      || Object.values(config.toolExposure ?? {}).includes("direct");
+  constructor(
+    readonly configKey: string,
+    readonly scope: McpScope,
+    readonly target: StatusTarget,
+    config: McpServerConfig
+  ) {
+    this.declaresTools =
+      (config.exposure ?? 'codemode') === 'direct' ||
+      Object.values(config.toolExposure ?? {}).includes('direct');
   }
 
   markStarted(): void {
@@ -456,7 +496,7 @@ class ConnectAttempt {
     this.state = state;
     this.error = details.error;
     this.stderr = details.stderr;
-    if (state === "connecting" || this.settled) return;
+    if (state === 'connecting' || this.settled) return;
     this.settled = true;
     this.markStarted();
     for (const listener of this.settledListeners) listener();
@@ -464,11 +504,15 @@ class ConnectAttempt {
   }
 
   whenStarted(): Promise<void> {
-    return this.started ? Promise.resolve() : new Promise((resolve) => this.startedListeners.add(resolve));
+    return this.started
+      ? Promise.resolve()
+      : new Promise((resolve) => this.startedListeners.add(resolve));
   }
 
   whenSettled(): Promise<void> {
-    return this.settled ? Promise.resolve() : new Promise((resolve) => this.settledListeners.add(resolve));
+    return this.settled
+      ? Promise.resolve()
+      : new Promise((resolve) => this.settledListeners.add(resolve));
   }
 }
 
@@ -484,9 +528,9 @@ const ALREADY_REGISTERED = /is already registered by extension "(.+)"$/;
 
 function sessionIdOf(ctx: ExtensionContext): string {
   try {
-    return ctx.sessionManager?.getSessionId() ?? "";
+    return ctx.sessionManager?.getSessionId() ?? '';
   } catch {
-    return "";
+    return '';
   }
 }
 
@@ -501,7 +545,9 @@ function delay(ms: number): { promise: Promise<void>; cancel: () => void } {
 
 function aborted(signal: AbortSignal): Promise<void> {
   if (signal.aborted) return Promise.resolve();
-  return new Promise((resolve) => signal.addEventListener("abort", () => resolve(), { once: true }));
+  return new Promise((resolve) =>
+    signal.addEventListener('abort', () => resolve(), { once: true })
+  );
 }
 
 /** A server the host wants registered: its config as registered, and the entry its status is about. */
@@ -530,7 +576,10 @@ class HostInstance {
   /** Keyed by scope and name: an untrusted project entry may share its name with a global one. */
   private problems = new Map<string, HostProblem>();
   /** What each problem last wrote to the status store, by status key, so a sync repeats a report only once it was replaced. */
-  private readonly problemReports = new Map<string, { signature: string; target: StatusTarget; status: McpSessionStatus }>();
+  private readonly problemReports = new Map<
+    string,
+    { signature: string; target: StatusTarget; status: McpSessionStatus }
+  >();
   /** The record saying this session's `/mcp` is another extension's, while it is. */
   private inactiveReport: { sessionId: string; info: McpHostInactiveInfo } | undefined;
   private queue: Promise<void> = Promise.resolve();
@@ -540,8 +589,11 @@ class HostInstance {
   /** Prompts waiting in prepareForPrompt(); nor does it run while one waits. */
   private preparing = 0;
 
-  constructor(private readonly pi: ExtensionAPI, private readonly options: Required<McpHostOptions>) {
-    pi.on("session_start", (_event, ctx) => {
+  constructor(
+    private readonly pi: ExtensionAPI,
+    private readonly options: Required<McpHostOptions>
+  ) {
+    pi.on('session_start', (_event, ctx) => {
       if (this.disposed) return;
       this.ctx = ctx;
       // The built-in MCP extension may be switched off (-builtin:mcp) or replaced by one that
@@ -554,20 +606,20 @@ class HostInstance {
       // loading the extensions.
       this.reportActivity(ctx, this.active ? undefined : commands[0]?.sourceInfo?.path);
     });
-    pi.on("before_agent_start", () => {
+    pi.on('before_agent_start', () => {
       this.clearIdle();
       // Prompts that do not come through the wrapper, such as an extension's, still connect.
       void this.sync();
     });
-    pi.on("agent_start", () => {
+    pi.on('agent_start', () => {
       this.runActive = true;
       this.clearIdle();
     });
-    pi.on("agent_end", () => {
+    pi.on('agent_end', () => {
       this.runActive = false;
       this.armIdle();
     });
-    pi.on("session_shutdown", () => {
+    pi.on('session_shutdown', () => {
       // The wrapper disposes the host when it starts closing (`McpHost.dispose()`), before any
       // extension hears session_shutdown, so this is a repeat: handlers run one after another,
       // this one after the MCP extension's and every other extension's, and a close of theirs
@@ -585,7 +637,9 @@ class HostInstance {
    */
   attemptFor(entry: McpServerEntry): ConnectAttempt | undefined {
     const attempt = this.attempts.get(entry.name);
-    return attempt && !attempt.released && attempt.configKey === canonicalJson(entry.config) ? attempt : undefined;
+    return attempt && !attempt.released && attempt.configKey === canonicalJson(entry.config)
+      ? attempt
+      : undefined;
   }
 
   /**
@@ -600,44 +654,59 @@ class HostInstance {
     if (!count) return false;
     if (count > 1) this.abandoned.set(key, count - 1);
     else this.abandoned.delete(key);
-    console.warn(`[pi-web] MCP server "${entry.name}" was unregistered before its connection opened; its transport is refused`);
+    console.warn(
+      `[pi-web] MCP server "${entry.name}" was unregistered before its connection opened; its transport is refused`
+    );
     return true;
   }
 
   /** The factory could not build a transport (a PI_WEB_PASSWORD reference, a failing `!command`). */
   transportFailed(attempt: ConnectAttempt, entry: McpServerEntry, error: unknown): void {
     attempt.current = undefined;
-    const redact = createTestRedactor(entry.config, [], { isCommandConfigValue: this.isCommandValue });
-    this.update(attempt, "failed", { error: maskStatusError(errorMessage(error), redact) });
+    const redact = createTestRedactor(entry.config, [], {
+      isCommandConfigValue: this.isCommandValue
+    });
+    this.update(attempt, 'failed', { error: maskStatusError(errorMessage(error), redact) });
   }
 
   /** Follow a transport the extension opened for `attempt`; the latest one speaks for the server. */
-  watch(attempt: ConnectAttempt, entry: McpServerEntry, transport: McpTransport, usesOAuth: boolean): void {
+  watch(
+    attempt: ConnectAttempt,
+    entry: McpServerEntry,
+    transport: McpTransport,
+    usesOAuth: boolean
+  ): void {
     attempt.markStarted();
     attempt.current = transport;
-    this.update(attempt, "connecting");
+    this.update(attempt, 'connecting');
     let redactor: ((text: string) => string) | undefined;
     const redact = (text: string) => {
-      redactor ??= createTestRedactor(entry.config, [transport], { isCommandConfigValue: this.isCommandValue });
+      redactor ??= createTestRedactor(entry.config, [transport], {
+        isCommandConfigValue: this.isCommandValue
+      });
       return redactor(text);
     };
-    const stderr = (text: string | undefined) => (text === undefined ? {} : { stderr: maskStatusStderr(text, redact) });
+    const stderr = (text: string | undefined) =>
+      text === undefined ? {} : { stderr: maskStatusStderr(text, redact) };
     watchTransport(transport as unknown as ObservedTransport, usesOAuth, (event) => {
       // An attempt the host let go still settles, for a prompt still waiting on it; `update()` records nothing for it.
       if (attempt.current !== transport) return;
-      if (event.type === "ready") {
-        this.update(attempt, "ready");
-      } else if (event.type === "failed") {
-        if (event.authRequired) this.update(attempt, "needs-auth");
+      if (event.type === 'ready') {
+        this.update(attempt, 'ready');
+      } else if (event.type === 'failed') {
+        if (event.authRequired) this.update(attempt, 'needs-auth');
         else {
           const error = event.error === undefined ? NOT_READY_MESSAGE : errorMessage(event.error);
-          this.update(attempt, "failed", { error: maskStatusError(error, redact), ...stderr(event.stderr) });
+          this.update(attempt, 'failed', {
+            error: maskStatusError(error, redact),
+            ...stderr(event.stderr)
+          });
         }
       } else if (event.authRequired) {
         // A later request asked for a sign-in, and the SDK dropped the client to wait for one.
-        this.update(attempt, "needs-auth");
+        this.update(attempt, 'needs-auth');
       } else if (event.dropped) {
-        this.update(attempt, "disconnected", stderr(event.stderr));
+        this.update(attempt, 'disconnected', stderr(event.stderr));
       }
       // Closed by the client otherwise: a reconnect opens the next transport, and a session that ends lets go first.
     });
@@ -684,13 +753,15 @@ class HostInstance {
     const stopped = aborted(signal);
     await Promise.race([this.sync(), stopped]);
     if (signal.aborted || !wait) return;
-    const connecting = [...this.attempts.values()].filter((attempt) => attempt.declaresTools && !attempt.settled && !attempt.waited);
+    const connecting = [...this.attempts.values()].filter(
+      (attempt) => attempt.declaresTools && !attempt.settled && !attempt.waited
+    );
     if (connecting.length === 0) return;
     const deadline = delay(this.options.promptWaitMs);
     const timedOut = await Promise.race([
       Promise.all(connecting.map((attempt) => attempt.whenSettled())).then(() => false),
       deadline.promise.then(() => true),
-      stopped.then(() => false),
+      stopped.then(() => false)
     ]);
     deadline.cancel();
     // A server that outlasted one full wait is not waited for again; its tools arrive when it connects.
@@ -698,14 +769,16 @@ class HostInstance {
   }
 
   serverStates(): McpHostServerStatus[] {
-    const states: McpHostServerStatus[] = [...this.problems.values()].map((problem) => problem.status);
+    const states: McpHostServerStatus[] = [...this.problems.values()].map(
+      (problem) => problem.status
+    );
     for (const [name, attempt] of this.attempts) {
       states.push({
         name,
         scope: attempt.scope,
         state: attempt.state,
         ...(attempt.error ? { error: attempt.error } : {}),
-        ...(attempt.stderr ? { stderr: attempt.stderr } : {}),
+        ...(attempt.stderr ? { stderr: attempt.stderr } : {})
       });
     }
     return states.sort((a, b) => a.name.localeCompare(b.name) || a.scope.localeCompare(b.scope));
@@ -734,7 +807,7 @@ class HostInstance {
 
   private readonly isCommandValue = (value: string): boolean =>
     // The SDK's rule (`isCommandConfigValue()`), for hosts given no value parser, such as tests'.
-    this.options.internals.isCommandConfigValue?.(value) ?? value.startsWith("!");
+    this.options.internals.isCommandConfigValue?.(value) ?? value.startsWith('!');
 
   /**
    * The status key of an entry `loadMcpConfig()` did not hand over (an
@@ -750,8 +823,16 @@ class HostInstance {
    * override that would apply (`global` is the loaded global entry of its
    * name) by the global entry with its keys, which is what it describes.
    */
-  private projectEntryConfigKey(name: string, value: unknown, global: McpServerConfig | undefined): string {
-    if (isRecord(value) && isMcpOverrideEntry(value) && mcpOverrideRefusal(name, value, global !== undefined) === undefined) {
+  private projectEntryConfigKey(
+    name: string,
+    value: unknown,
+    global: McpServerConfig | undefined
+  ): string {
+    if (
+      isRecord(value) &&
+      isMcpOverrideEntry(value) &&
+      mcpOverrideRefusal(name, value, global !== undefined) === undefined
+    ) {
       return this.entryConfigKey(name, { ...global, ...value });
     }
     return this.entryConfigKey(name, value);
@@ -762,21 +843,25 @@ class HostInstance {
     const ctx = this.ctx;
     if (!ctx) return undefined;
     const status: McpSessionStatus = {
-      origin: "session",
+      origin: 'session',
       state: report.state,
       sessionId: sessionIdOf(ctx),
       cwd: ctx.cwd,
       updatedAt: Date.now(),
       ...(report.error ? { error: report.error } : {}),
       ...(report.stderr ? { stderr: report.stderr } : {}),
-      ...(report.conflict ? { conflict: report.conflict } : {}),
+      ...(report.conflict ? { conflict: report.conflict } : {})
     };
     recordMcpStatus(target, target.configKey, status);
     return status;
   }
 
   /** A change of `attempt`'s state, recorded unless the host let it go. */
-  private update(attempt: ConnectAttempt, state: AttemptState, details: { error?: string; stderr?: string } = {}): void {
+  private update(
+    attempt: ConnectAttempt,
+    state: AttemptState,
+    details: { error?: string; stderr?: string } = {}
+  ): void {
     attempt.update(state, details);
     if (attempt.released) return;
     attempt.recorded = this.write(attempt.target, { state: SESSION_STATES[state], ...details });
@@ -796,8 +881,9 @@ class HostInstance {
     attempt.released = true;
     const { target, recorded } = attempt;
     if (!recorded) return;
-    if (attempt.state === "connecting") forgetMcpStatus(target, target.configKey, recorded);
-    else if (attempt.state === "ready") replaceMcpStatus(target, target.configKey, recorded, { ...recorded, closedAt: Date.now() });
+    if (attempt.state === 'connecting') forgetMcpStatus(target, target.configKey, recorded);
+    else if (attempt.state === 'ready')
+      replaceMcpStatus(target, target.configKey, recorded, { ...recorded, closedAt: Date.now() });
   }
 
   /**
@@ -808,7 +894,8 @@ class HostInstance {
    */
   private letGoOfAll(): void {
     for (const attempt of this.attempts.values()) this.letGo(attempt);
-    for (const { target, status } of this.problemReports.values()) forgetMcpStatus(target, target.configKey, status);
+    for (const { target, status } of this.problemReports.values())
+      forgetMcpStatus(target, target.configKey, status);
     this.problemReports.clear();
   }
 
@@ -823,18 +910,29 @@ class HostInstance {
     for (const { target, report } of this.problems.values()) {
       const key = mcpStatusKey(target);
       reported.add(key);
-      const signature = [target.configKey, report.state, report.conflict ?? "", report.error ?? ""].join("\0");
+      const signature = [
+        target.configKey,
+        report.state,
+        report.conflict ?? '',
+        report.error ?? ''
+      ].join('\0');
       const previous = this.problemReports.get(key);
-      if (previous?.signature === signature && isCurrentMcpStatus(target, target.configKey, previous.status)) continue;
+      if (
+        previous?.signature === signature &&
+        isCurrentMcpStatus(target, target.configKey, previous.status)
+      )
+        continue;
       const status = this.write(target, report);
       if (status) this.problemReports.set(key, { signature, target, status });
     }
-    for (const key of [...this.problemReports.keys()]) if (!reported.has(key)) this.problemReports.delete(key);
+    for (const key of [...this.problemReports.keys()])
+      if (!reported.has(key)) this.problemReports.delete(key);
   }
 
   /** Records (`owner`) or forgets that this session's `/mcp` is another extension's. */
   private reportActivity(ctx: ExtensionContext | undefined, owner: string | undefined): void {
-    if (this.inactiveReport) forgetMcpHostInactive(this.inactiveReport.sessionId, this.inactiveReport.info);
+    if (this.inactiveReport)
+      forgetMcpHostInactive(this.inactiveReport.sessionId, this.inactiveReport.info);
     this.inactiveReport = undefined;
     if (!ctx) return;
     const sessionId = sessionIdOf(ctx);
@@ -851,7 +949,7 @@ class HostInstance {
   private enqueue(operation: () => Promise<void>): Promise<void> {
     const run = this.queue.then(operation);
     this.queue = run.catch((error: unknown) => {
-      console.error("[pi-web] MCP host operation failed:", errorMessage(error));
+      console.error('[pi-web] MCP host operation failed:', errorMessage(error));
     });
     return this.queue;
   }
@@ -869,18 +967,18 @@ class HostInstance {
     // reads the file again itself, and a file landing between the two reads would
     // otherwise be read without a decision.
     const projectReadable = this.options.mayReadProjectConfig(ctx.cwd);
-    let loaded: ReturnType<McpHostOptions["internals"]["loadMcpConfig"]> | undefined;
+    let loaded: ReturnType<McpHostOptions['internals']['loadMcpConfig']> | undefined;
     try {
       loaded = this.options.internals.loadMcpConfig({
         agentDir: this.options.agentDir,
         cwd: ctx.cwd,
-        projectTrusted: projectReadable,
+        projectTrusted: projectReadable
       });
     } catch (error) {
       logConfigErrorOnce(`cannot read mcp.json: ${errorMessage(error)}`);
     }
     // The path the SDK reads the project's entries from, which Settings lists them under.
-    const projectPath = join(ctx.cwd, CONFIG_DIR_NAME, "mcp.json");
+    const projectPath = join(ctx.cwd, CONFIG_DIR_NAME, 'mcp.json');
     // After the SDK's read, so a file that landed since the trust read is reported too.
     if (!projectReadable) {
       const entries = untrustedProjectServerEntries(ctx.cwd);
@@ -890,16 +988,25 @@ class HostInstance {
         // One entry the host cannot key (`mcpConfigKey()` is total, so this is a guard) never drops the others.
         try {
           this.problems.set(`project\0${name}`, {
-            status: { name, scope: "project", state: "not-trusted" },
-            target: { scope: "project", sourcePath: projectPath, name, configKey: this.projectEntryConfigKey(name, value, globals.get(name)) },
-            report: { state: "not-trusted" },
+            status: { name, scope: 'project', state: 'not-trusted' },
+            target: {
+              scope: 'project',
+              sourcePath: projectPath,
+              name,
+              configKey: this.projectEntryConfigKey(name, value, globals.get(name))
+            },
+            report: { state: 'not-trusted' }
           });
         } catch (error) {
-          logConfigErrorOnce(`${projectPath}: server "${name}" is not reported: ${errorMessage(error)}`);
+          logConfigErrorOnce(
+            `${projectPath}: server "${name}" is not reported: ${errorMessage(error)}`
+          );
         }
       }
       if (entries.length > MCP_UNTRUSTED_REPORT_MAX) {
-        logConfigErrorOnce(`${projectPath}: ${entries.length - MCP_UNTRUSTED_REPORT_MAX} more servers of this untrusted project are not reported`);
+        logConfigErrorOnce(
+          `${projectPath}: ${entries.length - MCP_UNTRUSTED_REPORT_MAX} more servers of this untrusted project are not reported`
+        );
       }
     }
     if (!loaded) return desired;
@@ -907,17 +1014,20 @@ class HostInstance {
     // error quotes the file around the bad token, often part of a secret, so it is reworded.
     // At most a few per sync: errors past what the dedupe set holds would each be logged again
     // at every sync, so the rest are one line with their count.
-    const loadedPaths = [join(this.options.agentDir, "mcp.json"), projectPath];
-    for (const error of loaded.errors.slice(0, CONFIG_ERRORS_LOGGED_PER_SYNC)) logConfigErrorOnce(scrubMcpLoadError(error, loadedPaths));
+    const loadedPaths = [join(this.options.agentDir, 'mcp.json'), projectPath];
+    for (const error of loaded.errors.slice(0, CONFIG_ERRORS_LOGGED_PER_SYNC))
+      logConfigErrorOnce(scrubMcpLoadError(error, loadedPaths));
     if (loaded.errors.length > CONFIG_ERRORS_LOGGED_PER_SYNC) {
-      logConfigErrorOnce(`${loaded.errors.length - CONFIG_ERRORS_LOGGED_PER_SYNC} more errors in mcp.json are not logged`);
+      logConfigErrorOnce(
+        `${loaded.errors.length - CONFIG_ERRORS_LOGGED_PER_SYNC} more errors in mcp.json are not logged`
+      );
     }
     for (const entry of loaded.servers) {
       if (entry.config.enabled === false) continue;
       // A global server a project override changes (pi 1.0.1) is the override's: Settings lists
       // it as the project entry, with the global entry's config and the override's keys.
       const override = entry.override;
-      const scope = entry.scope === "project" || override !== undefined ? "project" : "global";
+      const scope = entry.scope === 'project' || override !== undefined ? 'project' : 'global';
       // Each entry is keyed in its own try: one the host cannot key never stops the others,
       // global servers included, from connecting.
       try {
@@ -925,10 +1035,17 @@ class HostInstance {
           config: withReachableExposure(entry.config, this.options.codemodeAvailable()),
           scope,
           // The validator's copy of the entry (aliases resolved), which Settings keys it by too.
-          target: { scope, sourcePath: override ?? entry.source, name: entry.name, configKey: mcpConfigKey(entry.config) },
+          target: {
+            scope,
+            sourcePath: override ?? entry.source,
+            name: entry.name,
+            configKey: mcpConfigKey(entry.config)
+          }
         });
       } catch (error) {
-        logConfigErrorOnce(`${entry.source}: server "${entry.name}" is not connected: ${errorMessage(error)}`);
+        logConfigErrorOnce(
+          `${entry.source}: server "${entry.name}" is not connected: ${errorMessage(error)}`
+        );
       }
     }
     return desired;
@@ -946,9 +1063,17 @@ class HostInstance {
       const owner = this.registeredOwner(name) ?? ALREADY_REGISTERED.exec(message)?.[1];
       const redact = createTestRedactor(config, [], { isCommandConfigValue: this.isCommandValue });
       this.problems.set(`${scope}\0${name}`, {
-        status: { name, scope, state: "not-registered", error: message, ...(owner ? { conflict: owner } : {}) },
+        status: {
+          name,
+          scope,
+          state: 'not-registered',
+          error: message,
+          ...(owner ? { conflict: owner } : {})
+        },
         target,
-        report: owner ? { state: "conflict", conflict: owner } : { state: "failed", error: maskStatusError(message, redact) },
+        report: owner
+          ? { state: 'conflict', conflict: owner }
+          : { state: 'failed', error: maskStatusError(message, redact) }
       });
     }
   }
@@ -990,7 +1115,13 @@ class HostInstance {
 
   private armIdle(): void {
     this.clearIdle();
-    if (this.runActive || this.preparing > 0 || this.options.idleMs <= 0 || this.attempts.size === 0) return;
+    if (
+      this.runActive ||
+      this.preparing > 0 ||
+      this.options.idleMs <= 0 ||
+      this.attempts.size === 0
+    )
+      return;
     this.idleTimer = setTimeout(() => {
       this.idleTimer = undefined;
       if (this.ctx && !this.ctx.isIdle()) return;
@@ -1007,7 +1138,8 @@ export interface McpHostOptions {
    * (else a leading `!`, as the SDK decides); and its validator, which keys an
    * untrusted project's entries as Settings does (else as written).
    */
-  internals: Pick<PiSdkInternals, "loadMcpConfig"> & Partial<Pick<PiSdkInternals, "isCommandConfigValue" | "validateMcpServerConfig">>;
+  internals: Pick<PiSdkInternals, 'loadMcpConfig'> &
+    Partial<Pick<PiSdkInternals, 'isCommandConfigValue' | 'validateMcpServerConfig'>>;
   /** Whether codemode can run scripts; servers it cannot reach become `deferred`. */
   codemodeAvailable: () => boolean;
   /**
@@ -1039,7 +1171,8 @@ export class McpHost {
       promptWaitMs: PROMPT_WAIT_MS,
       replaceWaitMs: REPLACE_WAIT_MS,
       ...options,
-      mayReadProjectConfig: options.mayReadProjectConfig ?? ((cwd) => mayReadProjectConfigNow(cwd, options.agentDir)),
+      mayReadProjectConfig:
+        options.mayReadProjectConfig ?? ((cwd) => mayReadProjectConfigNow(cwd, options.agentDir))
     };
   }
 
@@ -1050,7 +1183,7 @@ export class McpHost {
       factory: (pi) => {
         this.current?.dispose();
         this.current = new HostInstance(pi, this.options);
-      },
+      }
     };
   }
 
@@ -1059,7 +1192,9 @@ export class McpHost {
       const host = this.current;
       const attempt = host?.attemptFor(entry);
       if (!attempt && host?.refuseAbandoned(entry)) {
-        throw new Error(`MCP server "${entry.name}" was removed before it connected, so Pi Web did not start it`);
+        throw new Error(
+          `MCP server "${entry.name}" was removed before it connected, so Pi Web did not start it`
+        );
       }
       let transport: ReturnType<McpTransportFactory>;
       try {
@@ -1069,7 +1204,8 @@ export class McpHost {
         throw error;
       }
       // The connection passes an auth provider exactly when the server signs in with OAuth.
-      if (host && attempt) host.watch(attempt, entry, transport as McpTransport, authProvider !== undefined);
+      if (host && attempt)
+        host.watch(attempt, entry, transport as McpTransport, authProvider !== undefined);
       return transport;
     };
   }

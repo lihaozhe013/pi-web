@@ -10,10 +10,7 @@ interface LocalFileClickEvent {
 export function shouldOpenLocalFileInApp(event: LocalFileClickEvent): boolean {
   // Browsers block file:// navigation from Pi Web's HTTP origin, so the
   // platform primary modifier must use the same in-app preview as a plain click.
-  return !event.defaultPrevented
-    && event.button === 0
-    && !event.shiftKey
-    && !event.altKey;
+  return !event.defaultPrevented && event.button === 0 && !event.shiftKey && !event.altKey;
 }
 
 function safeDecode(value: string): string {
@@ -25,27 +22,27 @@ function safeDecode(value: string): string {
 }
 
 function normalizeFilePathSlashes(filePath: string): string {
-  if (/^[a-zA-Z]:[\\/]/.test(filePath) || filePath.startsWith("\\\\")) {
-    return filePath.replace(/\\/g, "/");
+  if (/^[a-zA-Z]:[\\/]/.test(filePath) || filePath.startsWith('\\\\')) {
+    return filePath.replace(/\\/g, '/');
   }
   return filePath;
 }
 
 function stripLineSuffix(filePath: string): string {
-  return filePath.replace(/:\d+(?::\d+)?$/, "");
+  return filePath.replace(/:\d+(?::\d+)?$/, '');
 }
 
 function normalizeLocalPath(filePath: string): string {
   const normalized = normalizeFilePathSlashes(filePath);
   const isWindowsDrive = /^[a-zA-Z]:\//.test(normalized);
-  const isUnc = normalized.startsWith("//");
-  const leadingSlash = normalized.startsWith("/") && !isWindowsDrive && !isUnc;
+  const isUnc = normalized.startsWith('//');
+  const leadingSlash = normalized.startsWith('/') && !isWindowsDrive && !isUnc;
   const parts: string[] = [];
 
-  for (const part of normalized.split("/")) {
-    if (!part || part === ".") continue;
-    if (part === "..") {
-      if (parts.length > 0 && parts[parts.length - 1] !== "..") {
+  for (const part of normalized.split('/')) {
+    if (!part || part === '.') continue;
+    if (part === '..') {
+      if (parts.length > 0 && parts[parts.length - 1] !== '..') {
         parts.pop();
       } else if (!leadingSlash && !isWindowsDrive && !isUnc) {
         parts.push(part);
@@ -55,35 +52,36 @@ function normalizeLocalPath(filePath: string): string {
     parts.push(part);
   }
 
-  const joined = parts.join("/");
+  const joined = parts.join('/');
   if (isWindowsDrive) return joined;
   if (isUnc) return `//${joined}`;
   return leadingSlash ? `/${joined}` : joined;
 }
 
 function isPathInside(candidate: string, root: string): boolean {
-  const normalizedCandidate = normalizeLocalPath(candidate).replace(/\/+$/, "");
-  const normalizedRoot = normalizeLocalPath(root).replace(/\/+$/, "");
-  const useCaseInsensitive = /^[a-zA-Z]:\//.test(normalizedCandidate) || /^[a-zA-Z]:\//.test(normalizedRoot);
+  const normalizedCandidate = normalizeLocalPath(candidate).replace(/\/+$/, '');
+  const normalizedRoot = normalizeLocalPath(root).replace(/\/+$/, '');
+  const useCaseInsensitive =
+    /^[a-zA-Z]:\//.test(normalizedCandidate) || /^[a-zA-Z]:\//.test(normalizedRoot);
   const filePath = useCaseInsensitive ? normalizedCandidate.toLowerCase() : normalizedCandidate;
   const rootPath = useCaseInsensitive ? normalizedRoot.toLowerCase() : normalizedRoot;
   return filePath === rootPath || filePath.startsWith(`${rootPath}/`);
 }
 
 function looksLikeRelativeFileHref(href: string): boolean {
-  if (href.startsWith("#") || href.startsWith("?")) return false;
-  if (href.startsWith("./") || href.startsWith("../")) return true;
-  if (href.includes("/")) return true;
+  if (href.startsWith('#') || href.startsWith('?')) return false;
+  if (href.startsWith('./') || href.startsWith('../')) return true;
+  if (href.includes('/')) return true;
   return /(^|\/)\.?[^/]+\.[^/.]+$/.test(href);
 }
 
 function fileUrlToPath(href: string): string | null {
   try {
     const url = new URL(href);
-    if (url.protocol !== "file:") return null;
+    if (url.protocol !== 'file:') return null;
     const pathname = safeDecode(url.pathname);
     if (url.hostname) {
-      return `//${url.hostname}${pathname.startsWith("/") ? pathname : `/${pathname}`}`;
+      return `//${url.hostname}${pathname.startsWith('/') ? pathname : `/${pathname}`}`;
     }
     if (/^\/[a-zA-Z]:\//.test(pathname)) return pathname.slice(1);
     return pathname;
@@ -95,45 +93,50 @@ function fileUrlToPath(href: string): string | null {
 export function resolveLocalFileHref(
   href: string | undefined,
   baseDir?: string,
-  relativeRoot = baseDir,
+  relativeRoot = baseDir
 ): string | null {
   if (!href) return null;
 
-  const cleanHref = href.split("#", 1)[0].split("?", 1)[0].trim();
+  const cleanHref = href.split('#', 1)[0].split('?', 1)[0].trim();
   if (!cleanHref) return null;
 
   let candidate: string | null = null;
-  let candidateKind: "absolute" | "relative" | null = null;
+  let candidateKind: 'absolute' | 'relative' | null = null;
   const decodedHref = safeDecode(cleanHref);
-  const isBackslashUncPath = decodedHref.startsWith("\\\\");
+  const isBackslashUncPath = decodedHref.startsWith('\\\\');
   const normalizedHref = normalizeFilePathSlashes(decodedHref);
   const lowerHref = normalizedHref.toLowerCase();
 
-  if (lowerHref.startsWith("/api/") || lowerHref.startsWith("/_next/")) return null;
-  if (!isBackslashUncPath && normalizedHref.startsWith("//")) return null;
-  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/i.test(normalizedHref) && !lowerHref.startsWith("file:") && !/^[a-zA-Z]:\//.test(normalizedHref)) {
+  if (lowerHref.startsWith('/api/') || lowerHref.startsWith('/_next/')) return null;
+  if (!isBackslashUncPath && normalizedHref.startsWith('//')) return null;
+  if (
+    /^[a-zA-Z][a-zA-Z0-9+.-]*:/i.test(normalizedHref) &&
+    !lowerHref.startsWith('file:') &&
+    !/^[a-zA-Z]:\//.test(normalizedHref)
+  ) {
     return null;
   }
 
-  if (lowerHref.startsWith("file:")) {
+  if (lowerHref.startsWith('file:')) {
     // Decode only the parsed pathname so encoded delimiters stay in the filename.
     candidate = fileUrlToPath(cleanHref);
-    candidateKind = candidate ? "absolute" : null;
+    candidateKind = candidate ? 'absolute' : null;
   } else if (/^[a-zA-Z]:\//.test(normalizedHref)) {
     candidate = normalizedHref;
-    candidateKind = "absolute";
-  } else if (normalizedHref.startsWith("/")) {
+    candidateKind = 'absolute';
+  } else if (normalizedHref.startsWith('/')) {
     candidate = normalizedHref;
-    candidateKind = "absolute";
+    candidateKind = 'absolute';
   } else if (baseDir && looksLikeRelativeFileHref(normalizedHref)) {
-    candidate = `${normalizeFilePathSlashes(baseDir).replace(/\/+$/, "")}/${normalizedHref}`;
-    candidateKind = "relative";
+    candidate = `${normalizeFilePathSlashes(baseDir).replace(/\/+$/, '')}/${normalizedHref}`;
+    candidateKind = 'relative';
   }
 
   if (!candidate) return null;
 
   const filePath = stripLineSuffix(normalizeLocalPath(candidate));
-  if (candidateKind === "relative" && relativeRoot && !isPathInside(filePath, relativeRoot)) return null;
+  if (candidateKind === 'relative' && relativeRoot && !isPathInside(filePath, relativeRoot))
+    return null;
   return filePath;
 }
 
@@ -148,34 +151,42 @@ const PDF_PAGE_FRAGMENT = /^page=(\d+)$/i;
  */
 export function parsePdfPageFragment(href: string | undefined): number | null {
   if (!href) return null;
-  const hashIndex = href.indexOf("#");
+  const hashIndex = href.indexOf('#');
   if (hashIndex === -1) return null;
-  const match = href.slice(hashIndex + 1).trim().match(PDF_PAGE_FRAGMENT);
+  const match = href
+    .slice(hashIndex + 1)
+    .trim()
+    .match(PDF_PAGE_FRAGMENT);
   if (!match) return null;
   const page = Number.parseInt(match[1], 10);
   return Number.isInteger(page) && page > 0 ? page : null;
 }
 
 /** Resolve a filesystem path without applying URL or source-location syntax. */
-export function resolveLocalFilePath(filePath: string | undefined, baseDir?: string): string | null {
+export function resolveLocalFilePath(
+  filePath: string | undefined,
+  baseDir?: string
+): string | null {
   if (!filePath) return null;
 
-  const windowsStyle = /^[a-zA-Z]:[\\/]/.test(filePath) ||
-    filePath.startsWith("\\\\") ||
-    (baseDir !== undefined && (/^[a-zA-Z]:[\\/]/.test(baseDir) || baseDir.startsWith("\\\\")));
-  const normalizeSlashes = (value: string) => windowsStyle ? value.replace(/\\/g, "/") : value;
+  const windowsStyle =
+    /^[a-zA-Z]:[\\/]/.test(filePath) ||
+    filePath.startsWith('\\\\') ||
+    (baseDir !== undefined && (/^[a-zA-Z]:[\\/]/.test(baseDir) || baseDir.startsWith('\\\\')));
+  const normalizeSlashes = (value: string) => (windowsStyle ? value.replace(/\\/g, '/') : value);
   const normalizedPath = normalizeSlashes(filePath);
-  const normalizedBase = baseDir ? normalizeSlashes(baseDir).replace(/\/+$/, "") : undefined;
+  const normalizedBase = baseDir ? normalizeSlashes(baseDir).replace(/\/+$/, '') : undefined;
 
   const isDriveAbsolute = /^[a-zA-Z]:\//.test(normalizedPath);
-  const isUncAbsolute = normalizedPath.startsWith("//");
+  const isUncAbsolute = normalizedPath.startsWith('//');
   let candidate: string;
 
   if (isDriveAbsolute || isUncAbsolute) {
     candidate = normalizedPath;
-  } else if (normalizedPath.startsWith("/")) {
-    const windowsRoot = normalizedBase?.match(/^([a-zA-Z]:)(?:\/|$)/)?.[1]
-      ?? normalizedBase?.match(/^(\/\/[^/]+\/[^/]+)(?:\/|$)/)?.[1];
+  } else if (normalizedPath.startsWith('/')) {
+    const windowsRoot =
+      normalizedBase?.match(/^([a-zA-Z]:)(?:\/|$)/)?.[1] ??
+      normalizedBase?.match(/^(\/\/[^/]+\/[^/]+)(?:\/|$)/)?.[1];
     candidate = windowsRoot ? `${windowsRoot}${normalizedPath}` : normalizedPath;
   } else {
     if (!normalizedBase) return null;
