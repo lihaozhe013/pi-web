@@ -1,6 +1,6 @@
 "use client";
-import { ActivityItem, ActivitySequence } from "./ActivitySequence";
-import { quietActivityCounts } from "@/lib/quiet-activity";
+import { LiveAgentActivity } from "./LiveAgentActivity";
+import { mainTranscriptBlocks } from "@/lib/quiet-activity";
 import { ForkToolActivityProvider } from "./ForkToolActivity"; // fork: display-only execution status
 import { registerAbortHandler } from "@/hooks/useKeyboardShortcuts";
 import Image from "next/image";
@@ -11,7 +11,7 @@ import { normalizeCustomPanelLines } from "@/lib/ansi";
 import { splitNoticeText } from "@/lib/notice-text";
 import { EXTENSION_DIALOG_BASE_WIDTH, fitExtensionDialogWidth } from "@/lib/extension-dialog-fit";
 import { asBracketedPaste, toTerminalKeyData } from "@/lib/terminal-input";
-import { collapsesProcessDetails, countToolCallBlocks, getDisplayableAssistantBlocks, hasAssistantAnswer, isHiddenCustomMessage, isMessageGroupAnchor, splitFinalAssistantBlocks, isAssistantTruncated } from "@/lib/message-display";
+import { collapsesProcessDetails, countToolCallBlocks, getDisplayableAssistantBlocks, hasAssistantAnswer, isHiddenCustomMessage, isMessageGroupAnchor, splitFinalAssistantBlocks, isAssistantTruncated, getAssistantErrorMessage } from "@/lib/message-display";
 import { extractTurnWrittenFiles, type WrittenFile } from "@/lib/turn-written-files";
 import { getFinalAnswerViews, keepWrittenFiles, type FinalAnswerViews } from "@/lib/turn-views";
 import { formatTurnDuration, getTurnDurationMs } from "@/lib/turn-duration";
@@ -24,7 +24,6 @@ import { ChatMinimap, useMessageRefs } from "./ChatMinimap";
 import { ExtensionStatusBar } from "./ExtensionStatusBar";
 import { AnsiText } from "./AnsiText";
 import { useI18n } from "@/hooks/useI18n";
-import { phaseLabel } from "@/lib/chat-phase-label";
 import { useAgentSession, type AgentEndInfo, type NewSessionChoices, type NoticeItem } from "@/hooks/useAgentSession";
 import { selectHasStreamingContent, selectIsStreaming, selectStreamingMessage, useStreamingSelector } from "@/hooks/useStreamingSelector";
 import type { StreamingStore } from "@/lib/streaming-message";
@@ -616,7 +615,7 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
       candidate instanceof HTMLElement && candidate.dataset.entryId === position.anchorEntryId
     ));
     if (element instanceof HTMLElement) {
-      scrollToMessage(element.closest<HTMLElement>(".activity-group:not([data-expanded])") ?? element, position.anchorOffset);
+      scrollToMessage(element, position.anchorOffset);
       setPendingScrollRestore(null);
       return;
     }
@@ -659,7 +658,7 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
     const selector = `[data-entry-id="${CSS.escape(pendingSearchScroll.entryId)}"]`;
     const element = scrollContainerRef.current?.querySelector<HTMLElement>(searchMessage?.role === "user" ? selector : `${selector} [data-search-target]`);
     if (element) {
-      scrollToMessage(element.closest<HTMLElement>(".activity-group:not([data-expanded])") ?? element);
+      scrollToMessage(element);
       element.animate([
         { backgroundColor: "var(--bg-selected)" },
         { backgroundColor: "transparent" },
@@ -1129,10 +1128,6 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
                 // pi's showCacheMissNotices (#1265): read from the stored message, not a turn view's copy.
                 const notices = options.withNotices === false ? [] : getTranscriptNotices(messages[idx]);
                 if (msg.role === "toolResult" && notices.length === 0) return null;
-                const activityCounts = msg.role === "assistant" && !msg.errorMessage && !isAssistantTruncated(msg)
-                  ? quietActivityCounts(getDisplayableAssistantBlocks(msg)) : undefined;
-                const revealActivity = Boolean(pendingSearchScroll && entryIds[idx] === pendingSearchScroll.entryId)
-                  || (msg.role === "assistant" && (msg.content ?? []).some(block => block.type === "toolCall" && toolResultsMap.get(block.toolCallId)?.isError));
                 const isVisible = isMessageGroupAnchor(msg) || msg.role === "assistant";
                 const currentRefIdx = visibleRefIndexByMessage.get(idx);
                 const keyPrefix = options.keyPrefix ?? "message";
@@ -1183,12 +1178,10 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
                 // One shape with or without notices, so lines arriving on a reload do not remount the view.
                 if (!isVisible || currentRefIdx === undefined) return <Fragment key={`${keyPrefix}-${messageKey}`}>{view}{noticeLines}</Fragment>;
                 return (
-                  <ActivityItem key={`${keyPrefix}-${messageKey}`} counts={activityCounts} reveal={revealActivity}>
-                    <div data-entry-id={entryIds[idx]} ref={options.attachRef === false ? undefined : attachVisibleRef(idx, currentRefIdx)}>
-                      {view}
-                      {noticeLines}
-                    </div>
-                  </ActivityItem>
+                  <div key={`${keyPrefix}-${messageKey}`} data-entry-id={entryIds[idx]} ref={options.attachRef === false ? undefined : attachVisibleRef(idx, currentRefIdx)}>
+                    {view}
+                    {noticeLines}
+                  </div>
                 );
               };
 
@@ -1260,8 +1253,8 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
                   const message = processIdx === finalAssistantIdx ? finalViews.process : processMessage;
                   // The final message's notices go under its answer when it has one.
                   const withNotices = processIdx !== finalAssistantIdx || !finalAnswerMessage;
-                  const blocks = getDisplayableAssistantBlocks(message);
-                  if (blocks.length === 0) {
+                  const blocks = mainTranscriptBlocks(getDisplayableAssistantBlocks(message), toolResultsMap);
+                  if (blocks.length === 0 && !getAssistantErrorMessage(message) && !isAssistantTruncated(message)) {
                     const notices = withNotices ? getTranscriptNotices(processMessage) : [];
                     if (notices.length > 0) processViews.push(<TranscriptNoticeLines key={`process-notices-${messageKeys[processIdx]}`} notices={notices} />);
                     continue;
@@ -1295,7 +1288,7 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
                           switching between an answered and an unanswered leaf of the same
                           turn. Manual toggles survive every other re-render. */}
                       <ProcessDetailsGroup key={answered ? "answered" : "unanswered"} messageCount={processMessageCount} toolCallCount={processToolCount} durationMs={turnDurationMs} cacheMisses={processCacheMisses} defaultExpanded={true /* fork: a turn's steps stay open, as the CLI shows them */} reveal={revealProcess} t={t}>
-                        <ActivitySequence>{processViews}</ActivitySequence>
+                        {processViews}
                       </ProcessDetailsGroup>
                     </div>,
                   );
@@ -1336,7 +1329,7 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
                        {t("chat.loadEarlier")}
                     </div>
                   )}
-                  <ActivitySequence>{rendered.slice(startIndex)}</ActivitySequence>
+                  {rendered.slice(startIndex)}
                 </>
               );
             })()}
@@ -1344,11 +1337,13 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
               <StreamingReply store={streamingStore} onCommit={updatePromptAnchor} toolResults={toolResultsMap} modelNames={modelNames} cwd={messageCwd} onOpenFile={onOpenFile} onOpenSubagent={onOpenSubagent} />
             )}
 
-            {agentRunning && !hasStreamingContent && (agentPhase || isCompacting) && (
-              <div className="break-words py-2 text-[13px] text-text-muted">
-                <span className="animate-[pulse_1.5s_infinite]">{phaseLabel(agentPhase, t, isCompacting)}</span>
-              </div>
-            )}
+            {agentRunning && <LiveAgentActivity
+              store={streamingStore}
+              phase={agentPhase}
+              messages={messages}
+              compacting={isCompacting}
+              hasStreamingContent={hasStreamingContent}
+            />}
 
             {bashRunning && !pendingBash && (
               <div className="py-2 text-[13px] text-text-muted">

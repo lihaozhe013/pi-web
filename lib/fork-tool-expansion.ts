@@ -1,14 +1,6 @@
 /**
- * Fork: which tool cards a run leaves open, and how much of a shell result is
- * shown while it does.
- *
- * Writes and edits open only after success; commands open once execution starts
- * (a command and the tail of its output). Read/search stay folded and thinking
- * keeps its own preference
- * (`lib/thinking-expansion-preference.ts`). A card the user folds stays folded:
- * `lib/tool-call-expansion.ts` remembers the explicit choice per tool call.
- *
- * Presentation only, and kept in one file so the fork's rule is a single edit.
+ * Shell and file mutation details open during execution and fold on completion.
+ * Explicit choices continue to take precedence over these lifecycle defaults.
  */
 
 import { isWriteToolName, isEditToolName, isApplyPatchToolName } from "./tool-names";
@@ -50,8 +42,7 @@ export type ForkToolState = "pending" | "running" | "success" | "error";
 
 /** Defaults are derived every render, never stored as a user's explicit choice. */
 export function isToolCallExpandedByDefault(toolName: string, state: ForkToolState = "pending"): boolean {
-  if (isShellToolName(toolName)) return state !== "pending";
-  return state === "success" && (isWriteToolName(toolName) || isEditToolName(toolName) || isApplyPatchToolName(toolName));
+  return state === "running" && (isShellToolName(toolName) || isWriteToolName(toolName) || isEditToolName(toolName) || isApplyPatchToolName(toolName));
 }
 
 /**

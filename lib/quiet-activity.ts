@@ -1,17 +1,22 @@
-import type { AssistantContentBlock } from "./types";
+import { isShellToolName } from "./fork-tool-expansion";
+import type { AssistantContentBlock, ToolResultMessage } from "./types";
 
-export interface ActivityCounts {
-  reads: number;
-  thoughts: number;
+/** Only explicit read tools are transient in the main conversation. */
+export function isReadToolName(name: string): boolean {
+  return /^(?:read(?:_file)?|.*[._]read(?:_file)?)$/i.test(name);
 }
 
-/** Only explicit read tools belong in the quiet activity fold. */
-export function quietActivityCounts(blocks: AssistantContentBlock[]): ActivityCounts | undefined {
-  const counts = { reads: 0, thoughts: 0 };
-  for (const block of blocks) {
-    if (block.type === "thinking") counts.thoughts += 1;
-    else if (block.type === "toolCall" && /^(?:read(?:_file)?|.*[._]read(?:_file)?)$/i.test(block.toolName)) counts.reads += 1;
-    else return undefined;
-  }
-  return counts.reads + counts.thoughts > 0 ? counts : undefined;
+export function isQuietActivityBlock(block: AssistantContentBlock): boolean {
+  return block.type === "thinking" || (block.type === "toolCall" && isReadToolName(block.toolName));
+}
+
+export function isCompletedShellBlock(block: AssistantContentBlock, results?: ReadonlyMap<string, ToolResultMessage>): boolean {
+  if (block.type !== "toolCall" || !isShellToolName(block.toolName)) return false;
+  const result = results?.get(block.toolCallId);
+  return result !== undefined && !result.isError;
+}
+
+/** Display filtering never changes the stored transcript or exported history. */
+export function mainTranscriptBlocks(blocks: AssistantContentBlock[], results?: ReadonlyMap<string, ToolResultMessage>): AssistantContentBlock[] {
+  return blocks.filter(block => !isQuietActivityBlock(block) && !isCompletedShellBlock(block, results));
 }

@@ -27,11 +27,11 @@ test("write/edit/read lifecycle defaults and manual choices", () => {
   clearExpandedToolCalls();
   for (const name of ["write", "edit", "apply_patch"]) {
     assert.match(render(name), /aria-expanded="false"/);
-    assert.match(render(name, { running: true }), /aria-expanded="false"/);
-    assert.match(render(name, { complete: true }), /aria-expanded="true"/);
+    assert.match(render(name, { running: true }), /aria-expanded="true"/);
+    assert.match(render(name, { complete: true }), /aria-expanded="false"/);
     assert.match(render(name, { complete: true, error: true }), /aria-expanded="false"/);
   }
-  assert.match(render("read", { complete: true }), /aria-expanded="false"/);
+  assert.equal(render("read", { complete: true }), "");
   setToolCallExpanded("fork-test", false);
   assert.match(render("write", { complete: true }), /aria-expanded="false"/);
   assert.match(render("bash", { running: true }), /aria-expanded="false"/);
@@ -49,7 +49,6 @@ test("shell opens at start even before output and partial output is not success"
   assert.match(partial, /data-state="running"/);
   assert.match(partial, /result-body/);
   const done = render("bash", { complete: true });
-  assert.match(done, /Succeeded/);
-  assert.match(done, /aria-busy="false"/);
+  assert.equal(done, "");
   assert.match(render("bash", { complete: true, error: true }), /Failed/);
 });

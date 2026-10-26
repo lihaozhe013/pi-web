@@ -246,24 +246,31 @@ Files: `lib/markdown.ts` (`markdownClobberPrefix`, `rehypeMatchClobberedIds`, `j
 - Code fences (`CodeBlock`, `components/MermaidBlock.tsx`): Prism tokenizes in the render, about 5-10 ms per 1,000 characters of TypeScript on a desktop. Within one task the first 2,000 characters of fences are highlighted at once (`takeHighlightBudget()`); the others render through the same `SyntaxHighlighter` as `text` (same lines, numbers and box, no tokens) and take their language one per idle slice, newest first (`waitForHighlight()`; Safari has no `requestIdleCallback` and waits 50 ms). Opening a session with 86 fences at 4x CPU throttling, the commit that shows the messages went from 1.1 s to 0.66 s; the end of a streamed reply gets the same budget. `codeTagProps` sets no class, so tell a highlighted fence by its `span.token` elements other than `.linenumber`, not by a `language-*` class.
 - Prism languages load on demand (`lib/prism-languages.ts`, `hooks/usePrismLanguages.ts`). `CodeBlock` and `FileViewer` render with `react-syntax-highlighter/dist/esm/prism-light` (refractor's core), never the package index: its `Prism` imports `refractor/all`, which registers about 300 languages when evaluated, ~650 ms of the first `AppShell` render at 4x CPU throttling on every page load, code on screen or not. The first highlighter to mount imports `refractor/all` as a chunk of its own; it registers into the same core instance, so every language and alias works as before. Until then fences render as `text` and files as `plaintext` (same lines, numbers and box). A page with no code never loads it. Client code imports only types from `react-syntax-highlighter` itself.
 
-## Minimal transcript activity
+## Transient reasoning and reading activity
 
-`ActivitySequence` groups consecutive `ActivityItem` elements whose blocks are
-exclusively thinking or explicit read tools. Two or more blocks become one
-counted, initially collapsed row. `ChatWindow` applies it both to live history
-and finished Process details; `MessageView` applies it to blocks within a reply.
-A context prevents nested groups. Messages and original block indices remain
-intact, including deferred thinking requests and transcript notices. Children
-stay mounted under `hidden` to retain entry refs; a restored hidden anchor lands
-on its group summary. Search hits and failed reads reveal their group; the user can fold it again.
+`mainTranscriptBlocks` excludes thinking and explicit read calls from main-chat
+presentation and Process details counts. `MessageView` filters indexed blocks
+without rewriting the message, preserving original indices and tool-result
+pairing. Quiet-only messages leave no metadata or card. Provider errors,
+truncation notices and transcript notices remain visible. Full-history export
+still receives the complete stored transcript.
 
-Shell/write/edit/patch cards retain their previous styling and lifecycle defaults:
-shells open at execution, and writes/edits/patches open after success. Explicit
-user choices still win. All input, output, images, copy actions, highlighting,
-output tail controls and diff layouts remain available. Collapsed thinking shows
-only "Thought" and its duration, without a reasoning excerpt in the visible label,
-tooltip or accessible name. Grouped thinking starts folded independently of the
-single-block thinking preference.
+`LiveAgentActivity` subscribes to the streaming store and reports Thinking while
+the current block is reasoning. During read execution it shows the current path
+from the matching tool input, with a generic Reading fallback. Status disappears
+when the phase ends; no reasoning text or read output is retained in the main
+transcript. The previous grouped activity component and thinking preference
+control are removed. The standalone thinking renderer remains as deferred
+cleanup, but is no longer reachable in the main conversation.
+
+Shell details open while running, including partial output. Successful commands
+are filtered from message content and Process details counts, leaving no header
+or empty card; failed commands retain a folded error summary. User-run bash uses
+the same completion rule. Full history keeps commands and output. Write/edit/patch
+details open while running and fold on completion. Explicit tool choices still
+override the defaults for retained cards.
+Existing card styling, error status, input/output, copy actions, syntax colors
+and diff layouts remain available on expansion.
 
 The desktop conversation directory does not depend on scroll overflow. Its rail
 is hidden only when no turn nodes exist; folding activity can shorten a transcript

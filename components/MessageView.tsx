@@ -1,8 +1,7 @@
 "use client";
 
 import { memo, useState, useRef, useEffect, useMemo, type CSSProperties } from "react";
-import { ActivityItem, ActivitySequence, useGroupedActivity } from "./ActivitySequence";
-import { quietActivityCounts } from "@/lib/quiet-activity";
+import { isQuietActivityBlock, isCompletedShellBlock } from "@/lib/quiet-activity";
 import { MarkdownBody } from "./MarkdownBody";
 import { ImagePreview } from "./ImagePreview";
 import { ThinkingIcon } from "./ThinkingIcon";
@@ -10,13 +9,13 @@ import { copyText } from "@/lib/clipboard";
 import { useI18n } from "@/hooks/useI18n";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { parseCompactionSummary } from "@/lib/compaction-summary";
-import { getAssistantErrorMessage, hasAssistantAnswer, isAssistantTruncated, isEmptyThinkingBlock, splitThinkingPieces } from "@/lib/message-display";
+import { getAssistantErrorMessage, hasAssistantAnswer, isAssistantTruncated, splitThinkingPieces } from "@/lib/message-display";
 import { formatTurnDuration } from "@/lib/turn-duration";
 import { diffGapLabel, parseUnifiedPatch, unifiedDiffLines, type SplitDiffCell, type SplitDiffFile, type SplitDiffGap, type UnifiedDiffLine } from "@/lib/patch";
 import { applyPatchPreviewToFiles, applyPatchResultHasFailures, extractApplyPatchPaths, getApplyPatchInputText, parseApplyPatchInput } from "@/lib/apply-patch";
 import { isApplyPatchToolName, isEditToolName, isWriteToolName } from "@/lib/tool-names";
 import { getToolCallExpansion, setToolCallExpanded } from "@/lib/tool-call-expansion";
-import { ForkToolStatus, useForkToolState } from "./ForkToolActivity";
+import { ForkToolStatus, useForkToolState, useForkToolActivity } from "./ForkToolActivity";
 import { isShellToolName, isToolCallExpandedByDefault, shellResultTail } from "@/lib/fork-tool-expansion";
 // fork: syntax colors inside the tool cards (lib/fork-code-language.ts, components/ForkCode.tsx).
 import { forkPathLanguage, forkToolLanguage } from "@/lib/fork-code-language";
@@ -688,9 +687,13 @@ function AssistantMessageView({
 }) {
   const { t } = useI18n();
   const time = showTimestamp ? formatTime(message.timestamp) : null;
+  const { running, partial } = useForkToolActivity();
   const blockItems = useMemo(() => (message.content ?? [])
     .map((block, originalIndex) => ({ block, originalIndex }))
-    .filter(({ block }) => !isEmptyThinkingBlock(block, { isStreaming })), [message.content, isStreaming]);
+    .filter(({ block }) => !isQuietActivityBlock(block) && (
+      !isCompletedShellBlock(block, toolResults)
+      || (block.type === "toolCall" && (running.has(block.toolCallId) || partial.has(block.toolCallId)))
+    )), [message.content, toolResults, running, partial]);
   const blocks = useMemo(() => blockItems.map(({ block }) => block), [blockItems]);
   const providerError = getAssistantErrorMessage(message, { isStreaming });
   const truncated = isAssistantTruncated(message, { isStreaming });
@@ -817,7 +820,7 @@ function AssistantMessageView({
     return () => clearInterval(id);
   }, [isStreaming]);
 
-  if (blocks.length === 0 && !isStreaming && !providerError && !truncated) return null;
+  if (blocks.length === 0 && !providerError && !truncated) return null;
 
   return (
     <div
@@ -873,11 +876,9 @@ function AssistantMessageView({
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {/* Not keyed by the entry id: a message of this run gets one when the file is
             read again, and its blocks keep their state across that read (#1184). */}
-        <ActivitySequence>{blockItems.map(({ block, originalIndex }) => (
-          <ActivityItem key={originalIndex} counts={quietActivityCounts([block])} reveal={block === searchBlock || (block.type === "toolCall" && Boolean(toolResults?.get(block.toolCallId)?.isError))}>
-            <BlockView block={block} searchTarget={block === searchBlock} toolResults={toolResults} isStreaming={isStreaming} streamingDuration={streamingDurations.get(originalIndex) ?? (block.type === "thinking" ? thinkingDurationFromFile : undefined)} toolCallDurations={toolCallDurations} cwd={cwd} onOpenFile={onOpenFile} onOpenSubagent={onOpenSubagent} sessionId={sessionId} entryId={entryId} blockIndex={originalIndex} />
-          </ActivityItem>
-        ))}</ActivitySequence>
+        {blockItems.map(({ block, originalIndex }) => (
+          <BlockView key={originalIndex} block={block} searchTarget={block === searchBlock} toolResults={toolResults} isStreaming={isStreaming} streamingDuration={streamingDurations.get(originalIndex) ?? (block.type === "thinking" ? thinkingDurationFromFile : undefined)} toolCallDurations={toolCallDurations} cwd={cwd} onOpenFile={onOpenFile} onOpenSubagent={onOpenSubagent} sessionId={sessionId} entryId={entryId} blockIndex={originalIndex} />
+        ))}
       </div>
 
       {providerError && (
@@ -1042,8 +1043,7 @@ export function ThinkingBlock({ block, duration, sessionId, entryId, blockIndex 
   blockIndex: number;
 }) {
   const { t } = useI18n();
-  const grouped = useGroupedActivity();
-  const [expanded, setExpanded] = useState(() => !grouped && isThinkingExpandedByDefault());
+  const [expanded, setExpanded] = useState(isThinkingExpandedByDefault);
   const [content, setContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1062,10 +1062,10 @@ export function ThinkingBlock({ block, duration, sessionId, entryId, blockIndex 
 
   // Keep already-mounted blocks in sync when the preference changes.
   useEffect(() => {
-    const onChange = () => { if (!grouped) setExpanded(isThinkingExpandedByDefault()); };
+    const onChange = () => setExpanded(isThinkingExpandedByDefault());
     window.addEventListener(THINKING_EXPANDED_EVENT, onChange);
     return () => window.removeEventListener(THINKING_EXPANDED_EVENT, onChange);
-  }, [grouped]);
+  }, []);
 
   // Load deferred history content whenever the block is expanded.
   // loadThinkingContent() memoizes in-flight promises and drops failed ones
@@ -1245,6 +1245,8 @@ function ToolCallBlock({ block, result, duration, onOpenSubagent, executing }: {
   // edit, a shell script for bash/powershell (lib/fork-code-language.ts). Nothing
   // is colored while the input is still streaming JSON.
   const codeLanguage = isStreamingInput ? undefined : forkToolLanguage(block.toolName, block.input);
+
+  if (shellTool && toolState === "success") return null;
 
   return (
     <ForkCodeLanguageProvider lang={codeLanguage}>
@@ -2435,6 +2437,8 @@ function BashExecutionView({ message, sessionId }: { message: BashExecutionMessa
         isError,
         timestamp: message.timestamp,
       };
+
+  if (!isPending && !isError) return null;
 
   return (
     <div style={{ margin: "6px 0" }}>

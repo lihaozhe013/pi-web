@@ -34,20 +34,18 @@ Retain the quiet surfaces, soft corners, existing themes, readable 16px chat
 baseline, and visible keyboard focus. Use semantic theme variables rather than
 fixed colors. Keep the chat and sidebar visually connected.
 
-Process details start open. Shell cards open when execution starts and retain
-command/output visibility after success or failure. Long shell results initially
-show the last 16 lines with Show all/less. Write/edit/patch cards open only after
-successful completion; reads/searches stay folded. Explicit user folds take
-precedence, and thinking retains its separate preference.
+Process details start open for retained steps. Shell cards open while executing
+and disappear after success, including user-run commands. Failed commands retain
+a folded error summary. Write/edit/patch cards open while executing and fold
+after completion. Explicit choices control retained cards. Long shell
+results show their last 16 lines with Show all/less when expanded.
 
-Consecutive reads and thinking blocks collapse into one counted activity row
-when there are two or more, including across adjacent assistant messages.
-Replies, commands, file mutations and custom messages end a group. A single
-thinking block retains its preference; grouped thinking starts folded. Collapsed
-thinking shows only the label "Thought" and its duration, without a content
-preview. Search hits and failed reads reveal their group. Entry anchors stay mounted for history
-navigation, and deferred thinking still loads only when its own block is opened.
-Explicit tool folds take precedence over presentation defaults.
+Thinking and explicit read tools leave no cards or counted groups in the main
+transcript. A transient status shows Thinking or Reading with the current file
+while that work runs, then disappears. Successful shell commands also leave no historical card. Full content remains
+available through the existing full-history toolbar action; storage, exports and agent context
+are unchanged. Provider errors, truncation notices and transcript notices remain
+visible. The old default-expanded thinking setting is removed from the chat UI.
 
 Code highlighting is an optional, lazy enhancement. Streaming input and unknown
 languages remain readable without it. Tool frames stay neutral, errors remain

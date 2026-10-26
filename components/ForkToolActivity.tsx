@@ -20,6 +20,11 @@ export function ForkToolActivityProvider({ phase, partialResults, children }: {
   return <Activity.Provider value={value}>{children}</Activity.Provider>;
 }
 
+/** Shared activity sets let the message wrapper distinguish partial from final output. */
+export function useForkToolActivity() {
+  return useContext(Activity);
+}
+
 export function useForkToolState(id: string, hasResult: boolean, isError: boolean): ForkToolState {
   const { running, partial } = useContext(Activity);
   if (running.has(id) || partial.has(id)) return "running";

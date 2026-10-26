@@ -10,7 +10,6 @@ import { setupPushSubscription } from "@/lib/push-client";
 import { setLastSettingsSection, settingsSectionRequiresProject, type SettingsSection, } from "@/lib/settings-navigation";
 import { focusModalPanel, listenForPanelEscape } from "@/lib/stacked-dialog";
 import { THEME_OPTIONS } from "@/lib/theme";
-import { isThinkingExpandedByDefault, setThinkingExpandedByDefault, } from "@/lib/thinking-expansion-preference";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { AgentsConfig } from "./AgentsConfig";
 import { FontSettings } from "./FontSettings";
@@ -66,7 +65,6 @@ function GeneralSettings({ sessionId, onSessionReloaded, quoteSelectionEnabled, 
   const [shellSettings, setShellSettings] = useState<ToolSettingsResponse | null>(null);
   const [shellSaving, setShellSaving] = useState(false);
   const [shellError, setShellError] = useState<string | null>(null);
-  const [thinkingExpanded, setThinkingExpanded] = useState(false);
   const [cacheMissNotices, setCacheMissNotices] = useState<boolean | null>(null);
   const [cacheMissNoticesSaving, setCacheMissNoticesSaving] = useState(false);
   const [cacheMissNoticesError, setCacheMissNoticesError] = useState<string | null>(null);
@@ -77,7 +75,6 @@ function GeneralSettings({ sessionId, onSessionReloaded, quoteSelectionEnabled, 
   const [logoutError, setLogoutError] = useState("");
 
   useEffect(() => {
-    setThinkingExpanded(isThinkingExpandedByDefault());
     void fetch("/api/web-auth")
       .then((response) => response.ok ? response.json() : null)
       .then((data: { enabled?: boolean } | null) => setWebAuthEnabled(data?.enabled === true))
@@ -303,17 +300,6 @@ function GeneralSettings({ sessionId, onSessionReloaded, quoteSelectionEnabled, 
       <section className="settings-general-section">
         <h3 className="settings-general-heading">{t("settings.chat")}</h3>
         <div className="settings-chat-options">
-          <div className="settings-chat-option settings-chat-switch-option">
-            <span>{t("settings.thinkingExpandedDefault")}</span>
-            <ConfigSwitch
-              checked={thinkingExpanded}
-              label={t("settings.thinkingExpandedDefault")}
-              onChange={(enabled) => {
-                setThinkingExpandedByDefault(enabled);
-                setThinkingExpanded(enabled);
-              }}
-            />
-          </div>
           <div className="settings-chat-option settings-chat-switch-option">
             <span>{t("settings.quoteSelection")}</span>
             <ConfigSwitch

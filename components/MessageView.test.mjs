@@ -112,13 +112,12 @@ test("renders long expanded thinking in pieces and short thinking as one text no
   }
 });
 
-test("shows deferred thinking previews without loading the full content", () => {
+test("omits historical thinking from the main transcript without loading content", () => {
   const html = renderMessage({
     role: "assistant",
     content: [{ type: "thinking", thinking: "Historical first line", deferred: true }],
   });
-  assert.match(html, />Historical first line<\/span>/);
-  assert.match(html, /aria-expanded="false"/);
+  assert.equal(html, "");
 });
 
 test("keys an assistant message's blocks by their place, not the entry id (#1184)", () => {
@@ -281,9 +280,8 @@ test("an edit call shows no table: its arguments are a list of patches", () => {
   }
 });
 
-test("a read, a subagent and a flat MCP call show one row per argument", (t) => {
+test("a subagent and a flat MCP call show one row per argument", (t) => {
   const cases = [
-    { id: "call-read-rows", toolName: "read", input: { path: "lib/tool-fields.ts", offset: 120, limit: 80 }, expect: [">path</td>", "lib/tool-fields.ts", ">120</td>"] },
     { id: "call-agent-rows", toolName: "Agent", input: { subagent_type: "Explore", prompt: "Find the parser" }, expect: [">subagent_type</td>", "Find the parser"] },
     { id: "call-mcp-flat-rows", toolName: "mcp__issues__search", input: { query: "open bugs", limit: 10 }, expect: [">query</td>", "open bugs", ">10</td>"] },
   ];

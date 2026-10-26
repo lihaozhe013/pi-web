@@ -37,3 +37,11 @@ No additional automated checks or browser runs are requested for this change.
   opens centrally. Check switching back to its parent conversation.
 - Reload with old file/terminal preferences saved in browser storage. No file
   workspace or terminal should return, and no removed API should be requested.
+
+## Transient activity follow-up
+
+- Remove the unreachable main-chat thinking renderer, deferred-content cache and
+  old thinking-expansion preference helpers once their remaining direct test
+  references are retired. Full-history exports must continue to preserve raw
+  reasoning and read calls/results.
+- Remove unused reasoning preference and activity-group translations.
