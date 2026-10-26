@@ -6,6 +6,38 @@
  * accepts the common decorated forms.
  */
 
+/** `read`, `read_file`, and the same word behind a `_` or `.` separator. */
+export function isReadToolName(toolName: string): boolean {
+  return /^(?:read(?:_file)?|.*[._]read(?:_file)?)$/i.test(toolName);
+}
+
+/**
+ * Searching tools: `grep` and `find`. Only the last name segment counts, so a
+ * tool named `find_user` or `list_issues` stays a visible card of its own.
+ */
+const SEARCH_TOOL_NAMES = new Set(['grep', 'find']);
+
+/** Listing tools: `ls` alone, for the same reason as the search names above. */
+const LIST_TOOL_NAMES = new Set(['ls']);
+
+function lastSegment(toolName: string): string {
+  const name = toolName.toLowerCase().trim();
+  return name.split(/[._]/).filter(Boolean).pop() ?? '';
+}
+
+export function isSearchToolName(toolName: string): boolean {
+  return SEARCH_TOOL_NAMES.has(lastSegment(toolName));
+}
+
+export function isListToolName(toolName: string): boolean {
+  return LIST_TOOL_NAMES.has(lastSegment(toolName));
+}
+
+/** The read-only tools that only gather information for the agent. */
+export function isExplorationToolName(toolName: string): boolean {
+  return isReadToolName(toolName) || isSearchToolName(toolName) || isListToolName(toolName);
+}
+
 export function isWriteToolName(toolName: string): boolean {
   const name = toolName.toLowerCase();
   return (

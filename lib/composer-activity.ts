@@ -1,6 +1,10 @@
 import type { AgentPhase } from '@/hooks/useAgentSession';
-import { isReadToolName } from './quiet-activity';
-import { isShellToolName } from './tool-names';
+import {
+  isExplorationToolName,
+  isListToolName,
+  isSearchToolName,
+  isShellToolName
+} from './tool-names';
 import type { AgentMessage, AssistantMessage } from './types';
 
 /** The i18n translate function shape this module needs. */
@@ -59,7 +63,7 @@ function collectToolInputs(
 /**
  * The status line stays a single fixed-height row, so concurrent calls are grouped
  * by kind instead of growing the line count. A group of one keeps its concrete
- * detail (path, command, tool name); a group of several becomes a count.
+ * detail (path, pattern, command, tool name); a group of several becomes a count.
  */
 function summarizeRunningTools(
   tools: RunningTool[],
@@ -67,16 +71,20 @@ function summarizeRunningTools(
   t: Translate
 ): string {
   const reads: string[] = [];
+  const searches: string[] = [];
+  const listings: string[] = [];
   const shells: string[] = [];
   const others: string[] = [];
   for (const tool of tools) {
-    if (isReadToolName(tool.name)) reads.push(readLabel(tool, inputs.get(tool.id), t));
+    if (isSearchToolName(tool.name)) searches.push(searchLabel(tool, inputs.get(tool.id), t));
+    else if (isListToolName(tool.name)) listings.push(listingLabel(tool, inputs.get(tool.id), t));
+    else if (isExplorationToolName(tool.name)) reads.push(readLabel(tool, inputs.get(tool.id), t));
     else if (isShellToolName(tool.name)) shells.push(shellLabel(tool, inputs.get(tool.id), t));
     else others.push(tool.name);
   }
 
   if (tools.length === 1) {
-    const [label] = [...reads, ...shells];
+    const [label] = [...reads, ...searches, ...listings, ...shells];
     if (label !== undefined) return withProgress(label, tools[0]);
     return withProgress(t('chat.runningNamedTool', { name: tools[0].name }), tools[0]);
   }
@@ -84,6 +92,11 @@ function summarizeRunningTools(
   const parts: string[] = [];
   if (reads.length === 1) parts.push(reads[0]);
   else if (reads.length > 1) parts.push(t('activity.readingFiles', { count: reads.length }));
+  if (searches.length === 1) parts.push(searches[0]);
+  else if (searches.length > 1)
+    parts.push(t('activity.searchingCount', { count: searches.length }));
+  if (listings.length === 1) parts.push(listings[0]);
+  else if (listings.length > 1) parts.push(t('activity.listingCount', { count: listings.length }));
   if (shells.length === 1) parts.push(shells[0]);
   else if (shells.length > 1) parts.push(t('activity.runningCommands', { count: shells.length }));
   if (others.length > 0) parts.push(otherToolsLabel(others, t));
@@ -95,6 +108,22 @@ function readLabel(tool: RunningTool, input: ToolInput, t: Translate): string {
   return typeof path === 'string' && path.trim()
     ? t('activity.readingFile', { path })
     : t('activity.reading');
+}
+
+function searchLabel(tool: RunningTool, input: ToolInput, t: Translate): string {
+  const pattern = input?.pattern ?? input?.query;
+  if (typeof pattern !== 'string' || !pattern.trim()) return t('activity.searching');
+  const path = input?.path ?? input?.file_path ?? input?.filePath;
+  return typeof path === 'string' && path.trim()
+    ? t('activity.searchingPatternIn', { pattern: pattern.trim(), path })
+    : t('activity.searchingPattern', { pattern: pattern.trim() });
+}
+
+function listingLabel(tool: RunningTool, input: ToolInput, t: Translate): string {
+  const path = input?.path ?? input?.file_path ?? input?.filePath;
+  return typeof path === 'string' && path.trim()
+    ? t('activity.listingPath', { path })
+    : t('activity.listing');
 }
 
 function shellLabel(tool: RunningTool, input: ToolInput, t: Translate): string {

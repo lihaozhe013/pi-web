@@ -537,13 +537,13 @@ test('code, diffs and output sit in the card pane, not the page background', () 
 });
 
 test("a tool card shows the run time pi recorded, else the timestamps' difference, never a tiny one", () => {
-  // A successful shell call leaves no card at all (docs/design.md),
+  // Successful shells and exploration calls leave no card at all (docs/design.md),
   // so the header's time is asserted on a tool that keeps one.
   const block = {
     type: 'toolCall',
     toolCallId: 'call-duration-1',
-    toolName: 'grep',
-    input: { pattern: 'make' }
+    toolName: 'web_fetch',
+    input: { url: 'https://example.com' }
   };
   const message = {
     role: 'assistant',
@@ -558,7 +558,7 @@ test("a tool card shows the run time pi recorded, else the timestamps' differenc
   const result = {
     role: 'toolResult',
     toolCallId: block.toolCallId,
-    toolName: 'grep',
+    toolName: 'web_fetch',
     content: [],
     isError: false
   };

@@ -1,13 +1,16 @@
-import { isShellToolName } from './tool-names';
+import { isExplorationToolName, isShellToolName } from './tool-names';
 import type { AssistantContentBlock, ToolResultMessage } from './types';
 
-/** Only explicit read tools are transient in the main conversation. */
-export function isReadToolName(name: string): boolean {
-  return /^(?:read(?:_file)?|.*[._]read(?:_file)?)$/i.test(name);
-}
-
+/**
+ * Exploration calls leave no card: the composer status row carries them while
+ * they run, and their result is context the model reads, not a step the user
+ * asked to inspect.
+ */
 export function isQuietActivityBlock(block: AssistantContentBlock): boolean {
-  return block.type === 'thinking' || (block.type === 'toolCall' && isReadToolName(block.toolName));
+  return (
+    block.type === 'thinking' ||
+    (block.type === 'toolCall' && isExplorationToolName(block.toolName))
+  );
 }
 
 /**

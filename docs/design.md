@@ -59,7 +59,9 @@ the full text remains in the tooltip. The row disappears when the run ends.
 
 Current main-transcript behavior:
 
-- Thinking and explicit read calls draw no card: the composer status row carries them.
+- Thinking and exploration calls (`read`, `grep`, `find`, `ls`) draw no card: the composer status
+  row carries them while they run, naming the file, search pattern, or directory, and their result
+  stays out of the transcript whether it succeeded or failed.
 - A tool card appears when the call actually starts executing, and not while the model is still
   writing its arguments: a half-streamed JSON blob would intrude, while a running call's card is the
   progress the user asked for. A shell card therefore opens at execution with its live output and
