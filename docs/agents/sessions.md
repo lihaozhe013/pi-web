@@ -51,7 +51,21 @@ On mount `useAgentSession` loads the history, then `GET /api/sessions/[id]/state
 
 ## Loading older history (`components/ChatWindow.tsx`)
 The chat renders the last `visibleCount` rows, kept at least the loaded message count, with a sentinel above them while rows are hidden or the server has older entries (`hasEarlierMessages`, paged with `loadContext(…, before)`). Rows are not messages: a turn's answer and its thinking render as two, so loaded rows can outnumber the window; with nothing older on the server, reaching the sentinel widens the window (`getNextVisibleCount()`). The sentinel element is state (a callback ref), so the observer attaches whenever it appears, and the observer is renewed when the window grows: IntersectionObserver reports only changes, so a sentinel still in view would wait for the user to scroll away and back. A page lands, and `loadingOlderRef` clears, a moment before the next cursor renders; a report in between still holds the old cursor and prepended the same page twice. So `loadOlderPage()` keeps the cursor it asked for until another one renders, and the observer skips it; a page that failed, or a cursor a reload brings back, can be asked for again.
-- The minimap numbers turns from the branch's first, not the loaded page's (#791). Each context page carries `turnsBefore`: the turn anchors on the branch above its oldest entry, counted with `isMessageGroupAnchor()` on the shape `entryToUiMessage()` would give (`countTurnsBefore()`, `lib/session-reader.ts`), so the client's turns and the server's count agree. The hook keeps it beside the history cursor (`earlierTurnCount`, also in the view cache); a loaded turn is numbered `turnsBefore + index + 1` and keeps that number as older pages land. While it is above 0 the rail shows a dotted stub above the first node and the preview's first row says how many turns are not loaded; clicking it scrolls the chat to the top, so the sentinel pages them in. Unloaded turns have no placeholder nodes yet.
+- The minimap numbers turns from the branch's first, not the loaded page's (#791). Each context page carries `turnsBefore`: the turn anchors on the branch above its oldest entry, counted with `isMessageGroupAnchor()` on the shape `entryToUiMessage()` would give (`countTurnsBefore()`, `lib/session-reader.ts`), so the client's turns and the server's count agree. The hook keeps it beside the history cursor (`earlierTurnCount`, also in the view cache); a loaded turn is numbered `turnsBefore + index + 1` and keeps that number as older pages land. While it is above 0 the directory's first row says how many turns are not loaded; clicking it scrolls the chat to the top, so the sentinel pages them in. Unloaded turns have no placeholder nodes yet.
+
+## Hover conversation directory
+
+`ChatMinimap` now overlays a quiet rail of short horizontal markers on the right
+edge of the chat. It reserves no layout column, shows at most 18 markers, and
+indicates the current turn. Hover, click, or keyboard activation opens a compact
+floating directory of turn prompts and answer headings; selecting an entry
+navigates and dismisses it. Escape, focus leaving, or an outside click dismisses
+it too. A short pointer-leave delay bridges the rail and directory. The previous
+vertical rail, square nodes, drag navigation, tool counters, assistant badges,
+full-height preview, and stored lock preference are removed. Mobile retains the
+existing hidden-navigation default. The separate session information sidebar is
+unchanged. Preserve turn numbering, lazy history reveal, streamed-message
+measurement, heading indices, theme variables, and reduced-motion behavior.
 
 ## Compaction SSE events
 `handleAgentEvent` accepts `compaction_start` / `compaction_end` and the older `auto_compaction_*` pair to keep `isCompacting` in sync. Manual compact is a blocking POST: `isCompacting` holds until it returns, the button meanwhile Stop compaction (`abort_compaction`). When a run ends, Compact (and the tools button) take the spot Stop held left of the sound toggle, so `ChatInput` ignores pointer clicks on them for `RUN_END_CLICK_GUARD_MS` (600 ms) after it: the second click of a double click on Stop otherwise started a compaction nobody confirmed (#1131). Keyboard activation (`detail` 0) and Stop compaction are never held back.

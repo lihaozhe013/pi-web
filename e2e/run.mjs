@@ -266,7 +266,7 @@ try {
     // The minimap numbers turns from the session's first, not the loaded page's (#791):
     // e0..e4949 hold 2475 user messages, so the turn asking text(4998) is 2500.
     const readMinimapTurn = async (screenshot) => {
-      const node = page.locator("[data-minimap-node-index='0']");
+      const node = page.locator("[data-chat-outline-trigger]");
       await node.waitFor();
       const rect = await node.boundingBox();
       assert.ok(rect);
@@ -393,7 +393,7 @@ try {
     const heading = page.getByRole("heading", { name: "E2E compacted heading", exact: true });
     await heading.waitFor({ state: "attached" });
     if (viewport.width > 600) {
-      const node = page.locator("[data-minimap-node-index='0']");
+      const node = page.locator("[data-chat-outline-trigger]");
       await node.waitFor();
       const rect = await node.boundingBox();
       assert.ok(rect);

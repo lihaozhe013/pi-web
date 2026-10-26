@@ -16,6 +16,10 @@ it work. Upstream is reference material. No CI or release pipeline is maintained
 - The information sidebar is 400px wide. It overlays when the remaining chat
   width would be below 420px and fills phone widths. It has a close button,
   Escape dismissal, and focus restoration; modal overlays contain keyboard focus.
+- Chat navigation is a right-edge rail of short horizontal lines. Hover or
+  activation opens a compact directory of turn prompts and answer headings;
+  selecting an entry jumps to it. It overlays the conversation without reserving
+  a column, and replaces the old dot rail, lock toggle, and full-height preview.
 - Selecting a subagent opens its conversation in the center, using the same
   session navigation as the sidebar.
 
