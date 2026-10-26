@@ -206,7 +206,6 @@ export const ChatMinimap = memo(function ChatMinimap({
   turnsBefore,
 }: Props) {
   const { t } = useI18n();
-  const [visible, setVisible] = useState(false);
   const [allNodes, setAllNodes] = useState<NodeInfo[]>([]);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [outlineOpen, setOutlineOpen] = useState(false);
@@ -273,9 +272,7 @@ export const ChatMinimap = memo(function ChatMinimap({
   const updateScroll = useCallback(() => {
     const scrollEl = scrollContainer.current;
     if (!scrollEl) return;
-    const scrollable = scrollEl.scrollHeight - scrollEl.clientHeight;
     const currentNodes = allNodesRef.current;
-    setVisible(scrollable > 20);
     syncActiveNode(scrollEl, currentNodes);
   }, [scrollContainer, syncActiveNode]);
 
@@ -330,7 +327,6 @@ export const ChatMinimap = memo(function ChatMinimap({
       const nextNodes = createTurnNodes(turns);
       allNodesRef.current = nextNodes;
       setAllNodes(nextNodes);
-      setVisible(scrollEl.scrollHeight - scrollEl.clientHeight > 20);
       syncActiveNode(scrollEl, nextNodes);
 
       const pendingNavigation = pendingNavigationRef.current;
@@ -541,7 +537,7 @@ export const ChatMinimap = memo(function ChatMinimap({
       ref={containerRef}
       className={styles.navigator}
       aria-label={t("chatMinimap.contents")}
-      hidden={!visible || allNodes.length === 0}
+      hidden={allNodes.length === 0}
       onMouseEnter={showPreview}
       onMouseLeave={schedulePreviewHide}
       onFocusCapture={cancelPreviewHide}

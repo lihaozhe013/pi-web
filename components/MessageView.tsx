@@ -1,7 +1,8 @@
 "use client";
 
 import { memo, useState, useRef, useEffect, useMemo, type CSSProperties } from "react";
-import ReactMarkdown from "react-markdown";
+import { ActivityItem, ActivitySequence, useGroupedActivity } from "./ActivitySequence";
+import { quietActivityCounts } from "@/lib/quiet-activity";
 import { MarkdownBody } from "./MarkdownBody";
 import { ImagePreview } from "./ImagePreview";
 import { ThinkingIcon } from "./ThinkingIcon";
@@ -9,7 +10,7 @@ import { copyText } from "@/lib/clipboard";
 import { useI18n } from "@/hooks/useI18n";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { parseCompactionSummary } from "@/lib/compaction-summary";
-import { getAssistantErrorMessage, getThinkingPreview, hasAssistantAnswer, isAssistantTruncated, isEmptyThinkingBlock, splitThinkingPieces } from "@/lib/message-display";
+import { getAssistantErrorMessage, hasAssistantAnswer, isAssistantTruncated, isEmptyThinkingBlock, splitThinkingPieces } from "@/lib/message-display";
 import { formatTurnDuration } from "@/lib/turn-duration";
 import { diffGapLabel, parseUnifiedPatch, unifiedDiffLines, type SplitDiffCell, type SplitDiffFile, type SplitDiffGap, type UnifiedDiffLine } from "@/lib/patch";
 import { applyPatchPreviewToFiles, applyPatchResultHasFailures, extractApplyPatchPaths, getApplyPatchInputText, parseApplyPatchInput } from "@/lib/apply-patch";
@@ -872,9 +873,11 @@ function AssistantMessageView({
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {/* Not keyed by the entry id: a message of this run gets one when the file is
             read again, and its blocks keep their state across that read (#1184). */}
-        {blockItems.map(({ block, originalIndex }) => (
-          <BlockView key={originalIndex} block={block} searchTarget={block === searchBlock} toolResults={toolResults} isStreaming={isStreaming} streamingDuration={streamingDurations.get(originalIndex) ?? (block.type === "thinking" ? thinkingDurationFromFile : undefined)} toolCallDurations={toolCallDurations} cwd={cwd} onOpenFile={onOpenFile} onOpenSubagent={onOpenSubagent} sessionId={sessionId} entryId={entryId} blockIndex={originalIndex} />
-        ))}
+        <ActivitySequence>{blockItems.map(({ block, originalIndex }) => (
+          <ActivityItem key={originalIndex} counts={quietActivityCounts([block])} reveal={block === searchBlock || (block.type === "toolCall" && Boolean(toolResults?.get(block.toolCallId)?.isError))}>
+            <BlockView block={block} searchTarget={block === searchBlock} toolResults={toolResults} isStreaming={isStreaming} streamingDuration={streamingDurations.get(originalIndex) ?? (block.type === "thinking" ? thinkingDurationFromFile : undefined)} toolCallDurations={toolCallDurations} cwd={cwd} onOpenFile={onOpenFile} onOpenSubagent={onOpenSubagent} sessionId={sessionId} entryId={entryId} blockIndex={originalIndex} />
+          </ActivityItem>
+        ))}</ActivitySequence>
       </div>
 
       {providerError && (
@@ -1039,7 +1042,8 @@ export function ThinkingBlock({ block, duration, sessionId, entryId, blockIndex 
   blockIndex: number;
 }) {
   const { t } = useI18n();
-  const [expanded, setExpanded] = useState(isThinkingExpandedByDefault);
+  const grouped = useGroupedActivity();
+  const [expanded, setExpanded] = useState(() => !grouped && isThinkingExpandedByDefault());
   const [content, setContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1055,14 +1059,13 @@ export function ThinkingBlock({ block, duration, sessionId, entryId, blockIndex 
   }
   const tRef = useRef(t);
   tRef.current = t;
-  const preview = getThinkingPreview(block.thinking);
 
   // Keep already-mounted blocks in sync when the preference changes.
   useEffect(() => {
-    const onChange = () => setExpanded(isThinkingExpandedByDefault());
+    const onChange = () => { if (!grouped) setExpanded(isThinkingExpandedByDefault()); };
     window.addEventListener(THINKING_EXPANDED_EVENT, onChange);
     return () => window.removeEventListener(THINKING_EXPANDED_EVENT, onChange);
-  }, []);
+  }, [grouped]);
 
   // Load deferred history content whenever the block is expanded.
   // loadThinkingContent() memoizes in-flight promises and drops failed ones
@@ -1096,7 +1099,7 @@ export function ThinkingBlock({ block, duration, sessionId, entryId, blockIndex 
   }, [expanded, block.deferred, content, sessionId, entryId, blockIndex]);
 
   return (
-    <div style={{
+    <div className="thinking-block" style={{
       display: "flex", alignItems: "flex-start", gap: 6, minWidth: 0,
       border: "1px solid var(--border)",
       borderRadius: 7,
@@ -1109,8 +1112,8 @@ export function ThinkingBlock({ block, duration, sessionId, entryId, blockIndex 
       <button
         type="button"
         aria-expanded={expanded}
-        aria-label={`${t("i18n.thinking")}${preview ? `: ${preview}` : ""}`}
-        title={t("i18n.thinking")}
+        aria-label={t("activity.thought")}
+        title={t("activity.thought")}
         onClick={() => setExpanded((v) => !v)}
         style={{
           display: "inline-flex",
@@ -1132,7 +1135,7 @@ export function ThinkingBlock({ block, duration, sessionId, entryId, blockIndex 
         <ThinkingIcon active={expanded} />
         {!expanded && (
           <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {preview ? <ReactMarkdown allowedElements={[]} unwrapDisallowed skipHtml>{preview}</ReactMarkdown> : "..."}
+            {t("activity.thought")}
           </span>
         )}
       </button>

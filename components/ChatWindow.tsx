@@ -1,4 +1,6 @@
 "use client";
+import { ActivityItem, ActivitySequence } from "./ActivitySequence";
+import { quietActivityCounts } from "@/lib/quiet-activity";
 import { ForkToolActivityProvider } from "./ForkToolActivity"; // fork: display-only execution status
 import { registerAbortHandler } from "@/hooks/useKeyboardShortcuts";
 import Image from "next/image";
@@ -9,7 +11,7 @@ import { normalizeCustomPanelLines } from "@/lib/ansi";
 import { splitNoticeText } from "@/lib/notice-text";
 import { EXTENSION_DIALOG_BASE_WIDTH, fitExtensionDialogWidth } from "@/lib/extension-dialog-fit";
 import { asBracketedPaste, toTerminalKeyData } from "@/lib/terminal-input";
-import { collapsesProcessDetails, countToolCallBlocks, getDisplayableAssistantBlocks, hasAssistantAnswer, isHiddenCustomMessage, isMessageGroupAnchor, splitFinalAssistantBlocks } from "@/lib/message-display";
+import { collapsesProcessDetails, countToolCallBlocks, getDisplayableAssistantBlocks, hasAssistantAnswer, isHiddenCustomMessage, isMessageGroupAnchor, splitFinalAssistantBlocks, isAssistantTruncated } from "@/lib/message-display";
 import { extractTurnWrittenFiles, type WrittenFile } from "@/lib/turn-written-files";
 import { getFinalAnswerViews, keepWrittenFiles, type FinalAnswerViews } from "@/lib/turn-views";
 import { formatTurnDuration, getTurnDurationMs } from "@/lib/turn-duration";
@@ -614,7 +616,7 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
       candidate instanceof HTMLElement && candidate.dataset.entryId === position.anchorEntryId
     ));
     if (element instanceof HTMLElement) {
-      scrollToMessage(element, position.anchorOffset);
+      scrollToMessage(element.closest<HTMLElement>(".activity-group:not([data-expanded])") ?? element, position.anchorOffset);
       setPendingScrollRestore(null);
       return;
     }
@@ -657,7 +659,7 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
     const selector = `[data-entry-id="${CSS.escape(pendingSearchScroll.entryId)}"]`;
     const element = scrollContainerRef.current?.querySelector<HTMLElement>(searchMessage?.role === "user" ? selector : `${selector} [data-search-target]`);
     if (element) {
-      scrollToMessage(element);
+      scrollToMessage(element.closest<HTMLElement>(".activity-group:not([data-expanded])") ?? element);
       element.animate([
         { backgroundColor: "var(--bg-selected)" },
         { backgroundColor: "transparent" },
@@ -1126,6 +1128,11 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
                 if (isHiddenCustomMessage(msg)) return null;
                 // pi's showCacheMissNotices (#1265): read from the stored message, not a turn view's copy.
                 const notices = options.withNotices === false ? [] : getTranscriptNotices(messages[idx]);
+                if (msg.role === "toolResult" && notices.length === 0) return null;
+                const activityCounts = msg.role === "assistant" && !msg.errorMessage && !isAssistantTruncated(msg)
+                  ? quietActivityCounts(getDisplayableAssistantBlocks(msg)) : undefined;
+                const revealActivity = Boolean(pendingSearchScroll && entryIds[idx] === pendingSearchScroll.entryId)
+                  || (msg.role === "assistant" && (msg.content ?? []).some(block => block.type === "toolCall" && toolResultsMap.get(block.toolCallId)?.isError));
                 const isVisible = isMessageGroupAnchor(msg) || msg.role === "assistant";
                 const currentRefIdx = visibleRefIndexByMessage.get(idx);
                 const keyPrefix = options.keyPrefix ?? "message";
@@ -1176,10 +1183,12 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
                 // One shape with or without notices, so lines arriving on a reload do not remount the view.
                 if (!isVisible || currentRefIdx === undefined) return <Fragment key={`${keyPrefix}-${messageKey}`}>{view}{noticeLines}</Fragment>;
                 return (
-                  <div key={`${keyPrefix}-${messageKey}`} data-entry-id={entryIds[idx]} ref={options.attachRef === false ? undefined : attachVisibleRef(idx, currentRefIdx)}>
-                    {view}
-                    {noticeLines}
-                  </div>
+                  <ActivityItem key={`${keyPrefix}-${messageKey}`} counts={activityCounts} reveal={revealActivity}>
+                    <div data-entry-id={entryIds[idx]} ref={options.attachRef === false ? undefined : attachVisibleRef(idx, currentRefIdx)}>
+                      {view}
+                      {noticeLines}
+                    </div>
+                  </ActivityItem>
                 );
               };
 
@@ -1286,7 +1295,7 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
                           switching between an answered and an unanswered leaf of the same
                           turn. Manual toggles survive every other re-render. */}
                       <ProcessDetailsGroup key={answered ? "answered" : "unanswered"} messageCount={processMessageCount} toolCallCount={processToolCount} durationMs={turnDurationMs} cacheMisses={processCacheMisses} defaultExpanded={true /* fork: a turn's steps stay open, as the CLI shows them */} reveal={revealProcess} t={t}>
-                        {processViews}
+                        <ActivitySequence>{processViews}</ActivitySequence>
                       </ProcessDetailsGroup>
                     </div>,
                   );
@@ -1327,7 +1336,7 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
                        {t("chat.loadEarlier")}
                     </div>
                   )}
-                  {rendered.slice(startIndex)}
+                  <ActivitySequence>{rendered.slice(startIndex)}</ActivitySequence>
                 </>
               );
             })()}

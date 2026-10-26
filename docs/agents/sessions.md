@@ -245,3 +245,26 @@ Files: `lib/markdown.ts` (`markdownClobberPrefix`, `rehypeMatchClobberedIds`, `j
 - `lib/session-view-cache.ts` measures a snapshot (its `JSON.stringify` length) once, when it is stored, and evicts by the stored sizes: snapshots are never mutated in place. Re-serializing every cached session on each store took 7.7 ms with eight 0.8 MB snapshots (1.3 ms now), at every run's end, compaction and session switch. The unmount check for a wider cached window is `snapshotCoversLoadedEntries()` (a `Set`), not nested `includes`.
 - Code fences (`CodeBlock`, `components/MermaidBlock.tsx`): Prism tokenizes in the render, about 5-10 ms per 1,000 characters of TypeScript on a desktop. Within one task the first 2,000 characters of fences are highlighted at once (`takeHighlightBudget()`); the others render through the same `SyntaxHighlighter` as `text` (same lines, numbers and box, no tokens) and take their language one per idle slice, newest first (`waitForHighlight()`; Safari has no `requestIdleCallback` and waits 50 ms). Opening a session with 86 fences at 4x CPU throttling, the commit that shows the messages went from 1.1 s to 0.66 s; the end of a streamed reply gets the same budget. `codeTagProps` sets no class, so tell a highlighted fence by its `span.token` elements other than `.linenumber`, not by a `language-*` class.
 - Prism languages load on demand (`lib/prism-languages.ts`, `hooks/usePrismLanguages.ts`). `CodeBlock` and `FileViewer` render with `react-syntax-highlighter/dist/esm/prism-light` (refractor's core), never the package index: its `Prism` imports `refractor/all`, which registers about 300 languages when evaluated, ~650 ms of the first `AppShell` render at 4x CPU throttling on every page load, code on screen or not. The first highlighter to mount imports `refractor/all` as a chunk of its own; it registers into the same core instance, so every language and alias works as before. Until then fences render as `text` and files as `plaintext` (same lines, numbers and box). A page with no code never loads it. Client code imports only types from `react-syntax-highlighter` itself.
+
+## Minimal transcript activity
+
+`ActivitySequence` groups consecutive `ActivityItem` elements whose blocks are
+exclusively thinking or explicit read tools. Two or more blocks become one
+counted, initially collapsed row. `ChatWindow` applies it both to live history
+and finished Process details; `MessageView` applies it to blocks within a reply.
+A context prevents nested groups. Messages and original block indices remain
+intact, including deferred thinking requests and transcript notices. Children
+stay mounted under `hidden` to retain entry refs; a restored hidden anchor lands
+on its group summary. Search hits and failed reads reveal their group; the user can fold it again.
+
+Shell/write/edit/patch cards retain their previous styling and lifecycle defaults:
+shells open at execution, and writes/edits/patches open after success. Explicit
+user choices still win. All input, output, images, copy actions, highlighting,
+output tail controls and diff layouts remain available. Collapsed thinking shows
+only "Thought" and its duration, without a reasoning excerpt in the visible label,
+tooltip or accessible name. Grouped thinking starts folded independently of the
+single-block thinking preference.
+
+The desktop conversation directory does not depend on scroll overflow. Its rail
+is hidden only when no turn nodes exist; folding activity can shorten a transcript
+without removing navigation. The phone layout continues to omit the rail.

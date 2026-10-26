@@ -40,6 +40,15 @@ show the last 16 lines with Show all/less. Write/edit/patch cards open only afte
 successful completion; reads/searches stay folded. Explicit user folds take
 precedence, and thinking retains its separate preference.
 
+Consecutive reads and thinking blocks collapse into one counted activity row
+when there are two or more, including across adjacent assistant messages.
+Replies, commands, file mutations and custom messages end a group. A single
+thinking block retains its preference; grouped thinking starts folded. Collapsed
+thinking shows only the label "Thought" and its duration, without a content
+preview. Search hits and failed reads reveal their group. Entry anchors stay mounted for history
+navigation, and deferred thinking still loads only when its own block is opened.
+Explicit tool folds take precedence over presentation defaults.
+
 Code highlighting is an optional, lazy enhancement. Streaming input and unknown
 languages remain readable without it. Tool frames stay neutral, errors remain
 clear, and animation respects reduced motion.
@@ -54,3 +63,7 @@ tool-card components continue to own transcript rendering.
 See [cleanup tasks and manual acceptance](ui-cleanup-todo.md) for deferred code,
 style, translation, and shared API cleanup. Packaging remains local through
 Bun 1.4.4 and Node.js; see [portable packaging](../packaging/README.md).
+
+The desktop conversation directory remains visible whenever the conversation has
+turns, even if the transcript fits without scrolling. Collapsing activity or
+resizing the chat must not remove its entry point.
