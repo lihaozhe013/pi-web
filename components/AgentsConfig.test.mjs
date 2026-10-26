@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import ts from "typescript";
+import ts from "typescript5";
 import vm from "node:vm";
 
 const source = await readFile(new URL("./AgentsConfig.tsx", import.meta.url), "utf8");

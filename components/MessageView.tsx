@@ -514,8 +514,9 @@ function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, o
 
       </div>
 
-      {/* Bottom row: action buttons + timestamp */}
-      {(time || canFork || canEdit || true) && (
+      {/* Bottom row: action buttons + timestamp; the copy button is always
+          available, so the row renders unconditionally */}
+      {(
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "flex-end",
           gap: 6, marginTop: 3,

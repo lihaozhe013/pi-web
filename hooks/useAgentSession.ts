@@ -1370,10 +1370,15 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     // Bail out before loadSession too: a stale finish for a previous run
     // must not overwrite the messages of the run currently streaming.
     if (promptRunIdRef.current !== runId) return;
+    let loadError: unknown;
     try {
       if (sid) await loadSession(sid);
-    } finally {
-      if (promptRunIdRef.current !== runId) return;
+    } catch (error) {
+      // A stale finish must not surface its reload failure either.
+      loadError = error;
+    }
+    if (promptRunIdRef.current !== runId) return;
+    {
       const promptWasPending = rpcPromptPendingRef.current;
       const agentWasActive = sdkAgentActiveRef.current;
       rpcPromptPendingRef.current = false;
@@ -1387,6 +1392,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       }
       if (sid) scheduleEventStreamClose(sid);
     }
+    if (loadError) throw loadError;
   }, [loadSession, notifyPromptStage, onAgentEnd, scheduleEventStreamClose, settleUiStage]);
 
   const waitForPromptSettlement = useCallback(async (sid: string, runId?: number) => {

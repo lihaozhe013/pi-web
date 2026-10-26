@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import ts from "typescript";
+import ts from "typescript5";
 import { bareMcpOpensSettings } from "../lib/mcp-command.ts";
 
 // A bare /mcp opens Settings › MCP when pi's built-in MCP extension owns it, or

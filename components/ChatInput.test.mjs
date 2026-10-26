@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { Script } from "node:vm";
 import { createJiti } from "jiti";
-import ts from "typescript";
+import ts from "typescript5";
 
 const jiti = createJiti(import.meta.url, {
   jsx: { runtime: "automatic" },

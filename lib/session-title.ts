@@ -305,7 +305,7 @@ export async function generateSessionTitle(source: AgentSession): Promise<Genera
     return titleFromAssistant(await stream.result());
   } catch (error) {
     if (controller.signal.aborted) {
-      throw new Error("Session title generation timed out");
+      throw new Error("Session title generation timed out", { cause: error });
     }
     throw error;
   } finally {

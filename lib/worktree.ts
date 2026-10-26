@@ -296,7 +296,7 @@ export function findCurrentWorktreePath(worktrees: readonly WorktreeInfo[], cwd:
 }
 
 function sanitizeBranchForDir(branch: string): string {
-  return branch.replace(/[\/\\:*?"<>|\s]+/g, "-").replace(/^-+|-+$/g, "");
+  return branch.replace(/[/\\:*?"<>|\s]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
 export async function addWorktree(cwd: string, branch: string): Promise<{ path: string; branch: string }> {
@@ -345,7 +345,7 @@ export async function addWorktree(cwd: string, branch: string): Promise<{ path: 
       await git(repoRoot, addArgs, WORKTREE_TIMEOUT);
     }
   } catch (error) {
-    throw new Error(extractGitError(error));
+    throw new Error(extractGitError(error), { cause: error });
   }
 
   allowFileRoot(worktreePath);
@@ -364,7 +364,7 @@ export async function removeWorktree(cwd: string, worktreePath: string, force = 
   try {
     await git(cwd, ["worktree", "remove", ...(force ? ["--force"] : []), target.path]);
   } catch (error) {
-    throw new Error(extractGitError(error));
+    throw new Error(extractGitError(error), { cause: error });
   }
   invalidateProjectCache();
 }

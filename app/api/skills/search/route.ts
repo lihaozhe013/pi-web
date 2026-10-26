@@ -41,7 +41,7 @@ function parseSearchOutput(raw: string): SkillSearchResult[] {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     // package line: "owner/repo@skill  NNK installs"
-    const pkgMatch = line.match(/^([\w.\-]+\/[\w.\-@:]+)\s+([\d.,]+[KMB]?\s+installs)$/);
+    const pkgMatch = line.match(/^([\w.-]+\/[\w.-@:]+)\s+([\d.,]+[KMB]?\s+installs)$/);
     if (pkgMatch) {
       const urlLine = lines[i + 1]?.trim().replace(/^└\s*/, "");
       results.push({

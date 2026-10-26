@@ -9,8 +9,6 @@ import { basename, dirname, join } from "path";
 export function writePrivateFileAtomicSync(path: string, contents: string): void {
   const dir = dirname(path);
   const tempPath = join(dir, `.${basename(path)}-${randomUUID()}.tmp`);
-  let operationFailed = false;
-
   try {
     writeFileSync(tempPath, contents, {
       encoding: "utf8",
@@ -20,15 +18,13 @@ export function writePrivateFileAtomicSync(path: string, contents: string): void
     });
     renameSync(tempPath, path);
   } catch (error) {
-    operationFailed = true;
-    throw error;
-  } finally {
+    // The error above is the one that matters; a failure to remove the temp
+    // file must not mask it, so cleanup here is best-effort.
     try {
       unlinkSync(tempPath);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "ENOENT" && !operationFailed) {
-        throw error;
-      }
+    } catch {
+      // Leave the temp file behind when it cannot be removed.
     }
+    throw error;
   }
 }

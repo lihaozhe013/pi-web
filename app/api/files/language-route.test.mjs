@@ -6,7 +6,7 @@ import test from "node:test";
 import { NextRequest } from "next/server.js";
 import { createJiti } from "jiti";
 import { refractor } from "refractor/all";
-import ts from "typescript";
+import ts from "typescript5";
 
 const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "pi-web-files-language-")));
 process.env.PI_CODING_AGENT_DIR = path.join(root, "agent");

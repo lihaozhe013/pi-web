@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { Script } from "node:vm";
-import ts from "typescript";
+import ts from "typescript5";
 
 const source = ts.createSourceFile(
   "useAgentSession.ts",

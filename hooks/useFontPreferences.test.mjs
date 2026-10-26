@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { Script } from "node:vm";
-import ts from "typescript";
+import ts from "typescript5";
 import * as fonts from "../lib/font-preferences.ts";
 
 const source = readFileSync(new URL("./useFontPreferences.ts", import.meta.url), "utf8");

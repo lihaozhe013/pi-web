@@ -91,7 +91,7 @@ test("CodeBlock owns the pre background without a competing shorthand", () => {
     const pre = html.match(/<pre\b[^>]*>/)?.[0];
     assert.ok(pre);
     assert.match(pre, /background-color:color-mix/);
-    assert.doesNotMatch(pre, /(?:[;\"]|^)background:/);
+    assert.doesNotMatch(pre, /(?:[;"]|^)background:/);
   }
 });
 

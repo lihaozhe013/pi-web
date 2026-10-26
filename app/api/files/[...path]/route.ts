@@ -13,7 +13,6 @@ import {
   documentPreviewKind,
   getAudioMime,
   getDocumentMime,
-  getFileExt,
   getImageMime,
   getVideoMime,
 } from "@/lib/file-types";

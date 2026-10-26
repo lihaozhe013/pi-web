@@ -24,6 +24,10 @@ const nextConfig: NextConfig = {
     // up to 100 MB per request, so raise the buffer above that or large uploads
     // are truncated and fail with "Failed to parse body as FormData."
     proxyClientMaxBodySize: "128mb",
+    // TypeScript 7 dropped the JavaScript compiler API (lib/typescript.js) that
+    // Next's in-process type checking loads, so Next must shell out to the
+    // `tsc` CLI (the native compiler) for build-time type checks instead.
+    useTypeScriptCli: true,
   },
   // next/image is only used for the static logo, so the /_next/image optimizer
   // (and its sharp/libheif attack surface, see GHSA-2xp9-vwfh-vxw4) is not needed.

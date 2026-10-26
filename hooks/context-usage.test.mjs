@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { Script, createContext } from "node:vm";
-import ts from "typescript";
+import ts from "typescript5";
 import { createJiti } from "jiti";
 
 const { agentStatusUrl } = await createJiti(import.meta.url, { interopDefault: true }).import("../lib/agent-client.ts");
