@@ -59,11 +59,10 @@ function CallRow({ call }: { call: CodemodeCallView }) {
   );
 }
 
-export function CodemodeCallList({ calls, omitted, isError }: {
+export function CodemodeCallList({ calls, omitted }: {
   calls: readonly CodemodeCallView[];
   /** Earlier calls a progress snapshot did not include. */
   omitted: number;
-  isError: boolean;
 }) {
   const { t } = useI18n();
   const [showAll, setShowAll] = useState(false);
@@ -75,8 +74,9 @@ export function CodemodeCallList({ calls, omitted, isError }: {
   return (
     <div
       style={{
-        borderTop: isError ? "1px solid rgba(248,113,113,0.25)" : "1px solid rgba(34,197,94,0.2)",
-        background: "var(--bg-subtle)",
+        // fork: the quiet card's whisper divider, matching every other pane
+        // inside a tool card (CARD_RULE in MessageView.tsx).
+        borderTop: "1px solid color-mix(in srgb, var(--border) 45%, transparent)",
         padding: "6px 10px",
         fontFamily: "var(--font-mono)",
         fontSize: "calc(11.5px + var(--chat-font-size-offset, 0px))",

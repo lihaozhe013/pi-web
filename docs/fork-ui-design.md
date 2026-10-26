@@ -48,8 +48,10 @@ are unchanged. Provider errors, truncation notices and transcript notices remain
 visible. The old default-expanded thinking setting is removed from the chat UI.
 
 Code highlighting is an optional, lazy enhancement. Streaming input and unknown
-languages remain readable without it. Tool frames stay neutral, errors remain
-clear, and animation respects reduced motion.
+languages remain readable without it. Tool cards carry no outline: the surface
+tint alone draws them, state stays in the header's status mark, inner dividers
+are the border token at less than half strength, and errors warm the tint
+instead of drawing a red frame. Animation respects reduced motion.
 
 ## Implementation and follow-up
 

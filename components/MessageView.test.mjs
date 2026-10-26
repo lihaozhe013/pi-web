@@ -350,7 +350,12 @@ test("renders subagents as standard tool calls with only an extra side-panel but
     onOpenSubagent() {},
   });
 
-  assert.match(html, /border:1px solid rgba\(34,197,94,0\.25\)/);
+  // fork: the quiet card — no outline anywhere; the tint class alone draws it
+  // and the side-panel button's separator is the whisper rule.
+  const card = html.match(/<div class="fork-tool-card"[^>]*>/)?.[0] ?? "";
+  assert.match(card, /class="fork-tool-card" data-state="success"/);
+  assert.doesNotMatch(card, /border:|background:/);
+  assert.match(html, /border-left:1px solid color-mix\(in srgb, var\(--border\) 45%, transparent\)/);
   assert.match(html, />Agent</);
   assert.match(html, />Explore</);
   assert.match(html, /aria-label="View sub-agent work in side panel"/);
@@ -370,10 +375,12 @@ test("renders subagents as standard tool calls with only an extra side-panel but
 });
 
 test("a tool card shows the run time pi recorded, else the timestamps' difference, never a tiny one", () => {
-  const block = { type: "toolCall", toolCallId: "call-duration-1", toolName: "bash", input: { command: "make" } };
+  // A successful shell call leaves no card at all (docs/fork-ui-design.md),
+  // so the header's time is asserted on a tool that keeps one.
+  const block = { type: "toolCall", toolCallId: "call-duration-1", toolName: "grep", input: { pattern: "make" } };
   const message = { role: "assistant", provider: "anthropic", model: "claude-test", content: [block], timestamp: 1_000_000, durationMs: 4_000 };
   const header = (result) => renderMessage(message, { toolResults: new Map([[block.toolCallId, result]]) });
-  const result = { role: "toolResult", toolCallId: block.toolCallId, toolName: "bash", content: [], isError: false };
+  const result = { role: "toolResult", toolCallId: block.toolCallId, toolName: "grep", content: [], isError: false };
   // pi 1.1 records the execution itself; the timestamps would count the model's 4 s of generation too.
   assert.match(header({ ...result, timestamp: 1_006_400, durationMs: 2_400 }), />2\.4s</);
   // A result saved before pi recorded durations falls back to the timestamps.
@@ -597,9 +604,13 @@ test("marks apply_patch returned failures as errors even when isError is unset",
     content: [block],
   }, { toolResults: new Map([[block.toolCallId, failed]]) });
 
-  assert.match(html, /border:1px solid rgba\(248,113,113,0\.45\)/);
-  assert.match(html, />apply_patch</);
-  assert.doesNotMatch(html, /border:1px solid rgba\(34,197,94,0\.25\)/);
+  // fork: an error is the card's data-state (the tint warms in fork-tools.css)
+  // and the red tool name — never a drawn frame.
+  const card = html.match(/<div class="fork-tool-card"[^>]*>/)?.[0] ?? "";
+  assert.match(card, /class="fork-tool-card" data-state="error"/);
+  assert.doesNotMatch(card, /border:|background:/);
+  assert.match(html, /color:#f87171[^>]*>apply_patch</);
+  assert.doesNotMatch(html, /border:1px solid/);
 });
 
 test("collapses a displayed custom message from its header alone", () => {

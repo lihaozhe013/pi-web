@@ -184,6 +184,24 @@
   border-radius: 999px;
 }
 
+/* ── Quiet frames: code fences and tables soften to match the tool cards ─── */
+
+/* The transcript's tool cards carry no outline (app/fork-tools.css); the
+   markdown blocks between them keep theirs at half strength, so the column
+   reads as one quiet language instead of frames next to tints. */
+.markdown-code-block {
+  border-color: color-mix(in srgb, var(--border) 55%, transparent);
+  box-shadow: none;
+}
+
+.markdown-code-header {
+  border-bottom-color: color-mix(in srgb, var(--border) 55%, transparent);
+}
+
+.markdown-table-frame {
+  border-color: color-mix(in srgb, var(--border) 55%, transparent);
+}
+
 /* ── Type: chat ─────────────────────────────────────────────────────────── */
 
 /*

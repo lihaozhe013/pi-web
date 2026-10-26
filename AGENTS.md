@@ -108,8 +108,9 @@ drop or rewrite any of it:
   `SHELL_TAIL_LINES` result lines behind a “Show all” button). Read/search stay
   folded and thinking keeps its own preference. `components/ForkToolActivity.tsx`
   reads the existing client execution state via one provider in `ChatWindow`;
-  `app/fork-tools.css` adds neutral terminal-like frames and a reduced-motion-aware
-  running cursor. Partial output is never treated as a successful result. The user's own fold wins: `lib/tool-call-expansion.ts`
+  `app/fork-tools.css` draws them as quiet borderless cards — a surface tint with
+  no outline, state in the header's status mark, whisper-faint inner dividers —
+  and a reduced-motion-aware running cursor. Partial output is never treated as a successful result. The user's own fold wins: `lib/tool-call-expansion.ts`
   remembers an explicit choice, and only an untouched card takes the default.
   A turn's Process details also start open (`components/ChatWindow.tsx`) so those
   steps are actually on screen.

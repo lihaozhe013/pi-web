@@ -1102,10 +1102,9 @@ export function ThinkingBlock({ block, duration, sessionId, entryId, blockIndex 
   return (
     <div className="thinking-block" style={{
       display: "flex", alignItems: "flex-start", gap: 6, minWidth: 0,
-      border: "1px solid var(--border)",
       borderRadius: 7,
       padding: "6px 10px",
-      background: "var(--bg)",
+      background: "var(--bg-subtle)",
       fontFamily: "var(--font-mono)",
       fontSize: "calc(11px + var(--chat-font-size-offset, 0px))",
       lineHeight: 1.5,
@@ -1173,6 +1172,14 @@ function recordedDurationMs(value: unknown): number | undefined {
 
 /** Below this a tool card shows no time: it would read 0.0s on every quick read or search. */
 const TOOL_DURATION_MIN_MS = 100;
+
+/**
+ * fork: the quiet card. No outline anywhere — the surface tint in
+ * `app/fork-tools.css` draws the card — so every divider inside it is the
+ * border token at less than half strength: a whisper, not a rule.
+ */
+const CARD_RULE_COLOR = "color-mix(in srgb, var(--border) 45%, transparent)";
+const CARD_RULE = `1px solid ${CARD_RULE_COLOR}`;
 
 /** A tool's run time as the pi CLI's "Took" writes it: 2.4s, then 3m 5s, then 1h 2m 5s. */
 export function formatToolDuration(ms: number): string {
@@ -1256,11 +1263,11 @@ function ToolCallBlock({ block, result, duration, onOpenSubagent, executing }: {
       data-state={toolState}
       aria-busy={toolState === "running"}
       style={{
+        // fork: no border and no tint here — `.fork-tool-card` in fork-tools.css
+        // draws the quiet surface; fork.css lifts this 7px to --fork-r-md.
         borderRadius: 7,
         overflow: "hidden",
         fontSize: 12,
-        border: isError ? "1px solid rgba(248,113,113,0.45)" : "1px solid rgba(34,197,94,0.25)",
-        background: isError ? "rgba(248,113,113,0.05)" : "rgba(34,197,94,0.04)",
       }}
     >
       {/* ── Tool call header ── */}
@@ -1287,7 +1294,7 @@ function ToolCallBlock({ block, result, duration, onOpenSubagent, executing }: {
         >
           <span
             title={mcpLabel ? block.toolName : undefined}
-            style={{ color: isError ? "#f87171" : "#16a34a", fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 11, flexShrink: 0 }}
+            style={{ color: isError ? "#f87171" : "var(--text-muted)", fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 11, flexShrink: 0 }}
           >
             {mcpLabel ? (
               <>
@@ -1320,7 +1327,7 @@ function ToolCallBlock({ block, result, duration, onOpenSubagent, executing }: {
             onClick={() => onOpenSubagent(subagent.sessionId, subagent.description || subagent.profile)}
             title={t("subagent.openTab")}
             aria-label={t("subagent.openTab")}
-            style={{ width: 32, display: "grid", placeItems: "center", border: "none", borderLeft: "1px solid var(--border)", background: "none", color: "var(--text-muted)", cursor: "pointer", flexShrink: 0 }}
+            style={{ width: 32, display: "grid", placeItems: "center", border: "none", borderLeft: CARD_RULE, background: "none", color: "var(--text-muted)", cursor: "pointer", flexShrink: 0 }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="5" y="7" width="14" height="11" rx="2" /><path d="M9 11h.01M15 11h.01M9 15h6M12 7V4M10 4h4" /></svg>
           </button>
@@ -1333,8 +1340,7 @@ function ToolCallBlock({ block, result, duration, onOpenSubagent, executing }: {
           <div
             style={{
               padding: "8px 12px 10px",
-              background: "var(--bg-subtle)",
-              borderTop: isError ? "1px solid rgba(248,113,113,0.25)" : "1px solid rgba(34,197,94,0.2)",
+              borderTop: CARD_RULE,
             }}
           >
             <ToolFieldRows fields={toolFields} />
@@ -1348,8 +1354,8 @@ function ToolCallBlock({ block, result, duration, onOpenSubagent, executing }: {
               fontSize: "calc(12px + var(--chat-font-size-offset, 0px))",
               lineHeight: 1.5,
               overflow: "auto",
-              background: "var(--bg-subtle)",
-              borderTop: isError ? "1px solid rgba(248,113,113,0.25)" : "1px solid rgba(34,197,94,0.2)",
+              background: "var(--bg)",
+              borderTop: CARD_RULE,
               whiteSpace: "pre-wrap",
               wordBreak: "break-all",
             }}
@@ -1361,15 +1367,15 @@ function ToolCallBlock({ block, result, duration, onOpenSubagent, executing }: {
 
       {/* ── Expanded: the calls a codemode script made ── */}
       {expanded && codemode && (
-        <CodemodeCallList calls={codemode.calls} omitted={codemode.omitted} isError={isError} />
+        <CodemodeCallList calls={codemode.calls} omitted={codemode.omitted} />
       )}
 
       {/* ── Result images — always visible, independent of the collapsed details ── */}
-      {resultImages.length > 0 && <ResultImages images={resultImages} isError={isError} />}
+      {resultImages.length > 0 && <ResultImages images={resultImages} />}
 
       {/* ── Expanded: applied-patch split diff ── */}
       {expanded && patchFiles && (
-        <div style={{ borderTop: "1px solid rgba(34,197,94,0.15)", background: "var(--bg)" }}>
+        <div style={{ borderTop: CARD_RULE, background: "var(--bg)" }}>
           <SplitFilesView files={patchFiles} />
         </div>
       )}
@@ -1407,7 +1413,7 @@ function ToolCallBlock({ block, result, duration, onOpenSubagent, executing }: {
 
       {/* fork: back to the shell's tail after the whole output was shown. */}
       {expanded && shellTail && showAllOutput && (
-        <ShellOutputFooter isError={isError} onShowLess={() => setShowAllOutput(false)} />
+        <ShellOutputFooter onShowLess={() => setShowAllOutput(false)} />
       )}
     </div>
     </ForkCodeLanguageProvider>
@@ -1424,7 +1430,7 @@ function PairedDiffResult({ diff }: {
   return (
     <div
       style={{
-        borderTop: "1px solid rgba(34,197,94,0.15)",
+        borderTop: CARD_RULE,
         background: "var(--bg)",
       }}
     >
@@ -1466,7 +1472,7 @@ export function PatchDiffFiles({ files, layout }: { files: SplitDiffFile[]; layo
           key={fileIndex}
           style={{
             minWidth: 0,
-            borderTop: fileIndex === 0 ? "none" : "1px solid var(--border)",
+            borderTop: fileIndex === 0 ? "none" : CARD_RULE,
             fontFamily: "var(--font-mono)",
             fontWeight: "var(--font-mono-weight)",
             fontSize: "calc(12px + var(--chat-font-size-offset, 0px))",
@@ -1482,7 +1488,7 @@ export function PatchDiffFiles({ files, layout }: { files: SplitDiffFile[]; layo
                 top: 0,
                 zIndex: 1,
                 background: "var(--bg-panel)",
-                borderBottom: "1px solid var(--border)",
+                borderBottom: CARD_RULE,
               }}
             >
                <SplitDiffHeader title={file.oldPath || t("i18n.before")} side="left" />
@@ -1500,7 +1506,7 @@ export function PatchDiffFiles({ files, layout }: { files: SplitDiffFile[]; layo
                 padding: "5px 10px",
                 color: "var(--text-dim)",
                 background: "var(--bg-panel)",
-                borderBottom: "1px solid var(--border)",
+                borderBottom: CARD_RULE,
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
@@ -1552,8 +1558,8 @@ function DiffGapRow({ gap }: { gap: SplitDiffGap }) {
         padding: "0 10px",
         color: "var(--text-dim)",
         background: "var(--bg-panel)",
-        borderTop: "1px solid var(--border)",
-        borderBottom: "1px solid var(--border)",
+        borderTop: CARD_RULE,
+        borderBottom: CARD_RULE,
         userSelect: "none",
       }}
     >
@@ -1589,7 +1595,7 @@ function SplitDiffHeader({ title, side }: { title: string; side: "left" | "right
       style={{
         padding: "5px 10px",
         color: "var(--text-dim)",
-        borderRight: side === "left" ? "1px solid var(--border)" : "none",
+        borderRight: side === "left" ? CARD_RULE : "none",
         overflow: "hidden",
         textOverflow: "ellipsis",
         whiteSpace: "nowrap",
@@ -1620,7 +1626,7 @@ function SplitDiffCellView({ cell, side }: { cell: SplitDiffCell; side: "left" |
         display: "flex",
         minWidth: 0,
         background: bg,
-        borderRight: side === "left" ? "1px solid var(--border)" : "none",
+        borderRight: side === "left" ? CARD_RULE : "none",
       }}
     >
       <span
@@ -1631,7 +1637,7 @@ function SplitDiffCellView({ cell, side }: { cell: SplitDiffCell; side: "left" |
           color: "var(--text-dim)",
           userSelect: "none",
           background: "var(--bg-panel)",
-          borderRight: "1px solid var(--border)",
+          borderRight: CARD_RULE,
           flexShrink: 0,
         }}
       >
@@ -1708,7 +1714,7 @@ function PatchTextView({ text }: { text: string }) {
                 padding: "0 8px",
                 color: "var(--text-dim)",
                 background: "var(--bg-panel)",
-                borderRight: "1px solid var(--border)",
+                borderRight: CARD_RULE,
                 textAlign: "right",
                 userSelect: "none",
                 flexShrink: 0,
@@ -1737,8 +1743,7 @@ function ShellTailResult({ text, hiddenLines, isError, onShowAll }: {
   return (
     <div
       style={{
-        borderTop: `1px solid ${isError ? "rgba(248,113,113,0.3)" : "rgba(34,197,94,0.15)"}`,
-        background: isError ? "rgba(248,113,113,0.04)" : "var(--bg-subtle)",
+        borderTop: CARD_RULE,
       }}
     >
       <button
@@ -1751,7 +1756,7 @@ function ShellTailResult({ text, hiddenLines, isError, onShowAll }: {
           width: "100%",
           padding: "6px 12px",
           border: "none",
-          borderBottom: "1px solid var(--border)",
+          borderBottom: CARD_RULE,
           background: "none",
           color: "var(--accent)",
           cursor: "pointer",
@@ -1786,13 +1791,12 @@ function ShellTailResult({ text, hiddenLines, isError, onShowAll }: {
 }
 
 /** fork: the way back to a shell's tail once the whole output is shown. */
-function ShellOutputFooter({ isError, onShowLess }: { isError: boolean; onShowLess: () => void }) {
+function ShellOutputFooter({ onShowLess }: { onShowLess: () => void }) {
   const { t } = useI18n();
   return (
     <div
       style={{
-        borderTop: `1px solid ${isError ? "rgba(248,113,113,0.3)" : "rgba(34,197,94,0.15)"}`,
-        background: "var(--bg-subtle)",
+        borderTop: CARD_RULE,
       }}
     >
       <button
@@ -1869,7 +1873,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function ResultImages({ images, isError }: { images: ImageContent[]; isError: boolean }) {
+function ResultImages({ images }: { images: ImageContent[] }) {
   return (
     <div
       style={{
@@ -1878,7 +1882,7 @@ function ResultImages({ images, isError }: { images: ImageContent[]; isError: bo
         flexWrap: "wrap",
         padding: "10px",
         background: "var(--bg)",
-        borderTop: `1px solid ${isError ? "rgba(248,113,113,0.3)" : "rgba(34,197,94,0.15)"}`,
+        borderTop: CARD_RULE,
       }}
     >
       {images.map((image, index) => {
@@ -1901,7 +1905,7 @@ function ResultImages({ images, isError }: { images: ImageContent[]; isError: bo
                 maxHeight: 520,
                 borderRadius: 6,
                 objectFit: "contain",
-                border: "1px solid var(--border)",
+                border: `1px solid ${CARD_RULE_COLOR}`,
               }}
             />
           </ImagePreview>
@@ -1920,8 +1924,7 @@ function PairedResult({ text, isEmpty, isError }: {
   return (
     <div
       style={{
-        borderTop: `1px solid ${isError ? "rgba(248,113,113,0.3)" : "rgba(34,197,94,0.15)"}`,
-        background: isError ? "rgba(248,113,113,0.04)" : "var(--bg-subtle)",
+        borderTop: CARD_RULE,
       }}
     >
       <pre
@@ -1960,10 +1963,9 @@ function CompactionMessageView({ message }: { message: CustomMessage }) {
     <div style={{ marginBottom: 16 }}>
       <div
         style={{
-          border: "1px solid var(--border)",
           borderRadius: 8,
           overflow: "hidden",
-          background: "var(--bg)",
+          background: "var(--bg-subtle)",
         }}
       >
         <div
@@ -1972,8 +1974,7 @@ function CompactionMessageView({ message }: { message: CustomMessage }) {
             alignItems: "center",
             gap: 8,
             padding: "7px 10px",
-            borderBottom: "1px solid var(--border)",
-            background: "var(--bg-panel)",
+            borderBottom: CARD_RULE,
             color: "var(--text-muted)",
           }}
         >
@@ -2103,10 +2104,9 @@ function CustomMessageView({ message, cwd, onOpenFile }: { message: CustomMessag
     <div style={{ marginBottom: 16 }}>
       <div
         style={{
-          border: "1px solid var(--border)",
           borderRadius: 8,
           overflow: "hidden",
-          background: "var(--bg)",
+          background: "var(--bg-subtle)",
         }}
       >
         <div
@@ -2115,8 +2115,7 @@ function CustomMessageView({ message, cwd, onOpenFile }: { message: CustomMessag
             alignItems: "center",
             gap: 8,
             padding: "7px 10px",
-            borderBottom: contentExpanded ? "1px solid var(--border)" : "none",
-            background: "var(--bg-panel)",
+            borderBottom: contentExpanded ? CARD_RULE : "none",
             color: "var(--text-muted)",
             fontSize: 12,
           }}
@@ -2170,7 +2169,7 @@ function CustomMessageView({ message, cwd, onOpenFile }: { message: CustomMessag
                         <img
                           src={src}
                           alt=""
-                          style={{ maxWidth: 240, maxHeight: 240, borderRadius: 6, objectFit: "contain", display: "block", border: "1px solid var(--border)" }}
+                          style={{ maxWidth: 240, maxHeight: 240, borderRadius: 6, objectFit: "contain", display: "block", border: `1px solid ${CARD_RULE_COLOR}` }}
                         />
                       </ImagePreview>
                     );
@@ -2186,8 +2185,7 @@ function CustomMessageView({ message, cwd, onOpenFile }: { message: CustomMessag
                 alignItems: "center",
                 gap: 8,
                 padding: "4px 9px",
-                borderTop: "1px solid var(--border)",
-                background: "var(--bg-subtle)",
+                borderTop: CARD_RULE,
               }}
             >
               {text || detailsText ? (
@@ -2228,7 +2226,7 @@ function CustomMessageView({ message, cwd, onOpenFile }: { message: CustomMessag
                 style={{
                   margin: 0,
                   padding: "9px 10px",
-                  borderTop: "1px solid var(--border)",
+                  borderTop: CARD_RULE,
                   background: "var(--bg)",
                   color: "var(--text-muted)",
                   fontSize: "calc(12px + var(--chat-font-size-offset, 0px))",
@@ -2320,7 +2318,6 @@ const TOOL_FIELD_BLOCK: CSSProperties = {
   padding: "8px 10px",
   maxHeight: 260,
   overflow: "auto",
-  border: "1px solid var(--border)",
   borderRadius: 6,
   background: "var(--bg)",
   font: "inherit",
