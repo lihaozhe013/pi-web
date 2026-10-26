@@ -38,6 +38,30 @@ test("write/edit/read lifecycle defaults and manual choices", () => {
   clearExpandedToolCalls();
 });
 
+test("expanded shell running status follows output, including silent commands", () => {
+  clearExpandedToolCalls();
+  for (const name of ["bash", "powershell", "exec_command"]) {
+    const silent = render(name, { running: true });
+    assert.match(silent, /class="fork-shell-running" role="status"/);
+    assert.ok(silent.indexOf("file-body") < silent.indexOf('class="fork-shell-running"'));
+    assert.equal((silent.match(/class="fork-tool-status"/g) ?? []).length, 1);
+    const partial = render(name, { partial: true });
+    assert.ok(partial.indexOf("result-body") < partial.indexOf('class="fork-shell-running"'));
+    assert.equal((partial.match(/class="fork-tool-status"/g) ?? []).length, 1);
+  }
+  setToolCallExpanded("fork-test", false);
+  const collapsed = render("bash", { running: true });
+  assert.doesNotMatch(collapsed, /fork-shell-running/);
+  assert.match(collapsed, /Running/);
+  clearExpandedToolCalls();
+  const failed = render("bash", { complete: true, error: true });
+  assert.doesNotMatch(failed, /fork-shell-running/);
+  assert.match(failed, /Failed/);
+  const write = render("write", { running: true });
+  assert.doesNotMatch(write, /fork-shell-running/);
+  assert.match(write, /Running/);
+});
+
 test("shell opens at start even before output and partial output is not success", () => {
   clearExpandedToolCalls();
   assert.match(render("bash"), /aria-expanded="false"/);

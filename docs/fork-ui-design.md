@@ -38,7 +38,10 @@ Process details start open for retained steps. Shell cards open while executing
 and disappear after success, including user-run commands. Failed commands retain
 a folded error summary. Write/edit/patch cards open while executing and fold
 after completion. Explicit choices control retained cards. Long shell
-results show their last 16 lines with Show all/less when expanded.
+results show their last 16 lines with Show all/less when expanded. An expanded
+running shell shows its Running cursor below the output buffer and its controls,
+including before any output arrives. A manually collapsed shell keeps that status
+in its header; other tools and failed-command summaries keep their header status.
 
 Thinking and explicit read tools leave no cards or counted groups in the main
 transcript. A transient status keeps the same quiet dot-and-text presentation,

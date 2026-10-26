@@ -1308,7 +1308,7 @@ function ToolCallBlock({ block, result, duration, onOpenSubagent, executing }: {
               ? t("chat.generatingToolInput")
               : (patchLabel ?? (codemode ? codemodeScriptPreview(codemode.code) : getToolPreview(block)))}
           </span>
-          <ForkToolStatus state={toolState} />
+          {!(shellTool && expanded && toolState === "running") && <ForkToolStatus state={toolState} />}
           {codemodeCallCount > 0 && (
             <span style={{ fontSize: 11, color: "var(--text-dim)", flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>
               {codemodeCallCount === 1 ? t("codemode.callCountOne") : t("codemode.callCount", { count: codemodeCallCount })}
@@ -1414,6 +1414,13 @@ function ToolCallBlock({ block, result, duration, onOpenSubagent, executing }: {
       {/* fork: back to the shell's tail after the whole output was shown. */}
       {expanded && shellTail && showAllOutput && (
         <ShellOutputFooter onShowLess={() => setShowAllOutput(false)} />
+      )}
+
+      {/* Keep execution feedback at the reading edge, after the output buffer. */}
+      {shellTool && expanded && toolState === "running" && (
+        <div className="fork-shell-running" role="status">
+          <ForkToolStatus state={toolState} />
+        </div>
       )}
     </div>
     </ForkCodeLanguageProvider>

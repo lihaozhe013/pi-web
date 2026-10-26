@@ -4,8 +4,8 @@
  * Quiet tool cards: no outline at all — the surface tint alone draws the card,
  * the way modern chat agents frame their edits (Claude's edit cards, ChatGPT's
  * tool rows). The radius comes from the inline 7px, which app/fork.css lifts
- * to --fork-r-md, the message-bubble radius. State stays in the header's
- * status mark; only an error warms the tint.
+ * to --fork-r-md, the message-bubble radius. State stays in a quiet status
+ * mark (below the buffer for running shells); only an error warms the tint.
  */
 .fork-tool-card {
   background: var(--bg-subtle);
@@ -34,6 +34,12 @@
   font-family: var(--font-mono);
   font-size: 11px;
   white-space: nowrap;
+}
+
+/* Outside the scrollable output so even a silent command has a visible cursor. */
+.fork-shell-running {
+  padding: 8px 12px 10px;
+  line-height: 1.5;
 }
 
 .fork-tool-status[data-state="running"] { color: var(--accent); }
