@@ -8,6 +8,10 @@ const {
   deleteProviderEntry,
   hasModelCostDraftValue,
   modelCostToDraft,
+  moveItem,
+  moveModelEntry,
+  moveProviderEntry,
+  movedIndex,
   parseCompleteModelCost,
   providerMatchesSearch,
   renameProviderEntry,
@@ -258,4 +262,61 @@ test("Add provider's search matches a provider by id or name", () => {
   assert.equal(providerMatchesSearch(' FIXTURE-SUBSCRIPTION-ID ', oauth.id, oauth.name), true);
   assert.equal(providerMatchesSearch('missing', oauth.id, oauth.name), false);
   assert.equal(providerMatchesSearch('  ', oauth.id, oauth.name), true);
+});
+
+test('moving a sidebar row keeps every other row in place', () => {
+  assert.deepEqual(moveItem(['a', 'b', 'c'], 2, 0), ['c', 'a', 'b']);
+  assert.deepEqual(moveItem(['a', 'b', 'c'], 0, 2), ['b', 'c', 'a']);
+  // An arrow at either end, or a press that would not move anything, is a no-op.
+  assert.equal(moveItem(['a', 'b'], 0, -1), null);
+  assert.equal(moveItem(['a', 'b'], 1, 2), null);
+  assert.equal(moveItem(['a', 'b'], 1, 1), null);
+  assert.equal(moveItem([], 0, 0), null);
+  assert.equal(moveItem(['a'], 0, 0.5), null);
+});
+
+test('a provider move passes its visible neighbour and leaves hidden entries in place', () => {
+  const config = {
+    providers: {
+      one: { models: [{ id: 'a' }] },
+      hidden: { modelOverrides: {} },
+      two: { models: [{ id: 'b' }] },
+      three: { models: [{ id: 'c' }] }
+    }
+  };
+  const moved = moveProviderEntry(config, 'three', 'two');
+  assert.deepEqual(Object.keys(moved.providers), ['one', 'hidden', 'three', 'two']);
+  assert.equal(moved.providers.three, config.providers.three);
+  // The moved config is a new object; the draft it came from is untouched.
+  assert.deepEqual(Object.keys(config.providers), ['one', 'hidden', 'two', 'three']);
+  assert.equal(moveProviderEntry(config, 'one', 'missing'), config);
+});
+
+test('a model move keeps its provider and reports the new order', () => {
+  const config = {
+    providers: { gateway: { models: [{ id: 'a' }, { id: 'b' }, { id: 'c' }] } }
+  };
+  const moved = moveModelEntry(config, 'gateway', 0, 2);
+  assert.deepEqual(
+    moved.providers.gateway.models.map((model) => model.id),
+    ['b', 'c', 'a']
+  );
+  assert.deepEqual(
+    config.providers.gateway.models.map((model) => model.id),
+    ['a', 'b', 'c']
+  );
+  assert.equal(moveModelEntry(config, 'gateway', 2, 3), config);
+  assert.equal(moveModelEntry(config, 'missing', 0, 1), config);
+});
+
+test('a selection follows the row it pointed at and shifts with the rows that moved', () => {
+  // The moved row carries its selection along.
+  assert.equal(movedIndex(1, 1, 3), 3);
+  // Rows between the old and new slot move one place towards where the row left.
+  assert.equal(movedIndex(2, 1, 3), 1);
+  assert.equal(movedIndex(3, 1, 3), 2);
+  assert.equal(movedIndex(2, 3, 1), 3);
+  // Rows outside the moved range keep their slot.
+  assert.equal(movedIndex(0, 1, 3), 0);
+  assert.equal(movedIndex(4, 1, 3), 4);
 });

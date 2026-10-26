@@ -235,6 +235,65 @@ export function deleteProviderEntry<T extends ModelsConfigDraft>(
   return { ...config, providers };
 }
 
+/**
+ * Moves the item at `index` to `targetIndex`, or returns null when either index
+ * is out of range or nothing would change.
+ */
+export function moveItem<T>(items: readonly T[], index: number, targetIndex: number): T[] | null {
+  if (!Number.isInteger(index) || !Number.isInteger(targetIndex)) return null;
+  if (index < 0 || index >= items.length || targetIndex < 0 || targetIndex >= items.length)
+    return null;
+  if (index === targetIndex) return null;
+  const next = [...items];
+  const [item] = next.splice(index, 1);
+  next.splice(targetIndex, 0, item);
+  return next;
+}
+
+/**
+ * Moves a provider to another provider's slot in models.json. The target is a
+ * visible neighbour's slot, so providers the sidebar does not list keep their
+ * place while the moved provider passes the neighbour.
+ */
+export function moveProviderEntry<T extends ModelsConfigDraft>(
+  config: T,
+  name: string,
+  targetName: string
+): T {
+  const entries = Object.entries(config.providers ?? {});
+  const index = entries.findIndex(([id]) => id === name);
+  const targetIndex = entries.findIndex(([id]) => id === targetName);
+  const moved = moveItem(entries, index, targetIndex);
+  return moved ? ({ ...config, providers: Object.fromEntries(moved) } as T) : config;
+}
+
+/** Moves one model within its provider, which is the order the selector shows. */
+export function moveModelEntry<T extends ModelsConfigDraft>(
+  config: T,
+  providerName: string,
+  index: number,
+  targetIndex: number
+): T {
+  const provider = config.providers?.[providerName];
+  const moved = provider?.models ? moveItem(provider.models, index, targetIndex) : null;
+  if (!provider || !moved) return config;
+  return {
+    ...config,
+    providers: {
+      ...(config.providers ?? {}),
+      [providerName]: { ...provider, models: moved }
+    }
+  } as T;
+}
+
+/** Where a row's selection lands after the row at `from` moved to `to`. */
+export function movedIndex(index: number, from: number, to: number): number {
+  if (index === from) return to;
+  if (from < to && index > from && index <= to) return index - 1;
+  if (to < from && index >= to && index < from) return index + 1;
+  return index;
+}
+
 /** Add provider's search: a provider matches by its id or its shown name, case-insensitive. */
 export function providerMatchesSearch(search: string, id: string, label: string): boolean {
   const query = search.trim().toLowerCase();

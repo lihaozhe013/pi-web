@@ -31,10 +31,11 @@ function parseEdit(body: DefaultPreferencesRequest): DefaultPreferencesEdit | nu
     edit.model = { provider: body.provider, modelId: body.modelId };
   }
   if (body.thinkingLevel !== undefined) {
-    if (!isThinkingLevel(body.thinkingLevel)) return null;
-    edit.thinkingLevel = body.thinkingLevel;
+    if (body.thinkingLevel === null) edit.clearThinkingLevel = true;
+    else if (!isThinkingLevel(body.thinkingLevel)) return null;
+    else edit.thinkingLevel = body.thinkingLevel;
   }
-  return edit.model || edit.thinkingLevel ? edit : null;
+  return edit.model || edit.thinkingLevel || edit.clearThinkingLevel ? edit : null;
 }
 
 /**
@@ -55,7 +56,7 @@ export async function PUT(req: Request) {
   const edit = parseEdit(body);
   if (!edit) {
     return Response.json(
-      { error: 'Expected provider and modelId, or a valid thinkingLevel' },
+      { error: 'Expected provider and modelId, or a valid thinkingLevel or null' },
       { status: 400 }
     );
   }
@@ -115,12 +116,13 @@ export async function PUT(req: Request) {
       }
     }
 
-    await writeDefaultPreferences(settingsManager, edit);
+    await writeDefaultPreferences(settingsManager, edit, agentDir);
     invalidateModelsCache();
     return Response.json({
       ok: true,
       ...(edit.model ? { defaultModel: edit.model } : {}),
-      ...(edit.thinkingLevel ? { defaultThinkingLevel: edit.thinkingLevel } : {})
+      ...(edit.thinkingLevel ? { defaultThinkingLevel: edit.thinkingLevel } : {}),
+      ...(edit.clearThinkingLevel ? { defaultThinkingLevel: null } : {})
     });
   } catch (error) {
     return Response.json(

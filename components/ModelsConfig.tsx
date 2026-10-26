@@ -23,6 +23,10 @@ import {
   trackAddedModels,
   collectModelRenames,
   deleteProviderEntry,
+  moveItem,
+  moveModelEntry,
+  moveProviderEntry,
+  movedIndex,
   renameProviderEntry,
   updateHeaderRow,
   type HeaderRow,
@@ -57,6 +61,7 @@ import {
   type EnabledModelsController
 } from './EnabledModelsSection';
 import { providerBadgeLabel } from './enabled-models-helpers';
+import { NewSessionDefaults } from './NewSessionDefaults';
 import { OAuthPastePanel } from './OAuthPastePanel';
 import { ProviderIcon } from './ProviderIcon';
 import { ProviderUsageSummary } from './ProviderUsageSummary';
@@ -153,6 +158,7 @@ type ModelCatalogState =
   | { phase: 'error'; message: string };
 
 type Selection =
+  | { type: 'defaults' }
   | { type: 'provider'; name: string }
   | { type: 'model'; providerName: string; index: number }
   | { type: 'oauth'; providerId: string }
@@ -165,6 +171,7 @@ function readRememberedSelection(): Selection | null {
     const value: unknown = JSON.parse(raw);
     if (value === null || typeof value !== 'object') return null;
     const selection = value as Record<string, unknown>;
+    if (selection.type === 'defaults') return { type: 'defaults' };
     if (selection.type === 'provider' && typeof selection.name === 'string') {
       return { type: 'provider', name: selection.name };
     }
@@ -190,6 +197,7 @@ function readRememberedSelection(): Selection | null {
 }
 
 function customSelectionExists(config: ModelsJson, selection: Selection): boolean {
+  if (selection.type === 'defaults') return true;
   if (selection.type === 'provider') return Boolean(config.providers?.[selection.name]);
   if (selection.type !== 'model') return true;
   return Boolean(config.providers?.[selection.providerName]?.models?.[selection.index]);
@@ -422,6 +430,76 @@ function Check({
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return <ConfigSectionTitle>{children}</ConfigSectionTitle>;
+}
+
+/**
+ * Up/down arrows beside a sidebar row.
+ *
+ * models.json keeps its provider and model order, so moving a custom entry is a
+ * draft edit like any other: Save writes it, and the model selector keeps each
+ * provider's file order. Entries the file does not own have no arrows.
+ */
+function ReorderControls({
+  upLabel,
+  downLabel,
+  canMoveUp,
+  canMoveDown,
+  onMove
+}: {
+  upLabel: string;
+  downLabel: string;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  onMove: (offset: -1 | 1) => void;
+}) {
+  return (
+    <span className="models-sidebar-reorder">
+      <button
+        type="button"
+        className="models-sidebar-reorder-button"
+        aria-label={upLabel}
+        title={upLabel}
+        disabled={!canMoveUp}
+        onClick={() => onMove(-1)}
+      >
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <polyline points="18 15 12 9 6 15" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        className="models-sidebar-reorder-button"
+        aria-label={downLabel}
+        title={downLabel}
+        disabled={!canMoveDown}
+        onClick={() => onMove(1)}
+      >
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+    </span>
+  );
 }
 
 // ── Provider detail ───────────────────────────────────────────────────────────
@@ -3163,6 +3241,43 @@ export function ModelsConfig({
       apiKeyProviders.some((provider) => provider.id === id);
     return authListed && !managed;
   });
+
+  /**
+   * Moves a custom provider past its visible neighbour. Entries the sidebar
+   * hides (an overrides-only managed provider) keep their slot, so one arrow
+   * press always moves the row one place on screen.
+   */
+  const moveProvider = useCallback(
+    (name: string, offset: -1 | 1) => {
+      const visible = providers.map(([id]) => id);
+      const index = visible.indexOf(name);
+      const neighbour = visible[index + offset];
+      if (index < 0 || !neighbour) return;
+      setConfig((prev) => moveProviderEntry(prev, name, neighbour));
+      setSavedOk(false);
+    },
+    [providers]
+  );
+
+  /** Moves a model within its provider; saved slot tracking follows so Save does not read a move as renames. */
+  const moveModel = useCallback(
+    (providerName: string, index: number, offset: -1 | 1) => {
+      const count = config.providers?.[providerName]?.models?.length ?? 0;
+      const target = index + offset;
+      if (target < 0 || target >= count) return;
+      const slots = savedModelIdsRef.current.get(providerName);
+      const movedSlots = slots ? moveItem(slots, index, target) : null;
+      if (movedSlots) savedModelIdsRef.current.set(providerName, movedSlots);
+      setConfig((prev) => moveModelEntry(prev, providerName, index, target));
+      setSelection((prev) =>
+        prev?.type === 'model' && prev.providerName === providerName
+          ? { ...prev, index: movedIndex(prev.index, index, target) }
+          : prev
+      );
+      setSavedOk(false);
+    },
+    [config.providers]
+  );
   // `12/40` next to a provider makes a narrowed selector visible at a glance.
   const scopeBadge = (providerId: string) => {
     const label = providerBadgeLabel(enabledModels.view, providerId);
@@ -3174,6 +3289,7 @@ export function ModelsConfig({
   // Resolve current detail
   const detailContent = (() => {
     if (!selection) return null;
+    if (selection.type === 'defaults') return <NewSessionDefaults cwd={cwd} />;
     if (selection.type === 'oauth') {
       const p = oauthProviders.find((p) => p.id === selection.providerId);
       if (!p) return null;
@@ -3256,6 +3372,29 @@ export function ModelsConfig({
           {/* Left: tree */}
           <ConfigSidebar>
             <ConfigSidebarList>
+              <ConfigSidebarItem
+                active={selection?.type === 'defaults'}
+                onClick={() => setSelection({ type: 'defaults' })}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ color: 'var(--text-dim)', flexShrink: 0 }}
+                  aria-hidden="true"
+                >
+                  <path d="m12 3 2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.6 9.1l5.8-.8L12 3Z" />
+                </svg>
+                <ConfigSidebarText className="is-grow">{t('models.defaults')}</ConfigSidebarText>
+              </ConfigSidebarItem>
+              {(activeOAuth.length > 0 || activeApiKey.length > 0 || providers.length > 0) && (
+                <div style={{ margin: '4px 8px', borderTop: '1px solid var(--border)' }} />
+              )}
               {/* Active OAuth subscriptions */}
               {activeOAuth.map((p) => {
                 const isSelected = selection?.type === 'oauth' && selection.providerId === p.id;
@@ -3299,42 +3438,53 @@ export function ModelsConfig({
                   {t('i18n.loading')}
                 </div>
               ) : (
-                providers.map(([pName, pData]) => {
+                providers.map(([pName, pData], providerIndex) => {
                   const isProviderSelected =
                     selection?.type === 'provider' && selection.name === pName;
                   const models = pData.models ?? [];
                   return (
                     <div key={pName} style={{ marginBottom: 2 }}>
                       {/* Provider row */}
-                      <ConfigSidebarItem
-                        onClick={() => setSelection({ type: 'provider', name: pName })}
-                        active={isProviderSelected}
-                      >
-                        <svg
-                          width="11"
-                          height="11"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          style={{ color: 'var(--text-dim)', flexShrink: 0 }}
+                      <div className="models-sidebar-row">
+                        <ConfigSidebarItem
+                          onClick={() => setSelection({ type: 'provider', name: pName })}
+                          active={isProviderSelected}
                         >
-                          <rect x="4" y="4" width="16" height="16" rx="2" />
-                          <rect x="9" y="9" width="6" height="6" />
-                          <line x1="9" y1="1" x2="9" y2="4" />
-                          <line x1="15" y1="1" x2="15" y2="4" />
-                          <line x1="9" y1="20" x2="9" y2="23" />
-                          <line x1="15" y1="20" x2="15" y2="23" />
-                          <line x1="20" y1="9" x2="23" y2="9" />
-                          <line x1="20" y1="14" x2="23" y2="14" />
-                          <line x1="1" y1="9" x2="4" y2="9" />
-                          <line x1="1" y1="14" x2="4" y2="14" />
-                        </svg>
-                        <ConfigSidebarText className="is-grow">{pName}</ConfigSidebarText>
-                        {scopeBadge(pName)}
-                      </ConfigSidebarItem>
+                          <svg
+                            width="11"
+                            height="11"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            style={{ color: 'var(--text-dim)', flexShrink: 0 }}
+                          >
+                            <rect x="4" y="4" width="16" height="16" rx="2" />
+                            <rect x="9" y="9" width="6" height="6" />
+                            <line x1="9" y1="1" x2="9" y2="4" />
+                            <line x1="15" y1="1" x2="15" y2="4" />
+                            <line x1="9" y1="20" x2="9" y2="23" />
+                            <line x1="15" y1="20" x2="15" y2="23" />
+                            <line x1="20" y1="9" x2="23" y2="9" />
+                            <line x1="20" y1="14" x2="23" y2="14" />
+                            <line x1="1" y1="9" x2="4" y2="9" />
+                            <line x1="1" y1="14" x2="4" y2="14" />
+                          </svg>
+                          <ConfigSidebarText className="is-grow">{pName}</ConfigSidebarText>
+                          {scopeBadge(pName)}
+                        </ConfigSidebarItem>
+                        {providers.length > 1 && (
+                          <ReorderControls
+                            upLabel={t('models.moveProviderUp', { provider: pName })}
+                            downLabel={t('models.moveProviderDown', { provider: pName })}
+                            canMoveUp={providerIndex > 0}
+                            canMoveDown={providerIndex < providers.length - 1}
+                            onMove={(offset) => moveProvider(pName, offset)}
+                          />
+                        )}
+                      </div>
 
                       {/* Model rows */}
                       {models.map((m, i) => {
@@ -3342,36 +3492,47 @@ export function ModelsConfig({
                           selection?.type === 'model' &&
                           selection.providerName === pName &&
                           selection.index === i;
+                        const modelLabel = m.id || t('i18n.newModel');
                         return (
-                          <ConfigSidebarItem
-                            key={i}
-                            active={isModelSelected}
-                            className="models-sidebar-indented-item"
-                            onClick={() =>
-                              setSelection({ type: 'model', providerName: pName, index: i })
-                            }
-                          >
-                            <ConfigSidebarText
-                              className="is-grow"
-                              style={{ color: m.id ? 'var(--text-muted)' : 'var(--text-dim)' }}
+                          <div key={i} className="models-sidebar-row">
+                            <ConfigSidebarItem
+                              active={isModelSelected}
+                              className="models-sidebar-indented-item"
+                              onClick={() =>
+                                setSelection({ type: 'model', providerName: pName, index: i })
+                              }
                             >
-                              {m.id || t('i18n.newModel')}
-                            </ConfigSidebarText>
-                            {m.reasoning && (
-                              <span
-                                style={{
-                                  fontSize: 9,
-                                  padding: '1px 4px',
-                                  background: 'rgba(99,102,241,0.12)',
-                                  color: 'rgba(99,102,241,0.8)',
-                                  borderRadius: 3,
-                                  flexShrink: 0
-                                }}
+                              <ConfigSidebarText
+                                className="is-grow"
+                                style={{ color: m.id ? 'var(--text-muted)' : 'var(--text-dim)' }}
                               >
-                                T
-                              </span>
+                                {modelLabel}
+                              </ConfigSidebarText>
+                              {m.reasoning && (
+                                <span
+                                  style={{
+                                    fontSize: 9,
+                                    padding: '1px 4px',
+                                    background: 'rgba(99,102,241,0.12)',
+                                    color: 'rgba(99,102,241,0.8)',
+                                    borderRadius: 3,
+                                    flexShrink: 0
+                                  }}
+                                >
+                                  T
+                                </span>
+                              )}
+                            </ConfigSidebarItem>
+                            {models.length > 1 && (
+                              <ReorderControls
+                                upLabel={t('models.moveModelUp', { model: modelLabel })}
+                                downLabel={t('models.moveModelDown', { model: modelLabel })}
+                                canMoveUp={i > 0}
+                                canMoveDown={i < models.length - 1}
+                                onMove={(offset) => moveModel(pName, i, offset)}
+                              />
                             )}
-                          </ConfigSidebarItem>
+                          </div>
                         );
                       })}
 

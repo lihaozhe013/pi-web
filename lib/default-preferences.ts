@@ -1,7 +1,8 @@
 import { join } from 'path';
 import type { ThinkingLevel } from '@earendil-works/pi-agent-core';
-import type { SettingsManager } from '@earendil-works/pi-coding-agent';
+import { getAgentDir, type SettingsManager } from '@earendil-works/pi-coding-agent';
 import { displaySettingsPath } from './enabled-models-runtime';
+import { getGlobalSettingsPath, updateGlobalSettings } from './global-settings-file';
 
 const THINKING_LEVELS = new Set<ThinkingLevel>([
   'off',
@@ -21,6 +22,8 @@ export function isThinkingLevel(value: unknown): value is ThinkingLevel {
 export interface DefaultPreferencesEdit {
   model?: { provider: string; modelId: string };
   thinkingLevel?: ThinkingLevel;
+  /** Drop `defaultThinkingLevel` so new chats use pi's own level for the model. */
+  clearThinkingLevel?: boolean;
 }
 
 /**
@@ -41,7 +44,7 @@ export function shadowingProjectKeys(
     if (project.defaultProvider !== undefined) keys.push('defaultProvider');
     if (project.defaultModel !== undefined) keys.push('defaultModel');
   }
-  if (edit.thinkingLevel && project.defaultThinkingLevel !== undefined)
+  if ((edit.thinkingLevel || edit.clearThinkingLevel) && project.defaultThinkingLevel !== undefined)
     keys.push('defaultThinkingLevel');
   return keys;
 }
@@ -60,7 +63,8 @@ export function projectSettingsPath(cwd: string): string {
  */
 export async function writeDefaultPreferences(
   settingsManager: SettingsManager,
-  edit: DefaultPreferencesEdit
+  edit: DefaultPreferencesEdit,
+  agentDir = getAgentDir()
 ): Promise<void> {
   const loadErrors = settingsManager.drainErrors();
   const globalLoadError = loadErrors.find((entry) => entry.scope === 'global');
@@ -71,4 +75,11 @@ export async function writeDefaultPreferences(
   await settingsManager.flush();
   const errors = settingsManager.drainErrors();
   if (errors.length > 0) throw errors[0].error;
+  // SettingsManager has no setter that removes a key, so the clear is a locked
+  // file edit on the same path it writes; the instance is dropped afterwards.
+  if (edit.clearThinkingLevel) {
+    await updateGlobalSettings(getGlobalSettingsPath(agentDir), (settings) => {
+      delete settings.defaultThinkingLevel;
+    });
+  }
 }
