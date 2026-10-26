@@ -37,7 +37,7 @@
   "scripts": {
     "dev": "node node_modules/next/dist/bin/next dev -H 127.0.0.1 -p 30141",
     "dev:lan": "node node_modules/next/dist/bin/next dev -H 0.0.0.0 -p 30141",
-    "build": "node node_modules/next/dist/bin/next build --webpack",
+    "build": "node node_modules/next/dist/bin/next build",
     "start": "node node_modules/next/dist/bin/next start -H 127.0.0.1 -p 30141",
     "start:lan": "node node_modules/next/dist/bin/next start -H 0.0.0.0 -p 30141",
     "format": "prettier . --write",
