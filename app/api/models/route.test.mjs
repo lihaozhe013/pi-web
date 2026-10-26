@@ -24,6 +24,10 @@ process.env.PI_OFFLINE = '1';
 
 await mkdir(agentDir, { recursive: true });
 await writeFile(
+  join(agentDir, 'settings.json'),
+  JSON.stringify({ modelThinkingLevels: { 'acme/one': 'high' } })
+);
+await writeFile(
   join(agentDir, 'models.json'),
   JSON.stringify(
     {
@@ -90,6 +94,12 @@ test('a removed worktree is listed from the repo it branched from', async () => 
     ['acme:one'],
     'an empty list would make the comparison say nothing'
   );
+});
+
+test('a per-model reasoning default is listed for the settings panel', async () => {
+  const listed = await models(repo);
+  assert.equal(listed.status, 200);
+  assert.deepEqual(listed.body.modelThinkingLevels, { 'acme/one': 'high' });
 });
 
 test('the repo a removed worktree falls back to is authorized as any other cwd', async () => {

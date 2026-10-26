@@ -1211,12 +1211,22 @@ export class AgentSessionWrapper {
           if (isDeepStrictEqual(previous, model)) return { id: model.id, provider: model.provider };
           const sameId = previous?.provider === model.provider && previous.id === model.id;
           const thinkingLevel = this.inner.agent.state?.thinkingLevel;
+          // Settings › Models writes per-model reasoning defaults to the global file
+          // while chats are open; reload so the switch below reads them. A broken
+          // file keeps the settings this session already had.
+          await this.inner.settingsManager.reload().catch(() => undefined);
           await this.inner.setModel(model);
           // A reselect to apply an edit is not a new model choice: keep the level (clamped by the SDK).
           if (sameId && thinkingLevel) this.inner.setThinkingLevel(thinkingLevel);
           invalidateModelsCache();
           invalidateSessionListCache();
-          return { id: model.id, provider: model.provider };
+          // The level this switch settled on, after a saved per-model default and
+          // capability clamping: a fresh composer shows it without another fetch.
+          return {
+            id: model.id,
+            provider: model.provider,
+            thinkingLevel: this.inner.agent.state?.thinkingLevel
+          };
         }
 
         case 'fork': {

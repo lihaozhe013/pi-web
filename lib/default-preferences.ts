@@ -3,19 +3,12 @@ import type { ThinkingLevel } from '@earendil-works/pi-agent-core';
 import { getAgentDir, type SettingsManager } from '@earendil-works/pi-coding-agent';
 import { displaySettingsPath } from './enabled-models-runtime';
 import { getGlobalSettingsPath, updateGlobalSettings } from './global-settings-file';
+import { THINKING_LEVELS } from './thinking-levels';
 
-const THINKING_LEVELS = new Set<ThinkingLevel>([
-  'off',
-  'minimal',
-  'low',
-  'medium',
-  'high',
-  'xhigh',
-  'max'
-]);
+const VALID_THINKING_LEVELS = new Set<ThinkingLevel>(THINKING_LEVELS);
 
 export function isThinkingLevel(value: unknown): value is ThinkingLevel {
-  return typeof value === 'string' && THINKING_LEVELS.has(value as ThinkingLevel);
+  return typeof value === 'string' && VALID_THINKING_LEVELS.has(value as ThinkingLevel);
 }
 
 /** What the model and reasoning selectors' "save as default" action writes. */
@@ -51,6 +44,53 @@ export function shadowingProjectKeys(
 
 export function projectSettingsPath(cwd: string): string {
   return displaySettingsPath(join(cwd, '.pi', 'settings.json'));
+}
+
+/** A per-model reasoning level, which applies when a chat switches to that model. */
+export interface ModelThinkingLevelEdit {
+  provider: string;
+  modelId: string;
+  thinkingLevel?: ThinkingLevel;
+  /** Drop the model's entry so it follows the global default again. */
+  clear?: boolean;
+}
+
+/**
+ * The project entry that would hide this model's global reasoning default.
+ *
+ * `modelThinkingLevels` merges per key, so only a project entry for the same
+ * model shadows the global one; other models' project entries do not.
+ */
+export function shadowingProjectModelThinkingLevel(
+  settingsManager: SettingsManager,
+  provider: string,
+  modelId: string
+): string | undefined {
+  return settingsManager.getProjectSettings().modelThinkingLevels?.[`${provider}/${modelId}`];
+}
+
+/**
+ * Persist a model's default reasoning level in the global settings file.
+ *
+ * Like `writeDefaultPreferences`, this drains `SettingsManager`'s storage
+ * errors: a level that did not reach disk must not report success.
+ */
+export async function writeModelThinkingLevel(
+  settingsManager: SettingsManager,
+  edit: ModelThinkingLevelEdit
+): Promise<void> {
+  const loadErrors = settingsManager.drainErrors();
+  const globalLoadError = loadErrors.find((entry) => entry.scope === 'global');
+  if (globalLoadError) throw globalLoadError.error;
+  if (edit.clear) {
+    if (settingsManager.getModelThinkingLevel(edit.provider, edit.modelId) !== undefined)
+      settingsManager.removeModelThinkingLevel(edit.provider, edit.modelId);
+  } else if (edit.thinkingLevel) {
+    settingsManager.setModelThinkingLevel(edit.provider, edit.modelId, edit.thinkingLevel);
+  }
+  await settingsManager.flush();
+  const errors = settingsManager.drainErrors();
+  if (errors.length > 0) throw errors[0].error;
 }
 
 /**

@@ -1618,6 +1618,11 @@ export const enLocale: LocalePlugin = {
     'models.defaultsHelp':
       "The model and reasoning level a new chat starts with. Picking one saves it to pi's global settings right away; a project's .pi/settings.json can still override it.",
     'models.defaultsAutomatic': 'Automatic (Pi default)',
+    'models.modelReasoning': 'Reasoning per model',
+    'models.modelReasoningHelp':
+      "Set the reasoning level a model uses whenever a chat switches to it, including the first model of a new chat. Automatic uses the global default, or the chat's current level when none is set.",
+    'models.modelReasoningFor': 'Reasoning for {model}',
+    'models.modelReasoningEmpty': 'No available models to configure.',
     'models.moveProviderUp': 'Move {provider} up',
     'models.moveProviderDown': 'Move {provider} down',
     'models.moveModelUp': 'Move {model} up',

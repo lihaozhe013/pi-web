@@ -51,6 +51,7 @@ function setup(fetchImpl) {
     thinkingLevelOverrideRef: { current: null },
     newSessionModelOverrideRef: { current: null },
     thinkingLevelPinsRef: { current: {} },
+    modelThinkingLevelDefaultsRef: { current: {} },
     defaultThinkingLevelRef: { current: null },
     asConcreteThinkingLevel: (value) => (!value || value === 'auto' ? null : value),
     fetch: fetchImpl,

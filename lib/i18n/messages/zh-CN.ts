@@ -1512,6 +1512,11 @@ export const zhCNLocale: LocalePlugin = {
     'models.defaultsHelp':
       '新会话开始使用的模型和推理级别。选择后会立即保存到 pi 的全局设置；项目里的 .pi/settings.json 仍可覆盖它。',
     'models.defaultsAutomatic': '自动（Pi 默认）',
+    'models.modelReasoning': '各模型推理级别',
+    'models.modelReasoningHelp':
+      '设置切换到该模型时使用的推理级别，新会话的初始模型也会使用。选择“自动”会使用全局默认值；没有全局默认值时沿用当前会话的级别。',
+    'models.modelReasoningFor': '{model} 的推理级别',
+    'models.modelReasoningEmpty': '没有可配置的模型。',
     'models.moveProviderUp': '上移 {provider}',
     'models.moveProviderDown': '下移 {provider}',
     'models.moveModelUp': '上移 {model}',

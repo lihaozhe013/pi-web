@@ -92,6 +92,7 @@ async function loadModels(cwd: string): Promise<ModelsData> {
       savedDefaultThinkingLevel: settings.getDefaultThinkingLevel() ?? null,
       thinkingLevels,
       thinkingLevelMaps,
+      modelThinkingLevels: settings.getAllModelThinkingLevels(),
       thinkingLevelPins,
       ...(warnings.length > 0 ? { modelScopeWarnings: warnings } : {})
     },
@@ -107,6 +108,7 @@ const EMPTY_MODELS: ModelsData = {
   savedDefaultThinkingLevel: null,
   thinkingLevels: {},
   thinkingLevelMaps: {},
+  modelThinkingLevels: {},
   thinkingLevelPins: {}
 };
 

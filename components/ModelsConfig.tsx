@@ -66,6 +66,7 @@ import {
   type EnabledModelsController
 } from './EnabledModelsSection';
 import { providerBadgeLabel } from './enabled-models-helpers';
+import { ModelReasoningDefaults } from './ModelReasoningDefaults';
 import { NewSessionDefaults } from './NewSessionDefaults';
 import { OAuthPastePanel } from './OAuthPastePanel';
 import { ProviderIcon } from './ProviderIcon';
@@ -164,6 +165,7 @@ type ModelCatalogState =
 
 type Selection =
   | { type: 'defaults' }
+  | { type: 'reasoning' }
   | { type: 'provider'; name: string }
   | { type: 'model'; providerName: string; index: number }
   | { type: 'oauth'; providerId: string }
@@ -177,6 +179,7 @@ function readRememberedSelection(): Selection | null {
     if (value === null || typeof value !== 'object') return null;
     const selection = value as Record<string, unknown>;
     if (selection.type === 'defaults') return { type: 'defaults' };
+    if (selection.type === 'reasoning') return { type: 'reasoning' };
     if (selection.type === 'provider' && typeof selection.name === 'string') {
       return { type: 'provider', name: selection.name };
     }
@@ -202,7 +205,7 @@ function readRememberedSelection(): Selection | null {
 }
 
 function customSelectionExists(config: ModelsJson, selection: Selection): boolean {
-  if (selection.type === 'defaults') return true;
+  if (selection.type === 'defaults' || selection.type === 'reasoning') return true;
   if (selection.type === 'provider') return Boolean(config.providers?.[selection.name]);
   if (selection.type !== 'model') return true;
   return Boolean(config.providers?.[selection.providerName]?.models?.[selection.index]);
@@ -3297,6 +3300,9 @@ export function ModelsConfig({
     providerOrder
   );
 
+  /** The providers in sidebar order, which the reasoning pane groups by too. */
+  const orderedProviders = sidebarProviders.map(({ id, name }) => ({ id, name }));
+
   /** Provider arrows rewrite the browser-local order right away; Save is only for models.json. */
   const moveProvider = useCallback(
     (id: string, offset: -1 | 1) => {
@@ -3312,6 +3318,8 @@ export function ModelsConfig({
   const detailContent = (() => {
     if (!selection) return null;
     if (selection.type === 'defaults') return <NewSessionDefaults cwd={cwd} />;
+    if (selection.type === 'reasoning')
+      return <ModelReasoningDefaults cwd={cwd} providers={orderedProviders} />;
     if (selection.type === 'oauth') {
       const p = oauthProviders.find((p) => p.id === selection.providerId);
       if (!p) return null;
@@ -3413,6 +3421,30 @@ export function ModelsConfig({
                   <path d="m12 3 2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.6 9.1l5.8-.8L12 3Z" />
                 </svg>
                 <ConfigSidebarText className="is-grow">{t('models.defaults')}</ConfigSidebarText>
+              </ConfigSidebarItem>
+              <ConfigSidebarItem
+                active={selection?.type === 'reasoning'}
+                onClick={() => setSelection({ type: 'reasoning' })}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ color: 'var(--text-dim)', flexShrink: 0 }}
+                  aria-hidden="true"
+                >
+                  <path d="M9.5 2A5.5 5.5 0 0 0 4 7.5c0 1.7.78 3.21 2 4.21V14a1 1 0 0 0 1 1h5a1 1 0 0 0 1-1v-2.29c1.22-1 2-2.51 2-4.21A5.5 5.5 0 0 0 9.5 2z" />
+                  <line x1="7" y1="18" x2="12" y2="18" />
+                  <line x1="8" y1="21" x2="11" y2="21" />
+                </svg>
+                <ConfigSidebarText className="is-grow">
+                  {t('models.modelReasoning')}
+                </ConfigSidebarText>
               </ConfigSidebarItem>
               {sidebarProviders.length > 0 && (
                 <div style={{ margin: '4px 8px', borderTop: '1px solid var(--border)' }} />

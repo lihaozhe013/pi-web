@@ -3,21 +3,9 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useI18n } from '@/hooks/useI18n';
 import type { ModelsData } from '@/lib/models-cache';
+import { THINKING_LEVELS, THINKING_LEVEL_LABEL_KEYS } from '@/lib/thinking-levels';
 import { ConfigField, ConfigSectionTitle } from './SettingsUi';
 import { ModelSelector } from './ModelSelector';
-
-/** pi's thinking levels, offered when the model list has no per-model list. */
-const FALLBACK_THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
-
-const THINKING_LEVEL_LABEL_KEYS: Record<string, string> = {
-  off: 'chat.thinkingOff',
-  minimal: 'chat.thinkingMinimal',
-  low: 'chat.thinkingLow',
-  medium: 'chat.thinkingMedium',
-  high: 'chat.thinkingHigh',
-  xhigh: 'chat.thinkingXhigh',
-  max: 'chat.thinkingMax'
-};
 
 const selectStyle: CSSProperties = {
   width: '100%',
@@ -120,8 +108,8 @@ export function NewSessionDefaults({ cwd }: { cwd?: string | null }) {
 
   const model = data?.defaultModel ?? null;
   const modelKey = model ? `${model.provider}:${model.modelId}` : null;
-  const supportedLevels =
-    (modelKey ? data?.thinkingLevels?.[modelKey] : undefined) ?? FALLBACK_THINKING_LEVELS;
+  const supportedLevels: readonly string[] =
+    (modelKey ? data?.thinkingLevels?.[modelKey] : undefined) ?? THINKING_LEVELS;
   const savedLevel = data?.savedDefaultThinkingLevel;
   // No saved level means pi chooses: showing the first supported level instead
   // would name a level the user never picked.

@@ -1516,6 +1516,11 @@ export const zhTWLocale: LocalePlugin = {
     'models.defaultsHelp':
       '新工作階段開始使用的模型與推理層級。選擇後會立即儲存到 pi 的全域設定；專案裡的 .pi/settings.json 仍可覆寫它。',
     'models.defaultsAutomatic': '自動（Pi 預設）',
+    'models.modelReasoning': '各模型推理層級',
+    'models.modelReasoningHelp':
+      '設定切換到該模型時使用的推理層級，新工作階段的初始模型也會使用。選擇「自動」會使用全域預設值；沒有全域預設值時沿用目前工作階段的層級。',
+    'models.modelReasoningFor': '{model} 的推理層級',
+    'models.modelReasoningEmpty': '沒有可設定的模型。',
     'models.moveProviderUp': '上移 {provider}',
     'models.moveProviderDown': '下移 {provider}',
     'models.moveModelUp': '上移 {model}',

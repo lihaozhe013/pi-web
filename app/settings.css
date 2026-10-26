@@ -311,6 +311,70 @@
   font-size: 12px;
 }
 
+/* Per-model reasoning defaults: one compact select per model, grouped by provider. */
+.model-reasoning-list {
+  max-height: min(440px, 52vh);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-panel);
+  overflow-y: auto;
+}
+
+.model-reasoning-group-title {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: 0;
+  padding: 6px 9px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.model-reasoning-group + .model-reasoning-group .model-reasoning-group-title {
+  border-top: 1px solid var(--border);
+}
+
+.model-reasoning-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 6px 9px;
+}
+
+.model-reasoning-row + .model-reasoning-row {
+  border-top: 1px solid var(--border);
+}
+
+.model-reasoning-select {
+  flex-shrink: 0;
+  max-width: 140px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  outline: none;
+  background: var(--bg);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 11px;
+}
+
+.model-reasoning-select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.model-reasoning-select:disabled {
+  opacity: 0.55;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .models-sidebar-reorder {
     transition: none;

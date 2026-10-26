@@ -385,6 +385,8 @@ type ModelsResponse = {
   savedDefaultThinkingLevel?: string | null;
   thinkingLevels?: Record<string, string[]>;
   thinkingLevelMaps?: Record<string, Record<string, string | null>>;
+  /** `provider/modelId` → reasoning level saved for that model. */
+  modelThinkingLevels?: Record<string, string>;
   thinkingLevelPins?: Record<string, string>;
   modelError?: string;
   modelScopeWarnings?: string[];
@@ -568,6 +570,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     initialChoices?.thinkingLevel ?? null
   );
   const thinkingLevelPinsRef = useRef<Record<string, string>>({});
+  const modelThinkingLevelDefaultsRef = useRef<Record<string, string>>({});
   const defaultThinkingLevelRef = useRef<ConcreteThinkingLevel | null>(null);
   const promptRunIdRef = useRef(0);
   const optimisticUserMessageKeyRef = useRef<string | null>(null);
@@ -2411,15 +2414,30 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         setNewSessionModel(selectedModel);
         setPendingModel(selectedModel);
         if (thinkingLevelOverrideRef.current === null) {
-          const pinned = thinkingLevelPinsRef.current[`${provider}/${modelId}`];
+          const key = `${provider}/${modelId}`;
+          // A model's saved default outranks the global one, as it does when the
+          // session starts; without the map a fresh chat would keep showing the
+          // previous model's level.
           setNewSessionDefaultThinkingLevel(
-            asConcreteThinkingLevel(pinned) ?? defaultThinkingLevelRef.current
+            asConcreteThinkingLevel(modelThinkingLevelDefaultsRef.current[key]) ??
+              asConcreteThinkingLevel(thinkingLevelPinsRef.current[key]) ??
+              asConcreteThinkingLevel(savedDefaultThinkingLevel) ??
+              defaultThinkingLevelRef.current
           );
         }
         const sid = sessionIdRef.current ?? (await ensuringNewSessionRef.current);
         if (!sid) return;
         try {
-          await sendAgentCommand(sid, { type: 'set_model', provider, modelId });
+          const result = await sendAgentCommand<{ thinkingLevel?: string }>(sid, {
+            type: 'set_model',
+            provider,
+            modelId
+          });
+          // The server applies a saved per-model default even when this page's
+          // model list predates it; show what the session actually uses.
+          if (thinkingLevelOverrideRef.current === null && result?.thinkingLevel) {
+            setNewSessionDefaultThinkingLevel(asConcreteThinkingLevel(result.thinkingLevel));
+          }
         } catch (e) {
           console.error('Failed to set model:', e);
         }
@@ -2459,7 +2477,14 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         setModelSwitching(false);
       }
     },
-    [addNotice, currentModelOverride, isNew, loadSession, setNewSessionModel]
+    [
+      addNotice,
+      currentModelOverride,
+      isNew,
+      loadSession,
+      savedDefaultThinkingLevel,
+      setNewSessionModel
+    ]
   );
 
   const handleCompact = useCallback(async () => {
@@ -2523,6 +2548,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       setModelScopeWarnings(d.modelScopeWarnings ?? []);
       setModelThinkingLevels(d.thinkingLevels ?? {});
       setModelThinkingLevelMaps(d.thinkingLevelMaps ?? {});
+      modelThinkingLevelDefaultsRef.current = d.modelThinkingLevels ?? {};
       const nextModelList = d.modelList ?? [];
       setModelList(nextModelList);
       const displayDefaultModel = d.defaultModel
@@ -2561,11 +2587,15 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
               provider: displayDefaultModel.provider,
               modelId: displayDefaultModel.id
             };
-        const pinned =
-          startModel && d.thinkingLevelPins?.[`${startModel.provider}/${startModel.modelId}`];
+        const startKey = startModel && `${startModel.provider}/${startModel.modelId}`;
+        const pinned = startKey ? d.thinkingLevelPins?.[startKey] : undefined;
+        const perModel = startKey ? d.modelThinkingLevels?.[startKey] : undefined;
         if (thinkingLevelOverrideRef.current === null) {
           setNewSessionDefaultThinkingLevel(
-            asConcreteThinkingLevel(pinned) ?? defaultThinkingLevelRef.current
+            asConcreteThinkingLevel(perModel) ??
+              asConcreteThinkingLevel(pinned) ??
+              asConcreteThinkingLevel(d.savedDefaultThinkingLevel) ??
+              defaultThinkingLevelRef.current
           );
         }
       }

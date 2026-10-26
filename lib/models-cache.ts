@@ -8,6 +8,8 @@ export interface ModelsData {
   savedDefaultThinkingLevel: string | null;
   thinkingLevels: Record<string, string[]>;
   thinkingLevelMaps: Record<string, Record<string, string | null>>;
+  /** `provider/modelId` → reasoning level saved for that model, as pi spells the key. */
+  modelThinkingLevels: Record<string, string>;
   /** `provider/modelId` → thinking level pinned by an `enabledModels` `:level` suffix. */
   thinkingLevelPins: Record<string, string>;
   modelError?: string;
