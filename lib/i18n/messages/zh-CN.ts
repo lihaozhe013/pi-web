@@ -621,6 +621,8 @@ export const zhCNLocale: LocalePlugin = {
     'chat.outputLocal': '输出保留在本地',
     'chat.outputModel': '输出发送给模型',
     'chat.configuredTools': '取自 settings.json 的 defaultTools',
+    'chat.planMode': '计划',
+    'chat.planModeTools': '只读讨论，会主动提问',
     'chat.chatOnly': '仅聊天',
     'chat.readOnlyTools': '{count} 个只读内置工具',
     'chat.builtInTools': '{count} 个内置工具',

@@ -621,6 +621,8 @@ export const zhTWLocale: LocalePlugin = {
     'chat.outputLocal': '輸出保留在本地',
     'chat.outputModel': '輸出會傳送給模型',
     'chat.configuredTools': '取自 settings.json 的 defaultTools',
+    'chat.planMode': '計畫',
+    'chat.planModeTools': '唯讀討論，會主動提問',
     'chat.chatOnly': '僅聊天',
     'chat.readOnlyTools': '{count} 個只讀內建工具',
     'chat.builtInTools': '{count} 個內建工具',

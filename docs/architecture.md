@@ -35,6 +35,26 @@ sessions in process; Bun manages dependencies and script invocation.
 4. The transcript renders replies, tool activity, and errors. Display filtering is separate from
    persisted history and model context.
 
+## Modes and questions
+
+`lib/tool-presets.ts` selects the coding tools a session may call. Plan is the one preset that also
+carries a work mode, because it pins the same read-only tools as Read-only; the mode is stored in
+the session log (`lib/work-mode.ts`, `pi-web:work-mode`) and travels next to the tool list in
+`GET /api/sessions/[id]` and `get_tools`.
+
+`lib/plan-mode-extension.ts` reads that entry on every prompt and tool call:
+
+- The prompt gains the plan guidelines, so the model discusses and asks before proposing changes.
+- Write, shell, patch, and subagent tools are refused in `tool_call`. The tool selection alone is
+  not enough: a carried extension tool is outside the pinned list. MCP writes stay governed by the
+  existing `readOnlyHint` policy, and other installed extension tools keep their own semantics.
+- Leaving the mode needs no rebuild; the next message simply runs without the guidelines.
+
+`lib/ask-user-extension.ts` registers `ask_user` in every normal (non-Chat-only) session. The model
+asks one focused question with optional options; the browser shows it through the same extension UI
+dialogs every other extension uses, and the answer returns as the tool result. A dismissed dialog is
+reported as no answer, never as agreement.
+
 Pi sessions normally live under `~/.pi/agent/sessions/`. The app also maintains UI state such as
 session pins and archive choices. Avoid unnecessary changes to Pi's data format or duplicate agent
 configuration.

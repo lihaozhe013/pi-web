@@ -650,6 +650,25 @@ test('renders the read-only tool preset as the active selection', () => {
   assert.match(html, />read-only<\/span>/);
 });
 
+test('renders the Plan preset with its own label', () => {
+  const html = renderToStaticMarkup(
+    React.createElement(
+      I18nProvider,
+      null,
+      React.createElement(ChatInput, {
+        onSend() {},
+        onAbort() {},
+        onToolPresetChange() {},
+        isStreaming: false,
+        toolPreset: 'plan'
+      })
+    )
+  );
+
+  assert.match(html, /title="Change tool preset: Plan"/);
+  assert.match(html, />Plan<\/span>/);
+});
+
 test('renders the empty tool preset as Chat only', () => {
   const html = renderToStaticMarkup(
     React.createElement(

@@ -14,6 +14,8 @@ import {
   type ToolDefinition
 } from '@earendil-works/pi-coding-agent';
 import { McpHost, type McpHostOptions } from './mcp-host';
+import { createAskUserExtension } from './ask-user-extension';
+import { createPlanModeExtension } from './plan-mode-extension';
 import { createPiWebMcpTransportFactory } from './mcp-transport';
 import {
   loadPiSdkInternals,
@@ -522,6 +524,10 @@ export async function createPiWebBuiltinExtensions(
   });
   return {
     extensions: [
+      // Pi Web's own session tools load first, so a question or a Plan-mode refusal answers
+      // before the MCP and subagent policies below run.
+      createAskUserExtension(),
+      createPlanModeExtension(),
       builtin('codemode', sandbox.available ? createCodemodeExtension() : unavailableExtension),
       ...extensions
     ],

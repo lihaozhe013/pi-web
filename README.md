@@ -11,6 +11,8 @@ its source project. It is not an IDE or an all-in-one manager.
 - Choose a working directory and create or resume sessions.
 - Send messages, attachments, and file references.
 - Read streaming replies and inspect tool execution, results, and errors.
+- Discuss a change in Plan, a read-only mode where the agent asks you questions before anything is
+  written.
 - Access the controls and information needed for the conversation.
 
 Pi provides the agent capabilities; this project provides their presentation and interaction.

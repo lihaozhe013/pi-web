@@ -18,6 +18,7 @@ import { computeSessionRevision } from '@/lib/session-revision';
 import type { SessionEntry } from '@/lib/types';
 import { readSubagentRun, readSubagentSessionResources } from '@/lib/subagents';
 import { readSessionToolSelection } from '@/lib/session-tool-selection';
+import { readWorkMode } from '@/lib/work-mode';
 import { jsonResponse } from '@/lib/json-response';
 import { deleteSessions } from '@/lib/session-delete';
 import {
@@ -121,6 +122,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const toolNames =
       readSubagentSessionResources(entries as never)?.tools ??
       readSessionToolSelection(entries as never);
+    // Plan and Read-only pin the same tools, so the stored mode is reported beside them.
+    const workMode = readWorkMode(entries as never);
     const info = header
       ? (
           await attachSessionProjectInfo([
@@ -184,6 +187,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
           stats,
           totalActiveMs,
           ...(toolNames !== undefined ? { toolNames } : {}),
+          ...(workMode !== undefined ? { mode: workMode } : {}),
           ...(wrapperRebuilt ? { wrapperRebuilt: true } : {})
         })
       ) ??
@@ -199,6 +203,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         stats,
         totalActiveMs,
         ...(toolNames !== undefined ? { toolNames } : {}),
+        ...(workMode !== undefined ? { mode: workMode } : {}),
         ...(wrapperRebuilt ? { wrapperRebuilt: true } : {})
       })
     );

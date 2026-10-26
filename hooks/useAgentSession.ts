@@ -33,11 +33,13 @@ import { clearDraft, getDraft, rekeyDraft, restoreDraftSubmission } from '@/lib/
 import { getPreferredToolPreset, setPreferredToolPreset } from '@/lib/tool-preset-preference';
 import {
   CONFIGURED_TOOL_PRESET,
-  getPresetFromToolNames,
+  getPresetForSession,
   getToolNamesForPreset,
+  getWorkModeForPreset,
   type ToolEntry,
   type ToolPreset
 } from '@/lib/tool-presets';
+import type { WorkMode } from '@/lib/work-mode';
 import type { SessionStatsInfo } from '@/lib/pi-types';
 import { mergeSessionStats, type SessionFileStats } from '@/lib/session-stats';
 import { userMessageKey } from '@/lib/prompt-recovery';
@@ -82,6 +84,8 @@ export interface SessionData {
   tree: SessionTreeNode[];
   leafId: string | null;
   toolNames?: string[];
+  /** The stored work mode. Plan pins the same tools as Read-only, so it travels separately. */
+  mode?: WorkMode;
   /** Opaque freshness token for the session view cache (summary tree reads). */
   snapshotRevision?: string | null;
   /** "summary" when `tree` carries the body-free navigation format. */
@@ -900,9 +904,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
           // Tool-preset state is independent of the view cache: it must be applied
           // on every read, cached window or not (#700).
           sessionToolsPinnedRef.current = d.toolNames !== undefined;
-          setToolPresetState(
-            d.toolNames !== undefined ? getPresetFromToolNames(d.toolNames) : CONFIGURED_TOOL_PRESET
-          );
+          setToolPresetState(getPresetForSession(d.toolNames, d.mode));
           setCurrentModelOverride((current) => (modelSwitchPendingRef.current ? current : null));
           setCurrentThinkingOverride(null);
           setError(null);
@@ -1046,12 +1048,17 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   const loadTools = useCallback(
     async (sid: string) => {
       try {
-        const tools = await sendAgentCommand<ToolEntry[]>(sid, { type: 'get_tools' });
+        // Plan pins the same tools as Read-only, so the mode comes with the list.
+        const result = await sendAgentCommand<{ tools: ToolEntry[]; workMode?: WorkMode }>(sid, {
+          type: 'get_tools'
+        });
+        const tools = result?.tools;
         if (!tools || !sessionHookMountedRef.current || sessionIdRef.current !== sid) return null;
         const { getPresetFromTools } = await import('@/lib/tool-presets');
-        setToolPresetState(
-          sessionToolsPinnedRef.current ? getPresetFromTools(tools) : CONFIGURED_TOOL_PRESET
-        );
+        const pinned = sessionToolsPinnedRef.current
+          ? getPresetFromTools(tools)
+          : CONFIGURED_TOOL_PRESET;
+        setToolPresetState(result.workMode === 'plan' ? 'plan' : pinned);
         onSystemToolsChange?.(tools);
         return tools;
       } catch (e) {
@@ -1107,6 +1114,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       // Undefined means the user never overrode the loadout: omit the field entirely
       // so pi resolves settings.json defaultTools instead of being pinned to ours (#700).
       const toolNames = getToolNamesForPreset(toolPreset);
+      const workMode = getWorkModeForPreset(toolPreset);
       sessionToolsPinnedRef.current = toolNames !== undefined;
       const res = await fetch('/api/agent/new', {
         method: 'POST',
@@ -1115,6 +1123,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
           cwd: newSessionCwd,
           type: 'ensure_session',
           ...(toolNames !== undefined ? { toolNames } : {}),
+          ...(workMode ? { mode: workMode } : {}),
           ...(selectedModel
             ? { provider: selectedModel.provider, modelId: selectedModel.modelId }
             : {}),
@@ -2942,10 +2951,12 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       }
       try {
         // Omitting toolNames retracts the session's pin so it follows the configured
-        // defaults again; the server rebuilds the session to resolve them.
+        // defaults again; the server rebuilds the session to resolve them. `mode: null`
+        // clears a stored Plan mode, which needs no rebuild.
         const result = await sendAgentCommand<{ sessionId?: string; recreated?: boolean }>(sid, {
           type: 'set_tools',
-          ...(toolNames !== undefined ? { toolNames } : {})
+          ...(toolNames !== undefined ? { toolNames } : {}),
+          mode: getWorkModeForPreset(preset) ?? null
         });
         sessionToolsPinnedRef.current = toolNames !== undefined;
         const activeSessionId = result?.sessionId ?? sid;

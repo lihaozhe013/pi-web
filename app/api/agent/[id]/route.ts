@@ -20,6 +20,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       throw new Error('toolNames must be an array of strings');
     }
     const toolNames = requestedToolNames as string[] | undefined;
+    // `null` clears a stored work mode; an absent field leaves it alone.
+    const requestedMode = 'mode' in body ? body.mode : undefined;
 
     // Fast path: already-running session
     const existing = getRpcSession(id);
@@ -28,7 +30,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       if (!existing?.isAlive() && !filePath) {
         return NextResponse.json({ error: 'Session not found' }, { status: 404 });
       }
-      const changed = await setRpcSessionTools(id, filePath, toolNames);
+      const changed = await setRpcSessionTools(id, filePath, toolNames, requestedMode);
       return NextResponse.json({
         success: true,
         data: { sessionId: changed.sessionId, recreated: changed.recreated }

@@ -141,10 +141,11 @@ export interface ChatInputHandle {
 }
 
 // "configured" sends no override, so the session follows settings.json defaultTools.
-const TOOL_PRESETS = ['configured', 'chat-only', 'read-only', 'default', 'full'] as const;
+const TOOL_PRESETS = ['configured', 'plan', 'chat-only', 'read-only', 'default', 'full'] as const;
 type ToolPresetLabel = (typeof TOOL_PRESETS)[number];
 const TOOL_PRESET_MAP: Record<ToolPresetLabel, ToolPreset> = {
   configured: 'configured',
+  plan: 'plan',
   'chat-only': 'none',
   'read-only': 'read-only',
   default: 'default',
@@ -1940,7 +1941,11 @@ export const ChatInput = memo(
       Object.entries(TOOL_PRESET_MAP).find(([, v]) => v === (toolPreset ?? 'configured'))?.[0] ??
       'configured';
     const toolPresetLabel =
-      rawToolPresetLabel === 'chat-only' ? t('chat.chatOnly') : rawToolPresetLabel;
+      rawToolPresetLabel === 'chat-only'
+        ? t('chat.chatOnly')
+        : rawToolPresetLabel === 'plan'
+          ? t('chat.planMode')
+          : rawToolPresetLabel;
 
     // Close dropdowns on outside click
     useEffect(() => {
@@ -3309,6 +3314,7 @@ export const ChatInput = memo(
                             const isActive = (toolPreset ?? 'configured') === preset;
                             let desc: string;
                             if (lvl === 'configured') desc = t('chat.configuredTools');
+                            else if (lvl === 'plan') desc = t('chat.planModeTools');
                             else if (lvl === 'chat-only') desc = t('chat.chatOnly');
                             else if (lvl === 'read-only')
                               desc = t('chat.readOnlyTools', { count: 4 });

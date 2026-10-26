@@ -73,6 +73,7 @@ import { createSubagentController } from './subagent-runtime';
 import { isBuiltInSubagentsEnabled } from './subagent-settings';
 import { resolveShellTools } from './powershell-settings';
 import { CHAT_ONLY_RESOURCE_LOADER_OPTIONS, contextFilesSystemPrompt } from './chat-only';
+import { readWorkMode, syncWorkMode, validateWorkMode, type WorkMode } from './work-mode';
 import { createExactSystemPromptExtension } from './exact-system-prompt';
 import {
   createPiWebBuiltinExtensions,
@@ -267,6 +268,8 @@ const COMMANDS_ALLOWED_DURING_SESSION_REPLACEMENT = new Set([
 
 export interface RpcSessionStartOptions {
   toolNames?: string[];
+  /** The work mode a newly pinned session starts in; omitted leaves the stored one alone. */
+  mode?: WorkMode;
   initialModel?: { provider: string; modelId: string };
   allowInitialModelFallback?: boolean;
   thinkingLevel?: ThinkingLevel;
@@ -1427,12 +1430,18 @@ export class AgentSessionWrapper {
           const hiddenDeclarations: unknown = Reflect.get(this.inner, '_hiddenDeclarations');
           const hidden =
             hiddenDeclarations instanceof Set ? hiddenDeclarations : new Set<unknown>();
-          return all.map((t) => ({
-            ...t,
-            description: declared.get(t.name) ?? t.description,
-            active: active.has(t.name),
-            declarationHidden: hidden.has(t.name)
-          }));
+          return {
+            tools: all.map((t) => ({
+              ...t,
+              description: declared.get(t.name) ?? t.description,
+              active: active.has(t.name),
+              declarationHidden: hidden.has(t.name)
+            })),
+            // Plan and Read-only pin the same tools, so the mode travels with the list.
+            workMode: readWorkMode(
+              this.inner.sessionManager.getEntries() as unknown as SessionEntry[]
+            )
+          };
         }
 
         case 'get_commands': {
@@ -1467,6 +1476,15 @@ export class AgentSessionWrapper {
         case 'set_tools': {
           const toolNames = command.toolNames as string[];
           this.setActiveToolSelection(toolNames);
+          // Only an explicit `mode` changes it, so a client that sends tools alone keeps a
+          // stored mode. `null` clears it.
+          if ('mode' in command) {
+            syncWorkMode(
+              this.inner.sessionManager,
+              this.inner.sessionManager.getEntries() as unknown as SessionEntry[],
+              validateWorkMode(command.mode)
+            );
+          }
           return null;
         }
 
@@ -2461,14 +2479,18 @@ export interface SetRpcSessionToolsResult {
  * An undefined requestedToolNames returns the session to pi's configured defaults:
  * the pin is retracted and the session is rebuilt, because the loadout that
  * settings.json defaultTools resolves to is only known once pi builds the session.
+ * `requestedMode` follows the same rule: absent leaves the stored mode alone, null clears it.
  */
 export async function setRpcSessionTools(
   sessionId: string,
   sessionFile: string | undefined,
-  requestedToolNames: unknown
+  requestedToolNames: unknown,
+  requestedMode?: unknown
 ): Promise<SetRpcSessionToolsResult> {
   const toolNames =
     requestedToolNames === undefined ? undefined : validateSessionToolSelection(requestedToolNames);
+  const modeProvided = requestedMode !== undefined;
+  const workMode = modeProvided ? validateWorkMode(requestedMode) : undefined;
   const existing = getRpcSession(sessionId);
 
   if (!existing?.isAlive()) {
@@ -2479,7 +2501,7 @@ export async function setRpcSessionTools(
     const pending = closingRpcSessionWait(sessionId) ?? getLocks().get(sessionId);
     if (pending) {
       await pending.catch(() => undefined);
-      return setRpcSessionTools(sessionId, sessionFile, requestedToolNames);
+      return setRpcSessionTools(sessionId, sessionFile, requestedToolNames, requestedMode);
     }
     const manager = SessionManager.open(sessionFile, undefined);
     if (readSubagentSessionResources(manager.getEntries() as unknown as SessionEntry[])) {
@@ -2487,6 +2509,9 @@ export async function setRpcSessionTools(
     }
     if (toolNames === undefined) appendClearedSessionToolSelection(manager);
     else appendSessionToolSelection(manager, toolNames);
+    if (modeProvided) {
+      syncWorkMode(manager, manager.getEntries() as unknown as SessionEntry[], workMode);
+    }
     invalidateSessionListCache();
     const started = await startRpcSession(sessionId, sessionFile, undefined);
     return { session: started.session, sessionId: started.realSessionId, recreated: false };
@@ -2510,6 +2535,15 @@ export async function setRpcSessionTools(
     existing.isChatOnly() !== (toolNames.length === 0);
   if (toolNames === undefined) appendClearedSessionToolSelection(existing.inner.sessionManager);
   else appendSessionToolSelection(existing.inner.sessionManager, toolNames);
+  // The mode is read by the plan-mode extension at call and prompt time, so changing it needs
+  // no rebuild: the same session applies it to the next message.
+  if (modeProvided) {
+    syncWorkMode(
+      existing.inner.sessionManager,
+      existing.inner.sessionManager.getEntries() as unknown as SessionEntry[],
+      workMode
+    );
+  }
   invalidateSessionListCache();
 
   if (toolNames !== undefined && !crossesChatOnlyBoundary) {
@@ -2531,6 +2565,7 @@ export async function setRpcSessionTools(
 
   const started = await startRpcSession(`__recreate__${randomUUID()}`, '', sessionCwd, {
     ...(toolNames !== undefined ? { toolNames } : {}),
+    ...(workMode ? { mode: workMode } : {}),
     ...(model ? { initialModel: { provider: model.provider, modelId: model.id } } : {}),
     allowInitialModelFallback: true,
     ...(currentThinkingLevel && THINKING_LEVEL_NAMES.has(currentThinkingLevel as ThinkingLevel)
@@ -2732,6 +2767,15 @@ export async function startRpcSession(
   const selectedToolNames = subagentResources?.tools ?? persistedToolNames ?? requestedToolNames;
   if (!subagentResources && persistedToolNames === undefined && requestedToolNames !== undefined) {
     appendSessionToolSelection(sessionManager, requestedToolNames);
+  }
+  // A new session starts in the mode the caller asked for. A session file's own entry stays
+  // authoritative, because reopening it must not repeat the choice that created it.
+  if (!subagentResources && options.mode !== undefined) {
+    syncWorkMode(
+      sessionManager,
+      sessionManager.getEntries() as unknown as SessionEntry[],
+      validateWorkMode(options.mode)
+    );
   }
   const subagentLoadsResources = Boolean(
     subagentResources?.loadExtensions ||
