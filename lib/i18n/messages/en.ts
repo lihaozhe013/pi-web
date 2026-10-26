@@ -733,6 +733,7 @@ export const enLocale: LocalePlugin = {
     'activity.runningCommand': 'Running {command}',
     'activity.runningCommands': 'Running {count} commands',
     'activity.waitingProvider': 'Waiting for provider…',
+    'activity.tokenEstimate': '~{tokens} tokens',
     'chatMinimap.contents': 'Conversation contents',
     'chatMinimap.untitledTurn': 'Untitled turn',
     'chatMinimap.earlierTurns': 'Earlier turns not loaded: {count}. Click to load',

@@ -5,6 +5,7 @@ import {
   isSearchToolName,
   isShellToolName
 } from './tool-names';
+import { getTokenEstimateText, type BlockEstimator } from './token-estimate';
 import type { AgentMessage, AssistantMessage } from './types';
 
 /** The i18n translate function shape this module needs. */
@@ -54,6 +55,44 @@ export function composerActivityLabel(
 function lastStreamedToolCall(streaming: AssistantMessage | null): string | null {
   const block = streaming?.content.at(-1);
   return block?.type === 'toolCall' ? block.toolName : null;
+}
+
+/** No block index reaches this key: the executing call's slot stays its own. */
+const RUNNING_TOOL_ESTIMATE_KEY = -1;
+
+/**
+ * The ~tokens after the label, one block at a time — never a total. While the
+ * model writes a call's arguments or thinking, the count is that block's and
+ * grows as it streams. While a single call executes it is what its arguments
+ * cost, frozen: the model is silent, and the number changing call to call is
+ * itself the progress signal. A grouped row names several calls, so no single
+ * number applies. Branch order mirrors `composerActivityLabel`, so a number
+ * only ever annotates what the label names.
+ */
+export function composerActivityTokens(
+  phase: AgentPhase,
+  messages: AgentMessage[],
+  streaming: AssistantMessage | null,
+  compacting: boolean,
+  estimator: BlockEstimator
+): number | null {
+  if (compacting) return null;
+  if (phase?.kind === 'running_tools') {
+    if (phase.tools.length !== 1) return null;
+    const input = collectToolInputs(messages, streaming).get(phase.tools[0].id);
+    if (input === undefined) return null;
+    return estimator.estimate(JSON.stringify(input), RUNNING_TOOL_ESTIMATE_KEY);
+  }
+  const content = streaming?.content ?? [];
+  const block = content.at(-1);
+  // The model writes a call's arguments before pi reports it as running — the
+  // same stretch the label reads as "Preparing".
+  if (block?.type === 'toolCall')
+    return estimator.estimate(getTokenEstimateText(block), content.length - 1);
+  if (phase?.kind === 'waiting_model' || phase?.kind === 'running_command') return null;
+  if (block?.type === 'thinking')
+    return estimator.estimate(getTokenEstimateText(block), content.length - 1);
+  return null;
 }
 
 /** Streamed arguments arrive before the call is reported as running. */

@@ -5,7 +5,9 @@ import { useI18n } from '@/hooks/useI18n';
 import type { AgentPhase } from '@/hooks/useAgentSession';
 import { selectStreamingMessage, useStreamingSelector } from '@/hooks/useStreamingSelector';
 import { useExitHold } from '@/hooks/useToolCardMotion';
-import { composerActivityLabel } from '@/lib/composer-activity';
+import { composerActivityLabel, composerActivityTokens } from '@/lib/composer-activity';
+import { formatCompactCount } from '@/lib/session-stats-format';
+import { createBlockEstimator, type BlockEstimator } from '@/lib/token-estimate';
 import type { StreamingStore } from '@/lib/streaming-message';
 import type { AgentMessage } from '@/lib/types';
 
@@ -37,6 +39,17 @@ export function ComposerActivity({
   // Reading the label walks the transcript's tool inputs, so it is derived only
   // while a run needs it.
   const label = running ? composerActivityLabel(phase, messages, streaming, compacting, t) : null;
+  // The estimate continues from the previous render's count instead of rescanning
+  // a block that may have grown for minutes, and lives only as long as a run.
+  const estimatorRef = useRef<BlockEstimator | null>(null);
+  estimatorRef.current ??= createBlockEstimator();
+  const estimate = running
+    ? composerActivityTokens(phase, messages, streaming, compacting, estimatorRef.current)
+    : null;
+  const tokens =
+    estimate !== null && Math.round(estimate) >= 1
+      ? t('activity.tokenEstimate', { tokens: formatCompactCount(Math.round(estimate)) })
+      : null;
   // The run's last words, so the row can fade out saying them.
   const lastLabel = useRef('');
   if (label) lastLabel.current = label;
@@ -63,6 +76,11 @@ export function ComposerActivity({
           <span className="composer-activity-label" key={text}>
             {text}
           </span>
+          {tokens && (
+            <span className="composer-activity-tokens" title={t('i18n.estimatedTokens')}>
+              {tokens}
+            </span>
+          )}
         </div>
       </div>
     </div>

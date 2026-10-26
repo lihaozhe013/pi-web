@@ -715,6 +715,7 @@ export const zhCNLocale: LocalePlugin = {
     'activity.runningCommand': '正在运行 {command}',
     'activity.runningCommands': '正在运行 {count} 条命令',
     'activity.waitingProvider': '正在等待模型服务响应…',
+    'activity.tokenEstimate': '~{tokens} Token',
     'chat.tokensSaved': '节省 {saved}',
     'chatMinimap.contents': '对话内容',
     'chatMinimap.earlierTurns': '更早的 {count} 轮还没加载，点击加载',

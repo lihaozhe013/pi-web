@@ -716,6 +716,7 @@ export const zhTWLocale: LocalePlugin = {
     'activity.runningCommand': '正在執行 {command}',
     'activity.runningCommands': '正在執行 {count} 條命令',
     'activity.waitingProvider': '正在等待模型服務回應…',
+    'activity.tokenEstimate': '~{tokens} Token',
     'chat.tokensSaved': '已節省 {saved}',
     'chatMinimap.contents': '對話內容',
     'chatMinimap.earlierTurns': '更早的 {count} 輪尚未載入，點擊載入',

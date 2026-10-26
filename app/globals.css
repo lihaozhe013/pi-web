@@ -2921,6 +2921,14 @@ span.token.table {
      one line flowing into the next instead of a swap. */
   animation: composer-activity-in 220ms ease-out;
 }
+.composer-activity-tokens {
+  flex-shrink: 0;
+  white-space: nowrap;
+  color: var(--text-dim);
+  font-size: calc(12px + var(--ui-font-size-offset, 0px));
+  /* The count ticks many times a second: stable digit widths keep it calm. */
+  font-variant-numeric: tabular-nums;
+}
 @keyframes composer-activity-in {
   from {
     opacity: 0;

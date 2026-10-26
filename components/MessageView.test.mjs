@@ -17,10 +17,10 @@ const {
   ThinkingBlock,
   formatToolDuration,
   getModelDisplayName,
-  getTokenEstimateText,
   getToolCallInputText,
   replaceUserMessageText
 } = await jiti.import('./MessageView.tsx');
+const { getTokenEstimateText } = await jiti.import('@/lib/token-estimate');
 const { I18nProvider } = await jiti.import('@/hooks/useI18n');
 const { splitFinalAssistantBlocks } = await jiti.import('@/lib/message-display');
 const { clearExpandedToolCalls, setToolCallExpanded } = await jiti.import(
