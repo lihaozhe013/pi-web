@@ -20,7 +20,8 @@ visit(source);
 // The event handler's cases for one run that fails, waits and retries.
 const cases = ['agent_end', 'auto_retry_start', 'agent_start', 'auto_retry_end'].map((type) => {
   const clause = nodes.find(
-    (node) => ts.isCaseClause(node) && node.expression.getText(source) === `"${type}"`
+    (node) =>
+      ts.isCaseClause(node) && ts.isStringLiteral(node.expression) && node.expression.text === type
   );
   assert.ok(clause, `missing case ${type}`);
   return clause.getText(source);

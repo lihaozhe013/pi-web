@@ -52,7 +52,7 @@ test('every key the sign-in helpers pick at run time exists in the locale files'
     ...Object.values(MCP_SIGN_IN_PHASE_KEYS),
     ...Object.values(MCP_SIGN_IN_FAILURE_KEYS),
     ...Object.values(MCP_SIGN_IN_SUMMARY_KEYS),
-    ...[...source.matchAll(/"(mcp\.[A-Za-z.-]+)"/g)].map((match) => match[1])
+    ...[...source.matchAll(/['"](mcp\.[A-Za-z.-]+)['"]/g)].map((match) => match[1])
   ];
   assert.ok(keys.length >= 30);
   for (const key of keys)
@@ -64,7 +64,7 @@ test('every key the sign-in helpers pick at run time exists in the locale files'
         apiTypesSource.indexOf('export type McpSignInFailure'),
         apiTypesSource.indexOf('export interface McpSignInFlowInfo')
       )
-      .matchAll(/\| "([a-z-]+)"/g)
+      .matchAll(/\| ['"]([a-z-]+)['"]/g)
   ].map((match) => match[1]);
   assert.deepEqual(Object.keys(MCP_SIGN_IN_FAILURE_KEYS).sort(), failures.sort());
   // The summary of the connection after a sign-in takes the same parameters as a test's.

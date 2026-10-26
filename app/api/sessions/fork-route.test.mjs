@@ -240,6 +240,6 @@ test('a source deleted behind its cached path is not found, forgotten and droppe
 test('the route refuses cross-origin requests itself', () => {
   assert.match(
     routeSource,
-    /if \(!isApiRequestAllowed\(req\)\) return refusal\(403, "request-denied"/
+    /if \(!isApiRequestAllowed\(req\)\) return refusal\(403, ['"]request-denied/
   );
 });

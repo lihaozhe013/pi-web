@@ -1331,16 +1331,16 @@ test("the Code mode pane's Built-in tools switch keeps tools declared or leaves 
 });
 
 test('every string the panel shows is translated', () => {
-  const literal = (text) => [...text.matchAll(/\bt\("([^"]+)"/g)].map((match) => match[1]);
+  const literal = (text) => [...text.matchAll(/\bt\((['"])([^'"]+)\1/g)].map((match) => match[2]);
   const quoted = (text) =>
-    [...text.matchAll(/"((?:mcp|i18n|skills|settings)\.[\w.-]+)"/g)].map((match) => match[1]);
+    [...text.matchAll(/(['"])((?:mcp|i18n|skills|settings)\.[\w.-]+)\1/g)].map((match) => match[2]);
   const problemReasons = [
     ...apiTypesSource
       .slice(
         apiTypesSource.indexOf('export type McpConfigFileProblemReason'),
         apiTypesSource.indexOf('export interface McpConfigFileProblem ')
       )
-      .matchAll(/\| "([a-z-]+)"/g)
+      .matchAll(/\| ['"]([a-z-]+)['"]/g)
   ].map((match) => match[1]);
   const reasonCodes = [
     ...apiTypesSource
@@ -1348,7 +1348,7 @@ test('every string the panel shows is translated', () => {
         apiTypesSource.indexOf('export type McpRefusalReason'),
         apiTypesSource.indexOf('export interface McpErrorResponse')
       )
-      .matchAll(/\| "([a-z-]+)"/g)
+      .matchAll(/\| ['"]([a-z-]+)['"]/g)
   ]
     .map((match) => match[1])
     .filter((code) => code !== 'internal');

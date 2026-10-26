@@ -479,7 +479,7 @@ test('a failed cancel is shown while the sign-in runs, and not once it has ended
 });
 
 test("the row's words come from the locale files", () => {
-  const keys = [...source.matchAll(/t\("([^"]+)"/g)].map((match) => match[1]);
+  const keys = [...source.matchAll(/t\((['"])([^'"]+)\1/g)].map((match) => match[2]);
   assert.ok(keys.length >= 20);
   for (const key of keys)
     assert.equal(typeof messages[key], 'string', `${key} is missing from en.ts`);

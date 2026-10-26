@@ -1264,7 +1264,10 @@ test("the layout is the viewport's choice, taken once for both the patch input a
 
   // Both the applied-patch card and a result's patch render through SplitFilesView,
   // so a phone never gets one of each.
-  assert.match(source, /const layout: PatchDiffLayout = useIsMobile\(\) \? "stacked" : "split";/);
+  assert.match(
+    source,
+    /const layout: PatchDiffLayout = useIsMobile\(\) \? ['"]stacked['"] : ['"]split['"];/
+  );
   assert.equal(countIn(source, '<SplitFilesView'), 2);
 });
 

@@ -21,7 +21,7 @@ test('every add pane chooses its scope in one place: the save target under its t
     assert.ok(source, name);
     assert.match(
       source,
-      /<ConfigSaveTarget[\s\S]*?label=\{t\("config\.saveTo"\)\}[\s\S]*?path=\{/,
+      /<ConfigSaveTarget[\s\S]*?label=\{t\(['"]config\.saveTo['"]\)\}[\s\S]*?path=\{/,
       name
     );
     assert.doesNotMatch(
@@ -35,5 +35,7 @@ test('every add pane chooses its scope in one place: the save target under its t
 test("the MCP panel's reasons are visible text, never only a tooltip", () => {
   const mcp = Object.fromEntries(configSources).McpConfig;
   // The panel's own title is the only one: no reason hides in a tooltip.
-  assert.deepEqual(mcp.match(/\btitle=\{[^}]*\}/g), ['title={t("settings.mcp")}']);
+  const titles = mcp.match(/\btitle=\{[^}]*\}/g) ?? [];
+  assert.equal(titles.length, 1);
+  assert.match(titles[0], /^title=\{t\(['"]settings\.mcp['"]\)\}$/);
 });

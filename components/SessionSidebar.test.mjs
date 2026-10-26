@@ -246,7 +246,7 @@ test("a read or a mark in another tab reaches this one: the storage handler adop
   const parse = between('function parseUnreadSessionIds(', '\nfunction loadUnreadSessionIds');
   const handler = between(
     'const onStorage = (event: StorageEvent) => {',
-    '\n    window.addEventListener("storage", onStorage);'
+    '\n    window.addEventListener('
   );
   const code = ts.transpileModule(`${parse}\n${handler}`, {
     compilerOptions: { target: ts.ScriptTarget.ES2020 }
@@ -280,8 +280,8 @@ test("a read or a mark in another tab reaches this one: the storage handler adop
   assert.deepEqual([...updaters.pop()(new Set(['a']))], []);
 
   // The listener is registered for the storage event and taken off again.
-  assert.match(source, /window\.addEventListener\("storage", onStorage\);/);
-  assert.match(source, /window\.removeEventListener\("storage", onStorage\);/);
+  assert.match(source, /window\.addEventListener\(['"]storage['"], onStorage\);/);
+  assert.match(source, /window\.removeEventListener\(['"]storage['"], onStorage\);/);
 });
 
 test('the sidebar contains session management without the retired file workspace', () => {

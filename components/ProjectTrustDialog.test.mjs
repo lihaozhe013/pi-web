@@ -474,25 +474,25 @@ test('a listing that failed names why, or gives its diagnostic when there is not
 });
 
 test('every string the dialog shows is translated', async () => {
-  const literalKeys = [...source.matchAll(/\bt\("([^"]+)"/g)].map((match) => match[1]);
-  const ternaryKeys = [...source.matchAll(/\? "([a-z]+\.[\w.-]+)" : "([a-z]+\.[\w.-]+)"/g)].flatMap(
-    (match) => [match[1], match[2]]
-  );
-  const returnedKeys = [...source.matchAll(/return "([a-z]+\.[\w.-]+)";/g)].map(
+  const literalKeys = [...source.matchAll(/\bt\((['"])([^'"]+)\1/g)].map((match) => match[2]);
+  const ternaryKeys = [
+    ...source.matchAll(/\? ['"]([a-z]+\.[\w.-]+)['"] : ['"]([a-z]+\.[\w.-]+)['"]/g)
+  ].flatMap((match) => [match[1], match[2]]);
+  const returnedKeys = [...source.matchAll(/return ['"]([a-z]+\.[\w.-]+)['"];/g)].map(
     (match) => match[1]
   );
   const helperSource = await readFile(
     new URL('../lib/mcp-server-display.ts', import.meta.url),
     'utf8'
   );
-  const helperKeys = [...helperSource.matchAll(/"(mcp\.[\w.-]+)"/g)].map((match) => match[1]);
+  const helperKeys = [...helperSource.matchAll(/['"](mcp\.[\w.-]+)['"]/g)].map((match) => match[1]);
   const reasonCodes = [
     ...apiTypesSource
       .slice(
         apiTypesSource.indexOf('export type McpRefusalReason'),
         apiTypesSource.indexOf('export interface McpErrorResponse')
       )
-      .matchAll(/\| "([a-z-]+)"/g)
+      .matchAll(/\| ['"]([a-z-]+)['"]/g)
   ]
     .map((match) => match[1])
     .filter((code) => code !== 'internal');
@@ -502,7 +502,7 @@ test('every string the dialog shows is translated', async () => {
         apiTypesSource.indexOf('export type McpConfigFileProblemReason'),
         apiTypesSource.indexOf('export interface McpConfigFileProblem ')
       )
-      .matchAll(/\| "([a-z-]+)"/g)
+      .matchAll(/\| ['"]([a-z-]+)['"]/g)
   ].map((match) => match[1]);
   assert.equal(problemReasons.length, 9);
   // Every reason but `internal`, whose diagnostic is shown instead, is translated.

@@ -7,7 +7,7 @@ test('keeps the selection toolbar above the session sidebar', async () => {
   const shellSource = await readFile(new URL('./AppShell.tsx', import.meta.url), 'utf8');
 
   const toolbar = chatSource.match(
-    /role=\{quoteInputOpen \? "dialog" : "toolbar"\}[\s\S]*?zIndex:\s*(\d+)/
+    /role=\{quoteInputOpen \? ['"]dialog['"] : ['"]toolbar['"]\}[\s\S]*?zIndex:\s*(\d+)/
   );
   const sidebar = shellSource.match(/id="session-sidebar"[\s\S]*?zIndex:\s*(\d+)/);
 

@@ -164,7 +164,10 @@ test('failed reads preserve usage and a subsequent read can recover', async () =
 
 test('only completed assistant messages trigger an immediate usage read', () => {
   const messageEnd = nodes.find(
-    (node) => ts.isCaseClause(node) && node.expression.getText(source) === '"message_end"'
+    (node) =>
+      ts.isCaseClause(node) &&
+      ts.isStringLiteral(node.expression) &&
+      node.expression.text === 'message_end'
   );
   const script = new Script(
     ts.transpileModule(`(() => { switch(event.type) { ${messageEnd.getText(source)} } })()`, {
@@ -192,7 +195,10 @@ test('only completed assistant messages trigger an immediate usage read', () => 
 
 test('each event stream connection reads usage, since connecting resumes an idle-reaped session', () => {
   const connected = nodes.find(
-    (node) => ts.isCaseClause(node) && node.expression.getText(source) === '"connected"'
+    (node) =>
+      ts.isCaseClause(node) &&
+      ts.isStringLiteral(node.expression) &&
+      node.expression.text === 'connected'
   );
   const script = new Script(
     ts.transpileModule(`(() => { switch(event.type) { ${connected.getText(source)} } })()`, {

@@ -45,10 +45,10 @@ test('a document reader keeps local links in the page without an href', () => {
   );
   assert.equal((external.match(/target="_blank" rel="noopener noreferrer"/g) ?? []).length, 3);
   assert.doesNotMatch(external, /role="link"|javascript:|alert%28/);
-  // Chat keeps its links as they were.
+  // Without the app file handler, chat does not emit a navigable local URL.
   assert.match(
     renderMarkdown('[relative](references/setup.md)', { onOpenFile: undefined }),
-    /<a href="references\/setup.md" target="_blank"/
+    /<span title="\/home\/me\/project\/references\/setup\.md">relative<\/span>/
   );
 });
 
@@ -175,7 +175,8 @@ test('keeps file URLs inert without an in-app file handler', () => {
     onOpenFile: undefined
   });
 
-  assert.match(html, /<a href="" target="_blank" rel="noopener noreferrer">report<\/a>/);
+  assert.match(html, /<span>report<\/span>/);
+  assert.doesNotMatch(html, /href=|target=|rel=/);
 });
 
 test('keeps single-tilde CJK numeric ranges literal instead of striking them', () => {

@@ -999,10 +999,10 @@ test('the pi-config toggle is offered only where the importer reads the paste di
 
 test('the helpers and the pane only use words from the locale files', () => {
   const keys = [
-    ...[...paneSource.matchAll(/\bt\("([^"]+)"/g)].map((match) => match[1]),
-    ...[...`${paneSource}\n${helperSource}`.matchAll(/"((?:mcp|config|skills)\.[\w.-]+)"/g)].map(
-      (match) => match[1]
-    )
+    ...[...paneSource.matchAll(/\bt\((['"])([^'"]+)\1/g)].map((match) => match[2]),
+    ...[
+      ...`${paneSource}\n${helperSource}`.matchAll(/(['"])((?:mcp|config|skills)\.[\w.-]+)\1/g)
+    ].map((match) => match[2])
   ].filter((key) => key !== 'mcp.json' && key !== 'mcp.so'); // a file name and a catalog's label, not keys
   assert.ok(keys.length > 40);
   for (const key of keys)
@@ -1014,7 +1014,7 @@ test('the helpers and the pane only use words from the locale files', () => {
   );
   assert.doesNotMatch(
     paneSource,
-    /\btitle=\{(?!t\("mcp\.add\.title"\))/,
+    /\btitle=\{(?!t\(['"]mcp\.add\.title['"]\))/,
     'no reason hides in a tooltip'
   );
 });
