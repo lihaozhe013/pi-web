@@ -1,4 +1,5 @@
 'use client';
+import { AskUserPanel, isAskUserRequest } from './AskUserPanel';
 import { LiveAgentActivity } from './LiveAgentActivity';
 import { mainTranscriptBlocks } from '@/lib/quiet-activity';
 import { ToolActivityProvider, liveToolIds } from './ToolActivity'; // display-only execution status
@@ -1416,7 +1417,7 @@ export function ChatWindow({
         </div>
 
         <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
-          {extensionDialog && (
+          {extensionDialog && !isAskUserRequest(extensionDialog) && (
             <ExtensionDialog
               key={extensionDialog.id}
               request={extensionDialog}
@@ -2122,6 +2123,15 @@ export function ChatWindow({
                 {newSessionContextBar}
               </div>
             </div>
+          )}
+          {extensionDialog && isAskUserRequest(extensionDialog) && (
+            <AskUserPanel
+              key={`${session?.id}:${extensionDialog.id}`}
+              request={extensionDialog}
+              waitingCount={waitingExtensionDialogCount}
+              onRespond={respondToExtensionUi}
+              onReturnFocus={() => chatInputRef?.current?.focus()}
+            />
           )}
           {chatInputElement}
           <ExtensionStatusBar

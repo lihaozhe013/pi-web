@@ -1,10 +1,10 @@
+import { askUserPresentation } from './ask-user-presentation';
 import { Type } from '@earendil-works/pi-ai';
 import { defineTool, type InlineExtension } from '@earendil-works/pi-coding-agent';
 
 /**
- * A model-callable question. The answer arrives through the same extension UI dialogs every
- * other extension uses, so the browser shows it with the rest of Pi's requests and the reply
- * travels back as the tool result.
+ * A model-callable question. The browser gives its standard Pi UI requests a composer-side
+ * presentation; other hosts keep the normal dialogs. The reply travels back as the tool result.
  *
  * This is a discussion aid, not an approval gate: it can ask, but it never authorizes a write.
  */
@@ -85,7 +85,7 @@ export function createAskUserExtension(): InlineExtension {
           // A script must not answer for the user, and an approval-shaped tool call would make
           // the dialog look like a confirmation.
           exposure: 'model-only',
-          // One dialog at a time: parallel questions would race for the same overlay.
+          // One question at a time: parallel questions would compete for user attention.
           executionMode: 'sequential',
           promptGuidelines: [
             'Ask one focused question at a time. Offer 2–3 concrete options when the choice is enumerable, and let the user write their own answer.',
@@ -120,17 +120,28 @@ export function createAskUserExtension(): InlineExtension {
             }
 
             if (options.length === 0) {
-              const typed = await ctx.ui.input(question, '', { signal });
+              const typed = await askUserPresentation.run({ options }, () =>
+                ctx.ui.input(question, '', { signal })
+              );
               const answer = typed?.trim();
               return answer
                 ? answered(question, options, answer, 'typed')
                 : cancelled(question, options);
             }
 
-            const choice = await ctx.ui.select(question, [...options, ASK_USER_OTHER_LABEL], {
-              signal
-            });
+            const presentation = { options, inline: false };
+            const choice = await askUserPresentation.run(presentation, () =>
+              ctx.ui.select(question, [...options, ASK_USER_OTHER_LABEL], { signal })
+            );
             if (choice === undefined) return cancelled(question, options);
+            // The web card accepts text alongside options in one request. Other Pi UIs
+            // retain the normal select → input flow.
+            if (presentation.inline) {
+              const answer = choice.trim();
+              return answer
+                ? answered(question, options, answer, options.includes(answer) ? 'option' : 'typed')
+                : cancelled(question, options);
+            }
             if (choice !== ASK_USER_OTHER_LABEL)
               return answered(question, options, choice, 'option');
 

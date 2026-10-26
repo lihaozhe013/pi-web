@@ -63,9 +63,14 @@ the session log (`lib/work-mode.ts`, `pi-web:work-mode`) and travels next to the
 - Leaving the mode needs no rebuild; the next message simply runs without the guidelines.
 
 `lib/ask-user-extension.ts` registers `ask_user` in every normal (non-Chat-only) session. The model
-asks one focused question with optional options; the browser shows it through the same extension UI
-dialogs every other extension uses, and the answer returns as the tool result. A dismissed dialog is
-reported as no answer, never as agreement.
+asks one focused question with optional options. `lib/ask-user-presentation.ts` scopes presentation
+metadata to its standard Pi select/input calls using AsyncLocalStorage, shared across extension
+loader module instances. The runtime adds that metadata to the existing extension UI request;
+`components/AskUserPanel.tsx` renders only these tagged requests above the composer. Options and
+free-form text return through the existing response channel, without a second text dialog in the web
+UI. Other Pi UI hosts keep the select/input fallback. Reconnect replay preserves the tag; abort and
+session shutdown retain the existing request cleanup. Skipping is reported as no answer, never as
+agreement. Failed browser submissions retain the panel for retry.
 
 Pi sessions normally live under `~/.pi/agent/sessions/`. The app also maintains UI state such as
 session pins and archive choices. Avoid unnecessary changes to Pi's data format or duplicate agent

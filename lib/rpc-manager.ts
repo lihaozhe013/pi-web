@@ -13,6 +13,7 @@ import {
   KeybindingsManager as TuiKeybindingsManager,
   TUI_KEYBINDINGS
 } from '@earendil-works/pi-tui';
+import { askUserPresentation } from './ask-user-presentation';
 import { randomUUID } from 'crypto';
 import { existsSync, realpathSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
@@ -2083,10 +2084,15 @@ export class AgentSessionWrapper {
     const abortSignal = signal ? AbortSignal.any([signal, stopSignal]) : stopSignal;
 
     const id = randomUUID();
+    const question = askUserPresentation.getStore();
+    if (question) question.inline = true;
     const fullRequest = {
       type: 'extension_ui_request',
       id,
       ...request,
+      ...((request.method === 'select' || request.method === 'input') && question
+        ? { question: { options: question.options } }
+        : {}),
       ...(timeout ? { timeout, expiresAt: Date.now() + timeout } : {})
     };
 

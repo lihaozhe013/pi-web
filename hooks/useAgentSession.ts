@@ -1389,15 +1389,22 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       response: { value: string } | { confirmed: boolean } | { cancelled: true }
     ) => {
       const sid = sessionIdRef.current;
-      setExtensionDialogs((queue) => removeExtensionUiRequest(queue, request.id));
-      if (!sid) return;
+      const isQuestion = 'question' in request && !!request.question;
+      // Questions stay visible on transport failure so the user can retry their answer.
+      if (!isQuestion) setExtensionDialogs((queue) => removeExtensionUiRequest(queue, request.id));
+      if (!sid) {
+        if (isQuestion) throw new Error('Session unavailable');
+        return;
+      }
       try {
         await sendAgentCommand(sid, {
           type: 'extension_ui_response',
           id: request.id,
           ...response
         });
+        if (isQuestion) setExtensionDialogs((queue) => removeExtensionUiRequest(queue, request.id));
       } catch (e) {
+        if (isQuestion) throw e;
         console.error('Failed to send extension UI response:', e);
       }
     },

@@ -20,6 +20,13 @@ UI/chat/mono sizes, live preview, reset isolation, multilingual settings search 
 navigation. Some scripts still reflect removed UI; audit and update those assertions as cleanup
 proceeds. Test code is not a commitment to restore obsolete product features.
 
+Run `node e2e/ask-user.mjs` for isolated question-panel browser coverage without starting a server
+or accessing personal sessions. It bundles the real React component with Bun in a temporary
+directory and checks choices, free-form answers, collapse, failed-send retry, focus and draft
+preservation, skip, three viewport widths, and light/dark themes. Screenshots use the same
+`test-results/e2e/` directory. Runtime request metadata, replay, cancellation, and tool results are
+covered separately by `lib/ask-user.integration.test.mjs`.
+
 Live provider prompts and real agent execution require separate validation. Native phone keyboards
 also need real-device testing.
 

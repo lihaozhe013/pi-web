@@ -142,6 +142,8 @@ export type ExtensionUiRequest =
       type: 'extension_ui_request';
       id: string;
       method: 'select';
+      /** Present only on ask_user requests, never inferred from display text. */
+      question?: { options: string[] };
       title: string;
       options: string[];
       timeout?: number;
@@ -160,6 +162,7 @@ export type ExtensionUiRequest =
       type: 'extension_ui_request';
       id: string;
       method: 'input';
+      question?: { options: string[] };
       title: string;
       placeholder?: string;
       timeout?: number;

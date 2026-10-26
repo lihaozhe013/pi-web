@@ -2871,6 +2871,158 @@ span.token.table {
   }
 }
 
+/* Questions belong to the composer stack, not an overlay over the transcript. */
+.ask-user-shell {
+  flex-shrink: 0;
+  min-width: 0;
+  padding: 0 52px 8px 16px;
+}
+.ask-user-panel {
+  max-width: var(--chat-content-max-width, 820px);
+  margin: 0 auto;
+  padding: 14px 16px 10px;
+  border-radius: 14px;
+  background: var(--bg-panel);
+  color: var(--text);
+  overflow: hidden;
+}
+.ask-user-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.ask-user-heading h3 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+  font-weight: 600;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 16vh;
+  overflow-y: auto;
+}
+.ask-user-panel[data-collapsed='true'] h3 {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ask-user-body {
+  min-width: 0;
+  margin: 10px 0 0;
+  padding: 0 2px 2px;
+  border: 0;
+  max-height: min(280px, 28vh);
+  overflow-y: auto;
+}
+.ask-user-options {
+  display: grid;
+  gap: 4px;
+}
+.ask-user-option {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px;
+  min-height: 44px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.ask-user-option:hover,
+.ask-user-option[data-selected='true'] {
+  background: var(--bg);
+}
+.ask-user-option input {
+  flex-shrink: 0;
+  accent-color: var(--accent);
+}
+.ask-user-answer-label {
+  display: block;
+  margin: 12px 0 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.ask-user-body textarea {
+  display: block;
+  width: 100%;
+  min-height: 64px;
+  max-height: 140px;
+  padding: 10px 12px;
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+}
+.ask-user-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+.ask-user-quiet,
+.ask-user-send {
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.ask-user-quiet {
+  background: transparent;
+  color: var(--text-muted);
+}
+.ask-user-quiet:hover {
+  background: var(--bg);
+  color: var(--text);
+}
+.ask-user-send {
+  margin-left: auto;
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+.ask-user-panel button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.ask-user-panel :is(button, textarea, input):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.ask-user-pending {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.ask-user-error {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--text);
+}
+@media (max-width: 640px) {
+  .ask-user-shell {
+    padding-right: 16px;
+  }
+  .ask-user-panel {
+    padding: 12px;
+  }
+  .ask-user-heading h3 {
+    max-height: 12vh;
+  }
+  .ask-user-quiet,
+  .ask-user-send {
+    min-height: 44px;
+  }
+}
+
 /* While the software keyboard is up (set by useViewportHeight), only a few
    hundred pixels remain above it. Hand them to the conversation: collapse the
    model/controls row, the extension status shelf and a fresh composer's

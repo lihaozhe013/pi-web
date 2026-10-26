@@ -25,7 +25,9 @@ export function isTransientToolBlock(
   running?: ReadonlySet<string>
 ): boolean {
   if (block.type !== 'toolCall') return false;
-  if (running?.has(block.toolCallId)) return false;
+  // The dedicated question panel is the interaction; do not duplicate its raw call
+  // in the transcript while it waits. Completed results remain inspectable.
+  if (running?.has(block.toolCallId)) return block.toolName === 'ask_user';
   const result = results?.get(block.toolCallId);
   if (result === undefined) return true;
   return isShellToolName(block.toolName) && !result.isError;

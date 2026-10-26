@@ -74,6 +74,20 @@ without it. Draw tool cards as borderless panes: a surface tint lifts the card o
 and the code, diff or output inside it sits a shade deeper, so color rather than a frame separates
 the body from the page.
 
+## Questions near the composer
+
+Model-issued `ask_user` questions use a non-modal panel directly above the composer, aligned to its
+content width. Options and a free-form answer share one panel; choosing an option does not submit it
+until Send answer. The normal composer, its draft, and attachments remain independent. Collapsing or
+Escape retains the pending question and local answer; Skip explicitly returns no answer. Submission
+disables duplicate sends, retains the answer on transport failure, and offers an inline retry. Focus
+is not stolen when a question arrives.
+
+Long question bodies scroll within the panel. The footer stays reachable on narrow screens. The
+pending question does not also show a raw tool card in the main transcript; completed results remain
+inspectable and raw history is unchanged. Other extensions continue using their existing dialogs and
+custom panels.
+
 ## Navigation and accessibility
 
 The conversation directory uses a lightweight overlay entry point rather than a permanent column.
