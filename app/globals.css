@@ -40,7 +40,7 @@
   --tool-bg: #f9fafb;
   --bg-subtle: rgba(0, 0, 0, 0.03);
   --chat-content-max-width: 820px;
-  --chat-content-font-size: 14px;
+  --chat-content-font-size: calc(14px + var(--ui-font-size-offset, 0px));
 }
 
 html.dark,
@@ -347,7 +347,7 @@ body {
   color: var(--text);
   font-family: var(--font-ui);
   font-weight: var(--font-ui-weight);
-  font-size: 14px;
+  font-size: calc(14px + var(--ui-font-size-offset, 0px));
   overscroll-behavior: none;
 }
 
@@ -478,14 +478,14 @@ html.dark {
 .web-login-brand h1 {
   margin: 0 0 3px;
   color: var(--text);
-  font-size: 22px;
+  font-size: calc(22px + var(--ui-font-size-offset, 0px));
   letter-spacing: 0;
 }
 
 .web-login-brand p {
   margin: 0;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: calc(12px + var(--ui-font-size-offset, 0px));
 }
 
 .web-login-form {
@@ -538,7 +538,7 @@ html.dark {
   background: none;
   color: var(--text);
   font: inherit;
-  font-size: 16px;
+  font-size: calc(16px + var(--ui-font-size-offset, 0px));
 }
 
 .web-login-form input::placeholder {
@@ -549,7 +549,7 @@ html.dark {
   min-height: 17px;
   margin: 7px 4px 0;
   color: #dc2626;
-  font-size: 11px;
+  font-size: calc(11px + var(--ui-font-size-offset, 0px));
   line-height: 17px;
 }
 
@@ -570,7 +570,7 @@ html.dark .web-login-error {
   color: var(--accent-contrast);
   cursor: pointer;
   font: inherit;
-  font-size: 13px;
+  font-size: calc(13px + var(--ui-font-size-offset, 0px));
   font-weight: 600;
   letter-spacing: 0;
 }
@@ -643,7 +643,7 @@ html.dark .web-login-error {
   background: var(--terminal-header-bg);
   color: var(--terminal-muted);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: calc(11px + var(--ui-font-size-offset, 0px));
 }
 
 .terminal-panel-actions {
@@ -701,7 +701,7 @@ html.dark .web-login-error {
   padding: 7px 12px;
   color: var(--terminal-muted);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: calc(11px + var(--ui-font-size-offset, 0px));
 }
 
 .terminal-panel-header button:hover {
@@ -715,7 +715,7 @@ html.dark .web-login-error {
   background: var(--terminal-error-bg);
   color: var(--terminal-error-text);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: calc(11px + var(--ui-font-size-offset, 0px));
 }
 
 .terminal-xterm {
@@ -755,7 +755,7 @@ html[data-keyboard-open] .terminal-extra-keys {
   background: transparent;
   color: var(--terminal-key);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: calc(12px + var(--ui-font-size-offset, 0px));
   touch-action: manipulation;
   user-select: none;
   -webkit-user-select: none;
@@ -902,7 +902,7 @@ html[data-keyboard-open] .terminal-extra-keys {
   overflow: hidden;
   color: var(--text);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: calc(11px + var(--ui-font-size-offset, 0px));
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -951,7 +951,7 @@ html[data-keyboard-open] .terminal-extra-keys {
   background: transparent;
   color: var(--text-muted);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: calc(11px + var(--ui-font-size-offset, 0px));
   text-align: left;
 }
 
@@ -1082,7 +1082,7 @@ button.extension-widget-trigger:focus-visible {
   min-height: 35px;
   color: var(--text-muted);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: calc(11px + var(--ui-font-size-offset, 0px));
   line-height: 1.45;
   white-space: pre;
 }
@@ -1153,6 +1153,9 @@ button.extension-widget-trigger:focus-visible {
   --font-mono: var(--font-mono-default);
   --font-ui-weight: 400;
   --font-mono-weight: 400;
+  --font-ui-size: 14px;
+  --font-mono-size: 15px;
+  --ui-font-size-offset: calc(var(--font-ui-size) - 14px);
 }
 
 pre,
@@ -1290,7 +1293,7 @@ code {
   padding: 1px 5px;
   color: var(--text);
   font-family: var(--font-mono);
-  font-size: 0.92em;
+  font-size: var(--font-mono-size, 15px);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent);
 }
 .markdown-body .contains-task-list {
@@ -1468,7 +1471,7 @@ code {
   padding-top: 8px;
   border-top: 1px solid var(--border);
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: calc(12px + var(--ui-font-size-offset, 0px));
 }
 .compaction-file-details summary {
   cursor: pointer;
@@ -1481,7 +1484,7 @@ code {
 .compaction-file-title {
   margin-bottom: 4px;
   color: var(--text);
-  font-size: 11px;
+  font-size: calc(11px + var(--ui-font-size-offset, 0px));
   font-weight: 650;
 }
 .compaction-file-list {
@@ -1493,7 +1496,7 @@ code {
   border-radius: 6px;
   background: var(--bg-panel);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: calc(11px + var(--ui-font-size-offset, 0px));
   line-height: 1.45;
   list-style: none;
 }
@@ -1521,7 +1524,7 @@ code {
   background: var(--bg-panel);
   border-bottom: 1px solid var(--border);
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: calc(11px + var(--ui-font-size-offset, 0px));
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1545,7 +1548,7 @@ code {
   color: var(--text-muted);
   cursor: pointer;
   font: inherit;
-  font-size: 11px;
+  font-size: calc(11px + var(--ui-font-size-offset, 0px));
   line-height: 1.25;
 }
 .markdown-code-action:hover:not(:disabled) {
@@ -1577,7 +1580,7 @@ code {
 .mermaid-block-error {
   color: var(--text-muted);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: calc(12px + var(--ui-font-size-offset, 0px));
 }
 
 .mermaid-preview-button {
@@ -1707,7 +1710,7 @@ code {
   overflow: hidden;
   color: var(--text-muted);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: calc(11px + var(--ui-font-size-offset, 0px));
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1772,7 +1775,7 @@ code {
   height: 22px;
   color: var(--text-muted);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: calc(12px + var(--ui-font-size-offset, 0px));
   line-height: 22px;
   text-align: center;
   user-select: none;
@@ -1806,7 +1809,7 @@ code {
   }
 
   .mermaid-zoom-title {
-    font-size: 10px;
+    font-size: calc(10px + var(--ui-font-size-offset, 0px));
   }
 
   .mermaid-zoom-viewport {
@@ -1873,7 +1876,7 @@ code {
   border: 0;
   border-left: 1px solid var(--border);
   font: inherit;
-  font-size: 11px;
+  font-size: calc(11px + var(--ui-font-size-offset, 0px));
   font-weight: 500;
   letter-spacing: 0;
   cursor: pointer;
@@ -2002,7 +2005,7 @@ code {
 
 .new-session-brand-name {
   color: var(--text);
-  font-size: 22px;
+  font-size: calc(22px + var(--ui-font-size-offset, 0px));
   font-weight: 700;
   line-height: 1.15;
   white-space: nowrap;
@@ -2017,7 +2020,7 @@ code {
   gap: 6px;
   min-width: 0;
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: calc(11px + var(--ui-font-size-offset, 0px));
   line-height: 1.4;
   white-space: nowrap;
 }
@@ -2056,7 +2059,7 @@ code {
   }
 
   .new-session-brand-name {
-    font-size: 20px;
+    font-size: calc(20px + var(--ui-font-size-offset, 0px));
   }
 }
 
@@ -2072,7 +2075,7 @@ code {
   gap: 6px;
   min-width: 0;
   box-sizing: border-box;
-  font-size: 11px;
+  font-size: calc(11px + var(--ui-font-size-offset, 0px));
   font-weight: 400;
   line-height: 1;
 }
@@ -2110,7 +2113,7 @@ code {
    still lost a fraction of a pixel, enough for its ellipsis. */
 .project-picker.is-inline {
   gap: 2px;
-  font-size: 12px;
+  font-size: calc(12px + var(--ui-font-size-offset, 0px));
 }
 
 .project-picker.is-inline .project-picker-button {
@@ -2250,7 +2253,7 @@ code {
 .project-picker-note {
   flex: none;
   color: var(--text-dim);
-  font-size: 10px;
+  font-size: calc(10px + var(--ui-font-size-offset, 0px));
 }
 
 /* Something runs or waits in another project (the files tab). */
@@ -2415,7 +2418,7 @@ code {
   padding: 12px 16px;
   overflow-x: auto;
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: calc(13px + var(--ui-font-size-offset, 0px));
   margin: 12px 0;
 }
 .markdown-file-preview code {
@@ -2451,7 +2454,7 @@ code {
   margin-top: 8px;
 }
 .markdown-frontmatter-tag {
-  font-size: 12px;
+  font-size: calc(12px + var(--ui-font-size-offset, 0px));
   line-height: 1.6;
   color: var(--text-muted);
   background: var(--bg-subtle);
@@ -2464,7 +2467,7 @@ code {
   grid-template-columns: auto 1fr;
   gap: 5px 14px;
   margin: 10px 0 0;
-  font-size: 13px;
+  font-size: calc(13px + var(--ui-font-size-offset, 0px));
   line-height: 1.55;
 }
 .markdown-frontmatter-row {
@@ -2861,7 +2864,7 @@ span.token.table {
   textarea,
   input,
   select {
-    font-size: 16px !important;
+    font-size: calc(16px + var(--ui-font-size-offset, 0px)) !important;
   }
   .chat-input-textarea {
     font-size: max(16px, var(--chat-content-font-size, 14px)) !important;

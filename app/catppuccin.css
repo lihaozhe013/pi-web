@@ -81,19 +81,3 @@ html[data-theme='catppuccin-mocha'],
   --tool-bg: #181825;
   --bg-subtle: rgba(205, 214, 244, 0.04);
 }
-
-/* Full theme names need more room than the standard five-column swatches.
-   Two tiles per row, with no changes to the existing theme grid. */
-.settings-theme-option:has(input[value^='catppuccin-']) {
-  grid-column: span 7;
-}
-.settings-theme-option:has(input[value='catppuccin-latte']),
-.settings-theme-option:has(input[value='catppuccin-macchiato']) {
-  grid-column: 1 / span 8;
-}
-.settings-theme-option:has(input[value^='catppuccin-']) .settings-theme-name {
-  padding: 2px 4px;
-  line-height: 1.2;
-  text-align: center;
-  white-space: normal;
-}

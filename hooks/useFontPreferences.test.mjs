@@ -173,6 +173,48 @@ test('storage changes in another tab, including clear, update the current page',
   stop();
 });
 
+test('three size domains are independent, bounded, persisted and reset separately', () => {
+  const store = fixture({ initial: { 'pi-chat-content-font-size': '18' } });
+  const stop = store.subscribeFontPreferences(() => {});
+  assert.equal(store.useFontPreferences().uiSize, 14);
+  assert.equal(store.useFontPreferences().monoSize, 15);
+  store.setFontSize('ui', 20);
+  store.setFontSize('mono', 22);
+  assert.equal(store.applied.get('--font-ui-size'), '20px');
+  assert.equal(store.applied.get('--font-mono-size'), '22px');
+  assert.equal(store.stored.get('pi-chat-content-font-size'), '18');
+  store.resetFontPreference('ui');
+  assert.equal(store.applied.has('--font-ui-size'), false);
+  assert.equal(store.useFontPreferences().monoSize, 22);
+  assert.equal(store.stored.get('pi-mono-font-size'), '22');
+  store.setFontSize('mono', 100);
+  assert.equal(store.useFontPreferences().monoSize, 24);
+  store.stored.set('pi-ui-font-size', '19');
+  store.events.get('storage')({ key: 'pi-ui-font-size' });
+  assert.equal(store.useFontPreferences().uiSize, 19);
+  store.stored.clear();
+  store.events.get('storage')({ key: null });
+  assert.equal(store.useFontPreferences().uiSize, 14);
+  assert.equal(store.useFontPreferences().monoSize, 15);
+  assert.equal(store.applied.size, 0);
+  stop();
+});
+
+test('size restoration validates saved data and blocked storage stays editable', () => {
+  const restored = fixture({
+    initial: { 'pi-ui-font-size': '18', 'pi-mono-font-size': 'invalid' }
+  });
+  assert.equal(restored.useFontPreferences().uiSize, 18);
+  assert.equal(restored.useFontPreferences().monoSize, 15);
+  const blocked = fixture({ blocked: true });
+  blocked.setFontSize('ui', 19);
+  blocked.setFontSize('mono', 21);
+  assert.equal(blocked.applied.get('--font-ui-size'), '19px');
+  assert.equal(blocked.applied.get('--font-mono-size'), '21px');
+  blocked.resetFontPreference('mono');
+  assert.equal(blocked.useFontPreferences().uiSize, 19);
+});
+
 test('blocked storage and malformed saved values leave usable defaults and live editing', () => {
   const invalid = fixture({
     initial: {

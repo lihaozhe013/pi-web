@@ -3,7 +3,7 @@ import test from 'node:test';
 import { createJiti } from 'jiti';
 
 const jiti = createJiti(import.meta.url);
-const { clampChatContentWidth, clampChatContentFontSize, terminalFontSize } = await jiti.import(
+const { clampChatContentWidth, clampChatContentFontSize } = await jiti.import(
   '../hooks/useChatAppearance.ts'
 );
 
@@ -24,14 +24,4 @@ test('chat font size preserves the default and bounds stored or supplied values'
   assert.equal(clampChatContentFontSize('18'), 18);
   assert.equal(clampChatContentFontSize(18.7), 19);
   assert.equal(clampChatContentFontSize(30), 24);
-});
-
-test('the terminal keeps 13px at the default chat size and moves with the slider', () => {
-  for (const value of [undefined, null, 'invalid', 16]) assert.equal(terminalFontSize(value), 13);
-  assert.equal(terminalFontSize(14), 11);
-  // The step follows the 16px default: 18px chat is a 15px terminal.
-  assert.equal(terminalFontSize(12), 9);
-  assert.equal(terminalFontSize(18), 15);
-  assert.equal(terminalFontSize(24), 21);
-  assert.equal(terminalFontSize(30), 21);
 });

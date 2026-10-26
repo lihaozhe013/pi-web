@@ -6,12 +6,11 @@ export const CHAT_CONTENT_WIDTH_DEFAULT = 820;
 export const CHAT_CONTENT_WIDTH_MIN = 820;
 export const CHAT_CONTENT_WIDTH_MAX = 2000;
 export const CHAT_CONTENT_WIDTH_STORAGE_KEY = 'pi-chat-content-width';
-// The chat column and tool cards share this readable baseline (see app/workspace.css).
+// Message text and the composer share this baseline; code/output size is independent.
 export const CHAT_CONTENT_FONT_SIZE_DEFAULT = 16;
 export const CHAT_CONTENT_FONT_SIZE_MIN = 12;
 export const CHAT_CONTENT_FONT_SIZE_MAX = 24;
 export const CHAT_CONTENT_FONT_SIZE_STORAGE_KEY = 'pi-chat-content-font-size';
-export const TERMINAL_FONT_SIZE_DEFAULT = 13;
 
 interface ChatAppearance {
   width: number;
@@ -37,18 +36,6 @@ export function clampChatContentFontSize(value: unknown): number {
   return Math.max(
     CHAT_CONTENT_FONT_SIZE_MIN,
     Math.min(CHAT_CONTENT_FONT_SIZE_MAX, Math.round(size))
-  );
-}
-
-/**
- * The terminal follows the chat font size as code blocks do: the same step, from its own 13px at
- * the chat default (14px chat is a 13px terminal, 18px chat a 17px one).
- */
-export function terminalFontSize(chatFontSize: unknown): number {
-  return (
-    clampChatContentFontSize(chatFontSize) -
-    CHAT_CONTENT_FONT_SIZE_DEFAULT +
-    TERMINAL_FONT_SIZE_DEFAULT
   );
 }
 

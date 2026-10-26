@@ -404,7 +404,7 @@ test('a long or multi-line value stays inside the card', (t) => {
   // A single-line value wraps in its cell; a value with lines of its own scrolls in a block.
   assert.ok(html.includes('<table'));
   assert.match(html, /overflow-wrap:anywhere/);
-  assert.match(html, /calc\(12px \+ var\(--chat-font-size-offset, 0px\)\)/);
+  assert.match(html, /font-size:var\(--font-mono-size, 15px\)/);
   assert.match(html, /max-height:260px/);
   assert.match(html, /overflow:auto/);
   assert.ok(textOf(html).includes('line 39'));

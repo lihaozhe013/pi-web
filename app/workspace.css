@@ -202,7 +202,7 @@
  */
 :root,
 [data-theme] {
-  --chat-content-font-size: 16px;
+  --chat-content-font-size: calc(16px + var(--ui-font-size-offset, 0px));
 }
 
 .markdown-body {
@@ -251,13 +251,13 @@
 
 .session-tree-title,
 .session-tree-group-toggle {
-  font-size: 13px;
+  font-size: calc(13px + var(--ui-font-size-offset, 0px));
   line-height: 1.35;
 }
 
 .session-tree.is-mobile .session-tree-title,
 .session-tree.is-mobile .session-tree-group-toggle {
-  font-size: 14px;
+  font-size: calc(14px + var(--ui-font-size-offset, 0px));
 }
 
 .session-tree-branch,
@@ -267,43 +267,43 @@
 .session-tree-more,
 .session-tree-more-toggle,
 .session-tree-pinned-toggle {
-  font-size: 11.5px;
+  font-size: calc(11.5px + var(--ui-font-size-offset, 0px));
 }
 
 .session-tree-footer-button {
-  font-size: 12.5px;
+  font-size: calc(12.5px + var(--ui-font-size-offset, 0px));
 }
 
 .session-tree-message {
-  font-size: 13px;
+  font-size: calc(13px + var(--ui-font-size-offset, 0px));
   line-height: 1.5;
 }
 
 .sidebar-tab,
 .sidebar-new-button,
 .sidebar-search-toggle {
-  font-size: 13px;
+  font-size: calc(13px + var(--ui-font-size-offset, 0px));
 }
 
 .sidebar-tab-count {
-  font-size: 11px;
+  font-size: calc(11px + var(--ui-font-size-offset, 0px));
 }
 
 .sidebar-brand {
-  font-size: 16px;
+  font-size: calc(16px + var(--ui-font-size-offset, 0px));
 }
 
 .sidebar-files-section-toggle {
-  font-size: 12.5px;
+  font-size: calc(12.5px + var(--ui-font-size-offset, 0px));
 }
 
 .sidebar-search-input,
 .sidebar-archive-back {
-  font-size: 13.5px;
+  font-size: calc(13.5px + var(--ui-font-size-offset, 0px));
 }
 
 .sidebar-files-error {
-  font-size: 11px;
+  font-size: calc(11px + var(--ui-font-size-offset, 0px));
 }
 
 /* The tree's row heights come from `SIDEBAR_ROW_HEIGHTS` (lib/session-tree.ts)
@@ -317,52 +317,52 @@
 }
 
 .sidebar-new-button {
-  font-size: 13px;
+  font-size: calc(13px + var(--ui-font-size-offset, 0px));
 }
 
 /* ── Type: sidebar menus and sheets ─────────────────────────────────────── */
 
 .sidebar-menu {
   padding: 6px;
-  font-size: 13px;
+  font-size: calc(13px + var(--ui-font-size-offset, 0px));
 }
 
 .sidebar-menu-item {
   height: 32px;
-  font-size: 13.5px;
+  font-size: calc(13.5px + var(--ui-font-size-offset, 0px));
 }
 
 .sidebar-menu-label.is-mono {
-  font-size: 12.5px;
+  font-size: calc(12.5px + var(--ui-font-size-offset, 0px));
 }
 
 .sidebar-menu-note {
-  font-size: 12px;
+  font-size: calc(12px + var(--ui-font-size-offset, 0px));
 }
 
 .sidebar-menu-shortcut {
-  font-size: 11.5px;
+  font-size: calc(11.5px + var(--ui-font-size-offset, 0px));
 }
 
 .sidebar-menu-header {
-  font-size: 12px;
+  font-size: calc(12px + var(--ui-font-size-offset, 0px));
 }
 
 .sidebar-menu-filter-input,
 .sidebar-menu-empty {
-  font-size: 13px;
+  font-size: calc(13px + var(--ui-font-size-offset, 0px));
 }
 
 .sidebar-menu.is-classic .sidebar-menu-item {
-  font-size: 12.5px;
+  font-size: calc(12.5px + var(--ui-font-size-offset, 0px));
 }
 
 .sidebar-menu.is-classic .sidebar-menu-label.is-mono {
-  font-size: 12px;
+  font-size: calc(12px + var(--ui-font-size-offset, 0px));
 }
 
 .sidebar-menu.is-classic .sidebar-menu-note {
-  font-size: 11px;
+  font-size: calc(11px + var(--ui-font-size-offset, 0px));
 }
 
 .sidebar-menu.is-classic .sidebar-menu-filter-input,
@@ -370,11 +370,11 @@
 .sidebar-menu.is-classic .sidebar-worktree-input,
 .sidebar-menu.is-classic .sidebar-worktree-create,
 .sidebar-menu.is-classic .sidebar-worktree-cancel {
-  font-size: 12.5px;
+  font-size: calc(12.5px + var(--ui-font-size-offset, 0px));
 }
 
 .sidebar-worktree-input {
-  font-size: 12.5px;
+  font-size: calc(12.5px + var(--ui-font-size-offset, 0px));
 }
 
 .sidebar-worktree-create,
@@ -385,37 +385,37 @@
 .sidebar-menu-question-text,
 .sidebar-menu-question-confirm,
 .sidebar-menu-question-cancel {
-  font-size: 13px;
+  font-size: calc(13px + var(--ui-font-size-offset, 0px));
 }
 
 .sidebar-worktree-error {
-  font-size: 12px;
+  font-size: calc(12px + var(--ui-font-size-offset, 0px));
 }
 
 .sidebar-toast,
 .sidebar-toast-action {
-  font-size: 13px;
+  font-size: calc(13px + var(--ui-font-size-offset, 0px));
 }
 
 .sidebar-sheet {
-  font-size: 16px;
+  font-size: calc(16px + var(--ui-font-size-offset, 0px));
 }
 
 .sidebar-sheet-title,
 .sidebar-sheet .sidebar-menu-header {
-  font-size: 13px;
+  font-size: calc(13px + var(--ui-font-size-offset, 0px));
 }
 
 .sidebar-sheet .sidebar-menu-item {
-  font-size: 16px;
+  font-size: calc(16px + var(--ui-font-size-offset, 0px));
 }
 
 .sidebar-sheet .sidebar-menu-label.is-mono {
-  font-size: 15px;
+  font-size: calc(15px + var(--ui-font-size-offset, 0px));
 }
 
 .sidebar-sheet .sidebar-menu-note {
-  font-size: 14px;
+  font-size: calc(14px + var(--ui-font-size-offset, 0px));
 }
 
 .sidebar-sheet .sidebar-menu-filter-input,
@@ -425,71 +425,71 @@
 .sidebar-sheet .sidebar-worktree-create,
 .sidebar-sheet .sidebar-worktree-force,
 .sidebar-sheet .sidebar-worktree-cancel {
-  font-size: 15px;
+  font-size: calc(15px + var(--ui-font-size-offset, 0px));
 }
 
 .sidebar-sheet .sidebar-menu-empty,
 .sidebar-sheet-cancel {
-  font-size: 16px;
+  font-size: calc(16px + var(--ui-font-size-offset, 0px));
 }
 
 /* ── Type: settings ─────────────────────────────────────────────────────── */
 
 .config-panel-title,
 .settings-dialog-title {
-  font-size: 17px;
+  font-size: calc(17px + var(--ui-font-size-offset, 0px));
 }
 
 .config-panel-subtitle {
-  font-size: 12px;
+  font-size: calc(12px + var(--ui-font-size-offset, 0px));
   line-height: 1.5;
 }
 
 .config-sidebar-group-label {
-  font-size: 11px;
+  font-size: calc(11px + var(--ui-font-size-offset, 0px));
 }
 
 .config-sidebar-group-status {
-  font-size: 12px;
+  font-size: calc(12px + var(--ui-font-size-offset, 0px));
 }
 
 .config-sidebar-item {
-  font-size: 13px;
+  font-size: calc(13px + var(--ui-font-size-offset, 0px));
 }
 
 .config-sidebar-text {
-  font-size: 13px;
+  font-size: calc(13px + var(--ui-font-size-offset, 0px));
   line-height: 1.45;
 }
 
 .config-detail {
-  font-size: 13.5px;
+  font-size: calc(13.5px + var(--ui-font-size-offset, 0px));
   line-height: 1.6;
 }
 
 .config-detail-title {
-  font-size: 16px;
+  font-size: calc(16px + var(--ui-font-size-offset, 0px));
 }
 
 .config-section-title {
-  font-size: 12.5px;
+  font-size: calc(12.5px + var(--ui-font-size-offset, 0px));
 }
 
 .config-field-label {
-  font-size: 12px;
+  font-size: calc(12px + var(--ui-font-size-offset, 0px));
 }
 
 .config-empty-state {
-  font-size: 13px;
+  font-size: calc(13px + var(--ui-font-size-offset, 0px));
   line-height: 1.6;
 }
 
 .config-button-default {
-  font-size: 13px;
+  font-size: calc(13px + var(--ui-font-size-offset, 0px));
 }
 
 .config-list-action-button {
-  font-size: 13px;
+  font-size: calc(13px + var(--ui-font-size-offset, 0px));
 }
 
 /* Quiet workspace surfaces and interaction polish. */
@@ -583,7 +583,7 @@
   border-radius: 999px !important;
   background: color-mix(in srgb, var(--bg-panel) 70%, var(--bg)) !important;
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--bg) 65%, transparent);
-  font-size: 12px !important;
+  font-size: calc(12px + var(--ui-font-size-offset, 0px)) !important;
   font-weight: 500;
   letter-spacing: -0.01em;
   transition:
@@ -714,7 +714,7 @@
 
 .app-workspace .new-session-brand-name {
   font-family: var(--font-ui);
-  font-size: 26px;
+  font-size: calc(26px + var(--ui-font-size-offset, 0px));
   font-weight: 600;
   letter-spacing: -0.04em;
   line-height: 1.25;
@@ -725,7 +725,7 @@
 }
 
 .app-workspace .new-session-meta {
-  font-size: 11px;
+  font-size: calc(11px + var(--ui-font-size-offset, 0px));
 }
 
 .app-workspace .new-session-context {
@@ -763,7 +763,7 @@
   }
 
   .app-workspace .new-session-brand-name {
-    font-size: 23px;
+    font-size: calc(23px + var(--ui-font-size-offset, 0px));
   }
 
   .app-workspace .composer-surface {
@@ -825,7 +825,7 @@
   min-height: 44px;
   padding: 0 12px;
   border-bottom: 1px solid var(--border);
-  font-size: 13px;
+  font-size: calc(13px + var(--ui-font-size-offset, 0px));
 }
 .session-info-header button {
   width: 36px;
@@ -834,7 +834,7 @@
   background: transparent;
   color: var(--text);
   cursor: pointer;
-  font-size: 22px;
+  font-size: calc(22px + var(--ui-font-size-offset, 0px));
 }
 .session-info-content {
   flex: 1;

@@ -4,26 +4,13 @@ import { mkdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { DARK_THEMES, THEME_OPTIONS } from '../lib/theme.ts';
+import { enLocale } from '../lib/i18n/messages/en.ts';
+import { selectSettingsSection } from './settings.mjs';
 
 const base = process.env.E2E_BASE_URL || 'http://127.0.0.1:30141';
 const artifacts = fileURLToPath(new URL('../test-results/themes/', import.meta.url));
 const themes = THEME_OPTIONS.map(({ id }) => id);
-const labels = [
-  'System',
-  'Light',
-  'Mist',
-  'Lilac',
-  'Sand',
-  'Rose',
-  'Dark',
-  'Pine',
-  'Dusk',
-  'Ember',
-  'Slate',
-  'High contrast light',
-  'High contrast dark',
-  'Zenburn'
-];
+const labels = THEME_OPTIONS.map((option) => enLocale.messages[option.label]);
 await mkdir(artifacts, { recursive: true });
 const browser = await chromium.launch();
 
@@ -63,6 +50,9 @@ try {
       if (width <= 640) await sidebar.waitFor();
       if (await sidebar.isVisible()) await sidebar.click();
       await page.getByRole('button', { name: 'Settings', exact: true }).click();
+      await selectSettingsSection(page, 'appearance', 'Appearance');
+      if (!(await page.locator('.appearance-theme-picker').evaluate((el) => el.open)))
+        await page.locator('.appearance-theme-picker > summary').click();
     };
     const expectTheme = async (theme) => {
       await page.waitForFunction(

@@ -23,6 +23,28 @@ keyboard focus.
 - Animate only to explain changes and honor reduced-motion preferences.
 - Prefer a good default over unnecessary appearance settings.
 
+## Settings and appearance
+
+Settings stays in a modal over the conversation. Desktop navigation uses a left-hand category list;
+phones use a category picker. General contains behavior and language; Appearance contains themes,
+fonts, sizes, conversation width and a live preview. The theme gallery is a native disclosure,
+collapsed initially to keep font controls near the top; a theme search result opens it
+automatically. Visited categories stay mounted so switching does not discard an editor's draft.
+
+Interface size (14px baseline), chat text size (16px) and monospace content size (15px) are
+independent. UI text retains its hierarchy relative to the interface baseline. Large UI sizes also
+grow virtual session rows. Chat text controls messages and the composer; monospace size controls
+inline code, code blocks, diffs and tool output. Font names and weights remain separate for UI and
+monospace. The preview reuses the Markdown renderer and code/output styles. Changes are immediate
+and stored only in the browser; font-group resets leave the other font and chat size alone.
+
+The settings search matches translated names, descriptions and English/Chinese aliases across
+categories. Appearance and general controls have stable destinations; management categories remain
+entry points to their own editors and content searches. It does not index configuration values,
+credentials, sessions or remote catalogues. Conditional results explain project, platform or sign-in
+requirements. Selecting a result focuses and reveals its destination without changing its value.
+Escape first clears an active search, then closes Settings on the next press.
+
 ## Execution feedback
 
 Show what the agent is doing, whether it finished, and what went wrong without filling the

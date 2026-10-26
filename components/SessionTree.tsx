@@ -34,6 +34,7 @@ import { formatRelativeTime, formatShortRelativeTime } from '@/lib/i18n/format';
 import { skillExpansionToCommand } from '@/lib/slash-display';
 import { useGroupDrag, type GroupDragHandlers } from '@/hooks/useGroupDrag';
 import { useI18n } from '@/hooks/useI18n';
+import { useFontPreferences } from '@/hooks/useFontPreferences';
 import { useScrollbarVisibility } from '@/hooks/useScrollbarVisibility';
 import type { SidebarMenuAnchor } from './SidebarMenu';
 import {
@@ -267,7 +268,11 @@ export function SessionTree(props: SessionTreeProps): ReactNode {
     setFocusedRowKey(null);
   }, []);
 
-  const offsets = useMemo(() => getRowOffsets(rows, layout), [rows, layout]);
+  const { uiSize } = useFontPreferences();
+  const offsets = useMemo(
+    () => getRowOffsets(rows, layout, Math.max(0, uiSize - 14) * 1.5),
+    [rows, layout, uiSize]
+  );
   // A group header can be dragged to another place in its band (pinned
   // projects, or the others) when the band has another group.
   const canMoveGroups = Boolean(props.onMoveGroup);

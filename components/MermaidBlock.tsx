@@ -387,7 +387,7 @@ export const CodeBlock = memo(function CodeBlock({
           style={{
             margin: 0,
             padding: '11px 13px',
-            fontSize: 'calc(12.5px + var(--chat-font-size-offset, 0px))',
+            fontSize: 'var(--font-mono-size, 15px)',
             lineHeight: 1.62,
             overflowX: 'auto',
             backgroundColor: 'color-mix(in srgb, var(--bg) 92%, var(--bg-panel))'
@@ -404,7 +404,7 @@ export const CodeBlock = memo(function CodeBlock({
           customStyle={{
             margin: 0,
             padding: '11px 13px',
-            fontSize: 'calc(12.5px + var(--chat-font-size-offset, 0px))',
+            fontSize: 'var(--font-mono-size, 15px)',
             lineHeight: 1.62,
             fontWeight: 'var(--font-mono-weight)',
             // The light `vs` theme puts its own 1px #ddd border on <pre>; the

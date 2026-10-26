@@ -8,6 +8,7 @@ import {
   fontFamilyOverride,
   readFontPreference,
   readFontWeight,
+  readFontSize,
   type FontKind,
   type FontPreferences
 } from '@/lib/font-preferences';
@@ -24,6 +25,8 @@ function readStoredPreferences(): FontPreferences {
       next[kind] = readFontPreference(window.localStorage.getItem(FONT_STORAGE_KEYS[kind]));
       const weightKey = `${kind}Weight` as const;
       next[weightKey] = readFontWeight(window.localStorage.getItem(FONT_STORAGE_KEYS[weightKey]));
+      const sizeKey = `${kind}Size` as const;
+      next[sizeKey] = readFontSize(kind, window.localStorage.getItem(FONT_STORAGE_KEYS[sizeKey]));
     } catch {
       // Browser preferences remain usable when storage is blocked.
     }
@@ -37,6 +40,10 @@ function applyPreferences(next: FontPreferences): void {
     const value = fontFamilyOverride(kind, next[kind]);
     if (value) document.documentElement.style.setProperty(property, value);
     else document.documentElement.style.removeProperty(property);
+    const sizeKey = `${kind}Size` as const;
+    if (next[sizeKey] === DEFAULT_FONT_PREFERENCES[sizeKey])
+      document.documentElement.style.removeProperty(`${property}-size`);
+    else document.documentElement.style.setProperty(`${property}-size`, `${next[sizeKey]}px`);
     const weight = next[`${kind}Weight`];
     if (weight === FONT_WEIGHT_DEFAULT)
       document.documentElement.style.removeProperty(`${property}-weight`);
@@ -67,7 +74,7 @@ function onStorage(event: StorageEvent): void {
   notify();
 }
 
-/** Also used by the terminal: changing a font must not recreate its shell or stream. */
+/** Font metrics update existing views without recreating their content or execution streams. */
 export function subscribeFontPreferences(listener: () => void): () => void {
   if (listeners.size === 0) window.addEventListener('storage', onStorage);
   listeners.add(listener);
@@ -104,9 +111,18 @@ export function setFontWeight(kind: FontKind, value: number): void {
   setPreferences({ ...getSnapshot(), [`${kind}Weight`]: readFontWeight(value) });
 }
 
-/** Reset this font's family and weight together, leaving the other font unchanged. */
+export function setFontSize(kind: FontKind, value: number): void {
+  setPreferences({ ...getSnapshot(), [`${kind}Size`]: readFontSize(kind, value) });
+}
+
+/** Reset this font's family, weight and size together, leaving the other font unchanged. */
 export function resetFontPreference(kind: FontKind): void {
-  setPreferences({ ...getSnapshot(), [kind]: '', [`${kind}Weight`]: FONT_WEIGHT_DEFAULT });
+  setPreferences({
+    ...getSnapshot(),
+    [kind]: '',
+    [`${kind}Weight`]: FONT_WEIGHT_DEFAULT,
+    [`${kind}Size`]: DEFAULT_FONT_PREFERENCES[`${kind}Size`]
+  });
 }
 
 export function useFontPreferences() {
@@ -115,5 +131,5 @@ export function useFontPreferences() {
     getSnapshot,
     () => DEFAULT_FONT_PREFERENCES
   );
-  return { ...snapshot, setFontPreference, setFontWeight, resetFontPreference };
+  return { ...snapshot, setFontPreference, setFontWeight, setFontSize, resetFontPreference };
 }

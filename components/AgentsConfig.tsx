@@ -584,6 +584,7 @@ export function AgentsConfig({
           >
             <span>{t('agents.maxConcurrent')}</span>
             <input
+              id="settings-agent-concurrency"
               aria-label={t('agents.maxConcurrent')}
               type="number"
               min={1}
@@ -594,13 +595,15 @@ export function AgentsConfig({
               onBlur={() => void updateMaxConcurrent(maxConcurrent)}
             />
           </label>
-          <ConfigSwitch
-            checked={builtInEnabled}
-            disabled={settingsLoading || reloading}
-            loading={settingsSaving}
-            label={t('agents.builtInTitle')}
-            onChange={(enabled) => void toggleBuiltInSubagents(enabled)}
-          />
+          <span id="settings-agent-builtin">
+            <ConfigSwitch
+              checked={builtInEnabled}
+              disabled={settingsLoading || reloading}
+              loading={settingsSaving}
+              label={t('agents.builtInTitle')}
+              onChange={(enabled) => void toggleBuiltInSubagents(enabled)}
+            />
+          </span>
         </div>
       </div>
       <ConfigSplitView>

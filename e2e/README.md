@@ -15,9 +15,10 @@ Fixtures use a temporary `PI_CODING_AGENT_DIR` and are removed afterward. The su
 model credentials or existing personal sessions. Git is required for directory/worktree fixtures.
 
 Tests cover areas such as session pagination, branching, navigation, transcript rendering,
-appearance, model selection, and extension dialogs. Some scripts still reflect removed UI; audit and
-update those assertions as cleanup proceeds. Test code is not a commitment to restore obsolete
-product features.
+appearance, model selection, and extension dialogs. Appearance coverage includes separate
+UI/chat/mono sizes, live preview, reset isolation, multilingual settings search and keyboard result
+navigation. Some scripts still reflect removed UI; audit and update those assertions as cleanup
+proceeds. Test code is not a commitment to restore obsolete product features.
 
 Live provider prompts and real agent execution require separate validation. Native phone keyboards
 also need real-device testing.

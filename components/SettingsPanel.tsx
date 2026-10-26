@@ -1,17 +1,7 @@
 'use client';
 
-import {
-  CHAT_CONTENT_FONT_SIZE_DEFAULT,
-  CHAT_CONTENT_FONT_SIZE_MAX,
-  CHAT_CONTENT_FONT_SIZE_MIN,
-  CHAT_CONTENT_WIDTH_DEFAULT,
-  CHAT_CONTENT_WIDTH_MAX,
-  CHAT_CONTENT_WIDTH_MIN,
-  useChatAppearance
-} from '@/hooks/useChatAppearance';
 import { setEnterSendMode, useEnterSendMode } from '@/hooks/useEnterSendMode';
 import { useI18n } from '@/hooks/useI18n';
-import { useTheme } from '@/hooks/useTheme';
 import { sendAgentCommand } from '@/lib/agent-client';
 import type { ProjectTrustStatus, ToolSettingsResponse } from '@/lib/api-types';
 import { setupPushSubscription } from '@/lib/push-client';
@@ -21,10 +11,11 @@ import {
   type SettingsSection
 } from '@/lib/settings-navigation';
 import { focusModalPanel, listenForPanelEscape } from '@/lib/stacked-dialog';
-import { THEME_OPTIONS } from '@/lib/theme';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { AgentsConfig } from './AgentsConfig';
-import { FontSettings } from './FontSettings';
+import { AppearanceSettings } from './AppearanceSettings';
+import { SettingsSearch } from './SettingsSearch';
+import type { SettingsSearchEntry } from '@/lib/settings-search';
 import { McpConfig } from './McpConfig';
 import { ModelsConfig } from './ModelsConfig';
 import { PluginsConfig } from './PluginsConfig';
@@ -77,6 +68,13 @@ export function SettingsSectionIcon({
         <circle cx="17" cy="17" r="3" />
       </svg>
     );
+  if (section === 'appearance')
+    return (
+      <svg {...common}>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 3v18M12 8h7M12 13h8M12 18h5" />
+      </svg>
+    );
   if (section === 'models')
     return (
       <svg {...common}>
@@ -124,13 +122,6 @@ function GeneralSettings({
   'sessionId' | 'onSessionReloaded' | 'quoteSelectionEnabled' | 'onQuoteSelectionChange'
 >) {
   const { locale, setLocale, supportedLocales, t } = useI18n();
-  const { preference, setThemePreference } = useTheme();
-  const {
-    width: chatContentWidth,
-    setWidth: setChatContentWidth,
-    fontSize,
-    setFontSize
-  } = useChatAppearance();
   const enterSendMode = useEnterSendMode();
   const [shellSettings, setShellSettings] = useState<ToolSettingsResponse | null>(null);
   const [shellSaving, setShellSaving] = useState(false);
@@ -273,148 +264,12 @@ function GeneralSettings({
   return (
     <div className="settings-general">
       <section className="settings-general-section">
-        <h3 className="settings-general-heading">{t('settings.appearance')}</h3>
-        <div
-          role="radiogroup"
-          aria-label={t('settings.appearance')}
-          className="settings-theme-options"
-        >
-          {THEME_OPTIONS.map((option) => {
-            const selected = preference === option.id;
-            return (
-              <label
-                key={option.id}
-                className="settings-theme-option"
-                data-system={option.id === 'auto' || undefined}
-                data-wide={
-                  option.id === 'contrast-light' ||
-                  option.id === 'contrast-dark' ||
-                  option.id === 'zenburn' ||
-                  undefined
-                }
-              >
-                <input
-                  type="radio"
-                  name="theme"
-                  value={option.id}
-                  checked={selected}
-                  onChange={() => setThemePreference(option.id)}
-                  className="sr-only"
-                />
-                {/* A data-theme span paints with that theme's own variables. System is a switch, not a
-                    palette: a neutral tile with a light and a dark chip beside its name. */}
-                {option.id === 'auto' ? (
-                  <span className="settings-theme-swatch settings-theme-system" aria-hidden="true">
-                    <span data-theme="light" className="settings-theme-chip" />
-                    <span data-theme="dark" className="settings-theme-chip" />
-                    <span className="settings-theme-system-name">{t(option.label)}</span>
-                  </span>
-                ) : (
-                  <span className="settings-theme-swatch" aria-hidden="true">
-                    <span data-theme={option.id} className="settings-theme-fill">
-                      <span className="settings-theme-name">{t(option.label)}</span>
-                    </span>
-                  </span>
-                )}
-                <span className="sr-only">{t(option.label)}</span>
-              </label>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="settings-general-section">
-        <h3 className="settings-general-heading">{t('settings.typography')}</h3>
-        <p id="settings-typography-description" className="settings-general-description">
-          {t('settings.fontDescription')}
-        </p>
-        <div className="settings-chat-options">
-          <FontSettings />
-          <div className="settings-chat-option settings-chat-range-option">
-            <div className="settings-chat-range-header">
-              <label htmlFor="settings-chat-content-font-size">
-                {t('settings.chatContentFontSize')}
-              </label>
-              <output htmlFor="settings-chat-content-font-size">{fontSize}px</output>
-              <ConfigButton
-                variant="ghost"
-                size="small"
-                className="settings-chat-reset"
-                title={t('settings.resetChatContentFontSize')}
-                aria-label={t('settings.resetChatContentFontSize')}
-                disabled={fontSize === CHAT_CONTENT_FONT_SIZE_DEFAULT}
-                onClick={() => setFontSize(CHAT_CONTENT_FONT_SIZE_DEFAULT)}
-              >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5" />
-                </svg>
-              </ConfigButton>
-            </div>
-            <input
-              id="settings-chat-content-font-size"
-              type="range"
-              min={CHAT_CONTENT_FONT_SIZE_MIN}
-              max={CHAT_CONTENT_FONT_SIZE_MAX}
-              step={1}
-              value={fontSize}
-              onChange={(event) => setFontSize(Number(event.target.value))}
-            />
-          </div>
-          <div className="settings-chat-option settings-chat-range-option">
-            <div className="settings-chat-range-header">
-              <label htmlFor="settings-chat-content-width">{t('settings.chatContentWidth')}</label>
-              <output htmlFor="settings-chat-content-width">{chatContentWidth}px</output>
-              <ConfigButton
-                variant="ghost"
-                size="small"
-                className="settings-chat-reset"
-                title={t('settings.resetChatContentWidth')}
-                aria-label={t('settings.resetChatContentWidth')}
-                disabled={chatContentWidth === CHAT_CONTENT_WIDTH_DEFAULT}
-                onClick={() => setChatContentWidth(CHAT_CONTENT_WIDTH_DEFAULT)}
-              >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5" />
-                </svg>
-              </ConfigButton>
-            </div>
-            <input
-              id="settings-chat-content-width"
-              type="range"
-              min={CHAT_CONTENT_WIDTH_MIN}
-              max={CHAT_CONTENT_WIDTH_MAX}
-              step={10}
-              value={chatContentWidth}
-              onChange={(event) => setChatContentWidth(Number(event.target.value))}
-            />
-          </div>
-        </div>
-      </section>
-
-      <section className="settings-general-section">
         <h3 className="settings-general-heading">{t('settings.chat')}</h3>
         <div className="settings-chat-options">
-          <div className="settings-chat-option settings-chat-switch-option">
+          <div
+            id="settings-quote-selection"
+            className="settings-chat-option settings-chat-switch-option"
+          >
             <span>{t('settings.quoteSelection')}</span>
             <ConfigSwitch
               checked={quoteSelectionEnabled}
@@ -424,6 +279,7 @@ function GeneralSettings({
           </div>
           <div
             className="settings-chat-option settings-chat-switch-option"
+            id="settings-send-key"
             role="radiogroup"
             aria-label={t('settings.enterSendMode')}
           >
@@ -455,7 +311,10 @@ function GeneralSettings({
               </label>
             </div>
           </div>
-          <div className="settings-chat-option settings-chat-switch-option">
+          <div
+            id="settings-cache-notices"
+            className="settings-chat-option settings-chat-switch-option"
+          >
             <span>{t('settings.cacheMissNotices')}</span>
             <ConfigSwitch
               checked={cacheMissNotices === true}
@@ -482,7 +341,7 @@ function GeneralSettings({
         <section className="settings-general-section">
           <h3 className="settings-general-heading">{t('settings.shellTool')}</h3>
           <p className="settings-general-description">{t('settings.shellToolDescription')}</p>
-          <div className="settings-shell-option">
+          <div id="settings-shell" className="settings-shell-option">
             <span>{t('settings.usePowerShell')}</span>
             <ConfigSwitch
               checked={shellSettings.powerShellEnabled}
@@ -499,7 +358,7 @@ function GeneralSettings({
         </section>
       )}
 
-      <section className="settings-general-section">
+      <section id="settings-push" className="settings-general-section">
         <h3 className="settings-general-heading">{t('settings.pushPermission')}</h3>
         <p className="settings-general-description">{t('settings.pushPermissionDescription')}</p>
         <div className="settings-shell-option">
@@ -524,7 +383,7 @@ function GeneralSettings({
         )}
       </section>
 
-      <section className="settings-general-section">
+      <section id="settings-language" className="settings-general-section">
         <h3 className="settings-general-heading">{t('common.language')}</h3>
         <div
           role="radiogroup"
@@ -555,7 +414,12 @@ function GeneralSettings({
 
       {webAuthEnabled && (
         <section className="settings-general-section">
-          <ConfigButton variant="secondary" disabled={loggingOut} onClick={() => void logOut()}>
+          <ConfigButton
+            id="settings-logout"
+            variant="secondary"
+            disabled={loggingOut}
+            onClick={() => void logOut()}
+          >
             <svg
               width="14"
               height="14"
@@ -596,6 +460,7 @@ export function SettingsPanel({
 }: Props) {
   const { t } = useI18n();
   const [section, setSection] = useState<SettingsSection>(initialSection);
+  const [searchTarget, setSearchTarget] = useState<SettingsSearchEntry | null>(null);
   const [mountedSections, setMountedSections] = useState<ReadonlySet<SettingsSection>>(
     () => new Set([section])
   );
@@ -603,6 +468,7 @@ export function SettingsPanel({
   const sections: { id: SettingsSection; label: string; requiresProject: boolean }[] = (
     [
       { id: 'general', label: t('settings.general') },
+      { id: 'appearance', label: t('settings.appearance') },
       { id: 'models', label: t('common.models') },
       { id: 'skills', label: t('common.skills') },
       { id: 'agents', label: t('common.agents') },
@@ -645,9 +511,74 @@ export function SettingsPanel({
     setLastSettingsSection(nextSection);
   };
 
+  useLayoutEffect(() => {
+    if (!searchTarget || searchTarget.section !== section) return;
+    const host = dialogRef.current?.querySelector<HTMLElement>(
+      '[data-settings-section="' + searchTarget.section + '"]'
+    );
+    if (!host) return;
+    let highlighted: HTMLElement | null = null;
+    let highlightTimeout: number | undefined;
+    const reveal = () => {
+      const target = searchTarget.target ? document.getElementById(searchTarget.target) : host;
+      if (!target || !host.contains(target)) return false;
+      const disclosure = target.closest('details') ?? target.querySelector('details');
+      if (disclosure) disclosure.open = true;
+      const focusTarget = target.matches('input, select, button, [tabindex]')
+        ? target
+        : (target.querySelector<HTMLElement>('input, select, button') ?? target);
+      if (focusTarget.matches(':disabled')) return false;
+      if (!focusTarget.hasAttribute('tabindex') && !focusTarget.matches('input, select, button'))
+        focusTarget.tabIndex = -1;
+      target.scrollIntoView({ block: 'center', behavior: 'instant' });
+      focusTarget.focus({ preventScroll: true });
+      highlighted =
+        target.closest<HTMLElement>(
+          '.appearance-range, .appearance-font-group, .settings-general-section, .settings-chat-option'
+        ) ?? target;
+      highlighted.classList.add('settings-search-highlight');
+      highlightTimeout = window.setTimeout(
+        () => highlighted?.classList.remove('settings-search-highlight'),
+        2400
+      );
+      return true;
+    };
+    // Conditional general controls can arrive after their availability request.
+    const observer = new MutationObserver(() => {
+      if (reveal()) observer.disconnect();
+    });
+    if (!reveal())
+      observer.observe(host, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['disabled']
+      });
+    const timeout = window.setTimeout(() => {
+      observer.disconnect();
+      highlighted?.classList.remove('settings-search-highlight');
+    }, 10000);
+    return () => {
+      observer.disconnect();
+      window.clearTimeout(timeout);
+      window.clearTimeout(highlightTimeout);
+      highlighted?.classList.remove('settings-search-highlight');
+    };
+  }, [searchTarget, section]);
+
+  const selectSearchResult = (entry: SettingsSearchEntry) => {
+    activateSection(entry.section);
+    setSearchTarget({ ...entry });
+  };
+
   const sectionHost = (id: SettingsSection, content: ReactNode) =>
     mountedSections.has(id) ? (
-      <div key={id} hidden={section !== id} className="settings-section-host">
+      <div
+        key={id}
+        hidden={section !== id}
+        data-settings-section={id}
+        className="settings-section-host"
+      >
         {content}
       </div>
     ) : null;
@@ -679,6 +610,20 @@ export function SettingsPanel({
               </option>
             ))}
           </select>
+
+          <button
+            type="button"
+            onClick={onClose}
+            title={t('i18n.close')}
+            aria-label={t('i18n.close')}
+            className="config-close-button settings-dialog-close"
+          >
+            ×
+          </button>
+        </div>
+
+        <SettingsSearch cwd={cwd} onSelect={selectSearchResult} />
+        <div className="settings-dialog-body">
           <nav aria-label={t('settings.title')} className="settings-section-tabs">
             {sections.map((item) => {
               const selected = section === item.id;
@@ -699,75 +644,66 @@ export function SettingsPanel({
               );
             })}
           </nav>
-          <button
-            type="button"
-            onClick={onClose}
-            title={t('i18n.close')}
-            aria-label={t('i18n.close')}
-            className="config-close-button settings-dialog-close"
-          >
-            ×
-          </button>
-        </div>
-
-        <main className="settings-dialog-main">
-          {sectionHost(
-            'general',
-            <GeneralSettings
-              sessionId={sessionId}
-              onSessionReloaded={onSessionReloaded}
-              quoteSelectionEnabled={quoteSelectionEnabled}
-              onQuoteSelectionChange={onQuoteSelectionChange}
-            />
-          )}
-          {sectionHost('models', <ModelsConfig embedded cwd={cwd} onClose={onClose} />)}
-          {/* Visited sections stay mounted, so the ones whose answer depends on trust take the page's
+          <main className="settings-dialog-main">
+            {sectionHost(
+              'general',
+              <GeneralSettings
+                sessionId={sessionId}
+                onSessionReloaded={onSessionReloaded}
+                quoteSelectionEnabled={quoteSelectionEnabled}
+                onQuoteSelectionChange={onQuoteSelectionChange}
+              />
+            )}
+            {sectionHost('appearance', <AppearanceSettings />)}
+            {sectionHost('models', <ModelsConfig embedded cwd={cwd} onClose={onClose} />)}
+            {/* Visited sections stay mounted, so the ones whose answer depends on trust take the page's
               status and load again in place when trusting from Settings › MCP changes it. */}
-          {cwd &&
-            sectionHost(
-              'skills',
-              <SkillsConfig embedded key={cwd} cwd={cwd} trust={projectTrust} onClose={onClose} />
-            )}
-          {cwd &&
-            sectionHost(
-              'agents',
-              <AgentsConfig
+            {cwd &&
+              sectionHost(
+                'skills',
+                <SkillsConfig embedded key={cwd} cwd={cwd} trust={projectTrust} onClose={onClose} />
+              )}
+            {cwd &&
+              sectionHost(
+                'agents',
+                <AgentsConfig
+                  embedded
+                  key={cwd}
+                  cwd={cwd}
+                  sessionId={sessionId}
+                  trust={projectTrust}
+                  onClose={onClose}
+                  onReloaded={onSessionReloaded}
+                />
+              )}
+            {cwd &&
+              sectionHost(
+                'plugins',
+                <PluginsConfig
+                  embedded
+                  key={cwd}
+                  cwd={cwd}
+                  sessionId={sessionId}
+                  trust={projectTrust}
+                  onClose={onClose}
+                  onReloaded={onSessionReloaded}
+                />
+              )}
+            {/* No project needed: the global mcp.json is listed alone, and a project adds its group. */}
+            {sectionHost(
+              'mcp',
+              <McpConfig
                 embedded
-                key={cwd}
+                key={cwd ?? ''}
                 cwd={cwd}
-                sessionId={sessionId}
                 trust={projectTrust}
+                onTrustProject={onOpenTrustDialog}
+                onProjectTrustChanged={onProjectTrustChanged}
                 onClose={onClose}
-                onReloaded={onSessionReloaded}
               />
             )}
-          {cwd &&
-            sectionHost(
-              'plugins',
-              <PluginsConfig
-                embedded
-                key={cwd}
-                cwd={cwd}
-                sessionId={sessionId}
-                trust={projectTrust}
-                onClose={onClose}
-                onReloaded={onSessionReloaded}
-              />
-            )}
-          {/* No project needed: the global mcp.json is listed alone, and a project adds its group. */}
-          {sectionHost(
-            'mcp',
-            <McpConfig
-              embedded
-              key={cwd ?? ''}
-              cwd={cwd}
-              trust={projectTrust}
-              onTrustProject={onOpenTrustDialog}
-              onProjectTrustChanged={onProjectTrustChanged}
-              onClose={onClose}
-            />
-          )}
-        </main>
+          </main>
+        </div>
       </div>
     </div>
   );

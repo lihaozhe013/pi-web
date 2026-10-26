@@ -24,6 +24,18 @@ sessions in process; Bun manages dependencies and script invocation.
 | Local launcher           | `bin/pi-web.js`                                             |
 | Portable packaging       | `packaging/`                                                |
 
+## Browser appearance and settings
+
+`components/SettingsPanel.tsx` owns modal navigation and result focus; `AppearanceSettings.tsx` owns
+the appearance editor. `lib/settings-search.ts` is a metadata-only index with stable control IDs,
+translated labels and availability hints. Searches do not read persisted configuration content.
+
+`hooks/useFontPreferences.ts` restores UI/monospace families, weights and independent sizes,
+publishes CSS variables, persists browser preferences and synchronizes font changes between tabs.
+Existing family/weight keys and the chat text/width keys in `hooks/useChatAppearance.ts` are
+retained; no migration rewrites saved preferences. Font size changes notify the same consumers as
+font family changes. The session virtualizer includes UI-size growth in its row offsets.
+
 ## Session flow
 
 1. Session APIs enumerate and read saved Pi sessions. Browsing does not itself require starting an

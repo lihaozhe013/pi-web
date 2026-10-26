@@ -13,7 +13,20 @@ export const FONT_WEIGHT_OPTIONS = [
   { value: 600, label: 'settings.fontWeightSemiBold' }
 ] as const;
 export type FontWeight = (typeof FONT_WEIGHT_OPTIONS)[number]['value'];
-export type FontPreferences = Record<FontKind, string> & Record<`${FontKind}Weight`, FontWeight>;
+export const FONT_SIZE_DEFAULTS = { ui: 14, mono: 15 } as const;
+export const FONT_SIZE_MIN = 12;
+export const FONT_SIZE_MAX = 24;
+
+export function readFontSize(kind: FontKind, value: unknown): number {
+  const size = Number(value);
+  if (value == null || (typeof value === 'string' && !value.trim()) || !Number.isFinite(size))
+    return FONT_SIZE_DEFAULTS[kind];
+  return Math.max(FONT_SIZE_MIN, Math.min(FONT_SIZE_MAX, Math.round(size)));
+}
+
+export type FontPreferences = Record<FontKind, string> &
+  Record<`${FontKind}Weight`, FontWeight> &
+  Record<`${FontKind}Size`, number>;
 
 export const FONT_FAMILY_MAX_LENGTH = 500;
 export const FONT_WEIGHT_DEFAULT: FontWeight = 400;
@@ -21,13 +34,17 @@ export const FONT_STORAGE_KEYS: Record<keyof FontPreferences, string> = {
   ui: 'pi-ui-font-family',
   mono: 'pi-mono-font-family',
   uiWeight: 'pi-ui-font-weight',
-  monoWeight: 'pi-mono-font-weight'
+  monoWeight: 'pi-mono-font-weight',
+  uiSize: 'pi-ui-font-size',
+  monoSize: 'pi-mono-font-size'
 };
 export const DEFAULT_FONT_PREFERENCES: FontPreferences = {
   ui: '',
   mono: '',
   uiWeight: FONT_WEIGHT_DEFAULT,
-  monoWeight: FONT_WEIGHT_DEFAULT
+  monoWeight: FONT_WEIGHT_DEFAULT,
+  uiSize: FONT_SIZE_DEFAULTS.ui,
+  monoSize: FONT_SIZE_DEFAULTS.mono
 };
 
 /** Missing, malformed or unsupported weights keep the original Regular (400). */

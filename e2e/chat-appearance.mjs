@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import { checkFontPreferences } from './font-preferences.mjs';
+import { checkSettingsSearchAndSizes, selectSettingsSection } from './settings.mjs';
 
 export async function checkChatAppearanceReset(page) {
   const width = page.getByRole('slider', { name: 'Chat content width', exact: true });
-  const fontSize = page.getByRole('slider', { name: 'Chat & terminal font size', exact: true });
-  const resetWidth = page.getByRole('button', { name: 'Reset chat content width', exact: true });
+  const fontSize = page.getByRole('slider', { name: 'Chat text size', exact: true });
+  const resetWidth = page.getByRole('button', { name: 'Reset: Chat content width', exact: true });
   const resetFontSize = page.getByRole('button', {
-    name: 'Reset chat & terminal font size',
+    name: 'Reset: Chat text size',
     exact: true
   });
   await width.press('End');
@@ -42,10 +43,13 @@ export async function checkChatAppearanceReset(page) {
 export async function checkChatAppearance(page) {
   await page.setViewportSize({ width: 2560, height: 1100 });
   const textarea = page.locator('.chat-input-textarea');
-  const openSettings = () => page.getByRole('button', { name: 'Settings', exact: true }).click();
+  const openSettings = async () => {
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await selectSettingsSection(page, 'appearance', 'Appearance');
+  };
   const closeSettings = () => page.keyboard.press('Escape');
   const width = page.getByRole('slider', { name: 'Chat content width', exact: true });
-  const fontSize = page.getByRole('slider', { name: 'Chat & terminal font size', exact: true });
+  const fontSize = page.getByRole('slider', { name: 'Chat text size', exact: true });
   const font = (locator) => locator.evaluate((el) => getComputedStyle(el).fontSize);
   const fittedHeight = async () => {
     await page.waitForFunction(() => {
@@ -85,19 +89,21 @@ export async function checkChatAppearance(page) {
   await page.locator('.markdown-code-block pre').waitFor();
   assert.equal(await font(textarea), '18px');
   assert.equal(await font(page.locator('.markdown-user-message')), '18px');
-  assert.equal(await font(page.locator('.markdown-code-block pre')), '16.5px');
+  assert.equal(await font(page.locator('.markdown-code-block pre')), '15px');
 
   await openSettings();
   assert.equal(await width.inputValue(), '2000');
   assert.equal(await fontSize.inputValue(), '18');
   await checkChatAppearanceReset(page);
+  await checkSettingsSearchAndSizes(page);
   await checkFontPreferences(page);
+  await selectSettingsSection(page, 'general', 'General');
   for (const viewport of [
     { width: 1280, height: 600 },
     { width: 320, height: 568 }
   ]) {
     await page.setViewportSize(viewport);
-    await page.locator('.settings-general').evaluate((el) => {
+    await page.locator('[data-settings-section="general"] .settings-general').evaluate((el) => {
       el.scrollTop = el.scrollHeight;
     });
     assert.equal(
@@ -111,6 +117,7 @@ export async function checkChatAppearance(page) {
       'Every language option must remain reachable in a short settings panel'
     );
   }
+  await selectSettingsSection(page, 'appearance', 'Appearance');
   await fontSize.press('Home');
   await closeSettings();
   assert.equal(await font(textarea), '16px', 'Mobile inputs retain the focus-zoom minimum');

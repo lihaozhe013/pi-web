@@ -10,6 +10,7 @@ import './sidebar-menu.css';
 import './workspace.css';
 import './tool-cards.css';
 import './catppuccin.css';
+import './appearance.css';
 
 const notoSansMono = Noto_Sans_Mono({
   subsets: ['latin', 'cyrillic'],

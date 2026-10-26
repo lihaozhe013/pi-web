@@ -115,7 +115,7 @@ export function CodemodeCallList({
         borderTop: '1px solid color-mix(in srgb, var(--border) 45%, transparent)',
         padding: '6px 10px',
         fontFamily: 'var(--font-mono)',
-        fontSize: 'calc(11.5px + var(--chat-font-size-offset, 0px))',
+        fontSize: 'var(--font-mono-size, 15px)',
         lineHeight: 1.5,
         display: 'flex',
         flexDirection: 'column',

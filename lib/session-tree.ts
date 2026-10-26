@@ -874,12 +874,18 @@ export function familiesToDelete(
 }
 
 /** Prefix sums of row heights: length rows.length + 1, offsets[0] = 0. */
-export function getRowOffsets(rows: readonly SidebarRow[], layout: SidebarLayout): number[] {
+export function getRowOffsets(
+  rows: readonly SidebarRow[],
+  layout: SidebarLayout,
+  extraHeight = 0
+): number[] {
   const heights = SIDEBAR_ROW_HEIGHTS[layout];
+  const growth = Number.isFinite(extraHeight) ? Math.max(0, Math.ceil(extraHeight)) : 0;
   const offsets = new Array<number>(rows.length + 1);
   offsets[0] = 0;
   for (let index = 0; index < rows.length; index++) {
-    offsets[index + 1] = offsets[index] + heights[rows[index].kind];
+    offsets[index + 1] =
+      offsets[index] + heights[rows[index].kind] + (rows[index].kind === 'spacer' ? 0 : growth);
   }
   return offsets;
 }

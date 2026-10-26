@@ -202,7 +202,7 @@ function SafeMarkdownBody({
       style={{
         maxHeight: 420,
         overflow: 'auto',
-        fontSize: 'calc(12px + var(--chat-font-size-offset, 0px))',
+        fontSize: 'var(--font-mono-size, 15px)',
         lineHeight: 1.5
       }}
     >
@@ -628,7 +628,7 @@ function UserMessageView({
                     cursor: 'pointer',
                     color: 'var(--accent)',
                     fontFamily: 'var(--font-mono)',
-                    fontSize: 'calc(13px + var(--chat-font-size-offset, 0px))',
+                    fontSize: 'var(--font-mono-size, 15px)',
                     textAlign: 'left'
                   }}
                 >
@@ -1564,7 +1564,7 @@ export function ThinkingBlock({
         padding: '6px 10px',
         background: 'var(--bg-subtle)',
         fontFamily: 'var(--font-mono)',
-        fontSize: 'calc(11px + var(--chat-font-size-offset, 0px))',
+        fontSize: 'var(--font-mono-size, 15px)',
         lineHeight: 1.5
       }}
     >
@@ -1931,7 +1931,7 @@ function ToolCallBlock({
                 margin: 0,
                 padding: '9px 12px',
                 color: 'var(--text-muted)',
-                fontSize: 'calc(12px + var(--chat-font-size-offset, 0px))',
+                fontSize: 'var(--font-mono-size, 15px)',
                 lineHeight: 1.5,
                 overflow: 'auto',
                 background: 'var(--tool-card-pane)',
@@ -2063,7 +2063,7 @@ export function PatchDiffFiles({
               borderTop: fileIndex === 0 ? 'none' : CARD_RULE,
               fontFamily: 'var(--font-mono)',
               fontWeight: 'var(--font-mono-weight)',
-              fontSize: 'calc(12px + var(--chat-font-size-offset, 0px))',
+              fontSize: 'var(--font-mono-size, 15px)',
               lineHeight: 1.55
             }}
           >
@@ -2274,7 +2274,7 @@ function PatchTextView({ text }: { text: string }) {
         overflowX: 'hidden',
         fontFamily: 'var(--font-mono)',
         fontWeight: 'var(--font-mono-weight)',
-        fontSize: 'calc(12px + var(--chat-font-size-offset, 0px))',
+        fontSize: 'var(--font-mono-size, 15px)',
         lineHeight: 1.55,
         minWidth: 0,
         background: 'var(--tool-card-pane)'
@@ -2380,7 +2380,7 @@ function ShellTailResult({
           background: 'none',
           color: 'var(--accent)',
           cursor: 'pointer',
-          fontSize: 'calc(11.5px + var(--chat-font-size-offset, 0px))',
+          fontSize: 'var(--font-mono-size, 15px)',
           fontVariantNumeric: 'tabular-nums',
           textAlign: 'left'
         }}
@@ -2405,7 +2405,7 @@ function ShellTailResult({
           margin: 0,
           padding: '8px 12px',
           color: isError ? '#f87171' : 'var(--text-muted)',
-          fontSize: 'calc(12px + var(--chat-font-size-offset, 0px))',
+          fontSize: 'var(--font-mono-size, 15px)',
           lineHeight: 1.55,
           overflow: 'auto',
           maxHeight: 400,
@@ -2442,7 +2442,7 @@ function ShellOutputFooter({ onShowLess }: { onShowLess: () => void }) {
           background: 'none',
           color: 'var(--text-dim)',
           cursor: 'pointer',
-          fontSize: 'calc(11.5px + var(--chat-font-size-offset, 0px))',
+          fontSize: 'var(--font-mono-size, 15px)',
           textAlign: 'left'
         }}
       >
@@ -2578,7 +2578,7 @@ function PairedResult({
           margin: 0,
           padding: '9px 12px',
           color: isError ? '#f87171' : isEmpty ? 'var(--text-dim)' : 'var(--text-muted)',
-          fontSize: 'calc(12px + var(--chat-font-size-offset, 0px))',
+          fontSize: 'var(--font-mono-size, 15px)',
           lineHeight: 1.5,
           overflow: 'auto',
           maxHeight: 400,
@@ -3007,7 +3007,7 @@ function CustomMessageView({
                   borderTop: CARD_RULE,
                   background: 'var(--bg)',
                   color: 'var(--text-muted)',
-                  fontSize: 'calc(12px + var(--chat-font-size-offset, 0px))',
+                  fontSize: 'var(--font-mono-size, 15px)',
                   lineHeight: 1.5,
                   whiteSpace: 'pre-wrap',
                   wordBreak: 'break-word',
@@ -3079,7 +3079,7 @@ function getWrittenFileText(block: ToolCallContent): string | null {
 const TOOL_FIELD_LABEL: CSSProperties = {
   padding: '4px 12px 4px 0',
   color: 'var(--text-dim)',
-  fontSize: 'calc(11px + var(--chat-font-size-offset, 0px))',
+  fontSize: 'var(--font-mono-size, 15px)',
   whiteSpace: 'nowrap',
   verticalAlign: 'top'
 };
@@ -3087,7 +3087,7 @@ const TOOL_FIELD_LABEL: CSSProperties = {
 const TOOL_FIELD_VALUE: CSSProperties = {
   padding: '4px 0',
   color: 'var(--text-muted)',
-  fontSize: 'calc(12px + var(--chat-font-size-offset, 0px))',
+  fontSize: 'var(--font-mono-size, 15px)',
   fontFamily: 'var(--font-mono)',
   overflowWrap: 'anywhere'
 };
