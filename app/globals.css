@@ -2871,6 +2871,56 @@ span.token.table {
   }
 }
 
+/* The live run status belongs to the composer stack: one fixed-height row above
+   the input, outside the transcript, so a long run stays visible while history
+   scrolls under it and the composer does not move as tools start and finish. */
+.composer-activity-slot {
+  flex-shrink: 0;
+  min-width: 0;
+  padding: 0 52px 6px 16px;
+}
+.composer-activity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 20px;
+  max-width: var(--chat-content-max-width, 820px);
+  margin: 0 auto;
+  color: var(--text-muted);
+  font-size: calc(13px + var(--ui-font-size-offset, 0px));
+  line-height: 20px;
+  overflow: hidden;
+}
+.composer-activity-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.composer-activity-dot {
+  width: 5px;
+  height: 5px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: currentColor;
+  animation: composer-activity-pulse 1.4s ease-in-out infinite;
+}
+@keyframes composer-activity-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .composer-activity-dot {
+    animation: none;
+  }
+}
+@media (max-width: 640px) {
+  .composer-activity-slot {
+    padding-right: 16px;
+  }
+}
+
 /* Questions belong to the composer stack, not an overlay over the transcript. */
 .ask-user-shell {
   flex-shrink: 0;

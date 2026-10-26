@@ -50,9 +50,16 @@ Escape first clears an active search, then closes Settings on the next press.
 Show what the agent is doing, whether it finished, and what went wrong without filling the
 conversation with every low-level event.
 
+The live run status is one row directly above the composer, outside the transcript: provider
+waiting, thinking, reading, execution and compaction report there, aligned to the composer's content
+width. It stays visible while the user scrolls history, and its fixed single-line height keeps the
+composer still. Concurrent work is summarized as one line (`Reading 3 files · Running bun test`): a
+kind with a single running call keeps its concrete detail, a kind with several becomes a count, and
+the full text remains in the tooltip. The row disappears when the run ends.
+
 Current main-transcript behavior:
 
-- Thinking and explicit read calls use transient status rather than persistent cards.
+- Thinking and explicit read calls draw no card: the composer status row carries them.
 - A tool card appears when the call actually starts executing, and not while the model is still
   writing its arguments: a half-streamed JSON blob would intrude, while a running call's card is the
   progress the user asked for. A shell card therefore opens at execution with its live output and

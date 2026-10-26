@@ -1,6 +1,6 @@
 'use client';
 import { AskUserPanel, isAskUserRequest } from './AskUserPanel';
-import { LiveAgentActivity } from './LiveAgentActivity';
+import { ComposerActivity } from './ComposerActivity';
 import { mainTranscriptBlocks } from '@/lib/quiet-activity';
 import { ToolActivityProvider, liveToolIds } from './ToolActivity'; // display-only execution status
 import { registerAbortHandler } from '@/hooks/useKeyboardShortcuts';
@@ -1843,15 +1843,6 @@ export function ChatWindow({
                       />
                     )}
 
-                    {agentRunning && (
-                      <LiveAgentActivity
-                        store={streamingStore}
-                        phase={agentPhase}
-                        messages={messages}
-                        compacting={isCompacting}
-                      />
-                    )}
-
                     {bashRunning && !pendingBash && (
                       <div className="py-2 text-[13px] text-text-muted">
                         <span className="animate-[pulse_1.5s_infinite]">
@@ -2132,6 +2123,19 @@ export function ChatWindow({
               onRespond={respondToExtensionUi}
               onReturnFocus={() => chatInputRef?.current?.focus()}
             />
+          )}
+          {/* The run status sits above the composer, aligned to its content
+            width, so it stays in place while the transcript grows below the
+            user's viewport. */}
+          {agentRunning && (
+            <div className="composer-activity-slot">
+              <ComposerActivity
+                store={streamingStore}
+                phase={agentPhase}
+                messages={messages}
+                compacting={isCompacting}
+              />
+            </div>
           )}
           {chatInputElement}
           <ExtensionStatusBar
