@@ -25,15 +25,21 @@ function render(toolName, { running = false, partial = false, complete = false, 
 
 test("write/edit/read lifecycle defaults and manual choices", () => {
   clearExpandedToolCalls();
-  for (const name of ["write", "edit", "apply_patch"]) {
-    assert.match(render(name), /aria-expanded="false"/);
+  for (const name of ["write", "edit"]) {
+    assert.match(render(name), /aria-expanded="true"/);
     assert.match(render(name, { running: true }), /aria-expanded="true"/);
-    assert.match(render(name, { complete: true }), /aria-expanded="false"/);
-    assert.match(render(name, { complete: true, error: true }), /aria-expanded="false"/);
+    assert.match(render(name, { complete: true }), /aria-expanded="true"/);
+    assert.match(render(name, { complete: true, error: true }), /aria-expanded="true"/);
   }
+  assert.match(render("apply_patch"), /aria-expanded="false"/);
+  assert.match(render("apply_patch", { running: true }), /aria-expanded="true"/);
+  assert.match(render("apply_patch", { complete: true }), /aria-expanded="false"/);
   assert.equal(render("read", { complete: true }), "");
   setToolCallExpanded("fork-test", false);
-  assert.match(render("write", { complete: true }), /aria-expanded="false"/);
+  for (const name of ["write", "edit"]) {
+    assert.match(render(name, { running: true }), /aria-expanded="false"/);
+    assert.match(render(name, { complete: true }), /aria-expanded="false"/);
+  }
   assert.match(render("bash", { running: true }), /aria-expanded="false"/);
   clearExpandedToolCalls();
 });

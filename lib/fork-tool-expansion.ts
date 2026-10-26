@@ -1,5 +1,5 @@
 /**
- * Shell and file mutation details open during execution and fold on completion.
+ * Writes and edits default open; shells and patches open only during execution.
  * Explicit choices continue to take precedence over these lifecycle defaults.
  */
 
@@ -42,7 +42,8 @@ export type ForkToolState = "pending" | "running" | "success" | "error";
 
 /** Defaults are derived every render, never stored as a user's explicit choice. */
 export function isToolCallExpandedByDefault(toolName: string, state: ForkToolState = "pending"): boolean {
-  return state === "running" && (isShellToolName(toolName) || isWriteToolName(toolName) || isEditToolName(toolName) || isApplyPatchToolName(toolName));
+  return isWriteToolName(toolName) || isEditToolName(toolName)
+    || (state === "running" && (isShellToolName(toolName) || isApplyPatchToolName(toolName)));
 }
 
 /**

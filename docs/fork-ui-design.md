@@ -36,7 +36,8 @@ fixed colors. Keep the chat and sidebar visually connected.
 
 Process details start open for retained steps. Shell cards open while executing
 and disappear after success, including user-run commands. Failed commands retain
-a folded error summary. Write/edit/patch cards open while executing and fold
+a folded error summary. Write/edit cards default to expanded, including during
+input streaming and after completion. Patch cards open while executing and fold
 after completion. Explicit choices control retained cards. Long shell
 results show their last 16 lines with Show all/less when expanded. An expanded
 running shell shows its Running cursor below the output buffer and its controls,

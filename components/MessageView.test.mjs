@@ -161,8 +161,8 @@ test("marks only the matched text block after splitting thinking and the final a
   }
 });
 
-test("folds a write's streamed input by default, but still counts it", () => {
-  // fork: incomplete file content stays off screen until execution succeeds.
+test("expands a write's streamed input by default and still counts it", () => {
+  // Streamed arguments remain visible before execution starts.
   clearExpandedToolCalls();
   const block = {
     type: "toolCall",
@@ -180,8 +180,8 @@ test("folds a write's streamed input by default, but still counts it", () => {
 
   assert.match(html, /write/);
   assert.match(html, /Generating parameters/);
-  assert.doesNotMatch(html, /secret-stream-fragment/);
-  assert.match(html, /aria-expanded="false"/);
+  assert.match(html, /secret-stream-fragment/);
+  assert.match(html, /aria-expanded="true"/);
   assert.equal(getToolCallInputText(block), block.rawInput);
   assert.equal(getTokenEstimateText(block), block.rawInput);
 });
