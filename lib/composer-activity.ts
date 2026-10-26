@@ -39,10 +39,21 @@ export function composerActivityLabel(
     if (phase.tools.length === 0) return t('chat.runningTool');
     return summarizeRunningTools(phase.tools, collectToolInputs(messages, streaming), t);
   }
+  // The model writes a call's arguments before pi reports it as running, and while
+  // it does the phase can still name the previous wait. Naming the tool keeps the
+  // row alive through that stretch instead of blanking it until execution starts.
+  const drafting = lastStreamedToolCall(streaming);
+  if (drafting !== null) return t('activity.preparingTool', { name: drafting });
   if (phase?.kind === 'waiting_model') return t('activity.waitingProvider');
   if (phase?.kind === 'running_command') return t('chat.runningCommand');
   if (streaming?.content.at(-1)?.type === 'thinking') return t('activity.thinking');
   return null;
+}
+
+/** The tool whose arguments the streaming reply is still writing, if any. */
+function lastStreamedToolCall(streaming: AssistantMessage | null): string | null {
+  const block = streaming?.content.at(-1);
+  return block?.type === 'toolCall' ? block.toolName : null;
 }
 
 /** Streamed arguments arrive before the call is reported as running. */

@@ -55,7 +55,10 @@ waiting, thinking, reading, execution and compaction report there, aligned to th
 width. It stays visible while the user scrolls history, and its fixed single-line height keeps the
 composer still. Concurrent work is summarized as one line (`Reading 3 files · Running bun test`): a
 kind with a single running call keeps its concrete detail, a kind with several becomes a count, and
-the full text remains in the tooltip. The row disappears when the run ends.
+the full text remains in the tooltip. A call the model is still writing is named by its tool
+(`Preparing edit…`) instead of leaving the row empty until execution starts. The row keeps its
+height for the whole run, dropping only the text while a visible answer streams, so the composer
+never moves mid-run. It disappears when the run ends.
 
 Current main-transcript behavior:
 

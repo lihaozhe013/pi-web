@@ -701,6 +701,7 @@ export const zhCNLocale: LocalePlugin = {
     'chat.dropFailed': '上传失败：{message}',
     'activity.thought': '已思考',
     'activity.thinking': '正在思考…',
+    'activity.preparingTool': '正在准备 {name}…',
     'activity.reading': '正在读取…',
     'activity.readingFile': '正在读取 {path}',
     'activity.readingFiles': '正在读取 {count} 个文件',

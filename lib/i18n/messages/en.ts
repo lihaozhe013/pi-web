@@ -719,6 +719,7 @@ export const enLocale: LocalePlugin = {
     'chat.tokensSaved': '{saved} saved',
     'activity.thought': 'Thought',
     'activity.thinking': 'Thinking…',
+    'activity.preparingTool': 'Preparing {name}…',
     'activity.reading': 'Reading…',
     'activity.readingFile': 'Reading {path}',
     'activity.readingFiles': 'Reading {count} files',

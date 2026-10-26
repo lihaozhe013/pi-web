@@ -702,6 +702,7 @@ export const zhTWLocale: LocalePlugin = {
     'chat.dropFailed': '上傳失敗：{message}',
     'activity.thought': '已思考',
     'activity.thinking': '正在思考…',
+    'activity.preparingTool': '正在準備 {name}…',
     'activity.reading': '正在讀取…',
     'activity.readingFile': '正在讀取 {path}',
     'activity.readingFiles': '正在讀取 {count} 個檔案',
