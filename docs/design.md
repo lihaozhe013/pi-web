@@ -44,7 +44,9 @@ Distinguish provider waiting, thinking, reading, execution, and compaction. Clea
 when a run ends. Partial output is not success.
 
 Load syntax highlighting on demand. Unknown languages and streaming input must remain readable
-without it. Distinguish tool cards with subtle surface tint rather than loud frames.
+without it. Draw tool cards as borderless panes: a surface tint lifts the card off the transcript
+and the code, diff or output inside it sits a shade deeper, so color rather than a frame separates
+the body from the page.
 
 ## Navigation and accessibility
 

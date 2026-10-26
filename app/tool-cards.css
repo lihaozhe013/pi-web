@@ -1,18 +1,25 @@
 /* Tool-card surfaces and execution status. */
 
 /*
- * Quiet tool cards: no outline at all — the surface tint alone draws the card,
+ * Quiet tool cards: no outline at all — shades of the text token draw the card,
  * the way modern chat agents frame their edits (Claude's edit cards, ChatGPT's
- * tool rows). The radius comes from the inline 7px, which app/workspace.css lifts
- * to --ui-radius-md, the message-bubble radius. State stays in a quiet status
- * mark (below the buffer for running shells); only an error warms the tint.
+ * tool rows). The card surface lifts off the transcript, and the code, diff or
+ * output inside it sits a shade deeper, so the body reads as a pane of its own
+ * instead of as the page background. Both shades mix semantic tokens, so every
+ * theme gets a proportional tint without another hard-coded colour. The radius
+ * comes from the inline 7px, which app/workspace.css lifts to --ui-radius-md,
+ * the message-bubble radius. State stays in a quiet status mark (below the
+ * buffer for running shells); only an error warms the tint.
  */
 .tool-card {
-  background: var(--bg-subtle);
+  /* The card surface, and the inset body pane that `--tool-card-pane` overlays. */
+  --tool-card-surface: color-mix(in srgb, var(--text) 5%, var(--bg));
+  --tool-card-pane: color-mix(in srgb, var(--text) 4%, transparent);
+  background: var(--tool-card-surface);
 }
 
 .tool-card[data-state='error'] {
-  background: rgba(248, 113, 113, 0.07);
+  background: color-mix(in srgb, #f87171 8%, var(--tool-card-surface));
 }
 
 .tool-card-header {

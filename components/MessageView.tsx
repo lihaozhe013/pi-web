@@ -1935,7 +1935,7 @@ function ToolCallBlock({
                 fontSize: 'calc(12px + var(--chat-font-size-offset, 0px))',
                 lineHeight: 1.5,
                 overflow: 'auto',
-                background: 'var(--bg)',
+                background: 'var(--tool-card-pane)',
                 borderTop: CARD_RULE,
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-all'
@@ -1957,7 +1957,7 @@ function ToolCallBlock({
 
         {/* ── Expanded: applied-patch split diff ── */}
         {expanded && patchFiles && (
-          <div style={{ borderTop: CARD_RULE, background: 'var(--bg)' }}>
+          <div style={{ borderTop: CARD_RULE }}>
             <SplitFilesView files={patchFiles} />
           </div>
         )}
@@ -2009,12 +2009,7 @@ interface ResultDiff {
 
 function PairedDiffResult({ diff }: { diff: ResultDiff }) {
   return (
-    <div
-      style={{
-        borderTop: CARD_RULE,
-        background: 'var(--bg)'
-      }}
-    >
+    <div style={{ borderTop: CARD_RULE }}>
       <SplitPatchView text={diff.text} />
     </div>
   );
@@ -2052,7 +2047,12 @@ export function PatchDiffFiles({
 
   return (
     <div
-      style={{ maxHeight: 560, overflowY: 'auto', overflowX: 'hidden', background: 'var(--bg)' }}
+      style={{
+        maxHeight: 560,
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        background: 'var(--tool-card-pane)'
+      }}
     >
       {files.map((file, fileIndex) => (
         // each file of a patch carries its own syntax, read off its path.
@@ -2277,7 +2277,8 @@ function PatchTextView({ text }: { text: string }) {
         fontWeight: 'var(--font-mono-weight)',
         fontSize: 'calc(12px + var(--chat-font-size-offset, 0px))',
         lineHeight: 1.55,
-        minWidth: 0
+        minWidth: 0,
+        background: 'var(--tool-card-pane)'
       }}
     >
       {lines.map((line, i) => {
@@ -2409,7 +2410,7 @@ function ShellTailResult({
           lineHeight: 1.55,
           overflow: 'auto',
           maxHeight: 400,
-          background: 'var(--bg)',
+          background: 'var(--tool-card-pane)',
           whiteSpace: 'pre-wrap',
           wordBreak: 'break-all'
         }}
@@ -2527,7 +2528,7 @@ function ResultImages({ images }: { images: ImageContent[] }) {
         gap: 8,
         flexWrap: 'wrap',
         padding: '10px',
-        background: 'var(--bg)',
+        background: 'var(--tool-card-pane)',
         borderTop: CARD_RULE
       }}
     >
@@ -2582,7 +2583,7 @@ function PairedResult({
           lineHeight: 1.5,
           overflow: 'auto',
           maxHeight: 400,
-          background: 'var(--bg)',
+          background: 'var(--tool-card-pane)',
           whiteSpace: 'pre-wrap',
           wordBreak: 'break-all',
           fontStyle: isEmpty ? 'italic' : 'normal',
@@ -3099,7 +3100,7 @@ const TOOL_FIELD_BLOCK: CSSProperties = {
   maxHeight: 260,
   overflow: 'auto',
   borderRadius: 6,
-  background: 'var(--bg)',
+  background: 'var(--tool-card-pane)',
   font: 'inherit',
   lineHeight: 1.5,
   whiteSpace: 'pre-wrap'

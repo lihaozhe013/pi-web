@@ -466,6 +466,61 @@ test('renders subagents as standard tool calls with only an extra side-panel but
   assert.doesNotMatch(ordinaryHtml, /View sub-agent work in side panel/);
 });
 
+test('code, diffs and output sit in the card pane, not the page background', () => {
+  // The card draws itself from a surface tint, and its body is a deeper pane
+  // (app/tool-cards.css). Painting the body with --bg made it identical to the
+  // transcript, so the card stopped reading as a pane at all.
+  const pane = /background:var\(--tool-card-pane\)/;
+  const write = {
+    type: 'toolCall',
+    toolCallId: 'call-pane-write',
+    toolName: 'write',
+    input: { path: 'src/demo.ts', content: 'const value = 1;\n' }
+  };
+  const bash = {
+    type: 'toolCall',
+    toolCallId: 'call-pane-bash',
+    toolName: 'bash',
+    input: { command: 'exit 1' }
+  };
+  setToolCallExpanded(write.toolCallId, true);
+  setToolCallExpanded(bash.toolCallId, true);
+  try {
+    const written = renderMessage({
+      role: 'assistant',
+      provider: 'anthropic',
+      model: 'claude-test',
+      content: [write]
+    });
+    assert.match(written, /const value = 1;/);
+    assert.match(written, pane);
+
+    // A successful shell card leaves the transcript, so the retained failure
+    // keeps its output pane.
+    const failed = renderMessage(
+      { role: 'assistant', provider: 'anthropic', model: 'claude-test', content: [bash] },
+      {
+        toolResults: new Map([
+          [
+            bash.toolCallId,
+            {
+              role: 'toolResult',
+              toolCallId: bash.toolCallId,
+              toolName: 'bash',
+              content: [{ type: 'text', text: 'boom' }],
+              isError: true
+            }
+          ]
+        ])
+      }
+    );
+    assert.match(failed, /boom/);
+    assert.match(failed, pane);
+  } finally {
+    clearExpandedToolCalls();
+  }
+});
+
 test("a tool card shows the run time pi recorded, else the timestamps' difference, never a tiny one", () => {
   // A successful shell call leaves no card at all (docs/design.md),
   // so the header's time is asserted on a tool that keeps one.
