@@ -77,6 +77,16 @@ distribution is out of scope.
   use the Bun commands above on `main`. Runtime plugin/skill npm integrations
   remain separate from this repository's package management.
 
+### Current conversation workspace
+
+The UI retains session management, chat/tool output, the toolbar, and an optional
+400px information sidebar. File trees, file previews, Git/worktree controls,
+terminal tabs, and `demo/` have been removed. Directory selection, chat attachments,
+inline media, file mentions, and agent execution remain. Git project identity is
+still used internally for session grouping. See `docs/ui-cleanup-todo.md` for
+remaining shared API, legacy type, style, and translation cleanup. Historical
+maps below may name removed files; they are not instructions to restore them.
+
 ### 4. Inventory: what the fork line had at the split
 
 The list below is what `main` inherited — mostly dedicated fork files with

@@ -1,40 +1,24 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { CHAT_CONTENT_FONT_SIZE_DEFAULT, CHAT_CONTENT_FONT_SIZE_MAX, CHAT_CONTENT_FONT_SIZE_MIN, CHAT_CONTENT_WIDTH_DEFAULT, CHAT_CONTENT_WIDTH_MAX, CHAT_CONTENT_WIDTH_MIN, useChatAppearance, } from "@/hooks/useChatAppearance";
+import { setEnterSendMode, useEnterSendMode } from "@/hooks/useEnterSendMode";
 import { useI18n } from "@/hooks/useI18n";
 import { useTheme } from "@/hooks/useTheme";
-import { THEME_OPTIONS } from "@/lib/theme";
-import {
-  CHAT_CONTENT_WIDTH_DEFAULT,
-  CHAT_CONTENT_WIDTH_MAX,
-  CHAT_CONTENT_WIDTH_MIN,
-  CHAT_CONTENT_FONT_SIZE_DEFAULT,
-  CHAT_CONTENT_FONT_SIZE_MAX,
-  CHAT_CONTENT_FONT_SIZE_MIN,
-  useChatAppearance,
-} from "@/hooks/useChatAppearance";
-import { useEnterSendMode, setEnterSendMode } from "@/hooks/useEnterSendMode";
-import { useFilesPlacement, setFilesPlacement } from "@/hooks/useFilesPlacement";
 import { sendAgentCommand } from "@/lib/agent-client";
 import type { ProjectTrustStatus, ToolSettingsResponse } from "@/lib/api-types";
-import {
-  setLastSettingsSection,
-  settingsSectionRequiresProject,
-  type SettingsSection,
-} from "@/lib/settings-navigation";
-import { focusModalPanel, listenForPanelEscape } from "@/lib/stacked-dialog";
-import {
-  isThinkingExpandedByDefault,
-  setThinkingExpandedByDefault,
-} from "@/lib/thinking-expansion-preference";
-import { ModelsConfig } from "./ModelsConfig";
 import { setupPushSubscription } from "@/lib/push-client";
-import { SkillsConfig } from "./SkillsConfig";
+import { setLastSettingsSection, settingsSectionRequiresProject, type SettingsSection, } from "@/lib/settings-navigation";
+import { focusModalPanel, listenForPanelEscape } from "@/lib/stacked-dialog";
+import { THEME_OPTIONS } from "@/lib/theme";
+import { isThinkingExpandedByDefault, setThinkingExpandedByDefault, } from "@/lib/thinking-expansion-preference";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { AgentsConfig } from "./AgentsConfig";
-import { PluginsConfig } from "./PluginsConfig";
-import { McpConfig } from "./McpConfig";
-import { ConfigButton, ConfigSwitch } from "./SettingsUi";
 import { FontSettings } from "./FontSettings";
+import { McpConfig } from "./McpConfig";
+import { ModelsConfig } from "./ModelsConfig";
+import { PluginsConfig } from "./PluginsConfig";
+import { ConfigButton, ConfigSwitch } from "./SettingsUi";
+import { SkillsConfig } from "./SkillsConfig";
 
 interface Props {
   cwd: string | null;
@@ -79,7 +63,6 @@ function GeneralSettings({ sessionId, onSessionReloaded, quoteSelectionEnabled, 
   const { preference, setThemePreference } = useTheme();
   const { width: chatContentWidth, setWidth: setChatContentWidth, fontSize, setFontSize } = useChatAppearance();
   const enterSendMode = useEnterSendMode();
-  const filesPlacement = useFilesPlacement();
   const [shellSettings, setShellSettings] = useState<ToolSettingsResponse | null>(null);
   const [shellSaving, setShellSaving] = useState(false);
   const [shellError, setShellError] = useState<string | null>(null);
@@ -379,45 +362,6 @@ function GeneralSettings({ sessionId, onSessionReloaded, quoteSelectionEnabled, 
         </div>
         <p id="settings-cache-miss-notices-description" className="settings-general-description">{t("settings.cacheMissNoticesDescription")}</p>
         {cacheMissNoticesError && <p role="alert" className="settings-general-error">{cacheMissNoticesError}</p>}
-      </section>
-
-      <section className="settings-general-section">
-        <h3 className="settings-general-heading">{t("settings.sidebar")}</h3>
-        <div className="settings-chat-options">
-          <div
-            className="settings-chat-option settings-chat-switch-option"
-            role="radiogroup"
-            aria-label={t("settings.filesPlacement")}
-            aria-describedby="settings-files-placement-description"
-          >
-            <span>{t("settings.filesPlacement")}</span>
-            <div className="settings-send-mode-options">
-              <label className="settings-send-mode-option">
-                <input
-                  type="radio"
-                  name="files-placement"
-                  value="below"
-                  checked={filesPlacement === "below"}
-                  onChange={() => setFilesPlacement("below")}
-                  className="sr-only"
-                />
-                <span className="settings-send-mode-label">{t("settings.filesPlacementBelow")}</span>
-              </label>
-              <label className="settings-send-mode-option">
-                <input
-                  type="radio"
-                  name="files-placement"
-                  value="tab"
-                  checked={filesPlacement === "tab"}
-                  onChange={() => setFilesPlacement("tab")}
-                  className="sr-only"
-                />
-                <span className="settings-send-mode-label">{t("settings.filesPlacementTab")}</span>
-              </label>
-            </div>
-          </div>
-        </div>
-        <p id="settings-files-placement-description" className="settings-general-description">{t("settings.filesPlacementDescription")}</p>
       </section>
 
       {shellSettings?.isWindows && (

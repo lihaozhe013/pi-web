@@ -40,7 +40,6 @@ test("a linked session that is gone gets no other session in its place (#1168)",
         clearLastOpen() {},
         workspaceKeyOf: (value) => value.projectKey ?? value.cwd,
         useCallback: (callback) => callback,
-        changeFileWorkspace() {},
         activeNewSessionDraftKeyRef: { current: null },
         activeProjectKeyRef: { current: null },
         workspaceRestoreTokenRef: { current: 0 },
@@ -131,10 +130,8 @@ test("New restores the draft after session navigation and workspace auto-restore
         newSessionBarFocusRef: { current: null },
         cancelEventStreamGrace() {},
         closeEvents() {},
-        changeFileWorkspace() {},
         isMobile: false,
         activeCwd: cwd,
-        activeFileTabId: null,
         newSessionCwd: cwd,
         newSessionDraftId: "initial",
         selectedSession: null,
@@ -215,7 +212,6 @@ test("New in another project adopts it up front and parks the composer's draft",
     callbackBody("handleNewSession", "hydrateSelectedSession"),
   ].join("\n");
   const parkedKeyHelper = source.slice(source.indexOf("function parkedNewSessionDraftKey"), source.indexOf("export function AppShell"));
-  const fileTab = { id: "file:/p1/notes.md", filePath: "/p1/notes.md" };
   const context = vm.createContext({
     ...draftStore,
     crypto: globalThis.crypto,
@@ -239,9 +235,6 @@ test("New in another project adopts it up front and parks the composer's draft",
     requestAnimationFrame: () => {},
     isMobile: false,
     activeCwd: "/p1",
-    activeFileTabId: fileTab.id,
-    fileTabs: [fileTab],
-    rightPanelOpen: true,
     newSessionCwd: "/p1",
     newSessionDraftId: "first",
     selectedSession: null,
@@ -255,31 +248,21 @@ test("New in another project adopts it up front and parks the composer's draft",
       context[state] = typeof value === "function" ? value(context[state]) : value;
     };
   }
-  context.changeFileWorkspace = () => {
-    context.fileTabs = [];
-    context.activeFileTabId = null;
-    context.rightPanelOpen = false;
-  };
   vm.runInContext(stripTypeScriptTypes(`${parkedKeyHelper}\n${callbacks}
     globalThis.navigate = { handleCwdChange, handleSelectSession, handleNewSession };
   `), context);
   const draft = { value: "half-written in p1", images: [] };
   draftStore.setDraft("new:first:/p1", draft);
 
-  // Ctrl+Alt+N (no key) in the same cwd keeps the project and its file tabs.
+  // Ctrl+Alt+N in the same directory keeps the selected project.
   context.navigate.handleNewSession("kb-1", "/p1");
   assert.equal(context.activeProjectKeyRef.current, "/p1");
-  assert.deepEqual(context.fileTabs, [fileTab]);
-  assert.equal(context.rightPanelOpen, true);
   draftStore.setDraft(context.activeNewSessionDraftKeyRef.current, draft);
 
   // A group's "+" in another project: adopted before the sidebar reports the cwd.
   const sessionKey = context.sessionKey;
   context.navigate.handleNewSession("p2-new", "/p2", "/p2-key");
   assert.equal(context.activeProjectKeyRef.current, "/p2-key");
-  assert.equal(context.fileTabs.length, 0);
-  assert.equal(context.activeFileTabId, null);
-  assert.equal(context.rightPanelOpen, false);
   assert.equal(context.newSessionCwd, "/p2");
   assert.equal(context.sessionKey, sessionKey + 1);
   assert.deepEqual(draftStore.getDraft("parked-new:/p1"), draft, "the p1 composer's draft is parked, not dropped");
@@ -301,7 +284,6 @@ test("the composer's bar moves the fresh composer's draft and model picks instea
     callbackBody("handleNewSession", "hydrateSelectedSession"),
   ].join("\n");
   const parkedKeyHelper = source.slice(source.indexOf("function parkedNewSessionDraftKey"), source.indexOf("export function AppShell"));
-  const fileTab = { id: "file:/p1/notes.md", filePath: "/p1/notes.md" };
   const choices = { model: { provider: "custom", modelId: "fast" }, thinkingLevel: "high" };
   const context = vm.createContext({
     ...draftStore,
@@ -328,9 +310,6 @@ test("the composer's bar moves the fresh composer's draft and model picks instea
     carriedNewSessionChoices: null,
     isMobile: false,
     activeCwd: "/p1",
-    activeFileTabId: fileTab.id,
-    fileTabs: [fileTab],
-    rightPanelOpen: true,
     newSessionCwd: "/p1",
     newSessionDraftId: "first",
     selectedSession: null,
@@ -344,11 +323,6 @@ test("the composer's bar moves the fresh composer's draft and model picks instea
       context[state] = typeof value === "function" ? value(context[state]) : value;
     };
   }
-  context.changeFileWorkspace = () => {
-    context.fileTabs = [];
-    context.activeFileTabId = null;
-    context.rightPanelOpen = false;
-  };
   vm.runInContext(stripTypeScriptTypes(`${parkedKeyHelper}\n${callbacks}
     globalThis.navigate = { handleCwdChange, handleNewSession };
   `), context);
@@ -367,7 +341,6 @@ test("the composer's bar moves the fresh composer's draft and model picks instea
   assert.equal(context.carriedNewSessionChoices, choices);
   assert.equal(context.activeNewSessionDraftKeyRef.current, "new:p2-new:/p2");
   assert.equal(context.activeProjectKeyRef.current, "/p2-key");
-  assert.equal(context.fileTabs.length, 0);
   assert.equal(context.newSessionCwd, "/p2");
   assert.equal(context.sessionKey, sessionKey + 1);
   // The sidebar's report of that cwd is neither a switch nor a second remount.
@@ -400,71 +373,6 @@ test("the composer's bar moves the fresh composer's draft and model picks instea
   for (const key of ["parked-new:/p2", "parked-new:/p4", "new:p3-new:/p3"]) draftStore.clearDraft(key);
 });
 
-test("the bar of the new composer shows the bar's own move until the sidebar reports it", async () => {
-  const { contextForCwd } = await jiti.import("../lib/new-session-context.ts");
-  const callbacks = [
-    callbackBody("handleSidebarNewSessionContext", "newSessionBarFocusRef"),
-    callbackBody("handlePickNewSessionContext", "pickNewSessionContextRef"),
-    callbackBody("handleCreateNewSessionWorktree", "handleNewSessionBarFocusDone"),
-  ].join("\n");
-  const starts = [];
-  const context = vm.createContext({
-    Error,
-    useCallback: (callback) => callback,
-    newSessionMoveRef: { current: null },
-    newSessionBarFocusRef: { current: null },
-    sidebarControlRef: {
-      current: {
-        startNewSessionIn: (target) => starts.push(target),
-        createWorktree: async (_project, branch) => ({ path: `/work/app-worktrees/${branch.replace("/", "-")}` }),
-      },
-    },
-    sidebarNewSessionContext: null,
-    selectedSession: null,
-    effectiveNewSessionCwd: "/work/app",
-  });
-  context.setSidebarNewSessionContext = (value) => { context.sidebarNewSessionContext = value; };
-  vm.runInContext(stripTypeScriptTypes(`${callbacks}
-    globalThis.bar = { handleSidebarNewSessionContext, handlePickNewSessionContext, handleCreateNewSessionWorktree };
-  `), context);
-  const app = { key: "app-key", root: "/work/app" };
-  const main = { path: "/work/app", branch: "main", isMain: true };
-  const report = { cwd: "/work/app", project: app, worktrees: [main], currentWorktreePath: main.path, projects: [app] };
-  context.bar.handleSidebarNewSessionContext(report);
-  const shown = () => contextForCwd(context.sidebarNewSessionContext, context.effectiveNewSessionCwd, context.newSessionMoveRef.current);
-
-  // "New worktree…": the move keeps the branch it was created with, and the
-  // first bar after it already lists that worktree as current.
-  const created = await context.bar.handleCreateNewSessionWorktree(app, "fix/login");
-  context.bar.handlePickNewSessionContext({ cwd: created.path, projectKey: app.key, projectRoot: app.root }, "worktree");
-  assert.equal(starts.length, 1);
-  assert.equal(starts[0].carryComposer, true);
-  assert.equal(context.newSessionBarFocusRef.current, "worktree");
-  context.effectiveNewSessionCwd = created.path;
-  assert.deepEqual(shown().project, app);
-  assert.deepEqual(shown().worktrees.at(-1), { path: created.path, branch: "fix/login", isMain: false });
-  assert.equal(shown().currentWorktreePath, created.path);
-
-  // Another cwd's report leaves the move; the report of its cwd ends it.
-  context.bar.handleSidebarNewSessionContext(report);
-  assert.equal(context.newSessionMoveRef.current?.cwd, created.path);
-  const caughtUp = { ...report, cwd: created.path, worktrees: [main, { path: created.path, branch: "fix/login", isMain: false }], currentWorktreePath: created.path };
-  context.bar.handleSidebarNewSessionContext(caughtUp);
-  assert.equal(context.newSessionMoveRef.current, null);
-  assert.equal(shown(), caughtUp);
-
-  // Another project: its identity until the sidebar has resolved it.
-  context.bar.handlePickNewSessionContext({ cwd: "/elsewhere/lib", projectKey: "lib-key", projectRoot: "/elsewhere/lib" }, "project");
-  assert.equal(JSON.stringify(context.newSessionMoveRef.current), JSON.stringify({ cwd: "/elsewhere/lib", project: { key: "lib-key", root: "/elsewhere/lib" }, branch: null }));
-
-  // Refused moves leave nothing behind.
-  context.newSessionMoveRef.current = null;
-  context.bar.handlePickNewSessionContext({ cwd: created.path, projectKey: app.key, projectRoot: app.root }, "project");
-  context.selectedSession = { id: "open" };
-  context.bar.handlePickNewSessionContext({ cwd: "/work/app", projectKey: app.key, projectRoot: app.root }, "worktree");
-  assert.equal(context.newSessionMoveRef.current, null);
-  assert.equal(starts.length, 2);
-});
 
 test("a new session puts the caret in the fresh composer on desktop only (#1313)", () => {
   const callbacks = [
@@ -501,7 +409,6 @@ test("a new session puts the caret in the fresh composer on desktop only (#1313)
     document: { activeElement: null },
     isMobile: false,
     activeCwd: "/p1",
-    activeFileTabId: null,
     newSessionCwd: "/p1",
     newSessionDraftId: "first",
     selectedSession: null,
@@ -515,7 +422,6 @@ test("a new session puts the caret in the fresh composer on desktop only (#1313)
       context[state] = typeof value === "function" ? value(context[state]) : value;
     };
   }
-  context.changeFileWorkspace = () => {};
   vm.runInContext(stripTypeScriptTypes(`${parkedKeyHelper}\n${callbacks}
     globalThis.navigate = { handleNewSession };
   `), context);

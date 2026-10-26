@@ -14,8 +14,7 @@ pipeline, or npm publication step. `main` is maintained independently of upstrea
 | `bun run package:portable` | Build, package, and smoke-test in temporary directories |
 
 The build machine needs Git, Bun 1.4.4, a current Node.js LTS satisfying
-`package.json.engines`, gzip-capable `tar`, and any native build tools needed by
-`node-pty`. Build on the target operating system and architecture. Linux packages
+`package.json.engines`, and gzip-capable `tar`. Build on the target operating system and architecture. Linux packages
 require glibc; Alpine/musl and cross-compilation are unsupported.
 
 ```sh
@@ -42,7 +41,7 @@ dependencies are bundled. Bun is required for building, not for running the arch
    native dependency scripts run under Node.js.
 5. Create a tar.gz with complete production `node_modules`, then extract it to a
    different path containing spaces.
-6. Smoke-test the CLI, a real PTY subprocess, the HTTP homepage, static assets,
+6. Smoke-test the CLI, the HTTP homepage, static assets,
    and sessions API before saving the archive and SHA-256 checksum.
 
 Output defaults to the ignored `build/portable/` directory. Temporary directories
@@ -80,14 +79,6 @@ background operation is needed; point it at `bin/pi-web.js` in the installation.
 
 ## Validation and updates
 
-Run the native PTY probe independently when investigating a dependency problem:
-
-```sh
-node packaging/pty-probe.mjs .
-```
-
-The probe checks module loading, spawning, output, and exit. It exits explicitly
-after success to avoid retained Windows ConPTY handles causing a false timeout.
 Smoke tests cover the current build platform; OAuth, models, MCP, and third-party
 plugins still need validation for their actual use.
 

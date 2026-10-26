@@ -5,21 +5,6 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
-import { fileURLToPath } from "node:url";
-
-export function probePty(app, env = process.env) {
-  const probe = fileURLToPath(new URL("./pty-probe.mjs", import.meta.url));
-  try {
-    const output = execFileSync(process.execPath, [probe, app], {
-      cwd: app, env, timeout: 15000, encoding: "utf8", windowsHide: true,
-    });
-    console.log(output.trimEnd());
-  } catch (error) {
-    // Capture output instead of inheriting it so timeout errors retain the last
-    // native stage reached. Do not turn an actual PTY failure into a pass.
-    throw new Error(`Portable PTY probe failed (${error.code ?? error.status}):\n${error.stdout ?? ""}${error.stderr ?? ""}`, { cause: error });
-  }
-}
 
 async function freePort() {
   const server = createServer();
@@ -48,8 +33,6 @@ export async function smokeTest(app) {
   let log = "";
   try {
     execFileSync(process.execPath, ["bin/pi-web.js", "--help"], { cwd: app, env, timeout: 15000 });
-    // Loading alone doesn't catch missing spawn-helper/ConPTY assets: spawn a real PTY.
-    probePty(app, env);
     const port = await freePort();
     child = spawn(process.execPath, ["bin/pi-web.js", "--no-open", "-H", "127.0.0.1", "-p", String(port)], {
       cwd: app, env, stdio: ["ignore", "pipe", "pipe"], detached: process.platform !== "win32",

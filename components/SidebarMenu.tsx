@@ -7,7 +7,7 @@ import { CheckIcon } from "./SidebarIcons";
 /**
  * The session sidebar's popup menu: a row's ⋯ or right-click menu, a project
  * group's menu; also the project and worktree menus of the files tab and of
- * the bar above a fresh composer (components/ProjectWorktreePicker.tsx). On a
+ * the bar above a fresh composer (components/ProjectPicker.tsx). On a
  * desktop it is a small menu placed at a point or beside a button; on a phone
  * (`sheet`) a bottom sheet over its own backdrop. Either way it is portaled to `document.body`: the mobile sidebar
  * drawer moves with `transform`, which would make a `position: fixed` menu

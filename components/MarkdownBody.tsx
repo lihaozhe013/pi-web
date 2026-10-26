@@ -143,7 +143,10 @@ export const MarkdownBody = memo(function MarkdownBody({ children, className, is
           </MarkdownLinkContext.Provider>
         );
       }
-      const filePath = onOpenFile ? resolveLocalFileHref(href, cwd) : null;
+      const filePath = resolveLocalFileHref(href, cwd);
+      if (!onOpenFile && (filePath || href === "")) {
+        return <span title={filePath ?? undefined}>{children}</span>;
+      }
       const openFile = onOpenFile;
       if (!filePath || !openFile) {
         return (

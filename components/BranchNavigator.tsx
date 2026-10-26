@@ -5,6 +5,7 @@ import type { BranchPreview, SessionEntry, SessionTreeNode } from "@/lib/types";
 import { useI18n } from "@/hooks/useI18n";
 
 interface Props {
+  embedded?: boolean;
   tree: SessionTreeNode[];
   activeLeafId: string | null;
   onLeafChange: (leafId: string | null) => void;
@@ -257,7 +258,7 @@ function TreeNodeView({ node, activePathIds, depth, isLast, parentLines, onSelec
   );
 }
 
-export function BranchNavigator({ tree, activeLeafId, onLeafChange, inline, containerRef, open: openProp, onToggle, hasSession, compact, hideInlineButton, locked = false }: Props) {
+export function BranchNavigator({ tree, activeLeafId, onLeafChange, inline, containerRef, open: openProp, onToggle, hasSession, compact, hideInlineButton, embedded = false, locked = false }: Props) {
   const { t } = useI18n();
   const [openInternal, setOpenInternal] = useState(false);
   const open = openProp !== undefined ? openProp : openInternal;
@@ -318,6 +319,13 @@ export function BranchNavigator({ tree, activeLeafId, onLeafChange, inline, cont
     </svg>
   );
 
+
+  if (embedded) {
+    return <div style={{ padding: 12 }}>
+      {lockedNotice}
+      {hasContent ? topLevel.map((child, idx) => <TreeNodeView key={child.entry.id} node={child} activePathIds={activePathIds} depth={0} isLast={idx === topLevel.length - 1} parentLines={[]} onSelect={selectBranch} />) : <p>{noBranchReason}</p>}
+    </div>;
+  }
 
   if (inline) {
     return (

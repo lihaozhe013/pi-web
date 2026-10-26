@@ -1,5 +1,12 @@
 # File access, worktrees and web auth
 
+> Current UI: session management and chat are retained. File/Git/worktree/terminal
+> surfaces and the static demo are removed. Toolbar information now opens in
+> `SessionInfoSidebar`; subagents open centrally. Directory selection, attachments,
+> inline media, and file mentions remain. Historical UI inventories below may
+> describe removed components. See [cleanup tasks](../ui-cleanup-todo.md).
+
+
 ## Worktrees and project grouping
 - `lib/worktree.ts` resolves linked worktree top-levels to the main repo `projectRoot`; `listAllSessions()` attaches it to each `SessionInfo`, so a repo's worktrees group together in the sidebar. A session whose cwd is a removed worktree is inferred back into the main project, never a phantom project row. `/api/models` resolves a cwd that is gone the same way (a finished sub-agent run removes its worktree, and its session still names it) and re-checks the repo it falls back to against the allowed roots, so the fallback only ever answers for a project that was already allowed. `/api/project-trust` does not fall back: trust is per path, the repo's decision is not the removed folder's, and trusting a folder that is gone is refused, so a GET answering for the repo would only offer a Trust button that fails.
 - `resolveProject()` caches each cwd's identity for a minute, then serves it stale while git runs again. A git run that never answered (a spawn out of fds, processes or memory, or git killed by the timeout) is never cached: that request alone gets the cwd as its own project, the next one asks again, and a background refresh keeps the stale identity. Whatever git itself exits with (outside a repository, at a mount point, dubious ownership, a broken `.git`), and a missing git, is the cwd's answer and cached, so a broken cwd does not spawn git and log on every session list. Classify by spawn error code and kill, never by git's message text.

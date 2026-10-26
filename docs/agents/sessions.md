@@ -1,5 +1,12 @@
 # Sessions, branching and live events
 
+> Current UI: session management and chat are retained. File/Git/worktree/terminal
+> surfaces and the static demo are removed. Toolbar information now opens in
+> `SessionInfoSidebar`; subagents open centrally. Directory selection, attachments,
+> inline media, and file mentions remain. Historical UI inventories below may
+> describe removed components. See [cleanup tasks](../ui-cleanup-todo.md).
+
+
 ## AgentSession lifecycle (`lib/rpc-manager.ts`)
 - One `AgentSessionWrapper` per session id in `globalThis.__piSessions` (`globalThis` survives Next.js hot reload; a module-level Map does not). Concurrent `startRpcSession()` calls share one start Promise (`globalThis.__piStartLocks`). Idle timeout: 10 minutes (`PI_WEB_IDLE_TIMEOUT_MS`, `0` disables).
 - Stop cannot cancel a run awaiting a promise that ignores the abort signal (a third-party extension handler or tool): `inner.abort()` never returns. So Stop (`abort`, `abort_bash`) sets `forceShutdownOnIdle` and arms the idle timer, shutting the wrapper down one idle timeout after the first Stop even while it runs. Later commands (a reload's `get_tools`, Stop again) must not push that deadline back; with `PI_WEB_IDLE_TIMEOUT_MS=0` it still arms, at 10 minutes.
