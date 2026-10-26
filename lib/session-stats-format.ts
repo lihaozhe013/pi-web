@@ -1,10 +1,16 @@
 // Client-safe display of session usage: the toolbar's stats button and
 // popover, and the agent switcher's per-agent rows.
 
-/** 950 · 18k · 1.2M */
+/** 950 · 1.1k · 18k · 1.2M */
 export function formatCompactCount(value: number): string {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-  if (value >= 1000) return `${(value / 1000).toFixed(0)}k`;
+  // One decimal below 10k so live counters tick every ~100 tokens instead of
+  // appearing frozen at 1k for ages; larger values step quickly enough as-is.
+  if (value >= 10_000) return `${Math.round(value / 1000)}k`;
+  if (value >= 1000) {
+    const rounded = (value / 1000).toFixed(1);
+    return `${rounded.endsWith('.0') ? rounded.slice(0, -2) : rounded}k`;
+  }
   return String(value);
 }
 
