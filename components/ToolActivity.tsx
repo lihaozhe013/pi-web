@@ -1,14 +1,14 @@
 "use client";
 
-// fork: consume existing client state without changing tool events or their shapes.
+// Derive display activity from the existing client execution state.
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { useI18n } from "@/hooks/useI18n";
-import type { ForkToolState } from "@/lib/fork-tool-expansion";
+import type { ToolState } from "@/lib/tool-card-expansion";
 
 const EMPTY_IDS = new Set<string>();
 const Activity = createContext({ running: EMPTY_IDS, partial: EMPTY_IDS });
 
-export function ForkToolActivityProvider({ phase, partialResults, children }: {
+export function ToolActivityProvider({ phase, partialResults, children }: {
   phase: { kind: string; tools?: { id: string }[] } | null;
   partialResults: ReadonlyMap<string, unknown>;
   children: ReactNode;
@@ -21,11 +21,11 @@ export function ForkToolActivityProvider({ phase, partialResults, children }: {
 }
 
 /** Shared activity sets let the message wrapper distinguish partial from final output. */
-export function useForkToolActivity() {
+export function useToolActivity() {
   return useContext(Activity);
 }
 
-export function useForkToolState(id: string, hasResult: boolean, isError: boolean): ForkToolState {
+export function useToolState(id: string, hasResult: boolean, isError: boolean): ToolState {
   const { running, partial } = useContext(Activity);
   if (running.has(id) || partial.has(id)) return "running";
   if (hasResult) return isError ? "error" : "success";
@@ -33,12 +33,12 @@ export function useForkToolState(id: string, hasResult: boolean, isError: boolea
 }
 
 /** Stable text plus a CSS-only terminal cursor: no timers or per-frame React work. */
-export function ForkToolStatus({ state }: { state: ForkToolState }) {
+export function ToolStatus({ state }: { state: ToolState }) {
   const { t } = useI18n();
   if (state === "pending") return null;
   const label = t(state === "running" ? "codemode.status.running" : state === "error" ? "codemode.status.error" : "codemode.status.ok");
-  return <span className="fork-tool-status" data-state={state}>
-    <span className="fork-tool-status-mark" aria-hidden="true">{state === "running" ? "▍" : state === "error" ? "×" : "✓"}</span>
+  return <span className="tool-status" data-state={state}>
+    <span className="tool-status-mark" aria-hidden="true">{state === "running" ? "▍" : state === "error" ? "×" : "✓"}</span>
     <span>{label}</span>
   </span>;
 }

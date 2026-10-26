@@ -43,4 +43,4 @@ Pi sessions normally live under `~/.pi/agent/sessions/`. The app also maintains 
 
 ## Transitional structure
 
-Some modules and styles still use `fork-*` names, and historical configuration surfaces remain. They are implementation debt, not separate architectural layers. Integrate useful behavior into its owning module and delete unused code after auditing consumers. See [cleanup](cleanup.md).
+Historical configuration surfaces and retired workspace helpers remain. They are implementation debt, not product commitments. Remove them after auditing consumers and preserving the conversation workflow. See [cleanup](cleanup.md).

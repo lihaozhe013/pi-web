@@ -16,7 +16,7 @@ export const THEME_OPTIONS = [
   { id: "contrast-light", label: "settings.themeContrastLight", scheme: "light" },
   { id: "contrast-dark", label: "settings.themeContrastDark", scheme: "dark" },
   { id: "zenburn", label: "settings.themeZenburn", scheme: "dark" },
-  // fork: the four Catppuccin flavours, styled in app/fork-catppuccin.css.
+  // Catppuccin palettes are defined in app/catppuccin.css.
   { id: "catppuccin-latte", label: "settings.themeCatppuccinLatte", scheme: "light" },
   { id: "catppuccin-frappe", label: "settings.themeCatppuccinFrappe", scheme: "dark" },
   { id: "catppuccin-macchiato", label: "settings.themeCatppuccinMacchiato", scheme: "dark" },

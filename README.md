@@ -62,4 +62,4 @@ All project documentation is maintained in English.
 
 Based on [agegr/pi-web](https://github.com/agegr/pi-web), with agent capabilities provided by [Pi](https://github.com/earendil-works/pi). Thanks to the original authors and contributors.
 
-This independent personal version does not represent the source project. The [MIT license](LICENSE) and original copyright notice are retained. Inherited package names and update endpoints have not all been migrated; they do not imply use of the source project's release channel.
+This independent personal version does not represent the source project. The [MIT license](LICENSE) and original copyright notice are retained. Source-project release checks and updater commands have been removed.

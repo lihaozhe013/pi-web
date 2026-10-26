@@ -1,31 +1,31 @@
-/* Fork-only transcript skin. Remove this import and ForkToolActivity to drop it. */
+/* Tool-card surfaces and execution status. */
 
 /*
  * Quiet tool cards: no outline at all — the surface tint alone draws the card,
  * the way modern chat agents frame their edits (Claude's edit cards, ChatGPT's
- * tool rows). The radius comes from the inline 7px, which app/fork.css lifts
- * to --fork-r-md, the message-bubble radius. State stays in a quiet status
+ * tool rows). The radius comes from the inline 7px, which app/workspace.css lifts
+ * to --ui-radius-md, the message-bubble radius. State stays in a quiet status
  * mark (below the buffer for running shells); only an error warms the tint.
  */
-.fork-tool-card {
+.tool-card {
   background: var(--bg-subtle);
 }
 
-.fork-tool-card[data-state="error"] {
+.tool-card[data-state="error"] {
   background: rgba(248, 113, 113, 0.07);
 }
 
-.fork-tool-header {
+.tool-card-header {
   min-height: 36px;
   font-family: var(--font-mono);
 }
 
 /* A quiet hover: the text token at a whisper, so the tint deepens instead of
    an opaque wash covering it. */
-.fork-tool-header:hover { background: color-mix(in srgb, var(--text) 4.5%, transparent) !important; }
-.fork-tool-header:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.tool-card-header:hover { background: color-mix(in srgb, var(--text) 4.5%, transparent) !important; }
+.tool-card-header:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
-.fork-tool-status {
+.tool-status {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -37,24 +37,24 @@
 }
 
 /* Outside the scrollable output so even a silent command has a visible cursor. */
-.fork-shell-running {
+.shell-running {
   padding: 8px 12px 10px;
   line-height: 1.5;
 }
 
-.fork-tool-status[data-state="running"] { color: var(--accent); }
-.fork-tool-status[data-state="error"] { color: var(--error, #f87171); }
-.fork-tool-status-mark { display: inline-block; width: 1ch; text-align: center; }
-.fork-tool-status[data-state="running"] .fork-tool-status-mark {
-  animation: fork-tool-cursor 1.1s steps(2, jump-none) infinite;
+.tool-status[data-state="running"] { color: var(--accent); }
+.tool-status[data-state="error"] { color: var(--error, #f87171); }
+.tool-status-mark { display: inline-block; width: 1ch; text-align: center; }
+.tool-status[data-state="running"] .tool-status-mark {
+  animation: tool-card-cursor 1.1s steps(2, jump-none) infinite;
 }
 
-@keyframes fork-tool-cursor { from { opacity: 1; } to { opacity: 0.25; } }
+@keyframes tool-card-cursor { from { opacity: 1; } to { opacity: 0.25; } }
 @media (prefers-reduced-motion: reduce) {
-  .fork-tool-status[data-state="running"] .fork-tool-status-mark { animation: none; }
-  .fork-tool-header svg { transition: none !important; }
+  .tool-status[data-state="running"] .tool-status-mark { animation: none; }
+  .tool-card-header svg { transition: none !important; }
 }
-@media (pointer: coarse) { .fork-tool-header { min-height: 44px; } }
+@media (pointer: coarse) { .tool-card-header { min-height: 44px; } }
 
 /* Live reading and reasoning leave no cards in the main transcript. */
 .live-agent-activity { padding: 8px 0; color: var(--text-muted); font-size: 13px; }

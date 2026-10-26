@@ -14,7 +14,7 @@ test("chat width validation preserves the default and supported range", () => {
 });
 
 test("chat font size preserves the default and bounds stored or supplied values", () => {
-  // Fork: the default type scale is 16px (14px upstream).
+  // The default chat type scale is 16px.
   for (const value of [undefined, null, "invalid", Infinity, NaN]) {
     assert.equal(clampChatContentFontSize(value), 16);
   }

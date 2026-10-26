@@ -36,7 +36,6 @@ const COMMAND_OPTIONS = {
   status: {},
   stop: { port: { type: "string", short: "p" } },
   open: { port: { type: "string", short: "p" } },
-  update: { check: { type: "boolean" } },
 };
 
 function getHelpText() {
@@ -49,7 +48,6 @@ Commands:
   status                     List running Pi Web servers
   stop [--port <port>]       Stop a running server
   open [--port <port>]       Open a running server in the browser
-  update [--check]           Update a global npm install to the latest version
 
 Options:
   -p, --port <port>          Server port (default: 30141, or PORT)
@@ -64,7 +62,6 @@ Environment:
   PI_WEB_APP_NAME            PWA manifest name (trimmed; default Pi Web)
   PI_WEB_PASSWORD            Enable browser password login and API Basic Auth
   PI_WEB_ALLOWED_HOSTS       Extra exact proxy/custom hostnames, comma-separated
-  PI_WEB_SKIP_VERSION_CHECK  Set to 1 to disable Pi Web update checks
   PI_WEB_IDLE_TIMEOUT_MS     Session idle timeout in ms (0 disables; default 600000)
   PI_WEB_SHUTDOWN_DEADLINE_MS  Shutdown wait for extensions in ms (default 5000)
 `;
@@ -78,7 +75,7 @@ function toParseError(error) {
 }
 
 // Returns { command: "start", ...launch options } for a bare launch, or
-// { command, help, port?, check? } for a subcommand.
+// { command, help, port? } for a subcommand.
 function parseCommandLine(args = process.argv.slice(2), env = process.env) {
   const first = args[0];
   const command = first === "-v" || first === "--version" ? "version" : first;
@@ -102,7 +99,6 @@ function parseCommandLine(args = process.argv.slice(2), env = process.env) {
     command,
     help: false,
     port: values.port === undefined ? undefined : normalizePort(values.port),
-    check: values.check === true,
   };
 }
 

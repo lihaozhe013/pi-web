@@ -202,8 +202,8 @@ export async function checkSessionNavigation({ browser, base, artifacts, a, b, a
     }
     console.log("PASS: a link to a missing session selects and shows no other session (fresh profile)");
 
-    // Keyboard Fork: the copy's row takes focus on its link (the row's first
-    // control), not on its archive button. The copy is deleted afterwards.
+    // Keyboard navigation to the forked session focuses its link (the row's
+    // first control), not its archive button. The copy is deleted afterwards.
     // The menu from ⋯, as above: Shift+F10 opens no context menu in Chrome on
     // macOS. F is still the key that forks.
     await row(page, b.id).hover();

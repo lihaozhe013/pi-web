@@ -24,7 +24,6 @@ export async function smokeTest(app) {
     HOME: home,
     USERPROFILE: home,
     PI_CODING_AGENT_DIR: join(home, "agent"),
-    PI_WEB_SKIP_VERSION_CHECK: "1",
     PI_WEB_PASSWORD: "",
     PI_WEB_ALLOWED_HOSTS: "",
   };

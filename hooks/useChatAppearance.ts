@@ -6,8 +6,7 @@ export const CHAT_CONTENT_WIDTH_DEFAULT = 820;
 export const CHAT_CONTENT_WIDTH_MIN = 820;
 export const CHAT_CONTENT_WIDTH_MAX = 2000;
 export const CHAT_CONTENT_WIDTH_STORAGE_KEY = "pi-chat-content-width";
-// fork: a larger default type scale than upstream's 14px (the chat column
-// and its tool cards all follow this one step, see app/fork.css).
+// The chat column and tool cards share this readable baseline (see app/workspace.css).
 export const CHAT_CONTENT_FONT_SIZE_DEFAULT = 16;
 export const CHAT_CONTENT_FONT_SIZE_MIN = 12;
 export const CHAT_CONTENT_FONT_SIZE_MAX = 24;

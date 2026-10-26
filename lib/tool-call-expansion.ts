@@ -12,8 +12,8 @@
  * through every message component.
  *
  * The choice is three-valued (`getToolCallExpansion`): undefined means the user
- * never touched the card, which is what lets the fork open its own defaults
- * (lib/fork-tool-expansion.ts) without overriding a card the user folded.
+ * never touched the card, which lets lifecycle defaults from
+ * (lib/tool-card-expansion.ts) apply without overriding a user's choice.
  */
 const toolCallExpansions = new Map<string, boolean>();
 

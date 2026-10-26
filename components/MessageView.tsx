@@ -13,13 +13,13 @@ import { getAssistantErrorMessage, hasAssistantAnswer, isAssistantTruncated, spl
 import { formatTurnDuration } from "@/lib/turn-duration";
 import { diffGapLabel, parseUnifiedPatch, unifiedDiffLines, type SplitDiffCell, type SplitDiffFile, type SplitDiffGap, type UnifiedDiffLine } from "@/lib/patch";
 import { applyPatchPreviewToFiles, applyPatchResultHasFailures, extractApplyPatchPaths, getApplyPatchInputText, parseApplyPatchInput } from "@/lib/apply-patch";
-import { isApplyPatchToolName, isEditToolName, isWriteToolName } from "@/lib/tool-names";
+import { isApplyPatchToolName, isEditToolName, isShellToolName, isWriteToolName } from "@/lib/tool-names";
 import { getToolCallExpansion, setToolCallExpanded } from "@/lib/tool-call-expansion";
-import { ForkToolStatus, useForkToolState, useForkToolActivity } from "./ForkToolActivity";
-import { isShellToolName, isToolCallExpandedByDefault, shellResultTail } from "@/lib/fork-tool-expansion";
-// fork: syntax colors inside the tool cards (lib/fork-code-language.ts, components/ForkCode.tsx).
-import { forkPathLanguage, forkToolLanguage } from "@/lib/fork-code-language";
-import { ForkCodeLanguageProvider, ForkCodeTokens } from "./ForkCode";
+import { ToolStatus, useToolState, useToolActivity } from "./ToolActivity";
+import { isToolCardExpandedByDefault, shellOutputTail } from "@/lib/tool-card-expansion";
+// Syntax colors for tool-card content.
+import { toolPathLanguage, toolCodeLanguage } from "@/lib/tool-code-language";
+import { ToolCodeLanguageProvider, ToolCodeTokens } from "./ToolCode";
 import { isThinkingExpandedByDefault, THINKING_EXPANDED_EVENT } from "@/lib/thinking-expansion-preference";
 import { TurnWrittenFiles } from "./TurnWrittenFiles";
 import type { WrittenFile } from "@/lib/turn-written-files";
@@ -688,7 +688,7 @@ function AssistantMessageView({
 }) {
   const { t } = useI18n();
   const time = showTimestamp ? formatTime(message.timestamp) : null;
-  const { running, partial } = useForkToolActivity();
+  const { running, partial } = useToolActivity();
   const blockItems = useMemo(() => (message.content ?? [])
     .map((block, originalIndex) => ({ block, originalIndex }))
     .filter(({ block }) => !isQuietActivityBlock(block) && (
@@ -873,7 +873,7 @@ function AssistantMessageView({
         })()}
       </div>
 
-      {/* fork: a step further apart than upstream's 8px. */}
+      {/* Keep activity steps visually distinct from the message body. */}
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {/* Not keyed by the entry id: a message of this run gets one when the file is
             read again, and its blocks keep their state across that read (#1184). */}
@@ -1174,8 +1174,8 @@ function recordedDurationMs(value: unknown): number | undefined {
 const TOOL_DURATION_MIN_MS = 100;
 
 /**
- * fork: the quiet card. No outline anywhere — the surface tint in
- * `app/fork-tools.css` draws the card — so every divider inside it is the
+ * The quiet card has no outline — its surface tint in
+ * `app/tool-cards.css` draws the card — so every divider inside it is the
  * border token at less than half strength: a whisper, not a rule.
  */
 const CARD_RULE_COLOR = "color-mix(in srgb, var(--border) 45%, transparent)";
@@ -1194,13 +1194,13 @@ export function formatToolDuration(ms: number): string {
 
 function ToolCallBlock({ block, result, duration, onOpenSubagent, executing }: { block: ToolCallContent; result?: ToolResultMessage; duration?: number; onOpenSubagent?: (sessionId: string, label: string) => void; executing?: boolean }) {
   const { t } = useI18n();
-  // fork: only explicit user choices are state; lifecycle defaults stay derived.
+  // only explicit user choices are state; lifecycle defaults stay derived.
   const [expansionOverride, setExpansionOverride] = useState(() => getToolCallExpansion(block.toolCallId));
   const toolError = (result?.isError ?? false)
     || (isApplyPatchToolName(block.toolName) && applyPatchResultHasFailures(result?.details));
-  const activityState = useForkToolState(block.toolCallId, result !== undefined, toolError);
+  const activityState = useToolState(block.toolCallId, result !== undefined, toolError);
   const toolState = executing ? "running" : activityState;
-  const expanded = expansionOverride ?? isToolCallExpandedByDefault(block.toolName, toolState);
+  const expanded = expansionOverride ?? isToolCardExpandedByDefault(block.toolName, toolState);
   // A shell's output opens on its tail; the lines above it wait behind a button.
   const [showAllOutput, setShowAllOutput] = useState(false);
   const toggleExpanded = () => {
@@ -1246,25 +1246,25 @@ function ToolCallBlock({ block, result, duration, onOpenSubagent, executing }: {
     || (isApplyPatchToolName(block.toolName) && applyPatchResultHasFailures(result?.details));
   const shellTool = isShellToolName(block.toolName);
   // Only a long shell result folds: a short one reads whole, as before.
-  const shellTail = shellTool && resultText !== null ? shellResultTail(resultText) : null;
+  const shellTail = shellTool && resultText !== null ? shellOutputTail(resultText) : null;
   const subagent = isSubagentToolDetails(result?.details) ? result.details : null;
   const codemodeCallCount = codemode ? codemode.calls.length + codemode.omitted : 0;
-  // fork: the syntax of everything this card shows — a file's code for read/write/
-  // edit, a shell script for bash/powershell (lib/fork-code-language.ts). Nothing
+  // the syntax of everything this card shows — a file's code for read/write/
+  // edit, a shell script for bash/powershell (lib/tool-code-language.ts). Nothing
   // is colored while the input is still streaming JSON.
-  const codeLanguage = isStreamingInput ? undefined : forkToolLanguage(block.toolName, block.input);
+  const codeLanguage = isStreamingInput ? undefined : toolCodeLanguage(block.toolName, block.input);
 
   if (shellTool && toolState === "success") return null;
 
   return (
-    <ForkCodeLanguageProvider lang={codeLanguage}>
+    <ToolCodeLanguageProvider lang={codeLanguage}>
     <div
-      className="fork-tool-card"
+      className="tool-card"
       data-state={toolState}
       aria-busy={toolState === "running"}
       style={{
-        // fork: no border and no tint here — `.fork-tool-card` in fork-tools.css
-        // draws the quiet surface; fork.css lifts this 7px to --fork-r-md.
+        // no border and no tint here — `.tool-card` in tool-cards.css
+        // draws the quiet surface; workspace.css lifts this 7px to --ui-radius-md.
         borderRadius: 7,
         overflow: "hidden",
         fontSize: 12,
@@ -1275,14 +1275,14 @@ function ToolCallBlock({ block, result, duration, onOpenSubagent, executing }: {
         <button
           onClick={toggleExpanded}
           aria-expanded={expanded}
-          className="fork-tool-header"
+          className="tool-card-header"
           style={{
             display: "flex",
             alignItems: "center",
             gap: 7,
             flex: 1,
             minWidth: 0,
-            // fork: roomier rows than upstream's 6px 10px.
+            // Roomier rows improve scanning of tool arguments.
             padding: "7px 12px",
             background: "none",
             border: "none",
@@ -1308,7 +1308,7 @@ function ToolCallBlock({ block, result, duration, onOpenSubagent, executing }: {
               ? t("chat.generatingToolInput")
               : (patchLabel ?? (codemode ? codemodeScriptPreview(codemode.code) : getToolPreview(block)))}
           </span>
-          {!(shellTool && expanded && toolState === "running") && <ForkToolStatus state={toolState} />}
+          {!(shellTool && expanded && toolState === "running") && <ToolStatus state={toolState} />}
           {codemodeCallCount > 0 && (
             <span style={{ fontSize: 11, color: "var(--text-dim)", flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>
               {codemodeCallCount === 1 ? t("codemode.callCountOne") : t("codemode.callCount", { count: codemodeCallCount })}
@@ -1360,7 +1360,7 @@ function ToolCallBlock({ block, result, duration, onOpenSubagent, executing }: {
               wordBreak: "break-all",
             }}
           >
-            <ForkCodeTokens text={codemode ? codemode.code.replace(/\r/g, "").trimEnd() : inputStr} />
+            <ToolCodeTokens text={codemode ? codemode.code.replace(/\r/g, "").trimEnd() : inputStr} />
           </pre>
         )
       )}
@@ -1411,19 +1411,19 @@ function ToolCallBlock({ block, result, duration, onOpenSubagent, executing }: {
         )
       )}
 
-      {/* fork: back to the shell's tail after the whole output was shown. */}
+      {/* back to the shell's tail after the whole output was shown. */}
       {expanded && shellTail && showAllOutput && (
         <ShellOutputFooter onShowLess={() => setShowAllOutput(false)} />
       )}
 
       {/* Keep execution feedback at the reading edge, after the output buffer. */}
       {shellTool && expanded && toolState === "running" && (
-        <div className="fork-shell-running" role="status">
-          <ForkToolStatus state={toolState} />
+        <div className="shell-running" role="status">
+          <ToolStatus state={toolState} />
         </div>
       )}
     </div>
-    </ForkCodeLanguageProvider>
+    </ToolCodeLanguageProvider>
   );
 }
 
@@ -1473,8 +1473,8 @@ export function PatchDiffFiles({ files, layout }: { files: SplitDiffFile[]; layo
   return (
     <div style={{ maxHeight: 560, overflowY: "auto", overflowX: "hidden", background: "var(--bg)" }}>
       {files.map((file, fileIndex) => (
-        // fork: each file of a patch carries its own syntax, read off its path.
-        <ForkCodeLanguageProvider key={fileIndex} lang={forkPathLanguage(stackedFilePath(file))}>
+        // each file of a patch carries its own syntax, read off its path.
+        <ToolCodeLanguageProvider key={fileIndex} lang={toolPathLanguage(stackedFilePath(file))}>
         <div
           key={fileIndex}
           style={{
@@ -1549,7 +1549,7 @@ export function PatchDiffFiles({ files, layout }: { files: SplitDiffFile[]; layo
               : <StackedDiffLineView key={lineIndex} line={line} />
           ))}
         </div>
-        </ForkCodeLanguageProvider>
+        </ToolCodeLanguageProvider>
       ))}
     </div>
   );
@@ -1672,7 +1672,7 @@ function SplitDiffCellView({ cell, side }: { cell: SplitDiffCell; side: "left" |
           overflowWrap: "anywhere",
         }}
       >
-        {cell.text ? <ForkCodeTokens text={cell.text} budget={false} /> : "\u00a0"}
+        {cell.text ? <ToolCodeTokens text={cell.text} budget={false} /> : "\u00a0"}
       </span>
     </div>
   );
@@ -1739,7 +1739,7 @@ function PatchTextView({ text }: { text: string }) {
   );
 }
 
-/** fork: a shell result's last lines, the earlier ones behind a Show all button. */
+/** A shell result's last lines, with earlier output behind a Show all button. */
 function ShellTailResult({ text, hiddenLines, isError, onShowAll }: {
   text: string;
   hiddenLines: number;
@@ -1791,13 +1791,13 @@ function ShellTailResult({ text, hiddenLines, isError, onShowAll }: {
           wordBreak: "break-all",
         }}
       >
-        <ForkCodeTokens text={text} />
+        <ToolCodeTokens text={text} />
       </pre>
     </div>
   );
 }
 
-/** fork: the way back to a shell's tail once the whole output is shown. */
+/** Return to the shell output tail after showing the full result. */
 function ShellOutputFooter({ onShowLess }: { onShowLess: () => void }) {
   const { t } = useI18n();
   return (
@@ -1950,7 +1950,7 @@ function PairedResult({ text, isEmpty, isError }: {
           opacity: isEmpty ? 0.6 : 1,
         }}
       >
-        {isEmpty ? t("i18n.noOutput") : <ForkCodeTokens text={text} />}
+        {isEmpty ? t("i18n.noOutput") : <ToolCodeTokens text={text} />}
       </pre>
     </div>
   );
@@ -2340,10 +2340,10 @@ function ToolFieldRows({ fields }: { fields: ToolField[] }) {
           <tr key={field.key}>
             <td style={TOOL_FIELD_LABEL}>{field.key}</td>
             <td style={TOOL_FIELD_VALUE}>
-              {/* fork: the card's own syntax colors a command or a file's text. */}
+              {/* the card's own syntax colors a command or a file's text. */}
               {field.multiline
-                ? <pre style={TOOL_FIELD_BLOCK}><ForkCodeTokens text={field.value} /></pre>
-                : <ForkCodeTokens text={field.value} />}
+                ? <pre style={TOOL_FIELD_BLOCK}><ToolCodeTokens text={field.value} /></pre>
+                : <ToolCodeTokens text={field.value} />}
             </td>
           </tr>
         ))}

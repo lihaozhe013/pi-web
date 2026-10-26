@@ -1,7 +1,7 @@
 const SESSION_LIVENESS_PROTOCOL_VERSION = 1;
-export const SESSION_LIVENESS_REGISTRY_KEY = "@agegr/pi-web/session-liveness/v1";
+export const SESSION_LIVENESS_REGISTRY_KEY = "@lihaozhe013/pi-web/session-liveness/v1";
 export const SESSION_LIVENESS_LEASE_TTL_MS = 90_000;
-const SESSION_LIVENESS_LEASES_KEY = "@agegr/pi-web/session-liveness-leases/v2";
+const SESSION_LIVENESS_LEASES_KEY = "@lihaozhe013/pi-web/session-liveness-leases/v2";
 
 export interface SessionLivenessProvider {
   name: string;

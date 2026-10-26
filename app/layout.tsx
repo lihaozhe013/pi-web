@@ -7,10 +7,9 @@ import "./globals.css";
 import "./settings.css";
 import "./sidebar.css";
 import "./sidebar-menu.css";
-import "./fork.css"; // fork: softer corners and a roomier type scale, kept in that one file
-import "./fork-workspace.css"; // fork: optional, presentation-only workspace polish
-import "./fork-tools.css"; // fork: terminal-like tool activity, isolated from upstream styles
-import "./fork-catppuccin.css"; // fork: all four Catppuccin flavours and their settings swatches
+import "./workspace.css";
+import "./tool-cards.css";
+import "./catppuccin.css";
 
 const notoSansMono = Noto_Sans_Mono({
   subsets: ["latin", "cyrillic"],

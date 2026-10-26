@@ -46,6 +46,4 @@ ssh -N -L 30141:127.0.0.1:30141 user@server
 
 Stop the old instance, extract the replacement to a new directory, and start it there. Keep the old directory for rollback and back up user configuration and sessions. Do not replace build files in a running installation or copy native dependencies between platforms.
 
-The inherited CLI updater targets source-project npm installations, not these portable archives. Do not use it to update this version. `PI_WEB_SKIP_VERSION_CHECK=1` suppresses inherited version checks while those paths await cleanup.
-
 Smoke tests verify the build platform, not every provider, OAuth flow, MCP server, or extension. Git, shells, Python, npm/npx, and external MCP programs must be provided separately when needed. Historical plugin and skill installers may still require npm/npx.

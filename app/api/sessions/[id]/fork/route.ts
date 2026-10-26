@@ -14,7 +14,7 @@ import type { SessionInfo } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-// The sidebar's Fork: copies the session's current branch into a new session
+// The sidebar's Fork action copies the current branch into a new session
 // file named after the source plus a short random suffix (lib/session-fork.ts).
 // File-level work, like rename and delete: it never starts, prompts or shuts
 // down an AgentSession, so a running source keeps its run and an idle one

@@ -1,21 +1,21 @@
 /**
- * Fork: which syntax a tool card's text is shown in.
+ * which syntax a tool card's text is shown in.
  *
  * A tool card is mostly code the user has to read: a `write`'s file content, a
  * `read`'s result and an `edit`'s diff lines are the file the call names, a
  * shell's command and output are a shell script. This module answers "which
  * Prism language is that?" from the tool name and the arguments it was called
- * with; `components/ForkCode.tsx` does the rendering.
+ * with; `components/ToolCode.tsx` does the rendering.
  *
  * Unknown is a valid answer — an unnamed file, `grep` output, an MCP tool's
  * prose result — and those panes stay plain monospace, as they were. Only the
  * built-in coding tools have an obvious syntax; nothing is guessed from the
  * text itself, because a guess that is wrong is worse than no color.
  *
- * Presentation only, and kept in one file so the fork's rule is a single edit.
+ * Presentation only; keep language detection in one place.
  */
 
-import { isShellToolName } from "./fork-tool-expansion";
+import { isShellToolName } from "./tool-names";
 
 /**
  * Prism language of a file extension. Only names `refractor/all` registers are
@@ -147,7 +147,7 @@ const PATH_KEYS = [
 ];
 
 /** The Prism language of a file path (`src/app.tsx` → `tsx`), if it has one. */
-export function forkPathLanguage(filePath: unknown): string | undefined {
+export function toolPathLanguage(filePath: unknown): string | undefined {
   if (typeof filePath !== "string") return undefined;
   const name = filePath.split(/[\\/]/).pop()?.toLowerCase() ?? "";
   if (!name) return undefined;
@@ -159,7 +159,7 @@ export function forkPathLanguage(filePath: unknown): string | undefined {
 }
 
 /** The file a coding tool's arguments name, if they name one. */
-export function forkToolPath(input: unknown): string | undefined {
+export function toolPath(input: unknown): string | undefined {
   if (input === null || typeof input !== "object") return undefined;
   const record = input as Record<string, unknown>;
   for (const key of PATH_KEYS) {
@@ -173,7 +173,7 @@ export function forkToolPath(input: unknown): string | undefined {
 }
 
 /** The shell a shell tool runs its command in. */
-export function forkShellLanguage(toolName: string): string {
+export function shellToolLanguage(toolName: string): string {
   if (/powershell|pwsh/i.test(toolName)) return "powershell";
   if (/(^|[._-])(cmd|bat|batch)([._-]|$)/i.test(toolName)) return "batch";
   return "bash";
@@ -183,7 +183,7 @@ export function forkShellLanguage(toolName: string): string {
  * The syntax of everything a tool card shows: a shell tool's command and
  * output, or the file a coding tool reads, writes or edits.
  */
-export function forkToolLanguage(toolName: string, input: unknown): string | undefined {
-  if (isShellToolName(toolName)) return forkShellLanguage(toolName);
-  return forkPathLanguage(forkToolPath(input));
+export function toolCodeLanguage(toolName: string, input: unknown): string | undefined {
+  if (isShellToolName(toolName)) return shellToolLanguage(toolName);
+  return toolPathLanguage(toolPath(input));
 }

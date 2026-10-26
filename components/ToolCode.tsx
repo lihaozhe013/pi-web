@@ -7,39 +7,39 @@ import { useTheme } from "@/hooks/useTheme";
 import { usePrismLanguages } from "@/hooks/usePrismLanguages";
 import { prismLanguagesLoaded } from "@/lib/prism-languages";
 import { takeHighlightBudget, waitForHighlight } from "@/lib/highlight-queue";
-import { tokenizeForkCode, type ForkCodeNode } from "@/lib/fork-code-highlight";
+import { tokenizeToolCode, type ToolCodeNode } from "@/lib/tool-code-highlight";
 
 /**
- * Fork: syntax colors inside a tool card.
+ * Syntax highlighting for tool-card content.
  *
  * A card is mostly code — a write's file, a read's result, an edit's diff, a
- * shell's command and output — and upstream showed all of it as plain mono
- * text. `ForkCodeTokens` renders that text with the token colors a Markdown
+ * shell's command and output — all readable in the same monospace interface
+ * text. `ToolCodeTokens` renders that text with the token colors a Markdown
  * fence already uses, without a box of its own: the card keeps its frame,
  * padding, scroll and error colors, and only the text inside gets colored.
  *
  * Usage: a provider names the syntax of everything below it
- * (`ForkCodeLanguageProvider`, fed by `lib/fork-code-language.ts`), and
- * `ForkCodeTokens` replaces the plain `{text}` where the card shows it. With no
+ * (`ToolCodeLanguageProvider`, fed by `lib/tool-code-language.ts`), and
+ * `ToolCodeTokens` replaces the plain `{text}` where the card shows it. With no
  * provider — or an unknown language, or text too short/long/error-colored to be
  * worth it — it renders exactly the text it was given.
  */
 
-type ForkCodeTheme = { [selector: string]: CSSProperties };
+type ToolCodeTheme = { [selector: string]: CSSProperties };
 
-const THEMES: { light: ForkCodeTheme; dark: ForkCodeTheme } = {
+const THEMES: { light: ToolCodeTheme; dark: ToolCodeTheme } = {
   light: vs,
   dark: vscDarkPlus,
 };
 
 /** Past this, a card's text stays plain: tokenizing it would stall the page. */
-export const FORK_CODE_MAX_CHARS = 200_000;
+export const TOOL_CODE_MAX_CHARS = 200_000;
 
-const ForkCodeLanguageContext = createContext<string | undefined>(undefined);
+const ToolCodeLanguageContext = createContext<string | undefined>(undefined);
 
-/** Names the syntax of the text inside, for every `ForkCodeTokens` below. */
-export function ForkCodeLanguageProvider({ lang, children }: { lang: string | undefined; children: ReactNode }) {
-  return <ForkCodeLanguageContext.Provider value={lang}>{children}</ForkCodeLanguageContext.Provider>;
+/** Names the syntax of the text inside, for every `ToolCodeTokens` below. */
+export function ToolCodeLanguageProvider({ lang, children }: { lang: string | undefined; children: ReactNode }) {
+  return <ToolCodeLanguageContext.Provider value={lang}>{children}</ToolCodeLanguageContext.Provider>;
 }
 
 function ignoreTokenClass(name: string): boolean {
@@ -47,7 +47,7 @@ function ignoreTokenClass(name: string): boolean {
   return name === "token" || name === "";
 }
 
-function tokenStyle(theme: ForkCodeTheme, classNames: string[] | undefined): CSSProperties | undefined {
+function tokenStyle(theme: ToolCodeTheme, classNames: string[] | undefined): CSSProperties | undefined {
   if (!classNames?.length) return undefined;
   let style: CSSProperties | undefined;
   for (const name of classNames) {
@@ -58,7 +58,7 @@ function tokenStyle(theme: ForkCodeTheme, classNames: string[] | undefined): CSS
   return style;
 }
 
-function renderTokens(nodes: ForkCodeNode[], theme: ForkCodeTheme): ReactNode[] {
+function renderTokens(nodes: ToolCodeNode[], theme: ToolCodeTheme): ReactNode[] {
   const rendered: ReactNode[] = [];
   for (const node of nodes) {
     if (node.type === "text") {
@@ -79,10 +79,10 @@ function renderTokens(nodes: ForkCodeNode[], theme: ForkCodeTheme): ReactNode[] 
  * `budget` is false for many small pieces at once (a diff's lines): those
  * highlight on mount instead of queueing an idle slice each.
  */
-export function ForkCodeTokens({ text, budget = true }: { text: string; budget?: boolean }) {
-  const lang = useContext(ForkCodeLanguageContext);
+export function ToolCodeTokens({ text, budget = true }: { text: string; budget?: boolean }) {
+  const lang = useContext(ToolCodeLanguageContext);
   const { isDark } = useTheme();
-  const wanted = Boolean(lang) && text.length > 0 && text.length <= FORK_CODE_MAX_CHARS;
+  const wanted = Boolean(lang) && text.length > 0 && text.length <= TOOL_CODE_MAX_CHARS;
   const ready = usePrismLanguages(wanted);
   // Small text takes this task's highlight budget; anything longer waits for an
   // idle slice, like a code fence does (`lib/highlight-queue.ts`).
@@ -96,7 +96,7 @@ export function ForkCodeTokens({ text, budget = true }: { text: string; budget?:
   }, [wanted, colored, ready]);
 
   const nodes = useMemo(
-    () => (colored && lang ? tokenizeForkCode(text, lang) : null),
+    () => (colored && lang ? tokenizeToolCode(text, lang) : null),
     [colored, lang, text],
   );
   if (!nodes) return <>{text}</>;

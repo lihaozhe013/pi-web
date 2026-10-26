@@ -74,7 +74,7 @@ export function CodemodeCallList({ calls, omitted }: {
   return (
     <div
       style={{
-        // fork: the quiet card's whisper divider, matching every other pane
+        // the quiet card's whisper divider, matching every other pane
         // inside a tool card (CARD_RULE in MessageView.tsx).
         borderTop: "1px solid color-mix(in srgb, var(--border) 45%, transparent)",
         padding: "6px 10px",

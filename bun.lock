@@ -3,7 +3,7 @@
   "configVersion": 0,
   "workspaces": {
     "": {
-      "name": "@agegr/pi-web",
+      "name": "@lihaozhe013/pi-web",
       "dependencies": {
         "@earendil-works/pi-agent-core": "1.4.0",
         "@earendil-works/pi-ai": "1.4.0",

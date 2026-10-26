@@ -1,4 +1,4 @@
-/* fork: official Catppuccin palettes (https://catppuccin.com/palette/).
+/* official Catppuccin palettes (https://catppuccin.com/palette/).
    Mauve accent (Latte slightly deepened for AA); base/mantle surfaces.
    Keep html specificity above html.dark,
    and data-theme selectors so Settings previews work in any active theme. */
@@ -82,7 +82,7 @@ html[data-theme="catppuccin-mocha"],
   --bg-subtle: rgba(205,214,244,0.04);
 }
 
-/* Full names need more room than upstream's five-column swatches.
+/* Full theme names need more room than the standard five-column swatches.
    Two tiles per row, with no changes to the existing theme grid. */
 .settings-theme-option:has(input[value^="catppuccin-"]) {
   grid-column: span 7;

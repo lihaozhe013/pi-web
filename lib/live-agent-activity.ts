@@ -1,6 +1,6 @@
 import type { AgentPhase } from "@/hooks/useAgentSession";
 import { phaseLabel, type Translate } from "./chat-phase-label";
-import { isShellToolName } from "./fork-tool-expansion";
+import { isShellToolName } from "./tool-names";
 import { isReadToolName } from "./quiet-activity";
 import type { AgentMessage, AssistantMessage, ToolCallContent } from "./types";
 

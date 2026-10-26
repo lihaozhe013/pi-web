@@ -1,39 +1,35 @@
-Pi Web portable package (personal-use fork, built and tested locally)
+Pi Web portable package
 
-This fork intentionally has no CI / GitHub Actions or automated releases.
+Personal-use build of a minimal GUI for the Pi coding agent. There is no
+automated release service or self-updater.
 
-Prerequisite: latest Node.js LTS on PATH. No global Next.js, npm install,
-Bun, Docker or npm registry publication is needed on the target machine.
-Use the archive matching your operating system, CPU and Linux libc.
+Prerequisite: Node.js 22.19.0 or newer on PATH. Bun is needed to build, not to
+run this archive. Use the archive matching your operating system, CPU, and Linux
+libc.
 
-From this extracted directory:
+From the extracted directory:
   node bin/pi-web.js --no-open
   node bin/pi-web.js --no-open --port 30141 --hostname 127.0.0.1
   node bin/pi-web.js --help
 
-Linux/macOS environment example (disable upstream update checks):
-  PI_WEB_SKIP_VERSION_CHECK=1 node bin/pi-web.js --no-open
-
 The application directory must be writable (startup rotates preview secrets).
-Keep the complete directory, including hidden .next and node_modules.
-Do not replace the bundled Next.js or copy node_modules between platforms.
-Build and test locally with the latest Node.js LTS; upgrade it manually.
-PORTABLE.json records the actual build Node version for troubleshooting.
-Linux packages target glibc, NOT Alpine/musl. There is no CI runner matrix or
-cross-platform certification. Native dependencies may require system libraries.
+Keep the complete directory, including hidden .next and node_modules. Do not
+replace the bundled Next.js or copy node_modules between platforms. Build and
+test locally with Bun 1.4.4 and Node.js 22.19.0 or newer.
+
+Linux packages target glibc, not Alpine/musl. Cross-platform certification is
+not provided. Native dependencies may require system libraries.
 
 For remote access, prefer SSH forwarding:
   ssh -N -L 30141:127.0.0.1:30141 user@server
-Then visit http://127.0.0.1:30141 on your own computer.
-Do not expose an unauthenticated server to the public internet.
+Then visit http://127.0.0.1:30141 locally. Do not expose an unauthenticated
+server to the public internet.
 
-Update by stopping the old process, extracting a new release to a new directory,
-and starting it there. The upstream `update` subcommand updates global npm
-installations; it does NOT update these portable packages.
-Sessions/configuration stay in the normal user data directory, outside this
-package. Back up that data before upgrading. Do not delete it when updating.
+To update, stop the old process, extract a replacement archive into a new
+directory, and start it there. Back up Pi configuration and sessions first;
+they remain outside this package in the normal user data directory.
 
-Git, shells, Python, npm/npx and external MCP tools are NOT bundled. Features
-that require them need those tools installed separately. Node distributions
-usually include npm/npx; keep them installed for plugin/skill installation.
-PORTABLE.json records the build platform, Node version and source commit.
+Git, shells, Python, npm/npx, and external MCP tools are not bundled. Features
+that need them require those tools to be installed separately.
+
+PORTABLE.json records the build platform, runtime versions, and source commit.

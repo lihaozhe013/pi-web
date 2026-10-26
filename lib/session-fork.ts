@@ -7,7 +7,7 @@ import { readSubagentRun } from "./subagents";
 import type { SessionEntry } from "./types";
 
 /**
- * The sidebar's Fork: pi's `/clone` (a copy of the current branch, positioned
+ * The sidebar's Fork action implements pi's `/clone` (a copy of the current branch, positioned
  * at its leaf) done on disk, so it never needs, starts or touches an
  * AgentSession and works while the source runs. Unlike `/clone`, the copy is
  * named: the source's title plus a short random suffix (session-fork-name.ts).

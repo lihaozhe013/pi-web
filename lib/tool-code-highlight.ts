@@ -1,5 +1,5 @@
 /**
- * Fork: turn tool-card text into Prism tokens (`components/ForkCode.tsx`).
+ * turn tool-card text into Prism tokens (`components/ToolCode.tsx`).
  *
  * `refractor/core` is the same instance `react-syntax-highlighter`'s
  * `PrismLight` renders from, so the languages `lib/prism-languages.ts` loads on
@@ -14,22 +14,22 @@
 
 import { refractor } from "refractor/core";
 
-export interface ForkCodeTokenText {
+export interface ToolCodeTokenText {
   type: "text";
   value: string;
 }
 
-export interface ForkCodeTokenElement {
+export interface ToolCodeTokenElement {
   type: "element";
   tagName: string;
   properties?: { className?: string[] };
-  children?: ForkCodeNode[];
+  children?: ToolCodeNode[];
 }
 
-export type ForkCodeNode = ForkCodeTokenText | ForkCodeTokenElement;
+export type ToolCodeNode = ToolCodeTokenText | ToolCodeTokenElement;
 
 /** True once `lang` can be tokenized (the Prism languages have loaded). */
-export function forkCodeLanguageReady(lang: string | undefined): lang is string {
+export function toolCodeLanguageReady(lang: string | undefined): lang is string {
   if (!lang) return false;
   return refractor.registered(lang);
 }
@@ -38,10 +38,10 @@ export function forkCodeLanguageReady(lang: string | undefined): lang is string 
  * The tokens of `text` as `lang`, or null when that language is unknown (or
  * its grammar fails on this text). Callers show their plain text then.
  */
-export function tokenizeForkCode(text: string, lang: string): ForkCodeNode[] | null {
-  if (!forkCodeLanguageReady(lang)) return null;
+export function tokenizeToolCode(text: string, lang: string): ToolCodeNode[] | null {
+  if (!toolCodeLanguageReady(lang)) return null;
   try {
-    const root = refractor.highlight(text, lang) as unknown as { children?: ForkCodeNode[] };
+    const root = refractor.highlight(text, lang) as unknown as { children?: ToolCodeNode[] };
     return root.children ?? null;
   } catch {
     return null;

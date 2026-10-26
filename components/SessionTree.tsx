@@ -572,8 +572,7 @@ const SessionRowView = memo(function SessionRowView({
   }
 
   const branch = root.isWorktree && root.branch ? root.branch : null;
-  // A fork named by the sidebar's Fork: the ellipsis cuts its title before
-  // the suffix that tells it from its source, never the suffix.
+  // For a forked session, truncate the title before its distinguishing suffix.
   const forkTitle = root.name && root.relation?.kind === "fork" ? splitForkSuffix(root.name) : null;
   const details = root.detailsPending ? "…" : t("sidebar.messagesCount", { count: root.messageCount });
   const tooltip = `${title}\n${details} · ${formatRelativeTime(root.modified, locale, nowDate)}${branch ? ` · ⑂ ${branch}` : ""}`;

@@ -2260,8 +2260,8 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
             );
           })()}
           <div
-            // fork: a stable styling hook, excluding the compact quote composer.
-            className={compact ? undefined : "fork-composer-surface"}
+            // a stable styling hook, excluding the compact quote composer.
+            className={compact ? undefined : "composer-surface"}
             style={{
               minWidth: 0,
               display: "flex",

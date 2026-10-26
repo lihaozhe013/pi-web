@@ -1,4 +1,4 @@
-import { isShellToolName } from "./fork-tool-expansion";
+import { isShellToolName } from "./tool-names";
 import type { AssistantContentBlock, ToolResultMessage } from "./types";
 
 /** Only explicit read tools are transient in the main conversation. */

@@ -1930,37 +1930,6 @@ pre, code {
   text-overflow: ellipsis;
 }
 
-/* Its box shows on hover and focus; the negative margins keep it off the
-   line's layout, and on a coarse pointer they grow the tap target the same
-   way. */
-.new-session-update {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  margin: -3px -4px;
-  padding: 3px 4px;
-  border-radius: 5px;
-  color: var(--accent);
-  font-weight: 600;
-  text-decoration: none;
-  transition: background 0.12s;
-}
-
-.new-session-update:hover,
-.new-session-update:focus-visible {
-  background: var(--bg-hover);
-}
-
-/* The ring inside the box, clear of the "→" and "·" beside it. */
-.new-session-update:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
-}
-
-.new-session-update svg {
-  flex: none;
-}
-
 /* The project and worktree: a row of their own, under the brand. The
    project button's own padding is pulled out on the left, so its folder
    icon stands on the logo's and the composer card's edge. */
@@ -1985,15 +1954,6 @@ pre, code {
 
   .new-session-brand-name {
     font-size: 20px;
-  }
-}
-
-@media (pointer: coarse) {
-  .new-session-update {
-    margin-top: -8px;
-    margin-bottom: -8px;
-    padding-top: 8px;
-    padding-bottom: 8px;
   }
 }
 

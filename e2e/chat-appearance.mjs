@@ -13,7 +13,7 @@ export async function checkChatAppearanceReset(page) {
   assert.equal(await fontSize.inputValue(), "24", "Resetting width must preserve font size");
   await width.press("End");
   await resetFontSize.click();
-  // Fork: the default type scale is 16px (14px upstream), see hooks/useChatAppearance.ts.
+  // The default chat type scale is 16px, see hooks/useChatAppearance.ts.
   assert.equal(await fontSize.inputValue(), "16");
   assert.equal(await width.inputValue(), "2000", "Resetting font size must preserve width");
   await resetWidth.click();

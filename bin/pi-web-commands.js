@@ -7,8 +7,6 @@ const path = require("path");
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { openInBrowser } = require("./browser-opener");
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { runUpdate } = require("./pi-web-update");
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const records = require("./run-records");
 
 const STOP_TIMEOUT_MS = 10_000;
@@ -99,16 +97,6 @@ async function runCommand(options, {
       open(selected.record.url);
       return 0;
     }
-    case "update":
-      return runUpdate({
-        check: options.check,
-        currentVersion: getPackageVersion(pkgDir),
-        pkgDir,
-        listRecords: list,
-        formatRecord: records.formatRunRecord,
-        log,
-        error,
-      });
     default:
       error(`Unknown command: ${options.command}`);
       return 1;

@@ -1,23 +1,22 @@
 # Integration and Cleanup Plan
 
-This is pending work, not a list of completed changes. The documentation rewrite does not rename runtime files or remove application features.
+This plan tracks the remaining implementation work. The initial integration pass is complete; broader product-surface and dead-code cleanup remains.
 
-## 1. Remove the project-fork layer
+## Completed: integrate project-specific presentation
 
-- Inventory `fork-*` components, helpers, styles, imports, tests, and `// fork:` markers.
-- Merge useful styles into their owning component or shared design system. Remove redundant overrides rather than merely renaming stylesheets.
-- Move useful tool presentation and highlighting behavior into normally named modules. Consolidate duplicate logic and update consumers and tests together.
-- Keep genuine session-fork terminology; it describes a user operation, not project ancestry.
-- Audit package metadata, repository links, version checks, and updater commands so this independent version does not point users toward source-project releases. Preserve attribution and licenses.
+- Renamed tool activity, tool-card expansion, syntax-language, and syntax-token modules to describe their responsibilities.
+- Merged the radius, typography, and workspace styles into `app/workspace.css`; tool-card behavior is in `app/tool-cards.css`.
+- Moved shell-tool detection into shared `lib/tool-names.ts`.
+- Removed project-fork markers and preserved genuine session-fork behavior.
+- Updated package metadata for this repository and removed source-project release checks and updater commands. Attribution and licenses remain.
 
-## 2. Reduce product surface
+## Remaining: simplify the product surface
 
-- Review settings, authentication/provider setup, models, plugins, skills, MCP, and subagent management individually. Retain only what materially helps everyday conversation; prefer existing Pi configuration over duplicate management UI.
-- Do not remove the underlying agent capability merely because its management panel is unnecessary.
-- Keep essential model selection, execution controls, errors, and access to useful conversation information.
-- Avoid replacing removed panels with another general-purpose manager.
+Review settings, authentication/provider setup, models, plugins, skills, MCP, and subagent management individually. Retain only what materially helps everyday conversation; prefer existing Pi configuration over duplicate management UI.
 
-## 3. Remove obsolete implementation
+Do not remove the underlying agent capability merely because its management panel is unnecessary. Keep essential model selection, execution controls, errors, and useful conversation information. Avoid replacing removed panels with another general-purpose manager.
+
+## 2. Remove obsolete implementation
 
 - Audit the shared files endpoint; retain operations needed for attachments, uploads, inline media, and references. Remove unused browsing, metadata, watch, and linked-directory branches only after checking consumers and preserving authorization.
 - Simplify Git project identity and deleted-worktree fallback without breaking session grouping, pins, archives, directory selection, or model resolution.
