@@ -105,6 +105,129 @@ const MarkdownBlock = memo(function MarkdownBlock({
   );
 });
 
+function createMarkdownComponents({
+  cwd,
+  isStreaming,
+  onOpenFile,
+  onNavigateLink
+}: Pick<MarkdownBodyProps, 'cwd' | 'isStreaming' | 'onOpenFile' | 'onNavigateLink'>): Components {
+  return {
+    code({ className, children, ...props }) {
+      const lang = className?.replace('language-', '').toLowerCase() ?? '';
+      const raw = String(children);
+      const isBlock = className?.includes('language-') || raw.includes('\n');
+      if (isBlock) {
+        if (lang === 'mermaid') {
+          return (
+            <MermaidBlock code={raw.replace(/\n$/, '')} isStreaming={isStreaming} defaultPreview />
+          );
+        }
+        return <CodeBlock code={raw.replace(/\n$/, '')} lang={lang} isStreaming={isStreaming} />;
+      }
+      return (
+        <code className="markdown-inline-code" {...props}>
+          {children}
+        </code>
+      );
+    },
+    pre({ children }) {
+      return <>{children}</>;
+    },
+    a({ href, children, ...props }) {
+      // `node` is react-markdown metadata, not a DOM attribute.
+      delete props.node;
+      if (onNavigateLink && href && !isExternalMarkdownHref(href)) {
+        // No href: a middle-click or "Open in new tab" would load the path on the app's own URL.
+        const navigate = () => onNavigateLink(href);
+        return (
+          <MarkdownLinkContext.Provider value={true}>
+            <a
+              {...props}
+              role="link"
+              tabIndex={0}
+              onClick={navigate}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') navigate();
+              }}
+            >
+              {children}
+            </a>
+          </MarkdownLinkContext.Provider>
+        );
+      }
+      if (href?.startsWith('#')) {
+        // An in-page link: never a second tab of Pi Web.
+        return (
+          <MarkdownLinkContext.Provider value={true}>
+            <a href={href} {...props} onClick={jumpToMarkdownFragment}>
+              {children}
+            </a>
+          </MarkdownLinkContext.Provider>
+        );
+      }
+      const filePath = resolveLocalFileHref(href, cwd);
+      if (!onOpenFile && (filePath || href === '')) {
+        return <span title={filePath ?? undefined}>{children}</span>;
+      }
+      const openFile = onOpenFile;
+      if (!filePath || !openFile) {
+        return (
+          <MarkdownLinkContext.Provider value={true}>
+            <a href={href} {...props} target="_blank" rel="noopener noreferrer">
+              {children}
+            </a>
+          </MarkdownLinkContext.Provider>
+        );
+      }
+
+      const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
+        if (!shouldOpenLocalFileInApp(event)) return;
+        const target = event.currentTarget.getAttribute('target');
+        if (target && target !== '_self') return;
+        event.preventDefault();
+        openFile(filePath, parsePdfPageFragment(href) ?? undefined);
+      };
+
+      return (
+        <MarkdownLinkContext.Provider value={true}>
+          <a href={href} {...props} onClick={handleClick}>
+            {children}
+          </a>
+        </MarkdownLinkContext.Provider>
+      );
+    },
+    img(props) {
+      return <MarkdownImage cwd={cwd} {...props} />;
+    },
+    ol({ node, start, style, ...props }) {
+      // An outside marker wider than the list's left padding is clipped by
+      // .markdown-body's overflow-x, so the padding follows the largest number.
+      const items =
+        node?.children.filter((child) => child.type === 'element' && child.tagName === 'li')
+          .length ?? 0;
+      const digits = String(Math.abs((start ?? 1) + Math.max(items, 1) - 1)).length;
+      return (
+        <ol
+          start={start}
+          style={{ ...style, ['--ol-marker-digits' as string]: Math.max(digits, 2) }}
+          {...props}
+        />
+      );
+    },
+    table({ children }) {
+      // The frame draws the border; the scroller inside it fades its scrolled
+      // edges, which on the bordered box would fade the border too.
+      return (
+        <div className="markdown-table-frame">
+          <div className="markdown-table-wrap">
+            <table>{children}</table>
+          </div>
+        </div>
+      );
+    }
+  };
+}
+
 export const MarkdownBody = memo(function MarkdownBody({
   children,
   className,
@@ -123,126 +246,8 @@ export const MarkdownBody = memo(function MarkdownBody({
     [isStreaming, normalizedMarkdown]
   );
   // Stable renderer identities keep stateful blocks mounted across message hover updates.
-  const components = useMemo<Components>(
-    () => ({
-      code({ className, children, ...props }) {
-        const lang = className?.replace('language-', '').toLowerCase() ?? '';
-        const raw = String(children);
-        const isBlock = className?.includes('language-') || raw.includes('\n');
-        if (isBlock) {
-          if (lang === 'mermaid') {
-            return (
-              <MermaidBlock
-                code={raw.replace(/\n$/, '')}
-                isStreaming={isStreaming}
-                defaultPreview
-              />
-            );
-          }
-          return <CodeBlock code={raw.replace(/\n$/, '')} lang={lang} isStreaming={isStreaming} />;
-        }
-        return (
-          <code className="markdown-inline-code" {...props}>
-            {children}
-          </code>
-        );
-      },
-      pre({ children }) {
-        return <>{children}</>;
-      },
-      a({ href, children, ...props }) {
-        // `node` is react-markdown metadata, not a DOM attribute.
-        delete props.node;
-        if (onNavigateLink && href && !isExternalMarkdownHref(href)) {
-          // No href: a middle-click or "Open in new tab" would load the path on the app's own URL.
-          const navigate = () => onNavigateLink(href);
-          return (
-            <MarkdownLinkContext.Provider value={true}>
-              <a
-                {...props}
-                role="link"
-                tabIndex={0}
-                onClick={navigate}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') navigate();
-                }}
-              >
-                {children}
-              </a>
-            </MarkdownLinkContext.Provider>
-          );
-        }
-        if (href?.startsWith('#')) {
-          // An in-page link: never a second tab of Pi Web.
-          return (
-            <MarkdownLinkContext.Provider value={true}>
-              <a href={href} {...props} onClick={jumpToMarkdownFragment}>
-                {children}
-              </a>
-            </MarkdownLinkContext.Provider>
-          );
-        }
-        const filePath = resolveLocalFileHref(href, cwd);
-        if (!onOpenFile && (filePath || href === '')) {
-          return <span title={filePath ?? undefined}>{children}</span>;
-        }
-        const openFile = onOpenFile;
-        if (!filePath || !openFile) {
-          return (
-            <MarkdownLinkContext.Provider value={true}>
-              <a href={href} {...props} target="_blank" rel="noopener noreferrer">
-                {children}
-              </a>
-            </MarkdownLinkContext.Provider>
-          );
-        }
-
-        const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
-          if (!shouldOpenLocalFileInApp(event)) return;
-          const target = event.currentTarget.getAttribute('target');
-          if (target && target !== '_self') return;
-          event.preventDefault();
-          openFile(filePath, parsePdfPageFragment(href) ?? undefined);
-        };
-
-        return (
-          <MarkdownLinkContext.Provider value={true}>
-            <a href={href} {...props} onClick={handleClick}>
-              {children}
-            </a>
-          </MarkdownLinkContext.Provider>
-        );
-      },
-      img(props) {
-        return <MarkdownImage cwd={cwd} {...props} />;
-      },
-      ol({ node, start, style, ...props }) {
-        // An outside marker wider than the list's left padding is clipped by
-        // .markdown-body's overflow-x, so the padding follows the largest number.
-        const items =
-          node?.children.filter((child) => child.type === 'element' && child.tagName === 'li')
-            .length ?? 0;
-        const digits = String(Math.abs((start ?? 1) + Math.max(items, 1) - 1)).length;
-        return (
-          <ol
-            start={start}
-            style={{ ...style, ['--ol-marker-digits' as string]: Math.max(digits, 2) }}
-            {...props}
-          />
-        );
-      },
-      table({ children }) {
-        // The frame draws the border; the scroller inside it fades its scrolled
-        // edges, which on the bordered box would fade the border too.
-        return (
-          <div className="markdown-table-frame">
-            <div className="markdown-table-wrap">
-              <table>{children}</table>
-            </div>
-          </div>
-        );
-      }
-    }),
+  const components = useMemo(
+    () => createMarkdownComponents({ cwd, isStreaming, onOpenFile, onNavigateLink }),
     [cwd, isStreaming, onOpenFile, onNavigateLink]
   );
 

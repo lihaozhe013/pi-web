@@ -194,6 +194,8 @@ function SkillDetail({
       ? root.querySelector(`[data-heading-anchor="${CSS.escape(anchor)}"]`)
       : null;
     (heading ?? root).scrollIntoView({ block: 'start' });
+    // The request counter changes with the ref-only pending anchor and intentionally retriggers this layout effect.
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- anchorRequest is the signal for pendingAnchor.current.
   }, [instructions, instructionsError, anchorRequest]);
 
   useEffect(() => {
@@ -710,7 +712,7 @@ export function SkillsConfig({
     setUpdateStatuses({});
     setUpdateError(null);
     void loadSkills();
-  }, [cwd]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loadSkills]);
 
   // Whether the project's skills load follows its trust, which can change while
   // this section stays mounted (hidden) in Settings: trusting from Settings ›

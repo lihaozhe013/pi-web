@@ -581,7 +581,7 @@ export function ChatWindow({
       viewport?.removeEventListener('resize', position);
       viewport?.removeEventListener('scroll', position);
     };
-  }, [quotedSelection, quoteInputOpen, quoteError]);
+  }, [quotedSelection]);
 
   useEffect(() => {
     if (!quotedSelection) return;
@@ -715,6 +715,7 @@ export function ChatWindow({
   }, [historyCursor]);
 
   useLayoutEffect(() => {
+    if (loading) return;
     const sessionId = session?.id;
     const container = scrollContainerRef.current;
     const content = messageContentRef.current;
@@ -745,6 +746,11 @@ export function ChatWindow({
     if (searchTarget) setPendingScrollRestore(null);
   }, [searchTarget]);
 
+  const loadOlderPageRef = useRef(loadOlderPage);
+  loadOlderPageRef.current = loadOlderPage;
+  const scrollToBottomRef = useRef(scrollToBottom);
+  scrollToBottomRef.current = scrollToBottom;
+
   useEffect(() => {
     const position = pendingScrollRestore;
     const sessionId = session?.id;
@@ -765,10 +771,12 @@ export function ChatWindow({
       let hasMore = initialHistory.hasEarlierMessages;
       try {
         while (hasMore && before && !controller.signal.aborted) {
-          const context = await loadOlderPage(sessionId, before, { signal: controller.signal });
+          const context = await loadOlderPageRef.current(sessionId, before, {
+            signal: controller.signal
+          });
           if (controller.signal.aborted) return;
           if (!context) {
-            scrollToBottom('instant');
+            scrollToBottomRef.current('instant');
             setPendingScrollRestore(null);
             return;
           }
@@ -784,7 +792,7 @@ export function ChatWindow({
           hasMore = context.hasMore;
         }
         if (!controller.signal.aborted) {
-          scrollToBottom('instant');
+          scrollToBottomRef.current('instant');
           setPendingScrollRestore(null);
         }
       } finally {
@@ -798,24 +806,21 @@ export function ChatWindow({
       // A branch change cancels restoration and must reveal the new context.
       setPendingScrollRestore(null);
     };
-  }, [
-    activeLeafId,
-    loadOlderPage,
-    loading,
-    pendingScrollRestore,
-    scrollToBottom,
-    searchTarget,
-    session?.id
-  ]);
+    // A branch change cancels this walk even if the saved anchor is unchanged.
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- activeLeafId scopes the pending restoration to its branch.
+  }, [activeLeafId, loading, pendingScrollRestore, searchTarget, session?.id]);
 
   useLayoutEffect(() => {
     const position = pendingScrollRestore;
     const content = messageContentRef.current;
     if (!position || !content || searchTarget) return;
-    const element = Array.from(content.children).find(
-      (candidate) =>
-        candidate instanceof HTMLElement && candidate.dataset.entryId === position.anchorEntryId
-    );
+    const anchorIsLoaded = entryIds.includes(position.anchorEntryId);
+    const element = anchorIsLoaded
+      ? Array.from(content.children).find(
+          (candidate) =>
+            candidate instanceof HTMLElement && candidate.dataset.entryId === position.anchorEntryId
+        )
+      : undefined;
     if (element instanceof HTMLElement) {
       scrollToMessage(element, position.anchorOffset);
       setPendingScrollRestore(null);
@@ -832,6 +837,8 @@ export function ChatWindow({
     scrollToBottom,
     scrollToMessage,
     searchTarget,
+    // Increasing the render window can add the anchor without changing entryIds.
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- visibleCount schedules a post-render anchor lookup.
     visibleCount
   ]);
 
@@ -953,13 +960,15 @@ export function ChatWindow({
     return () => observer.disconnect();
   }, [
     sentinel,
+    // Recreate the observer after expanding the window so an intersecting sentinel can request another batch.
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- visibleCount intentionally renews the observer.
     visibleCount,
     historyCursor,
     hasEarlierMessages,
-    session,
+    session?.id,
     loadOlderPage,
-    sessionIdRef,
-    scrollContainerRef
+    scrollContainerRef,
+    sessionIdRef
   ]);
 
   // Keep the rendered window at least as large as what's loaded, so prepended
@@ -976,7 +985,9 @@ export function ChatWindow({
     if (!container) return;
     container.scrollTop = restoreScrollTop(container.scrollHeight, prevScrollDistanceRef.current);
     prevScrollDistanceRef.current = null;
-  }, [visibleCount, scrollContainerRef]);
+    // `visibleCount` is a commit trigger: prepending history changes scrollHeight before this restores the viewport.
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- the count intentionally schedules this scroll correction.
+  }, [scrollContainerRef, visibleCount]);
   // Push session stats up to AppShell for the top bar.
   // Compare scalar fields to avoid loops from new object identity each render.
   const statsKey = sessionStats
@@ -1002,6 +1013,8 @@ export function ChatWindow({
   sessionStatsRef.current = sessionStats;
   useEffect(() => {
     onSessionStatsChange?.(sessionStatsRef.current);
+    // The key suppresses notifications for object-only changes; it intentionally drives this effect.
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- statsKey represents the scalar fields sent to the parent.
   }, [statsKey, onSessionStatsChange]);
   useEffect(
     () => () => {
@@ -1018,6 +1031,8 @@ export function ChatWindow({
   contextUsageRef.current = contextUsage;
   useEffect(() => {
     onContextUsageChange?.(contextUsageRef.current);
+    // The key suppresses notifications for object-only changes; it intentionally drives this effect.
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- ctxKey represents the scalar fields sent to the parent.
   }, [ctxKey, onContextUsageChange]);
   useEffect(
     () => () => {
@@ -1221,6 +1236,8 @@ export function ChatWindow({
   }, [
     agentRunning,
     lastUserMsgRef,
+    // A new message can replace the ref's target without changing the ref object.
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- messages.length retriggers measurement after that commit.
     messages.length,
     promptAnchorActive,
     scrollContainerRef,

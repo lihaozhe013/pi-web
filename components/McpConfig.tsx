@@ -338,7 +338,6 @@ export function McpConfig({
   const [signIns, setSignIns] = useState<Record<string, McpSignInRun>>({});
   const signInsRef = useRef(signIns);
   signInsRef.current = signIns;
-  const [pollRound, setPollRound] = useState(0);
   // The add pane: open or not, what was typed (kept while another row is shown), why the last Add was refused, and what it added.
   const [adding, setAdding] = useState(false);
   const [addDraft, setAddDraft] = useState<McpAddDraft>(EMPTY_MCP_ADD_DRAFT);
@@ -352,38 +351,45 @@ export function McpConfig({
   const loadRef = useRef(load);
   loadRef.current = load;
 
-  const refresh = useCallback(async () => {
-    const request = ++requestRef.current;
-    controllerRef.current?.abort();
-    const controller = new AbortController();
-    controllerRef.current = controller;
-    setRefreshing(true);
-    const result = await loadMcpOverview(cwd, undefined, controller.signal);
-    if (request !== requestRef.current) return;
-    setRefreshing(false);
-    if (!result.ok) {
-      setLoad({ state: 'failed', error: result.error });
-      return;
-    }
-    setLoad({
-      state: 'loaded',
-      data: result.data,
-      ...(result.projectError ? { projectError: result.projectError } : {})
-    });
-    setSelected((current) => pickMcpSelection(mcpServerGroups(result.data, Boolean(cwd)), current));
-  }, [cwd]);
+  const trustKey = projectTrustReloadKey(trust);
+  const trustKeyRef = useRef(trustKey);
+  trustKeyRef.current = trustKey;
+  const refresh = useCallback(
+    async (requestTrustKey = trustKey) => {
+      const request = ++requestRef.current;
+      controllerRef.current?.abort();
+      const controller = new AbortController();
+      controllerRef.current = controller;
+      setRefreshing(true);
+      const result = await loadMcpOverview(cwd, undefined, controller.signal);
+      if (request !== requestRef.current || requestTrustKey !== trustKeyRef.current) return;
+      setRefreshing(false);
+      if (!result.ok) {
+        setLoad({ state: 'failed', error: result.error });
+        return;
+      }
+      setLoad({
+        state: 'loaded',
+        data: result.data,
+        ...(result.projectError ? { projectError: result.projectError } : {})
+      });
+      setSelected((current) =>
+        pickMcpSelection(mcpServerGroups(result.data, Boolean(cwd)), current)
+      );
+    },
+    [cwd, trustKey]
+  );
 
   // A new trust decision for the folder (the trust dialog trusted it, or read
   // one made elsewhere) loads the panel again, in place, so the project's
   // servers and notices follow while the selection stays.
-  const trustKey = projectTrustReloadKey(trust);
   useEffect(() => {
     void refresh();
     return () => {
       requestRef.current += 1;
       controllerRef.current?.abort();
     };
-  }, [refresh, trustKey]);
+  }, [refresh]);
 
   // The switch is disabled while a save or a server change runs, so only one write is ever on its way.
   const saveCodemode = useCallback(
@@ -592,9 +598,8 @@ export function McpConfig({
     });
   }, []);
 
-  // While a sign-in runs, the panel asks where it stands about once a second:
-  // the flow moves on by itself when the browser reaches the loopback
-  // listener. A round ends with a new round number, which schedules the next.
+  // While a sign-in runs, poll again after each round; its flow moves on by
+  // itself when the browser reaches the loopback listener.
   const activeFlowsKey = Object.entries(signIns)
     .flatMap(([key, run]) =>
       mcpSignInActive(run) && run.flow ? [`${key}\u0001${run.flow.flowId}`] : []
@@ -603,7 +608,11 @@ export function McpConfig({
   useEffect(() => {
     if (!activeFlowsKey) return;
     const controller = new AbortController();
-    const timer = setTimeout(async () => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleNextPoll = () => {
+      timer = setTimeout(() => void poll(), MCP_SIGN_IN_POLL_MS);
+    };
+    const poll = async () => {
       for (const item of activeFlowsKey.split('\u0002')) {
         const [key, flowId] = item.split('\u0001');
         // A paste or cancel answered while this poll is out is newer than what it brings back.
@@ -615,13 +624,14 @@ export function McpConfig({
           return next === undefined || next === runs[key] ? runs : { ...runs, [key]: next };
         });
       }
-      setPollRound((round) => round + 1);
-    }, MCP_SIGN_IN_POLL_MS);
+      if (!controller.signal.aborted) scheduleNextPoll();
+    };
+    scheduleNextPoll();
     return () => {
-      clearTimeout(timer);
+      if (timer !== null) clearTimeout(timer);
       controller.abort();
     };
-  }, [activeFlowsKey, pollRound]);
+  }, [activeFlowsKey]);
 
   // A sign-in that ended changed mcp-auth.json and recorded what connecting
   // found: the overview is read again, for Signed in and the Status row.
@@ -1086,13 +1096,13 @@ export function McpConfigView({
   // overview has loaded.
   const selectedRowRef = useRef<HTMLButtonElement>(null);
   const addActionRef = useRef<HTMLButtonElement>(null);
-  const focusFallback = () => selectedRowRef.current ?? addActionRef.current;
+  const focusFallback = useCallback(() => selectedRowRef.current ?? addActionRef.current, []);
   const offeredTrustRef = useRef(offersTrust);
   useEffect(() => {
     const offeredTrust = offeredTrustRef.current;
     offeredTrustRef.current = offersTrust;
     if (offeredTrust && !offersTrust) focusIfLost(document, focusFallback());
-  }, [offersTrust]);
+  }, [offersTrust, focusFallback]);
   // A removal unmounts the pane its Remove button sat in, and a finished or
   // expired undo the notice its Undo button sat in, so focus would fall to the
   // page behind Settings: it moves to Undo once offered, and to the selected
@@ -1106,7 +1116,7 @@ export function McpConfigView({
     if (undoToken !== undefined && undoToken !== shown)
       focusIfLost(document, undoButtonRef.current);
     else if (shown !== undefined && undoToken === undefined) focusIfLost(document, focusFallback());
-  }, [undoToken]);
+  }, [undoToken, focusFallback]);
   const problems = data ? mcpFileProblems(data.files) : [];
   const counts = mcpGroupCounts(servers);
   const globalFile = data?.files.find((file) => file.scope === 'global');
@@ -1127,7 +1137,7 @@ export function McpConfigView({
     handledFocusBackRef.current = focusBack;
     if (focusBack.toSelectedRow) focusIfLost(document, focusFallback());
     else focusAfterChange(document, focusBack.control, focusFallback());
-  }, [focusBack, controlsBusy]);
+  }, [focusBack, controlsBusy, focusFallback]);
   const writeBlock = (scope: McpScope): McpWriteBlock | undefined =>
     data ? mcpWriteBlock(scope, data) : undefined;
   const writesOff = data ? mcpWritesOff(data.mcp) : false;

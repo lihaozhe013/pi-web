@@ -151,6 +151,57 @@ function getPreviewHeadingIndex(node: unknown): number | null {
   return null;
 }
 
+function createAssistantOutlineComponents(
+  onHeadingClick?: (headingIndex: number) => void,
+  onAnswerClick?: () => void
+): ReactMarkdownOptions['components'] {
+  return {
+    h1: ({ children, node }) => (
+      <PreviewHeading
+        level={1}
+        headingIndex={getPreviewHeadingIndex(node)}
+        onClick={onHeadingClick}
+      >
+        {children}
+      </PreviewHeading>
+    ),
+    h2: ({ children, node }) => (
+      <PreviewHeading
+        level={2}
+        headingIndex={getPreviewHeadingIndex(node)}
+        onClick={onHeadingClick}
+      >
+        {children}
+      </PreviewHeading>
+    ),
+    h3: ({ children, node }) => (
+      <PreviewHeading
+        level={3}
+        headingIndex={getPreviewHeadingIndex(node)}
+        onClick={onHeadingClick}
+      >
+        {children}
+      </PreviewHeading>
+    ),
+    h4: () => null,
+    h5: () => null,
+    h6: () => null,
+    p: ({ children }) => (
+      <button type="button" className={styles.paragraph} onClick={onAnswerClick}>
+        {children}
+      </button>
+    ),
+    blockquote: () => null,
+    ul: () => null,
+    ol: () => null,
+    pre: () => null,
+    table: () => null,
+    hr: () => null,
+    a: ({ children }) => <>{children}</>,
+    code: ({ children }) => <>{children}</>
+  };
+}
+
 export const AssistantOutline = memo(function AssistantOutline({
   markdown,
   onHeadingClick,
@@ -161,57 +212,17 @@ export const AssistantOutline = memo(function AssistantOutline({
   onAnswerClick?: () => void;
 }) {
   const normalizedMarkdown = useMemo(() => normalizeDisplayMath(markdown), [markdown]);
+  const components = useMemo(
+    () => createAssistantOutlineComponents(onHeadingClick, onAnswerClick),
+    [onHeadingClick, onAnswerClick]
+  );
   if (!markdown) return null;
   return (
     <div className={styles.outline}>
       <ReactMarkdown
         remarkPlugins={previewRemarkPlugins}
         rehypePlugins={previewRehypePlugins}
-        components={{
-          h1: ({ children, node }) => (
-            <PreviewHeading
-              level={1}
-              headingIndex={getPreviewHeadingIndex(node)}
-              onClick={onHeadingClick}
-            >
-              {children}
-            </PreviewHeading>
-          ),
-          h2: ({ children, node }) => (
-            <PreviewHeading
-              level={2}
-              headingIndex={getPreviewHeadingIndex(node)}
-              onClick={onHeadingClick}
-            >
-              {children}
-            </PreviewHeading>
-          ),
-          h3: ({ children, node }) => (
-            <PreviewHeading
-              level={3}
-              headingIndex={getPreviewHeadingIndex(node)}
-              onClick={onHeadingClick}
-            >
-              {children}
-            </PreviewHeading>
-          ),
-          h4: () => null,
-          h5: () => null,
-          h6: () => null,
-          p: ({ children }) => (
-            <button type="button" className={styles.paragraph} onClick={onAnswerClick}>
-              {children}
-            </button>
-          ),
-          blockquote: () => null,
-          ul: () => null,
-          ol: () => null,
-          pre: () => null,
-          table: () => null,
-          hr: () => null,
-          a: ({ children }) => <>{children}</>,
-          code: ({ children }) => <>{children}</>
-        }}
+        components={components}
       >
         {normalizedMarkdown}
       </ReactMarkdown>
@@ -422,13 +433,15 @@ export const ChatMinimap = memo(function ChatMinimap({
     };
   }, [measureNodes, scrollContainer, updateScroll]);
 
+  const messageCount = messages.length;
   useEffect(() => {
     const timeout = setTimeout(() => {
+      if (messagesRef.current.length !== messageCount) return;
       measureNodes();
       updateScroll();
     }, 50);
     return () => clearTimeout(timeout);
-  }, [messages.length, measureNodes, updateScroll]);
+  }, [messageCount, measureNodes, updateScroll]);
 
   const scrollToNode = useCallback(
     (node: NodeInfo, behavior: ScrollBehavior) => {

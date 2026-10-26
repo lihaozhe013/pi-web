@@ -84,8 +84,12 @@ export function useEnabledModels(cwd?: string | null): EnabledModelsController {
   const mutateRef = useRef<((key: string, body: MutationBody) => void) | null>(null);
 
   const [reloadKey, setReloadKey] = useState(0);
+  const loadKey = JSON.stringify([cwd, reloadKey]);
+  const loadKeyRef = useRef(loadKey);
+  loadKeyRef.current = loadKey;
 
   useEffect(() => {
+    const requestKey = loadKey;
     const controller = new AbortController();
     setLoading(true);
     const query = cwd ? `?cwd=${encodeURIComponent(cwd)}` : '';
@@ -93,18 +97,19 @@ export function useEnabledModels(cwd?: string | null): EnabledModelsController {
       .then(async (res) => {
         const data = (await res.json()) as EnabledModelsView & { error?: string };
         if (!res.ok || data.error) throw new Error(data.error ?? `HTTP ${res.status}`);
+        if (controller.signal.aborted || loadKeyRef.current !== requestKey) return;
         setView(data);
         setFailure(null);
       })
       .catch((error: unknown) => {
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted || loadKeyRef.current !== requestKey) return;
         setFailure({ message: error instanceof Error ? error.message : String(error) });
       })
       .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
+        if (!controller.signal.aborted && loadKeyRef.current === requestKey) setLoading(false);
       });
     return () => controller.abort();
-  }, [cwd, reloadKey]);
+  }, [cwd, loadKey]);
 
   const mutate = useCallback(
     (key: string, body: MutationBody) => {
@@ -349,10 +354,15 @@ export function EnabledModelsProviderSwitchNote({
  */
 function useCatalogRefresh(providerId: string, onChanged: () => void) {
   const [refreshing, setRefreshing] = useState(false);
-  const [note, setNote] = useState<string | null>(null);
-
-  // A note describes the provider it was produced for, never the next one.
-  useEffect(() => setNote(null), [providerId]);
+  const [noteState, setNoteState] = useState<{ providerId: string; note: string | null }>({
+    providerId,
+    note: null
+  });
+  const note = noteState.providerId === providerId ? noteState.note : null;
+  const setNote = useCallback(
+    (nextNote: string | null) => setNoteState({ providerId, note: nextNote }),
+    [providerId]
+  );
 
   const refresh = useCallback(() => {
     setRefreshing(true);
@@ -378,7 +388,7 @@ function useCatalogRefresh(providerId: string, onChanged: () => void) {
         setRefreshing(false);
       }
     })();
-  }, [providerId, onChanged]);
+  }, [providerId, onChanged, setNote]);
 
   return { refreshing, note, refresh };
 }
@@ -393,13 +403,16 @@ export function EnabledModelsSection({
   contextSettings?: ModelContextSettings;
 }) {
   const { t } = useI18n();
-  const [query, setQuery] = useState('');
+  const [queryState, setQueryState] = useState<{ providerId: string; query: string }>({
+    providerId,
+    query: ''
+  });
+  const query = queryState.providerId === providerId ? queryState.query : '';
+  const setQuery = (nextQuery: string) => setQueryState({ providerId, query: nextQuery });
   const { view, loading, pending, failure } = controller;
   const provider = findProviderView(view, providerId);
   const catalog = useCatalogRefresh(providerId, controller.refresh);
   const noteId = useId();
-
-  useEffect(() => setQuery(''), [providerId]);
 
   if (loading && !view) {
     return <div className="enabled-models-empty">{t('agents.modelsLoading')}</div>;

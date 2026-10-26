@@ -676,7 +676,7 @@ export function PluginsConfig({
     setUpdateStatuses({});
     setUpdateError(null);
     void loadPlugins();
-  }, [cwd]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loadPlugins]);
 
   // Whether project packages load, and the Project scope can be chosen, follows
   // the folder's trust, which can change while this section stays mounted

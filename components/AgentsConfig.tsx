@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useI18n } from '@/hooks/useI18n';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import type {
@@ -320,7 +320,11 @@ export function AgentsConfig({
   // from Settings › MCP; a new decision loads the list again in place, keeping
   // any profile draft.
   const trustKey = projectTrustReloadKey(trust);
+  const modelsRequestKey = JSON.stringify([cwd, trustKey]);
+  const modelsRequestKeyRef = useRef(modelsRequestKey);
+  modelsRequestKeyRef.current = modelsRequestKey;
   useEffect(() => {
+    const requestKey = modelsRequestKey;
     const controller = new AbortController();
     setModelsLoading(true);
     setModelsError(null);
@@ -331,17 +335,19 @@ export function AgentsConfig({
         });
         const data = (await response.json()) as Partial<ModelsData> & { error?: string };
         if (!response.ok || data.error) throw new Error(data.error ?? `HTTP ${response.status}`);
+        if (controller.signal.aborted || modelsRequestKeyRef.current !== requestKey) return;
         setModelOptions(data.modelList ?? []);
         setModelsError(data.modelError ?? null);
       } catch (cause) {
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted || modelsRequestKeyRef.current !== requestKey) return;
         setModelsError(cause instanceof Error ? cause.message : String(cause));
       } finally {
-        if (!controller.signal.aborted) setModelsLoading(false);
+        if (!controller.signal.aborted && modelsRequestKeyRef.current === requestKey)
+          setModelsLoading(false);
       }
     })();
     return () => controller.abort();
-  }, [cwd, trustKey]);
+  }, [cwd, modelsRequestKey]);
 
   const selectProfile = (profile: SubagentProfile) => {
     setSelectedKey(profileKey(profile));

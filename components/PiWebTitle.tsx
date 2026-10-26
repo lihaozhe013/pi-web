@@ -95,7 +95,7 @@ export function PiWebTitle({
    * After a commit that changed the text's length (in its code type, its
    * width): the toolbar row fits its labels again, before that paints.
    */
-  onWidthChange?: () => void;
+  onWidthChange?: (textLength: number) => void;
 }) {
   const { t } = useI18n();
   const [versionShown, setVersionShown] = useState(false);
@@ -105,7 +105,7 @@ export function PiWebTitle({
   const text = useScramble(versionShown ? brandVersionText(appVersion, piVersion) : BRAND_TEXT);
 
   useLayoutEffect(() => {
-    onWidthChange?.();
+    onWidthChange?.(text.length);
   }, [text.length, onWidthChange]);
 
   useEffect(

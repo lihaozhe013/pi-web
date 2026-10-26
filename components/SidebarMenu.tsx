@@ -734,7 +734,7 @@ export function SidebarMenu({
   // Desktop placement: measure, then place, before the browser paints.
   useLayoutEffect(() => {
     const surface = surfaceRef.current;
-    if (!visible || sheet || !surface) return;
+    if (!visible || sheet || !anchorKey || !surface) return;
     const viewport = window.visualViewport;
     const position = () => {
       const current = anchorRef.current;
@@ -765,10 +765,13 @@ export function SidebarMenu({
       viewport?.removeEventListener('resize', position);
       viewport?.removeEventListener('scroll', position);
     };
-  }, [visible, sheet, anchorKey, custom]);
+  }, [visible, sheet, anchorKey]);
 
+  const filterContextRef = useRef({ visible, custom });
   useEffect(() => {
-    setFilterQuery('');
+    const previous = filterContextRef.current;
+    filterContextRef.current = { visible, custom };
+    if (previous.visible !== visible || previous.custom !== custom) setFilterQuery('');
   }, [visible, custom]);
 
   // Focus moves into the menu when it opens, and again when its body is
@@ -776,7 +779,11 @@ export function SidebarMenu({
   // The opening takes the first marked control (a filter field); a swap hands
   // the claim to the new body's own, so a long list's filter does not keep it.
   const openedRef = useRef(false);
+  const focusContextKey = JSON.stringify([visible, sheet, custom, focusKey]);
+  const previousFocusContextKeyRef = useRef<string | null>(null);
   useLayoutEffect(() => {
+    if (previousFocusContextKeyRef.current === focusContextKey) return;
+    previousFocusContextKeyRef.current = focusContextKey;
     const surface = surfaceRef.current;
     if (!visible || !surface) {
       // Closed: the next run is an opening again.
@@ -788,7 +795,7 @@ export function SidebarMenu({
     (opening ? initialFocusTarget(surface) : menuBodyFocusTarget(surface))?.focus({
       preventScroll: true
     });
-  }, [visible, sheet, custom, focusKey]);
+  }, [focusContextKey, visible]);
 
   // On close, focus returns to the opener unless the user put it elsewhere.
   // The opener is taken now, as the menu opens: the parent closes it by
@@ -808,7 +815,7 @@ export function SidebarMenu({
       // takes focus, as if it had never been hidden.
       if (opener && target !== opener && isRendered(opener)) opener.focus({ preventScroll: true });
     };
-  }, [visible, sheet]);
+  }, [visible]);
 
   // Keys, in the capture phase on `document`: they reach the menu before any
   // bubble-phase listener, including the window-level Escape that stops a

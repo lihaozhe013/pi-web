@@ -431,6 +431,14 @@ export function SessionTree(props: SessionTreeProps): ReactNode {
   useLayoutEffect(() => {
     const target = pendingFocusRef.current;
     if (!target) return;
+    const targetVisible = visibleIndices.some((index) => {
+      const row = rows[index];
+      return row?.key === target.rowKey || row?.key === target.fallbackKey;
+    });
+    if (!targetVisible) {
+      if (++target.tries > 2) pendingFocusRef.current = null;
+      return;
+    }
     const active = document.activeElement;
     // Focus that survived (the clicked button is still there) stays put,
     // unless a reveal may take it from where it is.
@@ -458,7 +466,7 @@ export function SessionTree(props: SessionTreeProps): ReactNode {
     } else if (++target.tries > 2) {
       pendingFocusRef.current = null;
     }
-  }, [visibleIndices]);
+  }, [rows, visibleIndices]);
 
   const hasTreeRows = rows.some((row) => row.kind === 'session' || row.kind === 'group');
   const showEmpty = !loading && !error && emptyLabel !== null && !hasTreeRows;

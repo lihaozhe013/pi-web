@@ -473,9 +473,18 @@ export function AppShell() {
     };
   }, [mobileToolbarMoreOpen]);
 
+  const mobileToolbarContextKey = JSON.stringify([
+    isMobile,
+    isNarrowMobile,
+    selectedSession?.id,
+    newSessionDraftId
+  ]);
+  const previousMobileToolbarContextKeyRef = useRef(mobileToolbarContextKey);
   useEffect(() => {
-    setMobileToolbarMoreOpen(false);
-  }, [isMobile, isNarrowMobile, selectedSession?.id, newSessionDraftId]);
+    const contextChanged = previousMobileToolbarContextKeyRef.current !== mobileToolbarContextKey;
+    previousMobileToolbarContextKeyRef.current = mobileToolbarContextKey;
+    if (contextChanged) setMobileToolbarMoreOpen(false);
+  }, [mobileToolbarContextKey]);
 
   const initialSessionId = initialNavigation.sessionId;
   const initialLinkedSessionId = linkedSessionId(initialNavigation);
@@ -972,10 +981,14 @@ export function AppShell() {
     }
   }, [autoNameStatus.kind, selectedSession?.id]);
 
+  const autoNameSessionId = selectedSession?.id;
+  const previousAutoNameSessionIdRef = useRef(autoNameSessionId);
   useEffect(() => {
+    if (previousAutoNameSessionIdRef.current === autoNameSessionId) return;
+    previousAutoNameSessionIdRef.current = autoNameSessionId;
     if (autoNameTimerRef.current) clearTimeout(autoNameTimerRef.current);
     setAutoNameStatus({ kind: 'idle' });
-  }, [selectedSession?.id]);
+  }, [autoNameSessionId]);
 
   const handleSessionForked = useCallback(
     (newSessionId: string) => {

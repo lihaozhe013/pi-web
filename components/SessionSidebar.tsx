@@ -425,6 +425,8 @@ function useHeaderFit(ref: RefObject<HTMLElement | null>, labels: string): () =>
     const observer = new ResizeObserver(fit);
     observer.observe(header);
     return () => observer.disconnect();
+    // The measured text changes its scrollWidth without changing the header box, so ResizeObserver alone is insufficient.
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- labels intentionally retriggers the fit measurement.
   }, [ref, fit, labels]);
   return fit;
 }
@@ -564,17 +566,17 @@ export function SessionSidebar({
   // it went away with that change (a toast's button, a delete confirmation's
   // Cancel, the folder picker). Only focus that fell to <body> moves
   // (focusIfLost): focus the user put elsewhere stays.
-  const focusAfterCommitRef = useRef<(() => HTMLElement | null) | null>(null);
-  const [focusRequest, setFocusRequest] = useState(0);
+  const [focusAfterCommitTarget, setFocusAfterCommitTarget] = useState<
+    (() => HTMLElement | null) | null
+  >(null);
   const focusAfterCommit = useCallback((target: () => HTMLElement | null) => {
-    focusAfterCommitRef.current = target;
-    setFocusRequest((count) => count + 1);
+    setFocusAfterCommitTarget(() => target);
   }, []);
   useEffect(() => {
-    const target = focusAfterCommitRef.current;
-    focusAfterCommitRef.current = null;
-    if (target) focusIfLost(document, target());
-  }, [focusRequest]);
+    if (!focusAfterCommitTarget) return;
+    setFocusAfterCommitTarget(null);
+    focusIfLost(document, focusAfterCommitTarget());
+  }, [focusAfterCommitTarget]);
 
   // Pins, archive and project order: pi-web's own state, kept on the server for every window.
   const {
@@ -658,7 +660,10 @@ export function SessionSidebar({
   }, []);
 
   const initialLoadDone = useRef(false);
+  const previousRefreshKeyRef = useRef(refreshKey);
   useEffect(() => {
+    const refreshRequested = previousRefreshKeyRef.current !== refreshKey;
+    previousRefreshKeyRef.current = refreshKey;
     const isFirst = !initialLoadDone.current;
     initialLoadDone.current = true;
     let active = true;
@@ -674,7 +679,7 @@ export function SessionSidebar({
           if (active) void loadSessions(false, true);
         }, SESSION_DETAILS_HYDRATION_DELAY_MS);
       });
-    } else {
+    } else if (refreshRequested) {
       // Every refreshKey bump follows a change the server already invalidated
       // the list for (a run's agent_end, a fork, a delete, a name, a new
       // session). Forcing would rescan again and bump the version, so every
@@ -1222,7 +1227,21 @@ export function SessionSidebar({
   const newSessionContextRef = useRef(newSessionContext);
   newSessionContextRef.current = newSessionContext;
   const newSessionContextSignature = newSessionContextKey(newSessionContext);
+  const previousContextNotificationRef = useRef<{
+    signature: string | null;
+    callback: typeof onNewSessionContextChange;
+  }>({ signature: null, callback: undefined });
   useEffect(() => {
+    const previous = previousContextNotificationRef.current;
+    if (
+      previous.signature === newSessionContextSignature &&
+      previous.callback === onNewSessionContextChange
+    )
+      return;
+    previousContextNotificationRef.current = {
+      signature: newSessionContextSignature,
+      callback: onNewSessionContextChange
+    };
     onNewSessionContextChange?.(newSessionContextRef.current);
   }, [newSessionContextSignature, onNewSessionContextChange]);
 
@@ -1332,7 +1351,11 @@ export function SessionSidebar({
     if (event.target instanceof Element)
       panelScrollTopsRef.current.set(event.target, event.target.scrollTop);
   }, []);
+  const previousScrollArchiveViewRef = useRef<boolean | null>(null);
   useLayoutEffect(() => {
+    const archiveViewChanged = previousScrollArchiveViewRef.current !== archiveView;
+    previousScrollArchiveViewRef.current = archiveView;
+    if (!archiveViewChanged) return;
     for (const element of sessionsPanelRef.current?.querySelectorAll<HTMLElement>(
       '.session-tree-scroll'
     ) ?? []) {

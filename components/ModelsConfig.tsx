@@ -452,17 +452,27 @@ function ProviderDetail({
   const [discoveryQuery, setDiscoveryQuery] = useState('');
   const [selectedModelIds, setSelectedModelIds] = useState<string[]>([]);
   const discoveryRequestIdRef = useRef(0);
+  const discoveryConfigKey = JSON.stringify([
+    name,
+    provider.baseUrl,
+    provider.api,
+    provider.apiKey
+  ]);
+  const discoveryConfigKeyRef = useRef(discoveryConfigKey);
   const selectShownRef = useRef<HTMLInputElement>(null);
   const switchNoteId = useId();
   const set = <K extends keyof ProviderEntry>(k: K, v: ProviderEntry[K]) =>
     onChange({ ...provider, [k]: v });
 
   useEffect(() => {
+    const configChanged = discoveryConfigKeyRef.current !== discoveryConfigKey;
+    discoveryConfigKeyRef.current = discoveryConfigKey;
     discoveryRequestIdRef.current += 1;
+    if (!configChanged) return;
     setDiscoveryState({ phase: 'idle' });
     setDiscoveryQuery('');
     setSelectedModelIds([]);
-  }, [name, provider.baseUrl, provider.api, provider.apiKey]);
+  }, [discoveryConfigKey]);
 
   const handleDiscoverModels = useCallback(async () => {
     if (discoveryState.phase === 'loading') return;
@@ -521,7 +531,7 @@ function ProviderDetail({
 
   useEffect(() => {
     if (selectShownRef.current) selectShownRef.current.indeterminate = someShownSelected;
-  }, [someShownSelected]);
+  }, [selectShownRef, someShownSelected]);
 
   const toggleDiscoveredModel = (id: string) => {
     setSelectedModelIds((current) =>
@@ -1214,8 +1224,12 @@ function ModelDetail({
   const costDraftRef = useRef(costDraft);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const testRequestIdRef = useRef(0);
+  const testConfigKey = JSON.stringify([providerName, provider, model]);
+  const testConfigKeyRef = useRef(testConfigKey);
   const effectiveBaseUrl = model.baseUrl ?? provider.baseUrl;
   const catalogRequestIdRef = useRef(0);
+  const catalogConfigKey = JSON.stringify([providerName, effectiveBaseUrl, model.id]);
+  const catalogConfigKeyRef = useRef(catalogConfigKey);
   const catalogUndoRef = useRef<ModelEntry | null>(null);
   const costTemplateRef = useRef(model.cost);
   const set = <K extends keyof ModelEntry>(k: K, v: ModelEntry[K]) =>
@@ -1261,19 +1275,24 @@ function ModelDetail({
   })();
 
   useEffect(() => {
+    const configChanged = testConfigKeyRef.current !== testConfigKey;
+    testConfigKeyRef.current = testConfigKey;
     testRequestIdRef.current += 1;
-    setTestState({ phase: 'idle' });
+    if (configChanged) setTestState({ phase: 'idle' });
     // An in-flight result belongs to the old draft, including after unmount.
     return () => {
       testRequestIdRef.current += 1;
     };
-  }, [providerName, provider, model]);
+  }, [testConfigKey]);
 
   useEffect(() => {
+    const configChanged = catalogConfigKeyRef.current !== catalogConfigKey;
+    catalogConfigKeyRef.current = catalogConfigKey;
     catalogRequestIdRef.current += 1;
+    if (!configChanged) return;
     setCatalogState({ phase: 'idle' });
     catalogUndoRef.current = null;
-  }, [providerName, effectiveBaseUrl, model.id]);
+  }, [catalogConfigKey]);
 
   const handleTest = useCallback(async () => {
     if (!model.id.trim() || testState.phase === 'testing') return;
@@ -1945,6 +1964,7 @@ function OAuthDetail({
   const { t } = useI18n();
   const [inputValue, setInputValue] = useState('');
   const eventSourceRef = useRef<EventSource | null>(null);
+  const previousProviderIdRef = useRef(provider.id);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -1955,6 +1975,9 @@ function OAuthDetail({
 
   // Reset state when provider changes
   useEffect(() => {
+    const providerChanged = previousProviderIdRef.current !== provider.id;
+    previousProviderIdRef.current = provider.id;
+    if (!providerChanged) return;
     setLoginState({ phase: 'idle' });
     setInputValue('');
     eventSourceRef.current?.close();
@@ -2310,10 +2333,14 @@ function ApiKeyDetail({
   const [removing, setRemoving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedOk, setSavedOk] = useState(false);
+  const previousProviderIdRef = useRef(provider.id);
   const { t } = useI18n();
 
   // Reset state when provider changes
   useEffect(() => {
+    const providerChanged = previousProviderIdRef.current !== provider.id;
+    previousProviderIdRef.current = provider.id;
+    if (!providerChanged) return;
     setApiKey('');
     setError(null);
     setSavedOk(false);

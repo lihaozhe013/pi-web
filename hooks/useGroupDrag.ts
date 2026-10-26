@@ -161,11 +161,14 @@ export function useGroupDrag(options: GroupDragOptions): GroupDragApi {
       );
     };
 
-    const dropFor = (drag: DragState): GroupDrop | null => {
+    const dropFor = (
+      drag: DragState,
+      currentBlocks: GroupBlock[] = blocksRef.current
+    ): GroupDrop | null => {
       const inner = optionsRef.current.innerRef.current;
       if (!inner) return null;
       return groupDropAt(
-        blocksRef.current,
+        currentBlocks,
         drag.projectKey,
         drag.clientY - inner.getBoundingClientRect().top
       );
@@ -241,7 +244,7 @@ export function useGroupDrag(options: GroupDragOptions): GroupDragApi {
       setState(null);
     };
 
-    const updateDrag = (force = false) => {
+    const updateDrag = (force = false, currentBlocks: GroupBlock[] = blocksRef.current) => {
       const drag = dragRef.current;
       if (!drag || drag.phase !== 'dragging') return;
       const scroll = scrollElement();
@@ -249,7 +252,7 @@ export function useGroupDrag(options: GroupDragOptions): GroupDragApi {
         cancel();
         return;
       }
-      const drop = dropFor(drag);
+      const drop = dropFor(drag, currentBlocks);
       const changed = force || !sameDrop(drop, drag.drop);
       // The ghost keeps clear of the line where it is now.
       drag.drop = drop;
@@ -502,8 +505,8 @@ export function useGroupDrag(options: GroupDragOptions): GroupDragApi {
     if (!drag || (drag.phase !== 'armed' && drag.phase !== 'dragging')) return;
     if (!rows.some((row) => row.kind === 'group' && row.project.key === drag.projectKey))
       machine.cancel();
-    else machine.updateDrag();
-  }, [rows, offsets, machine]);
+    else machine.updateDrag(false, blocks);
+  }, [rows, blocks, machine]);
 
   useEffect(() => {
     if (!enabled) machine.cancel();
