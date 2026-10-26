@@ -31,17 +31,21 @@ conversation with every low-level event.
 Current main-transcript behavior:
 
 - Thinking and explicit read calls use transient status rather than persistent cards.
-- Shell cards expand during execution and leave the main transcript after success. Failures retain
-  an inspectable error summary.
-- Write/edit cards default to expanded. Patch cards expand during execution and fold after
-  completion.
+- A tool card appears when the call actually starts executing, and not while the model is still
+  writing its arguments: a half-streamed JSON blob would intrude, while a running call's card is the
+  progress the user asked for. A shell card therefore opens at execution with its live output and
+  leaves the main transcript after success; failures retain an inspectable error summary.
+- Write/edit cards default to expanded. Patch cards fold after completion.
+- A command the user ran themselves (`!`) keeps its live card, because its progress is the answer
+  they asked for.
 - Long shell output initially shows its last 16 lines, with access to all output.
 - Explicit expansion choices override defaults for retained cards.
 - Errors, truncation notices, and necessary warnings remain visible.
 
 Visual filtering must not remove full history, export content, persisted data, or agent context.
 Distinguish provider waiting, thinking, reading, execution, and compaction. Clear transient status
-when a run ends. Partial output is not success.
+when a run ends. Partial output is not success: it keeps a running card open and is never shown as a
+finished result.
 
 Load syntax highlighting on demand. Unknown languages and streaming input must remain readable
 without it. Draw tool cards as borderless panes: a surface tint lifts the card off the transcript

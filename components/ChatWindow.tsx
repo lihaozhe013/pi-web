@@ -1,7 +1,7 @@
 'use client';
 import { LiveAgentActivity } from './LiveAgentActivity';
 import { mainTranscriptBlocks } from '@/lib/quiet-activity';
-import { ToolActivityProvider } from './ToolActivity'; // display-only execution status
+import { ToolActivityProvider, liveToolIds } from './ToolActivity'; // display-only execution status
 import { registerAbortHandler } from '@/hooks/useKeyboardShortcuts';
 import Image from 'next/image';
 import {
@@ -1116,6 +1116,9 @@ export function ChatWindow({
     useDragDrop(onDrop);
 
   const visibleMessages = messages.filter((m) => isMessageGroupAnchor(m) || m.role === 'assistant');
+  // Results come from the transcript, plus the partial output of a tool that is
+  // still running so its card can show live output. A partial result never makes
+  // a call look finished (`isTransientToolBlock`).
   // Stable Map identity: `messages` doesn't change during streaming updates
   // (the streaming message lives in streamingStore), so memoized MessageViews
   // skip re-rendering on every message_update event. An inline `new Map()`
@@ -1129,6 +1132,12 @@ export function ChatWindow({
     }
     return map;
   }, [activeToolResults, messages]);
+  // The same live set the cards see: a call that is executing keeps its card in
+  // the folded process steps too.
+  const liveIds = useMemo(
+    () => liveToolIds(agentPhase, activeToolResults),
+    [agentPhase, activeToolResults]
+  );
   // Same idea for the copies a grouped turn passes MessageView (see getFinalAnswerViews).
   const finalAnswerViewCache = useMemo(() => new WeakMap<AssistantMessage, FinalAnswerViews>(), []);
   const inputHistory = useMemo(() => {
@@ -1684,7 +1693,8 @@ export function ChatWindow({
                             processIdx !== finalAssistantIdx || !finalAnswerMessage;
                           const blocks = mainTranscriptBlocks(
                             getDisplayableAssistantBlocks(message),
-                            toolResultsMap
+                            toolResultsMap,
+                            liveIds
                           );
                           if (
                             blocks.length === 0 &&

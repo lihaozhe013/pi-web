@@ -1,7 +1,7 @@
 'use client';
 
 import { memo, useState, useRef, useEffect, useMemo, type CSSProperties } from 'react';
-import { isQuietActivityBlock, isCompletedShellBlock } from '@/lib/quiet-activity';
+import { isQuietActivityBlock, isTransientToolBlock } from '@/lib/quiet-activity';
 import { MarkdownBody } from './MarkdownBody';
 import { ImagePreview } from './ImagePreview';
 import { ThinkingIcon } from './ThinkingIcon';
@@ -966,19 +966,18 @@ function AssistantMessageView({
 }) {
   const { t } = useI18n();
   const time = showTimestamp ? formatTime(message.timestamp) : null;
-  const { running, partial } = useToolActivity();
+  const { live } = useToolActivity();
   const blockItems = useMemo(
     () =>
       (message.content ?? [])
         .map((block, originalIndex) => ({ block, originalIndex }))
+        // A card appears once the call runs: while the model is still writing its
+        // arguments there is nothing to show but a half-streamed JSON blob.
         .filter(
           ({ block }) =>
-            !isQuietActivityBlock(block) &&
-            (!isCompletedShellBlock(block, toolResults) ||
-              (block.type === 'toolCall' &&
-                (running.has(block.toolCallId) || partial.has(block.toolCallId))))
+            !isQuietActivityBlock(block) && !isTransientToolBlock(block, toolResults, live)
         ),
-    [message.content, toolResults, running, partial]
+    [message.content, toolResults, live]
   );
   const blocks = useMemo(() => blockItems.map(({ block }) => block), [blockItems]);
   const providerError = getAssistantErrorMessage(message, { isStreaming });

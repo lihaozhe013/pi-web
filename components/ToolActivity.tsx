@@ -5,36 +5,49 @@ import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { useI18n } from '@/hooks/useI18n';
 import type { ToolState } from '@/lib/tool-card-expansion';
 
-const EMPTY_IDS = new Set<string>();
-const Activity = createContext({ running: EMPTY_IDS, partial: EMPTY_IDS });
+const EMPTY_IDS: ReadonlySet<string> = new Set<string>();
+const Activity = createContext<{ live: ReadonlySet<string> }>({ live: EMPTY_IDS });
+
+type PhaseLike = { kind: string; tools?: { id: string }[] } | null;
+
+/**
+ * The tool calls whose card is live: the ones the agent reports as running, plus
+ * any that already streamed partial output. A partial result is not a result, so
+ * it keeps the card open instead of ending it.
+ */
+export function liveToolIds(
+  phase: PhaseLike,
+  partialResults: ReadonlyMap<string, unknown>
+): ReadonlySet<string> {
+  const ids = new Set(phase?.kind === 'running_tools' ? phase.tools?.map((tool) => tool.id) : []);
+  for (const id of partialResults.keys()) ids.add(id);
+  return ids;
+}
 
 export function ToolActivityProvider({
   phase,
   partialResults,
   children
 }: {
-  phase: { kind: string; tools?: { id: string }[] } | null;
+  phase: PhaseLike;
   partialResults: ReadonlyMap<string, unknown>;
   children: ReactNode;
 }) {
   const value = useMemo(
-    () => ({
-      running: new Set(phase?.kind === 'running_tools' ? phase.tools?.map((tool) => tool.id) : []),
-      partial: new Set(partialResults.keys())
-    }),
+    () => ({ live: liveToolIds(phase, partialResults) }),
     [phase, partialResults]
   );
   return <Activity.Provider value={value}>{children}</Activity.Provider>;
 }
 
-/** Shared activity sets let the message wrapper distinguish partial from final output. */
+/** Which tool calls are executing right now, partial output included. */
 export function useToolActivity() {
   return useContext(Activity);
 }
 
 export function useToolState(id: string, hasResult: boolean, isError: boolean): ToolState {
-  const { running, partial } = useContext(Activity);
-  if (running.has(id) || partial.has(id)) return 'running';
+  const { live } = useContext(Activity);
+  if (live.has(id)) return 'running';
   if (hasResult) return isError ? 'error' : 'success';
   return 'pending';
 }

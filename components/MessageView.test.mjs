@@ -34,6 +34,25 @@ function renderMessage(message, props = {}) {
   );
 }
 
+/**
+ * A tool call earns a card only once its result is in the transcript
+ * (`lib/quiet-activity.ts`), so a card-content test has to supply one.
+ */
+function resultOf(block, { text = '', isError = false, details } = {}) {
+  return {
+    role: 'toolResult',
+    toolCallId: block.toolCallId,
+    toolName: block.toolName,
+    content: text ? [{ type: 'text', text }] : [],
+    isError,
+    ...(details === undefined ? {} : { details })
+  };
+}
+
+function resultsFor(block) {
+  return { toolResults: new Map([[block.toolCallId, resultOf(block)]]) };
+}
+
 test('updates a reused message when its written files change', () => {
   const props = { message: { role: 'assistant', content: [] } };
   assert.equal(MessageView.compare(props, props), true);
@@ -191,8 +210,9 @@ test('marks only the matched text block after splitting thinking and the final a
   }
 });
 
-test("expands a write's streamed input by default and still counts it", () => {
-  // Streamed arguments remain visible before execution starts.
+test('a call whose arguments are still streaming shows no card', () => {
+  // The live status line reports the call; a growing half-streamed JSON pane
+  // would intrude on the conversation instead.
   clearExpandedToolCalls();
   const block = {
     type: 'toolCall',
@@ -211,10 +231,8 @@ test("expands a write's streamed input by default and still counts it", () => {
     { isStreaming: true }
   );
 
-  assert.match(html, /write/);
-  assert.match(html, /Generating parameters/);
-  assert.match(html, /secret-stream-fragment/);
-  assert.match(html, /aria-expanded="true"/);
+  assert.equal(html, '');
+  // The raw text still feeds the input text and the token estimate.
   assert.equal(getToolCallInputText(block), block.rawInput);
   assert.equal(getTokenEstimateText(block), block.rawInput);
 });
@@ -229,12 +247,15 @@ test('renders write tool content as readable file text', () => {
   clearExpandedToolCalls();
   setToolCallExpanded(block.toolCallId, true);
   try {
-    const html = renderMessage({
-      role: 'assistant',
-      provider: 'anthropic',
-      model: 'claude-test',
-      content: [block]
-    });
+    const html = renderMessage(
+      {
+        role: 'assistant',
+        provider: 'anthropic',
+        model: 'claude-test',
+        content: [block]
+      },
+      resultsFor(block)
+    );
 
     assert.ok(html.includes('src/example.ts'));
     assert.match(html, /first line\nsecond line\n/);
@@ -259,42 +280,20 @@ test('a write with another argument or an empty file shows every argument as a r
     clearExpandedToolCalls();
     setToolCallExpanded(id, true);
     try {
-      const html = renderMessage({
-        role: 'assistant',
-        provider: 'anthropic',
-        model: 'claude-test',
-        content: [block]
-      });
+      const html = renderMessage(
+        {
+          role: 'assistant',
+          provider: 'anthropic',
+          model: 'claude-test',
+          content: [block]
+        },
+        resultsFor(block)
+      );
       assert.ok(textOf(html).includes(expect), id);
       assert.doesNotMatch(textOf(html), /"path":/, id);
     } finally {
       clearExpandedToolCalls();
     }
-  }
-});
-
-test('input that is still streaming keeps its raw text', () => {
-  const rawInput = '{"path":"a.ts","content":"one\\ntwo';
-  const block = {
-    type: 'toolCall',
-    toolCallId: 'call-write-streaming',
-    toolName: 'write',
-    input: {},
-    rawInput
-  };
-  clearExpandedToolCalls();
-  setToolCallExpanded(block.toolCallId, true);
-  try {
-    const html = renderMessage({
-      role: 'assistant',
-      provider: 'anthropic',
-      model: 'claude-test',
-      content: [block]
-    });
-    assert.equal(textOf(html).includes(getToolCallInputText(block)), true);
-    assert.ok(!html.includes('<table'));
-  } finally {
-    clearExpandedToolCalls();
   }
 });
 
@@ -308,12 +307,15 @@ test('a nested argument keeps the JSON body: a row cannot hold a subtree', () =>
   clearExpandedToolCalls();
   setToolCallExpanded(block.toolCallId, true);
   try {
-    const html = renderMessage({
-      role: 'assistant',
-      provider: 'anthropic',
-      model: 'claude-test',
-      content: [block]
-    });
+    const html = renderMessage(
+      {
+        role: 'assistant',
+        provider: 'anthropic',
+        model: 'claude-test',
+        content: [block]
+      },
+      resultsFor(block)
+    );
     assert.ok(!html.includes('<table'));
     assert.ok(textOf(html).includes('"filter"'));
     assert.ok(textOf(html).includes('"labels"'));
@@ -331,12 +333,16 @@ test('an edit call shows no table: its arguments are a list of patches', () => {
   clearExpandedToolCalls();
   setToolCallExpanded(block.toolCallId, true);
   try {
-    const html = renderMessage({
-      role: 'assistant',
-      provider: 'anthropic',
-      model: 'claude-test',
-      content: [block]
-    });
+    const html = renderMessage(
+      {
+        role: 'assistant',
+        provider: 'anthropic',
+        model: 'claude-test',
+        content: [block]
+      },
+      resultsFor(block)
+    );
+    assert.ok(html.length > 0);
     assert.ok(!html.includes('<table'));
   } finally {
     clearExpandedToolCalls();
@@ -362,12 +368,15 @@ test('a subagent and a flat MCP call show one row per argument', (t) => {
     const block = { type: 'toolCall', toolCallId: id, toolName, input };
     setToolCallExpanded(id, true);
     t.after(() => setToolCallExpanded(id, false));
-    const html = renderMessage({
-      role: 'assistant',
-      provider: 'anthropic',
-      model: 'claude-test',
-      content: [block]
-    });
+    const html = renderMessage(
+      {
+        role: 'assistant',
+        provider: 'anthropic',
+        model: 'claude-test',
+        content: [block]
+      },
+      resultsFor(block)
+    );
     assert.ok(html.includes('<table'), id);
     for (const needle of expect) assert.ok(html.includes(needle), `${id}: ${needle}`);
   }
@@ -383,12 +392,15 @@ test('a long or multi-line value stays inside the card', (t) => {
   };
   setToolCallExpanded(block.toolCallId, true);
   t.after(() => setToolCallExpanded(block.toolCallId, false));
-  const html = renderMessage({
-    role: 'assistant',
-    provider: 'anthropic',
-    model: 'claude-test',
-    content: [block]
-  });
+  const html = renderMessage(
+    {
+      role: 'assistant',
+      provider: 'anthropic',
+      model: 'claude-test',
+      content: [block]
+    },
+    resultsFor(block)
+  );
   // A single-line value wraps in its cell; a value with lines of its own scrolls in a block.
   assert.ok(html.includes('<table'));
   assert.match(html, /overflow-wrap:anywhere/);
@@ -486,12 +498,15 @@ test('code, diffs and output sit in the card pane, not the page background', () 
   setToolCallExpanded(write.toolCallId, true);
   setToolCallExpanded(bash.toolCallId, true);
   try {
-    const written = renderMessage({
-      role: 'assistant',
-      provider: 'anthropic',
-      model: 'claude-test',
-      content: [write]
-    });
+    const written = renderMessage(
+      {
+        role: 'assistant',
+        provider: 'anthropic',
+        model: 'claude-test',
+        content: [write]
+      },
+      resultsFor(write)
+    );
     assert.match(written, /const value = 1;/);
     assert.match(written, pane);
 
@@ -1032,7 +1047,7 @@ test("shows a running script's calls without an empty output", (t) => {
   assert.doesNotMatch(text, /No output/i);
 });
 
-test('a codemode call with no script or streaming input falls back to a plain body', (t) => {
+test('a codemode call with no script falls back to a plain body', (t) => {
   const streaming = {
     ...codemodeCall('call-codemode-streaming', ''),
     input: {},
@@ -1040,10 +1055,8 @@ test('a codemode call with no script or streaming input falls back to a plain bo
   };
   setToolCallExpanded(streaming.toolCallId, true);
   t.after(() => setToolCallExpanded(streaming.toolCallId, false));
-  const streamingText = textOf(renderCodemode(streaming));
-  assert.match(streamingText, /Generating parameters/);
-  assert.match(streamingText, /\{"code":"const secret/);
-  assert.doesNotMatch(streamingText, /Tool calls/);
+  // Still streaming its arguments: no card, so no half-written script either.
+  assert.equal(textOf(renderCodemode(streaming)), '');
 
   const other = {
     type: 'toolCall',
@@ -1055,7 +1068,7 @@ test('a codemode call with no script or streaming input falls back to a plain bo
   t.after(() => setToolCallExpanded(other.toolCallId, false));
   // An argument this view does not understand is still an argument: no script box,
   // but the flat row shows it.
-  const otherHtml = renderCodemode(other);
+  const otherHtml = renderCodemode(other, resultOf(other));
   assert.match(otherHtml, /<table/);
   assert.match(otherHtml, />x<\/td>/);
   assert.doesNotMatch(textOf(otherHtml), /"script": "x"/);
@@ -1105,7 +1118,8 @@ test('keeps the registered name where no result names the server and tool', (t) 
     toolName: 'mcp__docs_v2__search_pages',
     input: {}
   };
-  const running = textOf(
+  // A result without server/tool details: the registered name is all there is.
+  const unnamed = textOf(
     renderMessage(
       {
         role: 'assistant',
@@ -1113,11 +1127,11 @@ test('keeps the registered name where no result names the server and tool', (t) 
         model: 'claude-test',
         content: [block]
       },
-      { toolResults: new Map() }
+      resultsFor(block)
     )
   );
-  assert.match(running, /mcp__docs_v2__search_pages/);
-  assert.doesNotMatch(running, /docs_v2\//);
+  assert.match(unnamed, /mcp__docs_v2__search_pages/);
+  assert.doesNotMatch(unnamed, /docs_v2\//);
 
   // A codemode script's calls carry only that name, which is also what the script calls.
   const script = codemodeCall('call-codemode-mcp', 'await tools.mcp__docs_v2__search_pages({})');

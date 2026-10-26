@@ -47,62 +47,111 @@ function render(
   );
 }
 
-test('write/edit/read lifecycle defaults and manual choices', () => {
+/** Streamed arguments: the call exists, it has not started, and has no result. */
+function renderStreamingInput(toolName) {
+  const block = {
+    type: 'toolCall',
+    toolCallId: 'tool-test',
+    toolName,
+    input: {},
+    rawInput: '{"path":"demo.ts","content":"file-'
+  };
+  return renderToStaticMarkup(
+    React.createElement(
+      I18nProvider,
+      null,
+      React.createElement(
+        ToolActivityProvider,
+        { phase: null, partialResults: new Map() },
+        React.createElement(MessageView, {
+          message: { role: 'assistant', content: [block] },
+          isStreaming: true,
+          toolResults: new Map()
+        })
+      )
+    )
+  );
+}
+
+test('a call whose arguments are still streaming shows no card', () => {
   clearExpandedToolCalls();
-  for (const name of ['write', 'edit']) {
-    assert.match(render(name), /aria-expanded="true"/);
-    assert.match(render(name, { running: true }), /aria-expanded="true"/);
-    assert.match(render(name, { complete: true }), /aria-expanded="true"/);
-    assert.match(render(name, { complete: true, error: true }), /aria-expanded="true"/);
+  for (const name of ['write', 'edit', 'bash', 'powershell', 'apply_patch', 'read']) {
+    assert.equal(renderStreamingInput(name), '', name);
+    // Nothing has run yet, so there is nothing to report.
+    assert.equal(render(name), '', name);
   }
-  assert.match(render('apply_patch'), /aria-expanded="false"/);
+});
+
+test('an executing call opens its card, with live output for a shell', () => {
+  clearExpandedToolCalls();
+  for (const name of ['bash', 'powershell', 'exec_command']) {
+    const started = render(name, { running: true });
+    assert.match(started, /aria-expanded="true"/, name);
+    assert.match(started, /aria-busy="true"/, name);
+    assert.match(started, /class="shell-running" role="status"/, name);
+    // The command sits above the running status; the output follows it.
+    assert.ok(started.indexOf('file-body') < started.indexOf('class="shell-running"'), name);
+
+    const partial = render(name, { partial: true });
+    assert.match(partial, /data-state="running"/, name);
+    assert.ok(partial.indexOf('result-body') < partial.indexOf('class="shell-running"'), name);
+  }
+  // A write/edit card is open too: its arguments are complete, only its result is missing.
+  for (const name of ['write', 'edit']) {
+    const running = render(name, { running: true });
+    assert.match(running, /aria-expanded="true"/, name);
+    assert.doesNotMatch(running, /shell-running/, name);
+  }
   assert.match(render('apply_patch', { running: true }), /aria-expanded="true"/);
-  assert.match(render('apply_patch', { complete: true }), /aria-expanded="false"/);
-  assert.equal(render('read', { complete: true }), '');
+  // A running call the user asked to fold stays folded.
   setToolCallExpanded('tool-test', false);
-  for (const name of ['write', 'edit']) {
-    assert.match(render(name, { running: true }), /aria-expanded="false"/);
-    assert.match(render(name, { complete: true }), /aria-expanded="false"/);
-  }
   assert.match(render('bash', { running: true }), /aria-expanded="false"/);
   clearExpandedToolCalls();
 });
 
-test('expanded shell running status follows output, including silent commands', () => {
+test('a finished card follows its lifecycle default', () => {
   clearExpandedToolCalls();
-  for (const name of ['bash', 'powershell', 'exec_command']) {
-    const silent = render(name, { running: true });
-    assert.match(silent, /class="shell-running" role="status"/);
-    assert.ok(silent.indexOf('file-body') < silent.indexOf('class="shell-running"'));
-    assert.equal((silent.match(/class="tool-status"/g) ?? []).length, 1);
-    const partial = render(name, { partial: true });
-    assert.ok(partial.indexOf('result-body') < partial.indexOf('class="shell-running"'));
-    assert.equal((partial.match(/class="tool-status"/g) ?? []).length, 1);
+  for (const name of ['write', 'edit']) {
+    assert.match(render(name, { complete: true }), /aria-expanded="true"/);
+    assert.match(render(name, { complete: true, error: true }), /aria-expanded="true"/);
   }
-  setToolCallExpanded('tool-test', false);
-  const collapsed = render('bash', { running: true });
-  assert.doesNotMatch(collapsed, /shell-running/);
-  assert.match(collapsed, /Running/);
-  clearExpandedToolCalls();
+  assert.match(render('apply_patch', { complete: true }), /aria-expanded="false"/);
+  // Only a failed shell keeps a card; a successful one leaves none.
+  assert.equal(render('bash', { complete: true }), '');
   const failed = render('bash', { complete: true, error: true });
-  assert.doesNotMatch(failed, /shell-running/);
+  assert.match(failed, /aria-expanded="false"/);
   assert.match(failed, /Failed/);
-  const write = render('write', { running: true });
-  assert.doesNotMatch(write, /shell-running/);
-  assert.match(write, /Running/);
+  assert.equal(render('read', { complete: true }), '');
 });
 
-test('shell opens at start even before output and partial output is not success', () => {
+test('an explicit choice still wins on a retained card', () => {
   clearExpandedToolCalls();
-  assert.match(render('bash'), /aria-expanded="false"/);
-  const started = render('bash', { running: true });
-  assert.match(started, /aria-expanded="true"/);
-  assert.match(started, /aria-busy="true"/);
-  assert.match(started, /Running/);
-  const partial = render('bash', { partial: true });
-  assert.match(partial, /data-state="running"/);
-  assert.match(partial, /result-body/);
-  const done = render('bash', { complete: true });
-  assert.equal(done, '');
-  assert.match(render('bash', { complete: true, error: true }), /Failed/);
+  setToolCallExpanded('tool-test', false);
+  assert.match(render('write', { complete: true }), /aria-expanded="false"/);
+  assert.match(render('bash', { complete: true, error: true }), /aria-expanded="false"/);
+  clearExpandedToolCalls();
+  setToolCallExpanded('tool-test', true);
+  assert.match(render('bash', { complete: true, error: true }), /aria-expanded="true"/);
+  clearExpandedToolCalls();
+});
+
+test('a command the user ran keeps its live card', () => {
+  const run = (props) =>
+    renderToStaticMarkup(
+      React.createElement(
+        I18nProvider,
+        null,
+        React.createElement(MessageView, {
+          message: { role: 'bashExecution', command: 'sleep 5', output: '', ...props }
+        })
+      )
+    );
+
+  const running = run({});
+  assert.match(running, /sleep 5/);
+  assert.match(running, /aria-expanded="true"/);
+  assert.match(running, /class="shell-running" role="status"/);
+
+  assert.equal(run({ output: 'done', exitCode: 0 }), '');
+  assert.match(run({ output: 'boom', exitCode: 1 }), /Failed/);
 });
