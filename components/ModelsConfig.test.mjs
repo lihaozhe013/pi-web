@@ -10,7 +10,6 @@ const {
   modelCostToDraft,
   moveItem,
   moveModelEntry,
-  moveProviderEntry,
   movedIndex,
   parseCompleteModelCost,
   providerMatchesSearch,
@@ -273,23 +272,6 @@ test('moving a sidebar row keeps every other row in place', () => {
   assert.equal(moveItem(['a', 'b'], 1, 1), null);
   assert.equal(moveItem([], 0, 0), null);
   assert.equal(moveItem(['a'], 0, 0.5), null);
-});
-
-test('a provider move passes its visible neighbour and leaves hidden entries in place', () => {
-  const config = {
-    providers: {
-      one: { models: [{ id: 'a' }] },
-      hidden: { modelOverrides: {} },
-      two: { models: [{ id: 'b' }] },
-      three: { models: [{ id: 'c' }] }
-    }
-  };
-  const moved = moveProviderEntry(config, 'three', 'two');
-  assert.deepEqual(Object.keys(moved.providers), ['one', 'hidden', 'three', 'two']);
-  assert.equal(moved.providers.three, config.providers.three);
-  // The moved config is a new object; the draft it came from is untouched.
-  assert.deepEqual(Object.keys(config.providers), ['one', 'hidden', 'two', 'three']);
-  assert.equal(moveProviderEntry(config, 'one', 'missing'), config);
 });
 
 test('a model move keeps its provider and reports the new order', () => {

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useI18n } from '@/hooks/useI18n';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { orderByProviderPreference } from '@/lib/provider-order';
 import { SelectorRow } from './SelectorRow';
 
 export interface ModelSelectorOption {
@@ -80,8 +81,13 @@ export function ModelSelector({
   const [filter, setFilter] = useState('');
   const locked = disabled || busy;
   // Options arrive in pi's /model order (orderSelectorModels()); never re-sort
-  // them, or a models.json provider loses the order its file gives (#783).
-  const filteredOptions = filterModelOptions(options, filter);
+  // the models of one provider, or a models.json provider loses the order its
+  // file gives (#783). The provider groups follow the order arranged in
+  // Settings › Models, which Pi itself has no setting for.
+  const filteredOptions = orderByProviderPreference(
+    filterModelOptions(options, filter),
+    (option) => option.provider
+  );
   const showFilter = options.length > MODEL_FILTER_THRESHOLD;
   const modelsByProvider: { provider: string; options: ModelSelectorOption[] }[] = [];
 

@@ -12,6 +12,12 @@ import {
 import type { ModelContextSettings } from './ModelContextWindow';
 import { getLastSettingsSelection, setLastSettingsSelection } from '@/lib/settings-navigation';
 import {
+  moveProviderOrder,
+  orderByProviderPreference,
+  readProviderOrder,
+  writeProviderOrder
+} from '@/lib/provider-order';
+import {
   hasModelCostDraftValue,
   modelCostToDraft,
   parseCompleteModelCost,
@@ -25,7 +31,6 @@ import {
   deleteProviderEntry,
   moveItem,
   moveModelEntry,
-  moveProviderEntry,
   movedIndex,
   renameProviderEntry,
   updateHeaderRow,
@@ -435,9 +440,9 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 /**
  * Up/down arrows beside a sidebar row.
  *
- * models.json keeps its provider and model order, so moving a custom entry is a
- * draft edit like any other: Save writes it, and the model selector keeps each
- * provider's file order. Entries the file does not own have no arrows.
+ * They follow the order the list actually has: provider rows follow the Pi Web
+ * preference saved in this browser, while models inside a models.json provider
+ * move in the draft and need Save, because the file keeps their order.
  */
 function ReorderControls({
   upLabel,
@@ -2946,6 +2951,8 @@ export function ModelsConfig({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [savedOk, setSavedOk] = useState(false);
   const [selection, setSelection] = useState<Selection | null>(readRememberedSelection);
+  /** Provider order across Pi's providers and models.json ones; browser-local. */
+  const [providerOrder, setProviderOrder] = useState<string[]>(readProviderOrder);
   const [oauthProviders, setOauthProviders] = useState<OAuthProvider[]>([]);
   const [apiKeyProviders, setApiKeyProviders] = useState<ApiKeyProvider[]>([]);
   /** Set once the provider lists have answered; until then an overrides-only entry may be a managed provider's. */
@@ -3242,23 +3249,6 @@ export function ModelsConfig({
     return authListed && !managed;
   });
 
-  /**
-   * Moves a custom provider past its visible neighbour. Entries the sidebar
-   * hides (an overrides-only managed provider) keep their slot, so one arrow
-   * press always moves the row one place on screen.
-   */
-  const moveProvider = useCallback(
-    (name: string, offset: -1 | 1) => {
-      const visible = providers.map(([id]) => id);
-      const index = visible.indexOf(name);
-      const neighbour = visible[index + offset];
-      if (index < 0 || !neighbour) return;
-      setConfig((prev) => moveProviderEntry(prev, name, neighbour));
-      setSavedOk(false);
-    },
-    [providers]
-  );
-
   /** Moves a model within its provider; saved slot tracking follows so Save does not read a move as renames. */
   const moveModel = useCallback(
     (providerName: string, index: number, offset: -1 | 1) => {
@@ -3285,6 +3275,38 @@ export function ModelsConfig({
   };
   const activeOAuth = oauthProviders.filter((p) => p.loggedIn);
   const activeApiKey = apiKeyProviders.filter((p) => p.configured);
+
+  /** Every provider the sidebar lists, in the arranged order. */
+  const sidebarProviders = orderByProviderPreference(
+    [
+      ...activeOAuth.map((provider) => ({
+        kind: 'oauth' as const,
+        id: provider.id,
+        name: provider.name,
+        provider
+      })),
+      ...activeApiKey.map((provider) => ({
+        kind: 'apikey' as const,
+        id: provider.id,
+        name: provider.displayName,
+        provider
+      })),
+      ...providers.map(([id, provider]) => ({ kind: 'custom' as const, id, name: id, provider }))
+    ],
+    (entry) => entry.id,
+    providerOrder
+  );
+
+  /** Provider arrows rewrite the browser-local order right away; Save is only for models.json. */
+  const moveProvider = useCallback(
+    (id: string, offset: -1 | 1) => {
+      const visibleIds = sidebarProviders.map((entry) => entry.id);
+      const next = moveProviderOrder(providerOrder, visibleIds, id, offset);
+      setProviderOrder(next);
+      writeProviderOrder(next);
+    },
+    [providerOrder, sidebarProviders]
+  );
 
   // Resolve current detail
   const detailContent = (() => {
@@ -3392,163 +3414,161 @@ export function ModelsConfig({
                 </svg>
                 <ConfigSidebarText className="is-grow">{t('models.defaults')}</ConfigSidebarText>
               </ConfigSidebarItem>
-              {(activeOAuth.length > 0 || activeApiKey.length > 0 || providers.length > 0) && (
+              {sidebarProviders.length > 0 && (
                 <div style={{ margin: '4px 8px', borderTop: '1px solid var(--border)' }} />
               )}
-              {/* Active OAuth subscriptions */}
-              {activeOAuth.map((p) => {
-                const isSelected = selection?.type === 'oauth' && selection.providerId === p.id;
+              {sidebarProviders.map((entry, index) => {
+                const reorder =
+                  sidebarProviders.length > 1 ? (
+                    <ReorderControls
+                      upLabel={t('models.moveProviderUp', { provider: entry.name })}
+                      downLabel={t('models.moveProviderDown', { provider: entry.name })}
+                      canMoveUp={index > 0}
+                      canMoveDown={index < sidebarProviders.length - 1}
+                      onMove={(offset) => moveProvider(entry.id, offset)}
+                    />
+                  ) : null;
+
+                if (entry.kind === 'oauth') {
+                  return (
+                    <div key={`oauth:${entry.id}`} className="models-sidebar-row">
+                      <ConfigSidebarItem
+                        active={selection?.type === 'oauth' && selection.providerId === entry.id}
+                        onClick={() => setSelection({ type: 'oauth', providerId: entry.id })}
+                      >
+                        <ProviderIcon id={entry.id} size={16} />
+                        <ConfigSidebarText className="is-grow">{entry.name}</ConfigSidebarText>
+                        {scopeBadge(entry.id)}
+                      </ConfigSidebarItem>
+                      {reorder}
+                    </div>
+                  );
+                }
+
+                if (entry.kind === 'apikey') {
+                  return (
+                    <div key={`apikey:${entry.id}`} className="models-sidebar-row">
+                      <ConfigSidebarItem
+                        active={selection?.type === 'apikey' && selection.providerId === entry.id}
+                        onClick={() => setSelection({ type: 'apikey', providerId: entry.id })}
+                      >
+                        <ProviderIcon id={entry.id} size={16} />
+                        <ConfigSidebarText className="is-grow">{entry.name}</ConfigSidebarText>
+                        {scopeBadge(entry.id)}
+                      </ConfigSidebarItem>
+                      {reorder}
+                    </div>
+                  );
+                }
+
+                // A models.json provider owns its models, so their rows sit under it.
+                const pName = entry.id;
+                const models = entry.provider.models ?? [];
+                const isProviderSelected =
+                  selection?.type === 'provider' && selection.name === pName;
                 return (
-                  <ConfigSidebarItem
-                    key={p.id}
-                    active={isSelected}
-                    onClick={() => setSelection({ type: 'oauth', providerId: p.id })}
-                  >
-                    <ProviderIcon id={p.id} size={16} />
-                    <ConfigSidebarText className="is-grow">{p.name}</ConfigSidebarText>
-                    {scopeBadge(p.id)}
-                  </ConfigSidebarItem>
+                  <div key={`custom:${pName}`} style={{ marginBottom: 2 }}>
+                    {/* Provider row */}
+                    <div className="models-sidebar-row">
+                      <ConfigSidebarItem
+                        onClick={() => setSelection({ type: 'provider', name: pName })}
+                        active={isProviderSelected}
+                      >
+                        <svg
+                          width="11"
+                          height="11"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          style={{ color: 'var(--text-dim)', flexShrink: 0 }}
+                        >
+                          <rect x="4" y="4" width="16" height="16" rx="2" />
+                          <rect x="9" y="9" width="6" height="6" />
+                          <line x1="9" y1="1" x2="9" y2="4" />
+                          <line x1="15" y1="1" x2="15" y2="4" />
+                          <line x1="9" y1="20" x2="9" y2="23" />
+                          <line x1="15" y1="20" x2="15" y2="23" />
+                          <line x1="20" y1="9" x2="23" y2="9" />
+                          <line x1="20" y1="14" x2="23" y2="14" />
+                          <line x1="1" y1="9" x2="4" y2="9" />
+                          <line x1="1" y1="14" x2="4" y2="14" />
+                        </svg>
+                        <ConfigSidebarText className="is-grow">{pName}</ConfigSidebarText>
+                        {scopeBadge(pName)}
+                      </ConfigSidebarItem>
+                      {reorder}
+                    </div>
+
+                    {/* Model rows */}
+                    {models.map((m, i) => {
+                      const isModelSelected =
+                        selection?.type === 'model' &&
+                        selection.providerName === pName &&
+                        selection.index === i;
+                      const modelLabel = m.id || t('i18n.newModel');
+                      return (
+                        <div key={i} className="models-sidebar-row">
+                          <ConfigSidebarItem
+                            active={isModelSelected}
+                            className="models-sidebar-indented-item"
+                            onClick={() =>
+                              setSelection({ type: 'model', providerName: pName, index: i })
+                            }
+                          >
+                            <ConfigSidebarText
+                              className="is-grow"
+                              style={{ color: m.id ? 'var(--text-muted)' : 'var(--text-dim)' }}
+                            >
+                              {modelLabel}
+                            </ConfigSidebarText>
+                            {m.reasoning && (
+                              <span
+                                style={{
+                                  fontSize: 9,
+                                  padding: '1px 4px',
+                                  background: 'rgba(99,102,241,0.12)',
+                                  color: 'rgba(99,102,241,0.8)',
+                                  borderRadius: 3,
+                                  flexShrink: 0
+                                }}
+                              >
+                                T
+                              </span>
+                            )}
+                          </ConfigSidebarItem>
+                          {models.length > 1 && (
+                            <ReorderControls
+                              upLabel={t('models.moveModelUp', { model: modelLabel })}
+                              downLabel={t('models.moveModelDown', { model: modelLabel })}
+                              canMoveUp={i > 0}
+                              canMoveDown={i < models.length - 1}
+                              onMove={(offset) => moveModel(pName, i, offset)}
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {/* Add model button */}
+                    <ConfigSidebarItem
+                      className="models-sidebar-indented-item models-sidebar-add-item"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        addModel(pName);
+                      }}
+                    >
+                      <ConfigSidebarText>+ {t('i18n.model')}</ConfigSidebarText>
+                    </ConfigSidebarItem>
+                  </div>
                 );
               })}
-
-              {/* Active API key providers */}
-              {activeApiKey.map((p) => {
-                const isSelected = selection?.type === 'apikey' && selection.providerId === p.id;
-                return (
-                  <ConfigSidebarItem
-                    key={p.id}
-                    active={isSelected}
-                    onClick={() => setSelection({ type: 'apikey', providerId: p.id })}
-                  >
-                    <ProviderIcon id={p.id} size={16} />
-                    <ConfigSidebarText className="is-grow">{p.displayName}</ConfigSidebarText>
-                    {scopeBadge(p.id)}
-                  </ConfigSidebarItem>
-                );
-              })}
-
-              {/* Divider before custom providers, only when there are active managed providers */}
-              {(activeOAuth.length > 0 || activeApiKey.length > 0) && providers.length > 0 && (
-                <div style={{ margin: '4px 8px', borderTop: '1px solid var(--border)' }} />
-              )}
-
-              {/* Custom providers */}
-              {loading ? (
+              {loading && (
                 <div style={{ padding: '10px 8px', fontSize: 12, color: 'var(--text-muted)' }}>
                   {t('i18n.loading')}
                 </div>
-              ) : (
-                providers.map(([pName, pData], providerIndex) => {
-                  const isProviderSelected =
-                    selection?.type === 'provider' && selection.name === pName;
-                  const models = pData.models ?? [];
-                  return (
-                    <div key={pName} style={{ marginBottom: 2 }}>
-                      {/* Provider row */}
-                      <div className="models-sidebar-row">
-                        <ConfigSidebarItem
-                          onClick={() => setSelection({ type: 'provider', name: pName })}
-                          active={isProviderSelected}
-                        >
-                          <svg
-                            width="11"
-                            height="11"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            style={{ color: 'var(--text-dim)', flexShrink: 0 }}
-                          >
-                            <rect x="4" y="4" width="16" height="16" rx="2" />
-                            <rect x="9" y="9" width="6" height="6" />
-                            <line x1="9" y1="1" x2="9" y2="4" />
-                            <line x1="15" y1="1" x2="15" y2="4" />
-                            <line x1="9" y1="20" x2="9" y2="23" />
-                            <line x1="15" y1="20" x2="15" y2="23" />
-                            <line x1="20" y1="9" x2="23" y2="9" />
-                            <line x1="20" y1="14" x2="23" y2="14" />
-                            <line x1="1" y1="9" x2="4" y2="9" />
-                            <line x1="1" y1="14" x2="4" y2="14" />
-                          </svg>
-                          <ConfigSidebarText className="is-grow">{pName}</ConfigSidebarText>
-                          {scopeBadge(pName)}
-                        </ConfigSidebarItem>
-                        {providers.length > 1 && (
-                          <ReorderControls
-                            upLabel={t('models.moveProviderUp', { provider: pName })}
-                            downLabel={t('models.moveProviderDown', { provider: pName })}
-                            canMoveUp={providerIndex > 0}
-                            canMoveDown={providerIndex < providers.length - 1}
-                            onMove={(offset) => moveProvider(pName, offset)}
-                          />
-                        )}
-                      </div>
-
-                      {/* Model rows */}
-                      {models.map((m, i) => {
-                        const isModelSelected =
-                          selection?.type === 'model' &&
-                          selection.providerName === pName &&
-                          selection.index === i;
-                        const modelLabel = m.id || t('i18n.newModel');
-                        return (
-                          <div key={i} className="models-sidebar-row">
-                            <ConfigSidebarItem
-                              active={isModelSelected}
-                              className="models-sidebar-indented-item"
-                              onClick={() =>
-                                setSelection({ type: 'model', providerName: pName, index: i })
-                              }
-                            >
-                              <ConfigSidebarText
-                                className="is-grow"
-                                style={{ color: m.id ? 'var(--text-muted)' : 'var(--text-dim)' }}
-                              >
-                                {modelLabel}
-                              </ConfigSidebarText>
-                              {m.reasoning && (
-                                <span
-                                  style={{
-                                    fontSize: 9,
-                                    padding: '1px 4px',
-                                    background: 'rgba(99,102,241,0.12)',
-                                    color: 'rgba(99,102,241,0.8)',
-                                    borderRadius: 3,
-                                    flexShrink: 0
-                                  }}
-                                >
-                                  T
-                                </span>
-                              )}
-                            </ConfigSidebarItem>
-                            {models.length > 1 && (
-                              <ReorderControls
-                                upLabel={t('models.moveModelUp', { model: modelLabel })}
-                                downLabel={t('models.moveModelDown', { model: modelLabel })}
-                                canMoveUp={i > 0}
-                                canMoveDown={i < models.length - 1}
-                                onMove={(offset) => moveModel(pName, i, offset)}
-                              />
-                            )}
-                          </div>
-                        );
-                      })}
-
-                      {/* Add model button */}
-                      <ConfigSidebarItem
-                        className="models-sidebar-indented-item models-sidebar-add-item"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          addModel(pName);
-                        }}
-                      >
-                        <ConfigSidebarText>+ {t('i18n.model')}</ConfigSidebarText>
-                      </ConfigSidebarItem>
-                    </div>
-                  );
-                })
               )}
             </ConfigSidebarList>
 

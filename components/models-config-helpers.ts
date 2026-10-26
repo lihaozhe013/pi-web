@@ -250,23 +250,6 @@ export function moveItem<T>(items: readonly T[], index: number, targetIndex: num
   return next;
 }
 
-/**
- * Moves a provider to another provider's slot in models.json. The target is a
- * visible neighbour's slot, so providers the sidebar does not list keep their
- * place while the moved provider passes the neighbour.
- */
-export function moveProviderEntry<T extends ModelsConfigDraft>(
-  config: T,
-  name: string,
-  targetName: string
-): T {
-  const entries = Object.entries(config.providers ?? {});
-  const index = entries.findIndex(([id]) => id === name);
-  const targetIndex = entries.findIndex(([id]) => id === targetName);
-  const moved = moveItem(entries, index, targetIndex);
-  return moved ? ({ ...config, providers: Object.fromEntries(moved) } as T) : config;
-}
-
 /** Moves one model within its provider, which is the order the selector shows. */
 export function moveModelEntry<T extends ModelsConfigDraft>(
   config: T,
