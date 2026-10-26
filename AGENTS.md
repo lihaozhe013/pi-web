@@ -63,8 +63,8 @@ with the owner or remove application localization.
   retained cards.
 - Use semantic theme variables and support keyboards, visible focus, narrow screens, and reduced
   motion.
-- Current browser targets include Safari/iOS 16.2. Until intentionally changing that target, avoid
-  unsupported client syntax such as regular-expression lookbehind.
+- The browser target is Chromium-based only (`browserslist` is `chrome >= 130`); modern client
+  syntax such as regular-expression lookbehind is acceptable.
 - Run relevant checks and add regression coverage where appropriate. Report actual results and
   unverified areas; existing tests are not evidence that they passed.
 - Preserve the owner's unrelated changes. Do not perform unrequested data migrations or destructive

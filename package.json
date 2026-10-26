@@ -15,11 +15,7 @@
     "node": ">=22.19.0"
   },
   "browserslist": [
-    "chrome 111",
-    "edge 111",
-    "firefox 111",
-    "safari 16.2",
-    "ios_saf 16.2"
+    "chrome >= 130"
   ],
   "bin": {
     "pi-web": "bin/pi-web.js"
@@ -46,7 +42,8 @@
     "test": "node --experimental-strip-types --test \"app/**/*.test.mjs\" \"components/**/*.test.mjs\" \"hooks/**/*.test.mjs\" \"lib/**/*.test.mjs\" \"public/**/*.test.mjs\"",
     "package:portable": "node packaging/portable.mjs",
     "test:portable": "node --test packaging/portable.test.mjs",
-    "typecheck": "node node_modules/typescript/bin/tsc --noEmit"
+    "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
+    "test:ts": "node scripts/test-ts.mjs"
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "1.4.0",
