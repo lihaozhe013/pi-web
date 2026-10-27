@@ -5,13 +5,18 @@ import { useI18n } from '@/hooks/useI18n';
 
 /**
  * The sidebar's brand with the files below the sessions (its toolbar row,
- * components/SessionSidebar.tsx; the tabs layout has its tabs there), with
- * the old sidebar's easter egg: a click scrambles "Pi Web" into the versions
- * (pi-web's, a "p", pi's) in the accent; they scramble back after
- * VERSION_SHOWN_MS, or at once on a second click.
+ * components/SessionSidebar.tsx; the tabs layout has its tabs there): the
+ * app's pi mark, with the old sidebar's easter egg: a click scrambles the
+ * wordmark's place into the versions (pi-web's, a "p", pi's) in the accent;
+ * they give the icon back after VERSION_SHOWN_MS, or at once on a second
+ * click.
  */
 
 export const BRAND_TEXT = 'Pi Web';
+/** The mark the brand shows when the versions do not (the app icon). */
+export const BRAND_ICON_SRC = '/icons/icon-192.png';
+/** The icon's box, square like the file. */
+export const BRAND_ICON_SIZE = 20;
 /** How long the versions stay, counted from the click that showed them. */
 export const VERSION_SHOWN_MS = 3000;
 /** The text settles left to right over its length times this many frames. */
@@ -68,6 +73,12 @@ function useScramble(target: string): string {
   useEffect(() => {
     if (shownRef.current === target) return;
     shownRef.current = target;
+    // The icon is up while the versions are not, so their settling back has
+    // no audience: the text snaps (the next click scrambles it again).
+    if (target === BRAND_TEXT) {
+      setText(target);
+      return;
+    }
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
       setText(target);
       return;
@@ -130,7 +141,8 @@ export function PiWebTitle({
   };
 
   // The name says what the click shows, so the versions need no click (and
-  // no scrambled text is ever read out: the name stays the same).
+  // no scrambled text is ever read out: the name stays the same). The img is
+  // decorative: the name carries the meaning.
   return (
     <button
       type="button"
@@ -138,7 +150,19 @@ export function PiWebTitle({
       aria-label={t('sidebar.brandLabel', { app: appVersion ?? '0.0.0', pi: piVersion ?? '0.0.0' })}
       onClick={handleClick}
     >
-      {text}
+      {versionShown ? (
+        text
+      ) : (
+        // A fixed 20px brand mark, not content: next/image buys nothing here.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          className="sidebar-brand-icon"
+          src={BRAND_ICON_SRC}
+          alt=""
+          width={BRAND_ICON_SIZE}
+          height={BRAND_ICON_SIZE}
+        />
+      )}
     </button>
   );
 }

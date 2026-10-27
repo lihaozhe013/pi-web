@@ -8,6 +8,8 @@ const React = await jiti.import('react');
 const { renderToStaticMarkup } = await jiti.import('react-dom/server');
 const { I18nProvider } = await jiti.import('@/hooks/useI18n');
 const {
+  BRAND_ICON_SIZE,
+  BRAND_ICON_SRC,
   BRAND_TEXT,
   PiWebTitle,
   SCRAMBLE_CHARS,
@@ -39,6 +41,8 @@ test("the versions read as the old brand showed them: pi-web's, a p, pi's", () =
   assert.equal(brandVersionText('0.11.0', '1.1.0'), '0.11.0p1.1.0');
   assert.equal(brandVersionText(undefined, undefined), '0.0.0p0.0.0');
   assert.equal(BRAND_TEXT, 'Pi Web');
+  assert.equal(BRAND_ICON_SRC, '/icons/icon-192.png');
+  assert.equal(BRAND_ICON_SIZE, 20);
   assert.equal(VERSION_SHOWN_MS, 3000);
 });
 
@@ -67,17 +71,25 @@ test('the scramble keeps the length and the spaces and settles left to right', (
   assert.equal(scrambleFrameCount(versions), versions.length * 4);
 });
 
-test("the brand is a button named for what its click shows, with the brand's text", () => {
+test("the brand is a button named for what its click shows, with the app's icon", async () => {
   const html = renderToStaticMarkup(
     React.createElement(I18nProvider, null, React.createElement(PiWebTitle))
   );
   const app = process.env.NEXT_PUBLIC_APP_VERSION ?? '0.0.0';
   const pi = process.env.NEXT_PUBLIC_PI_VERSION ?? '0.0.0';
+  // React 19 hoists a preload for the img into the head; the button itself
+  // follows.
   assert.equal(
     html,
-    `<button type="button" class="sidebar-brand" aria-label="Pi Web, versions: web ${app}, pi ${pi}">Pi Web</button>`
+    `<link rel="preload" as="image" href="${BRAND_ICON_SRC}"/>` +
+      `<button type="button" class="sidebar-brand" aria-label="Pi Web, versions: web ${app}, pi ${pi}">` +
+      `<img class="sidebar-brand-icon" src="${BRAND_ICON_SRC}" alt="" width="${BRAND_ICON_SIZE}" height="${BRAND_ICON_SIZE}"/>` +
+      '</button>'
   );
   assert.doesNotMatch(html, /style=/, "no inline styles: its look is app/sidebar.css's");
+  // The icon is the app's, and decorative: the name carries the meaning.
+  const icon = await readFile(new URL(`../public${BRAND_ICON_SRC}`, import.meta.url));
+  assert.ok(icon.length > 0);
   // In every language, with the visible name in it.
   for (const locale of ['en', 'zh-CN', 'zh-TW']) {
     const label = getLocalePlugin(locale).messages['sidebar.brandLabel'];
@@ -86,9 +98,9 @@ test("the brand is a button named for what its click shows, with the brand's tex
   }
 });
 
-test("the brand's text sits in the chevron column and is never cut at the sidebar's minimum", async () => {
+test("the brand sits in the chevron column and is never cut at the sidebar's minimum", async () => {
   const brand = rule('.sidebar-brand');
-  // Its text in the chevron column: the tree's 6px inset and a toggle's 5px.
+  // Its content in the chevron column: the tree's 6px inset and a toggle's 5px.
   const [marginLeft] = brand
     .match(/margin: 0 0 0 (\d+)px;/)
     .slice(1)
@@ -99,9 +111,16 @@ test("the brand's text sits in the chevron column and is never cut at the sideba
     .map(Number);
   assert.equal(marginLeft + paddingLeft, 6 + 5);
 
+  // The mark when the versions are not shown: the app icon, block in its
+  // square box (20px, the size the brand renders it at).
+  const icon = rule('.sidebar-brand-icon');
+  assert.match(icon, /(?:^|\s)display: block;/);
+  assert.match(icon, new RegExp(`width: ${BRAND_ICON_SIZE}px;`));
+  assert.match(icon, new RegExp(`height: ${BRAND_ICON_SIZE}px;`));
+
   // At the sidebar's minimum (its line off), beside New's + and the search
-  // (36px cells each), "Pi Web" fits in its 15px code type (0.6em a
-  // character), and the versions in the 11px of data-fit 2.
+  // (36px cells each), the versions fit in the 11px of data-fit 2 (0.6em a
+  // character in the brand's code type).
   assert.match(brand, /(?:^|\s)font-family: var\(--font-mono\);/);
   assert.match(brand, /font-size: calc\(15px \+ var\(--ui-font-size-offset, 0px\)\);/);
   assert.match(
@@ -110,7 +129,6 @@ test("the brand's text sits in the chevron column and is never cut at the sideba
   );
   const room = SIDEBAR_MIN_WIDTH - 1 - 36 - 36;
   const box = (text, fontSize) => marginLeft + 2 * paddingLeft + text.length * 0.6 * fontSize;
-  assert.ok(box(BRAND_TEXT, 15) <= room, 'the brand at 15px');
   const piPackage = JSON.parse(
     await readFile(
       new URL('../node_modules/@earendil-works/pi-coding-agent/package.json', import.meta.url),

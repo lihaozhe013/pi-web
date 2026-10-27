@@ -1012,18 +1012,17 @@ a.session-tree-main {
 }
 
 /* With the files below the sessions there is no tab to choose: the brand
-   stands where the tabs were (PiWebTitle), the panel's typographic anchor,
-   as on the old sidebar. Not a cell: no box, no line on its right; its text
-   in the chevron column (6px in plus a header toggle's 5px). A click shows
-   the versions in the accent for a few seconds. Never cut: New's label
+   stands where the tabs were (PiWebTitle), the panel's anchor: the app's
+   pi mark. Not a cell: no box, no line on its right; it sits in the
+   chevron column (6px in plus a header toggle's 5px). A click shows the
+   versions in the accent for a few seconds. Never cut: New's label
    gives way first, and on a row too narrow for the versions they take the
-   sidebar's meta size (data-fit 2, which only they reach: "Pi Web" fits
-   beside the two cells at the sidebar's 180px minimum, and at 11px so do
-   the versions with a digit to spare). */
+   sidebar's meta size (data-fit 2, which only they reach: at 11px the
+   versions fit beside the two cells at the sidebar's 180px minimum, with
+   a digit to spare). */
 .sidebar-brand {
   flex: none;
   align-self: center;
-  min-width: 6ch;
   margin: 0 0 0 7px;
   padding: 2px 4px;
   border: 0;
@@ -1038,6 +1037,14 @@ a.session-tree-main {
   text-align: left;
   white-space: nowrap;
   cursor: default;
+}
+
+/* The mark while the versions are not shown (the app icon, square like its
+   file). Block: no baseline gap below it in the button. */
+.sidebar-brand-icon {
+  display: block;
+  width: 20px;
+  height: 20px;
 }
 
 .sidebar-brand.is-version {
