@@ -209,6 +209,7 @@ export const zhTWLocale: LocalePlugin = {
     'subagent.viewer.empty': '暫無訊息',
     'subagent.viewer.error': '無法載入子代理工作階段',
     'codemode.calls': '工具呼叫',
+    'codemode.script': '查看腳本',
     'codemode.callCount': '{count} 次呼叫',
     'codemode.callCountOne': '1 次呼叫',
     'codemode.showEarlierCalls': '顯示更早的 {count} 次呼叫',

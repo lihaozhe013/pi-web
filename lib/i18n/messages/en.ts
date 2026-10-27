@@ -214,6 +214,7 @@ export const enLocale: LocalePlugin = {
     'subagent.viewer.empty': 'No messages yet',
     'subagent.viewer.error': 'Failed to load sub-agent session',
     'codemode.calls': 'Tool calls',
+    'codemode.script': 'View script',
     'codemode.callCount': '{count} calls',
     'codemode.callCountOne': '1 call',
     'codemode.showEarlierCalls': 'Show {count} earlier calls',

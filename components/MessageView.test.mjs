@@ -1012,7 +1012,7 @@ test('collapses a codemode call to its first script line and call count', (t) =>
   assert.doesNotMatch(text, /Tool calls/);
 });
 
-test('expands a codemode call into its script, its calls, and the output without the header', (t) => {
+test('shows codemode subcards before the script disclosure and output', (t) => {
   const block = codemodeCall('call-codemode-expanded', CODEMODE_SCRIPT);
   setToolCallExpanded(block.toolCallId, true);
   t.after(() => setToolCallExpanded(block.toolCallId, false));
@@ -1052,9 +1052,11 @@ test('expands a codemode call into its script, its calls, and the output without
   });
   const text = textOf(html);
 
-  // The script sits in the plain box any tool's input uses, not a highlighted code block.
+  // Steps lead; the original script is available in a closed native disclosure.
   assert.doesNotMatch(html, /markdown-code-block/);
+  assert.match(html, /<details class="codemode-script"><summary>View script<\/summary>/);
   assert.equal(textOf(html.match(/<pre[^>]*>([\s\S]*?)<\/pre>/)[1]), CODEMODE_SCRIPT);
+  assert.ok(html.indexOf('codemode-call"') < html.indexOf('codemode-script"'));
   assert.match(text, /Tool calls/);
   assert.match(text, /Show 5 earlier calls/);
   // The newest 20 of 25 calls are listed; the 5 oldest are folded.
@@ -1081,7 +1083,9 @@ test("shows a running script's calls without an empty output", (t) => {
       content: [],
       details: {
         calls: [
-          { id: 'call-codemode-running/201', name: 'read', args: '{"path":"a"}', status: 'running' }
+          { id: 'call-codemode-running/201', name: 'read', args: '{"path":"a"}', status: 'running' },
+          { id: 'call-codemode-running/202', name: 'grep', args: '{"pattern":"x"}', status: 'running' },
+          { id: 'call-codemode-running/203', name: 'ls', args: '{}', status: 'cancelled' }
         ],
         omittedCalls: 200
       }
@@ -1089,8 +1093,11 @@ test("shows a running script's calls without an empty output", (t) => {
     block.toolCallId
   );
   const text = textOf(html);
-  assert.match(text, /201 calls/);
+  assert.match(text, /203 calls/);
   assert.match(text, /200 earlier calls not shown/);
+  assert.equal((html.match(/data-status="running"/g) ?? []).length, 2);
+  assert.match(html, /data-status="cancelled"/);
+  assert.match(html, /aria-label="Cancelled"/);
   assert.match(html, /aria-label="Running"/);
   assert.doesNotMatch(text, /No output/i);
 });

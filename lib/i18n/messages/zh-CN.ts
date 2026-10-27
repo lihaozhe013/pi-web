@@ -208,6 +208,7 @@ export const zhCNLocale: LocalePlugin = {
     'subagent.viewer.empty': '暂无消息',
     'subagent.viewer.error': '无法加载子代理会话',
     'codemode.calls': '工具调用',
+    'codemode.script': '查看脚本',
     'codemode.callCount': '{count} 次调用',
     'codemode.callCountOne': '1 次调用',
     'codemode.showEarlierCalls': '显示更早的 {count} 次调用',

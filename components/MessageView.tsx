@@ -1918,8 +1918,22 @@ function ToolCallBlock({
             <div className="tool-card-body-inner">
               {bodyContent && (
                 <div className="tool-card-body-content">
-                  {/* ── Expanded: input args (only when no richer view exists); a codemode script in place of its JSON ── */}
+                  {/* The executed steps come first; the script remains available on demand. */}
+                  {bodyContent && codemode && (
+                    <CodemodeCallList calls={codemode.calls} omitted={codemode.omitted} />
+                  )}
+                  {bodyContent && codemode && (
+                    <details className="codemode-script">
+                      <summary>{t('codemode.script')}</summary>
+                      <pre>
+                        <ToolCodeTokens text={codemode.code.replace(/\r/g, '').trimEnd()} />
+                      </pre>
+                    </details>
+                  )}
+
+                  {/* ── Expanded: input args when no richer view exists ── */}
                   {bodyContent &&
+                    !codemode &&
                     (isStreamingInput || !isEditTool) &&
                     !patchFiles &&
                     (toolFields ? (
@@ -1946,16 +1960,9 @@ function ToolCallBlock({
                           wordBreak: 'break-all'
                         }}
                       >
-                        <ToolCodeTokens
-                          text={codemode ? codemode.code.replace(/\r/g, '').trimEnd() : inputStr}
-                        />
+                        <ToolCodeTokens text={inputStr} />
                       </pre>
                     ))}
-
-                  {/* ── Expanded: the calls a codemode script made ── */}
-                  {bodyContent && codemode && (
-                    <CodemodeCallList calls={codemode.calls} omitted={codemode.omitted} />
-                  )}
 
                   {/* ── Expanded: applied-patch split diff ── */}
                   {bodyContent && patchFiles && (

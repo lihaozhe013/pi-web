@@ -18,10 +18,10 @@ import {
 export const CODEMODE_VISIBLE_CALLS = 20;
 
 const STATUS_STYLE: Record<CodemodeCallStatus, { icon: string; color: string }> = {
-  running: { icon: '…', color: '#d97706' },
-  ok: { icon: '✓', color: '#16a34a' },
-  error: { icon: '✗', color: '#f87171' },
-  cancelled: { icon: '⊘', color: 'var(--text-dim)' }
+  running: { icon: '…', color: 'var(--accent)' },
+  ok: { icon: '✓', color: 'var(--text-muted)' },
+  error: { icon: '✗', color: 'var(--error, #f87171)' },
+  cancelled: { icon: '⊘', color: 'var(--text-muted)' }
 };
 
 function CallRow({ call }: { call: CodemodeCallView }) {
@@ -31,7 +31,16 @@ function CallRow({ call }: { call: CodemodeCallView }) {
   return (
     <li
       className="codemode-call"
-      style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}
+      data-status={call.status}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 4,
+        minWidth: 0,
+        padding: '7px 9px',
+        borderRadius: 6,
+        background: 'var(--tool-card-pane)'
+      }}
     >
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0 }}>
         <span
@@ -82,7 +91,7 @@ function CallRow({ call }: { call: CodemodeCallView }) {
       {call.error && (
         <div
           style={{
-            color: '#f87171',
+            color: 'var(--error, #f87171)',
             paddingLeft: 18,
             whiteSpace: 'pre-wrap',
             overflowWrap: 'anywhere'
@@ -159,7 +168,7 @@ export function CodemodeCallList({
           padding: 0,
           display: 'flex',
           flexDirection: 'column',
-          gap: 3,
+          gap: 4,
           minWidth: 0
         }}
       >

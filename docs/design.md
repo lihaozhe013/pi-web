@@ -82,7 +82,9 @@ Current main-transcript behavior:
   output and, once it has succeeded, lingers open until the card has been visible for about two
   seconds from its start — so a command that finished in a blink still reads as a step rather than a
   flash, while a long one has already been on screen — and then folds out of the main transcript;
-  failures retain an inspectable error summary.
+  failures retain an inspectable error summary. Codemode groups its actual nested calls as compact
+  subcards ahead of a script disclosure, with separate status, arguments and errors for each call.
+  These are execution summaries, not independent transcript messages or complete tool results.
 - Write/edit cards default to expanded. Patch cards fold after completion.
 - A command the user ran themselves (`!`) keeps its live card, because its progress is the answer
   they asked for.
