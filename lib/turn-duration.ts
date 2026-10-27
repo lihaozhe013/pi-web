@@ -61,6 +61,46 @@ export function getTurnDurationMs(
   return Math.max(0, end - start - idle);
 }
 
+/** A finished turn's billed totals: the same accounting the session statistics use. */
+export interface TurnUsage {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+  /** input + output + cacheRead + cacheWrite. */
+  total: number;
+  cost: number;
+}
+
+/**
+ * The tokens and cost a turn billed, summed over every assistant response and
+ * tool result in `messages[anchorIdx + 1, endIdx)` — the session statistics'
+ * accounting, so the turn's line and the sidebar's totals agree. Undefined when
+ * nothing in the turn recorded usage (older pi sessions).
+ */
+export function getTurnUsage(
+  messages: AgentMessage[],
+  anchorIdx: number,
+  endIdx: number
+): TurnUsage | undefined {
+  let usage: TurnUsage | undefined;
+  for (let idx = anchorIdx + 1; idx < endIdx; idx++) {
+    const message = messages[idx];
+    if (message.role !== 'assistant' && message.role !== 'toolResult') continue;
+    const recorded = message.usage;
+    if (!recorded) continue;
+    usage ??= { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0, cost: 0 };
+    usage.input += recorded.input ?? 0;
+    usage.output += recorded.output ?? 0;
+    usage.cacheRead += recorded.cacheRead ?? 0;
+    usage.cacheWrite += recorded.cacheWrite ?? 0;
+    usage.cost += recorded.cost?.total ?? 0;
+  }
+  if (!usage) return undefined;
+  usage.total = usage.input + usage.output + usage.cacheRead + usage.cacheWrite;
+  return usage;
+}
+
 /** A turn's length as the chat shows it, in whole seconds: 14s, then 3m 5s, then 1h 2m 5s. */
 export function formatTurnDuration(ms: number): string {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));

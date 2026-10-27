@@ -165,3 +165,20 @@ test('the row carries the live speed once the reply has streamed for a moment', 
   assert.match(rateRule[0], /tabular-nums/, 'stable digit widths keep it calm');
   assert.doesNotMatch(rateRule[0], /animation/);
 });
+
+test('the row times the run from its prompt, beside what it is doing', () => {
+  // The clock is a tick-time job (its start and tick live in an effect), so a
+  // static render can only anchor what the row says and where; the start's
+  // fallback is runStartHint's own test.
+  const html = render({ running: true, phase: { kind: 'waiting_model' } });
+  assert.doesNotMatch(html, /composer-activity-elapsed/, 'no clock before the first tick');
+  assert.match(source, /<span className="composer-activity-elapsed">/);
+  assert.match(source, /t\('activity\.elapsed', \{ time: formatTurnDuration\(elapsed\) \}\)/);
+  assert.match(source, /runStartHint\(messagesRef\.current\) \?\? Date\.now\(\)/);
+  // The clock reads as a quiet sibling of the count, and never animates.
+  const elapsedRule = globals.match(/\.composer-activity-elapsed \{[^}]*\}/);
+  assert.ok(elapsedRule, 'the clock has its own rule');
+  assert.match(elapsedRule[0], /flex-shrink: 0/, 'a truncating label cannot push it out');
+  assert.match(elapsedRule[0], /tabular-nums/, 'stable digit widths keep it calm');
+  assert.doesNotMatch(elapsedRule[0], /animation/);
+});

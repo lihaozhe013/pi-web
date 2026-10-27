@@ -56,13 +56,17 @@ width. It stays visible while the user scrolls history, and its fixed single-lin
 composer still. Concurrent work is summarized as one line (`Reading 3 files · Running bun test`): a
 kind with a single running call keeps its concrete detail, a kind with several becomes a count, and
 the full text remains in the tooltip. A call the model is still writing is named by its tool
-(`Preparing edit…`) instead of leaving the row empty until execution starts. While reasoning or a
-call's arguments stream, the row also carries the reply's live tokens-per-second — the same
-measurement the streaming message's header badge shows — and it hides whenever the model is silent.
-The session statistics popover pairs real output tokens with the generation time pi recorded per
-response, showing one end-to-end average output speed for comparing providers and models. The row keeps its
-height for the whole run, dropping only the text while a visible answer streams, so the composer
-never moves mid-run. It disappears when the run ends.
+(`Preparing edit…`) instead of leaving the row empty until execution starts. The row also carries
+the run's elapsed time, counted from its prompt for the whole run — waits, retries and compaction
+included — and frozen at its reading while the row fades out. While reasoning or a call's arguments
+stream, the row also carries the reply's live tokens-per-second — the same measurement the streaming
+message's header badge shows — and it hides whenever the model is silent. The session statistics
+popover pairs real output tokens with the generation time pi recorded per response, showing one
+end-to-end average output speed for comparing providers and models. A finished turn reports its own
+totals once, beside its time: the tokens it billed under the final answer (the hover spells them
+out), or in the process group's header when the turn has one. The row keeps its height for the whole
+run, dropping only the text while a visible answer streams, so the composer never moves mid-run. It
+disappears when the run ends.
 
 Current main-transcript behavior:
 
@@ -95,15 +99,15 @@ the body from the page.
 
 Motion explains a change; it never decorates one. A card fades in when its call starts, its status
 mark fades when it changes, its body folds open and shut, a result pane rises into place, and a card
-that leaves the transcript — a shell that succeeded — first lingers where it stood until its
-visible time is spent, then fades and folds away in place instead of vanishing in one frame. Only a
-card that lived in this page moves: the card remembers whether the
-call was still running at mount, so restoring a session, re-reading the same message, scrolling
-history or re-grouping a turn replays none of it. The run status row above the composer is always in
-the stack: it folds open with the run, folds away when the run ends, and only its words change in
-between, so the composer never jumps under the user's cursor. All of this is opacity, transform or a
-box size; `prefers-reduced-motion` makes every change instant, including the short hold that keeps a
-leaving card on screen for its fade.
+that leaves the transcript — a shell that succeeded — first lingers where it stood until its visible
+time is spent, then fades and folds away in place instead of vanishing in one frame. Only a card
+that lived in this page moves: the card remembers whether the call was still running at mount, so
+restoring a session, re-reading the same message, scrolling history or re-grouping a turn replays
+none of it. The run status row above the composer is always in the stack: it folds open with the
+run, folds away when the run ends, and only its words change in between, so the composer never jumps
+under the user's cursor. All of this is opacity, transform or a box size; `prefers-reduced-motion`
+makes every change instant, including the short hold that keeps a leaving card on screen for its
+fade.
 
 ## Questions near the composer
 

@@ -9,9 +9,11 @@ import {
   composerActivityLabel,
   composerActivityTokens,
   createReplyRateEstimator,
+  runStartHint,
   type ReplyRateEstimator
 } from '@/lib/composer-activity';
 import { formatCompactCount } from '@/lib/session-stats-format';
+import { formatTurnDuration } from '@/lib/turn-duration';
 import { createBlockEstimator, type BlockEstimator } from '@/lib/token-estimate';
 import type { StreamingStore } from '@/lib/streaming-message';
 import type { AgentMessage } from '@/lib/types';
@@ -68,12 +70,39 @@ export function ComposerActivity({
       setRate(null);
       return;
     }
-    const update = () =>
-      setRate(rateEstimator.rate(phase, streaming, compacting, Date.now()));
+    const update = () => setRate(rateEstimator.rate(phase, streaming, compacting, Date.now()));
     update();
     const id = setInterval(update, 300);
     return () => clearInterval(id);
   }, [running, phase, streaming, compacting, rateEstimator]);
+  // The run's clock, one more tick-time job beside the rate: a fixed start and
+  // a one-second tick, so re-renders never move it. A browser that attached to
+  // a run already in flight — a reload, a reconnect, another tab's prompt —
+  // counts from the prompt that began it. `running` only opens for a run (pi
+  // holds it through retries and auto-compaction), so each rise is a new run.
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+  const startedAtRef = useRef<number | null>(null);
+  const wasRunningRef = useRef(false);
+  const [elapsedMs, setElapsedMs] = useState<number | null>(null);
+  useEffect(() => {
+    if (!running) {
+      wasRunningRef.current = false;
+      // The last measured time stays for the fading row; the next run sets its own.
+      return;
+    }
+    if (!wasRunningRef.current) {
+      wasRunningRef.current = true;
+      startedAtRef.current = runStartHint(messagesRef.current) ?? Date.now();
+    }
+    const update = () => {
+      const startedAt = startedAtRef.current;
+      if (startedAt !== null) setElapsedMs(Date.now() - startedAt);
+    };
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [running]);
   // The run's last words, so the row can fade out saying them.
   const lastLabel = useRef('');
   if (label) lastLabel.current = label;
@@ -81,6 +110,8 @@ export function ComposerActivity({
   // A visible answer drops the text but keeps the row's height, as before; once
   // the run is over only the row on its way out still says the last thing.
   const text = running ? label : open ? lastLabel.current : '';
+  // The clock runs for the whole run and keeps its last reading through the fade.
+  const elapsed = running || open ? elapsedMs : null;
   return (
     <div
       className="composer-activity-slot"
@@ -100,6 +131,11 @@ export function ComposerActivity({
           <span className="composer-activity-label" key={text}>
             {text}
           </span>
+          {elapsed !== null && (
+            <span className="composer-activity-elapsed">
+              {t('activity.elapsed', { time: formatTurnDuration(elapsed) })}
+            </span>
+          )}
           {tokens && (
             <span className="composer-activity-tokens" title={t('i18n.estimatedTokens')}>
               {tokens}

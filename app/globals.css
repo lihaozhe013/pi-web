@@ -2929,6 +2929,15 @@ span.token.table {
   /* The count ticks many times a second: stable digit widths keep it calm. */
   font-variant-numeric: tabular-nums;
 }
+/* The run's clock: it counts the whole run — waits, retries and compaction
+   included — as a quiet sibling of the count, never a colored badge. */
+.composer-activity-elapsed {
+  flex-shrink: 0;
+  white-space: nowrap;
+  color: var(--text-dim);
+  font-size: calc(12px + var(--ui-font-size-offset, 0px));
+  font-variant-numeric: tabular-nums;
+}
 /* The live rate reads as a quiet sibling of the count, never a colored badge. */
 .composer-activity-rate {
   flex-shrink: 0;

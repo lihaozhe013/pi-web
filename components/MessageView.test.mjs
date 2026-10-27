@@ -61,6 +61,52 @@ test('updates a reused message when its written files change', () => {
   );
 });
 
+test('compares a reused message by its turn usage numbers, not their identity', () => {
+  const props = { message: { role: 'assistant', content: [] } };
+  const usage = { input: 1, output: 2, cacheRead: 0, cacheWrite: 0, total: 3, cost: 0 };
+  // The transcript rebuilds the sum every render; equal numbers keep the memo.
+  assert.equal(
+    MessageView.compare({ ...props, turnUsage: usage }, { ...props, turnUsage: { ...usage } }),
+    true
+  );
+  assert.equal(
+    MessageView.compare(
+      { ...props, turnUsage: usage },
+      {
+        ...props,
+        turnUsage: { ...usage, output: 3, total: 4 }
+      }
+    ),
+    false
+  );
+  assert.equal(MessageView.compare({ ...props, turnUsage: usage }, props), false);
+});
+
+test('a final answer carries the turn’s tokens beside its time', () => {
+  const message = {
+    role: 'assistant',
+    content: [{ type: 'text', text: 'done' }],
+    model: 'm',
+    provider: 'p'
+  };
+  const html = renderMessage(message, {
+    turnDurationMs: 185_000,
+    turnUsage: {
+      input: 2_400,
+      output: 130,
+      cacheRead: 9_000,
+      cacheWrite: 0,
+      total: 11_530,
+      cost: 0.01
+    }
+  });
+  assert.match(html, /11\.5k tokens/);
+  assert.match(html, /took 3m 5s/);
+  // The hover spells the counted tokens out, as the session statistics do.
+  assert.match(html, /title="[^"]*Input: 2,400/);
+  assert.match(html, /title="[^"]*Total: 11,530/);
+});
+
 test('labels collapsed thinking without a preview and reveals the full text when expanded', () => {
   const previousWindow = globalThis.window;
   try {

@@ -21,7 +21,8 @@ import {
   isAssistantTruncated,
   splitThinkingPieces
 } from '@/lib/message-display';
-import { formatTurnDuration } from '@/lib/turn-duration';
+import { formatTurnDuration, type TurnUsage } from '@/lib/turn-duration';
+import { formatCompactCount } from '@/lib/session-stats-format';
 import {
   diffGapLabel,
   parseUnifiedPatch,
@@ -244,6 +245,8 @@ interface Props {
   writtenFiles?: WrittenFile[];
   /** The whole turn's time, for a final answer with no process details to show it. */
   turnDurationMs?: number;
+  /** The whole turn's billed tokens, beside its time; the hover spells them out. */
+  turnUsage?: TurnUsage;
   onCompact?: () => void;
   isCompacting?: boolean;
   compactError?: string | null;
@@ -286,6 +289,37 @@ export function replaceUserMessageText(message: UserMessage, text: string): User
   return { ...message, content };
 }
 
+type Translate = (key: string, params?: Record<string, string | number>) => string;
+
+/** Turn usage is rebuilt each render of the transcript: only its numbers matter. */
+function sameTurnUsage(a: TurnUsage | undefined, b: TurnUsage | undefined): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    a.input === b.input &&
+    a.output === b.output &&
+    a.cacheRead === b.cacheRead &&
+    a.cacheWrite === b.cacheWrite &&
+    a.cost === b.cost
+  );
+}
+
+/** The turn's tokens spelled out, as the session statistics popover does. */
+function turnUsageTitle(usage: TurnUsage, t: Translate, locale: string): string {
+  return [
+    `${t('session.input')}: ${usage.input.toLocaleString(locale)}`,
+    `${t('session.output')}: ${usage.output.toLocaleString(locale)}`,
+    ...(usage.cacheRead > 0
+      ? [`${t('session.cacheRead')}: ${usage.cacheRead.toLocaleString(locale)}`]
+      : []),
+    ...(usage.cacheWrite > 0
+      ? [`${t('session.cacheWrite')}: ${usage.cacheWrite.toLocaleString(locale)}`]
+      : []),
+    `${t('session.total')}: ${usage.total.toLocaleString(locale)}`,
+    ...(usage.cost > 0 ? [`${t('session.cost')}: $${usage.cost.toFixed(4)}`] : [])
+  ].join('\n');
+}
+
 function haveSameRelevantToolResults(
   message: AgentMessage,
   previous: Map<string, ToolResultMessage> | undefined,
@@ -323,6 +357,7 @@ export const MessageView = memo(
     sessionId,
     writtenFiles,
     turnDurationMs,
+    turnUsage,
     onCompact,
     isCompacting,
     compactError
@@ -358,6 +393,7 @@ export const MessageView = memo(
           searchBlock={searchBlock}
           writtenFiles={writtenFiles}
           turnDurationMs={turnDurationMs}
+          turnUsage={turnUsage}
           onCompact={onCompact}
           isCompacting={isCompacting}
           compactError={compactError}
@@ -400,6 +436,7 @@ export const MessageView = memo(
       prev.prevTimestamp === next.prevTimestamp &&
       prev.writtenFiles === next.writtenFiles &&
       prev.turnDurationMs === next.turnDurationMs &&
+      sameTurnUsage(prev.turnUsage, next.turnUsage) &&
       prev.sessionId === next.sessionId &&
       prev.onCompact === next.onCompact &&
       prev.isCompacting === next.isCompacting &&
@@ -871,6 +908,7 @@ function AssistantMessageView({
   searchBlock,
   writtenFiles,
   turnDurationMs,
+  turnUsage,
   onCompact,
   isCompacting,
   compactError
@@ -888,11 +926,12 @@ function AssistantMessageView({
   searchBlock?: AssistantContentBlock;
   writtenFiles?: WrittenFile[];
   turnDurationMs?: number;
+  turnUsage?: TurnUsage;
   onCompact?: () => void;
   isCompacting?: boolean;
   compactError?: string | null;
 }) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const time = showTimestamp ? formatTime(message.timestamp) : null;
   const { live } = useToolActivity();
   const blockItems = useMemo(
@@ -1227,9 +1266,21 @@ function AssistantMessageView({
           marginTop: 4
         }}
       >
-        {turnDurationMs !== undefined && !isStreaming && (
-          <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-            {t('chat.turnDuration', { time: formatTurnDuration(turnDurationMs) })}
+        {(turnUsage !== undefined || turnDurationMs !== undefined) && !isStreaming && (
+          <div
+            style={{ fontSize: 11, color: 'var(--text-dim)' }}
+            title={turnUsage ? turnUsageTitle(turnUsage, t, locale) : undefined}
+          >
+            {[
+              turnUsage
+                ? t('chat.turnTokens', { count: formatCompactCount(turnUsage.total) })
+                : null,
+              turnDurationMs !== undefined
+                ? t('chat.turnDuration', { time: formatTurnDuration(turnDurationMs) })
+                : null
+            ]
+              .filter(Boolean)
+              .join(' \u00b7 ')}
           </div>
         )}
         {textContent && !isStreaming && (

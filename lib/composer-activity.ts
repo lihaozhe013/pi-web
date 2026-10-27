@@ -68,6 +68,22 @@ function lastStreamedToolCall(streaming: AssistantMessage | null): string | null
   return block?.type === 'toolCall' ? block.toolName : null;
 }
 
+/**
+ * When the run the row would time began: its latest user prompt's time, so a
+ * browser attaching to a run already in flight (a reload, a reconnect, another
+ * tab's prompt) still counts from the start. Null when no prompt carries a
+ * time; a run an extension started after the prompt is approximated by it.
+ */
+export function runStartHint(messages: AgentMessage[]): number | null {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (message.role !== 'user') continue;
+    const timestamp = message.timestamp;
+    if (typeof timestamp === 'number' && Number.isFinite(timestamp)) return timestamp;
+  }
+  return null;
+}
+
 /** No block index reaches this key: the executing call's slot stays its own. */
 const RUNNING_TOOL_ESTIMATE_KEY = -1;
 

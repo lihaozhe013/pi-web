@@ -45,7 +45,13 @@ import {
 } from '@/lib/message-display';
 import { extractTurnWrittenFiles, type WrittenFile } from '@/lib/turn-written-files';
 import { getFinalAnswerViews, keepWrittenFiles, type FinalAnswerViews } from '@/lib/turn-views';
-import { formatTurnDuration, getTurnDurationMs } from '@/lib/turn-duration';
+import {
+  formatTurnDuration,
+  getTurnDurationMs,
+  getTurnUsage,
+  type TurnUsage
+} from '@/lib/turn-duration';
+import { formatCompactCount } from '@/lib/session-stats-format';
 import { buildQuotedSelection } from '@/lib/quoted-selection';
 import {
   dropMentionText,
@@ -199,6 +205,7 @@ function ProcessDetailsGroup({
   messageCount,
   toolCallCount,
   durationMs,
+  usage,
   cacheMisses,
   defaultExpanded = false,
   reveal = false,
@@ -208,6 +215,8 @@ function ProcessDetailsGroup({
   messageCount: number;
   toolCallCount: number;
   durationMs?: number;
+  /** The turn's billed tokens, beside its time: one line per turn, not per message. */
+  usage?: TurnUsage;
   cacheMisses?: CacheMissSummary;
   defaultExpanded?: boolean;
   reveal?: boolean;
@@ -222,6 +231,7 @@ function ProcessDetailsGroup({
   const parts = [`${messageCount} ${t(messageCount === 1 ? 'chat.message' : 'chat.messages')}`];
   if (toolCallCount > 0)
     parts.push(`${toolCallCount} ${t(toolCallCount === 1 ? 'chat.toolCall' : 'chat.toolCalls')}`);
+  if (usage) parts.push(t('chat.turnTokens', { count: formatCompactCount(usage.total) }));
   if (durationMs !== undefined)
     parts.push(t('chat.turnDuration', { time: formatTurnDuration(durationMs) }));
   // Folded, the cache misses inside are added up here (#1265); open, each shows under its step.
@@ -1502,6 +1512,7 @@ export function ChatWindow({
                           writtenFiles?: WrittenFile[];
                           recoverTruncation?: boolean;
                           turnDurationMs?: number;
+                          turnUsage?: TurnUsage;
                           withNotices?: boolean;
                         } = {}
                       ): ReactNode => {
@@ -1564,6 +1575,7 @@ export function ChatWindow({
                             sessionId={session?.id ?? sessionIdRef.current ?? undefined}
                             writtenFiles={options.writtenFiles}
                             turnDurationMs={options.turnDurationMs}
+                            turnUsage={options.turnUsage}
                             onCompact={options.recoverTruncation ? handleCompact : undefined}
                             isCompacting={options.recoverTruncation ? isCompacting : undefined}
                             compactError={options.recoverTruncation ? compactError : undefined}
@@ -1653,6 +1665,10 @@ export function ChatWindow({
                         const turnDurationMs =
                           hasAnchor && entryIds[userIdx]
                             ? getTurnDurationMs(messages, userIdx, endIdx)
+                            : undefined;
+                        const turnUsage =
+                          hasAnchor && entryIds[userIdx]
+                            ? getTurnUsage(messages, userIdx, endIdx)
                             : undefined;
 
                         const finalViews = getFinalAnswerViews(
@@ -1763,6 +1779,7 @@ export function ChatWindow({
                                 messageCount={processMessageCount}
                                 toolCallCount={processToolCount}
                                 durationMs={turnDurationMs}
+                                usage={turnUsage}
                                 cacheMisses={processCacheMisses}
                                 defaultExpanded={
                                   true /* a turn's steps stay open, as the CLI shows them */
@@ -1797,9 +1814,10 @@ export function ChatWindow({
                             renderMessage(finalAssistantIdx, {
                               messageOverride: finalAnswerMessage,
                               writtenFiles,
-                              // Without process details the turn's time goes under the answer.
+                              // Without process details the turn's time and tokens go under the answer.
                               turnDurationMs:
                                 processViews.length === 0 ? turnDurationMs : undefined,
+                              turnUsage: processViews.length === 0 ? turnUsage : undefined,
                               recoverTruncation:
                                 endIdx === messages.length &&
                                 !isStreaming &&
