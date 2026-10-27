@@ -196,8 +196,8 @@ test('storage changes in another tab, including clear, update the current page',
 test('three size domains are independent, bounded, persisted and reset separately', async () => {
   const store = await fixture({ initial: { 'pi-chat-content-font-size': '18' } });
   const stop = store.subscribeFontPreferences(() => {});
-  assert.equal(store.useFontPreferences().uiSize, 14);
-  assert.equal(store.useFontPreferences().monoSize, 15);
+  assert.equal(store.useFontPreferences().uiSize, 15);
+  assert.equal(store.useFontPreferences().monoSize, 12);
   store.setFontSize('ui', 20);
   store.setFontSize('mono', 22);
   assert.equal(store.applied.get('--font-ui-size'), '20px');
@@ -214,8 +214,8 @@ test('three size domains are independent, bounded, persisted and reset separatel
   assert.equal(store.useFontPreferences().uiSize, 19);
   store.stored.clear();
   store.events.get('storage')({ key: null });
-  assert.equal(store.useFontPreferences().uiSize, 14);
-  assert.equal(store.useFontPreferences().monoSize, 15);
+  assert.equal(store.useFontPreferences().uiSize, 15);
+  assert.equal(store.useFontPreferences().monoSize, 12);
   assert.equal(store.applied.size, 0);
   stop();
   store.restore();
@@ -226,7 +226,7 @@ test('size restoration validates saved data and blocked storage stays editable',
     initial: { 'pi-ui-font-size': '18', 'pi-mono-font-size': 'invalid' }
   });
   assert.equal(restored.useFontPreferences().uiSize, 18);
-  assert.equal(restored.useFontPreferences().monoSize, 15);
+  assert.equal(restored.useFontPreferences().monoSize, 12);
   restored.restore();
   const blocked = await fixture({ blocked: true });
   blocked.setFontSize('ui', 19);

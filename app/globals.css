@@ -1154,8 +1154,8 @@ button.extension-widget-trigger:focus-visible {
   --font-mono: var(--font-mono-default);
   --font-ui-weight: 400;
   --font-mono-weight: 400;
-  --font-ui-size: 14px;
-  --font-mono-size: 15px;
+  --font-ui-size: 15px;
+  --font-mono-size: 12px;
   --ui-font-size-offset: calc(var(--font-ui-size) - 14px);
 }
 

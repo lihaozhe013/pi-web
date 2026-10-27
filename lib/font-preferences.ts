@@ -13,7 +13,7 @@ export const FONT_WEIGHT_OPTIONS = [
   { value: 600, label: 'settings.fontWeightSemiBold' }
 ] as const;
 export type FontWeight = (typeof FONT_WEIGHT_OPTIONS)[number]['value'];
-export const FONT_SIZE_DEFAULTS = { ui: 14, mono: 15 } as const;
+export const FONT_SIZE_DEFAULTS = { ui: 15, mono: 12 } as const;
 export const FONT_SIZE_MIN = 12;
 export const FONT_SIZE_MAX = 24;
 

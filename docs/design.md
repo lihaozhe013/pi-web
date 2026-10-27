@@ -31,7 +31,7 @@ fonts, sizes, conversation width and a live preview. The theme gallery is a nati
 collapsed initially to keep font controls near the top; a theme search result opens it
 automatically. Visited categories stay mounted so switching does not discard an editor's draft.
 
-Interface size (14px baseline), chat text size (16px) and monospace content size (15px) are
+Interface size (15px default), chat text size (16px) and monospace content size (12px) are
 independent. UI text retains its hierarchy relative to the interface baseline. Large UI sizes also
 grow virtual session rows. Chat text controls messages and the composer; monospace size controls
 inline code, code blocks, diffs and tool output. Font names and weights remain separate for UI and

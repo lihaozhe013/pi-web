@@ -27,7 +27,7 @@ export async function checkSettingsSearchAndSizes(page) {
   const baseline = await size('.settings-dialog-title');
   await mono.fill('21');
   assert.equal(await chat.inputValue(), '16');
-  assert.equal(await ui.inputValue(), '14');
+  assert.equal(await ui.inputValue(), '15');
   assert.equal(await size('.appearance-preview .markdown-code-block pre'), '21px');
   assert.equal(await size('.appearance-preview .markdown-inline-code'), '21px');
   assert.equal(await size('.appearance-preview-output'), '21px');
@@ -46,9 +46,9 @@ export async function checkSettingsSearchAndSizes(page) {
   await value.press('Tab');
   assert.equal(await value.inputValue(), '19', 'Empty input restores the current value');
   await page.getByRole('button', { name: 'Reset fonts & sizes', exact: true }).click();
-  assert.equal(await ui.inputValue(), '14');
+  assert.equal(await ui.inputValue(), '15');
   assert.equal(await chat.inputValue(), '16');
-  assert.equal(await mono.inputValue(), '15');
+  assert.equal(await mono.inputValue(), '12');
   await search.fill('zenburn');
   await page.getByRole('button', { name: /^Zenburn/ }).click();
   assert.equal(await page.locator('.appearance-theme-picker').evaluate((el) => el.open), true);

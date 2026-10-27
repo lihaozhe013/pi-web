@@ -89,7 +89,7 @@ export async function checkChatAppearance(page) {
   await page.locator('.markdown-code-block pre').waitFor();
   assert.equal(await font(textarea), '18px');
   assert.equal(await font(page.locator('.markdown-user-message')), '18px');
-  assert.equal(await font(page.locator('.markdown-code-block pre')), '15px');
+  assert.equal(await font(page.locator('.markdown-code-block pre')), '12px');
 
   await openSettings();
   assert.equal(await width.inputValue(), '2000');
