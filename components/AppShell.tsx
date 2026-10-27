@@ -2848,6 +2848,7 @@ export function AppShell() {
                       [translate('session.total'), sessionStats.tokens.total.toLocaleString(locale)]
                     ];
                     const ctx = contextUsage ?? sessionStats.contextUsage;
+                    const speed = sessionStats.speed;
                     const extraTokenRows = [
                       ...(sessionStats.cost > 0
                         ? [[translate('session.cost'), `$${sessionStats.cost.toFixed(4)}`]]
@@ -2870,6 +2871,18 @@ export function AppShell() {
                             [
                               translate('session.cacheHitRate'),
                               `${((sessionStats.tokens.cacheRead / (sessionStats.tokens.cacheRead + sessionStats.tokens.cacheWrite + sessionStats.tokens.input)) * 100).toFixed(1)}%`
+                            ]
+                          ]
+                        : []),
+                      // Real output tokens ÷ generation time over the replies that
+                      // recorded a duration: an end-to-end average that includes
+                      // each request's first-token wait, so it reads lower than
+                      // the live streaming rate beside the composer.
+                      ...(speed && speed.generationMs > 0
+                        ? [
+                            [
+                              translate('session.avgOutputSpeed'),
+                              `${(speed.outputTokens / (speed.generationMs / 1000)).toFixed(1)} t/s`
                             ]
                           ]
                         : [])

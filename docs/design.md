@@ -56,7 +56,11 @@ width. It stays visible while the user scrolls history, and its fixed single-lin
 composer still. Concurrent work is summarized as one line (`Reading 3 files · Running bun test`): a
 kind with a single running call keeps its concrete detail, a kind with several becomes a count, and
 the full text remains in the tooltip. A call the model is still writing is named by its tool
-(`Preparing edit…`) instead of leaving the row empty until execution starts. The row keeps its
+(`Preparing edit…`) instead of leaving the row empty until execution starts. While reasoning or a
+call's arguments stream, the row also carries the reply's live tokens-per-second — the same
+measurement the streaming message's header badge shows — and it hides whenever the model is silent.
+The session statistics popover pairs real output tokens with the generation time pi recorded per
+response, showing one end-to-end average output speed for comparing providers and models. The row keeps its
 height for the whole run, dropping only the text while a visible answer streams, so the composer
 never moves mid-run. It disappears when the run ends.
 

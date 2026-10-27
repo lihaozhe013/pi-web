@@ -150,3 +150,18 @@ test('a running call without its arguments yet shows no count', () => {
   assert.match(html, /composer-activity-dot/);
   assert.doesNotMatch(html, /composer-activity-tokens/);
 });
+
+test('the row carries the live speed once the reply has streamed for a moment', () => {
+  // A single static render can only anchor the measurement: dividing needs
+  // elapsed time, which the estimator's own tests cover.
+  const html = render({ snapshot: assistant({ type: 'thinking', thinking: 'x'.repeat(40) }) });
+  assert.doesNotMatch(html, /composer-activity-rate/);
+  assert.match(source, /<span className="composer-activity-rate"/);
+  assert.match(source, /t\('activity\.tokenRate'/);
+  // The rate reads as a quiet sibling of the count, never a colored badge.
+  const rateRule = globals.match(/\.composer-activity-rate \{[^}]*\}/);
+  assert.ok(rateRule, 'the rate has its own rule');
+  assert.match(rateRule[0], /flex-shrink: 0/, 'a truncating label cannot push it out');
+  assert.match(rateRule[0], /tabular-nums/, 'stable digit widths keep it calm');
+  assert.doesNotMatch(rateRule[0], /animation/);
+});

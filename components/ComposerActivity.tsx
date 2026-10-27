@@ -1,11 +1,16 @@
 'use client';
 
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useI18n } from '@/hooks/useI18n';
 import type { AgentPhase } from '@/hooks/useAgentSession';
 import { selectStreamingMessage, useStreamingSelector } from '@/hooks/useStreamingSelector';
 import { useExitHold } from '@/hooks/useToolCardMotion';
-import { composerActivityLabel, composerActivityTokens } from '@/lib/composer-activity';
+import {
+  composerActivityLabel,
+  composerActivityTokens,
+  createReplyRateEstimator,
+  type ReplyRateEstimator
+} from '@/lib/composer-activity';
 import { formatCompactCount } from '@/lib/session-stats-format';
 import { createBlockEstimator, type BlockEstimator } from '@/lib/token-estimate';
 import type { StreamingStore } from '@/lib/streaming-message';
@@ -50,6 +55,25 @@ export function ComposerActivity({
     estimate !== null && Math.round(estimate) >= 1
       ? t('activity.tokenEstimate', { tokens: formatCompactCount(Math.round(estimate)) })
       : null;
+  // The rate names the streaming reply's speed. Between streamed chunks nothing
+  // re-renders, so a light tick keeps the number falling during a stall, the
+  // same way the message header's badge does. Reading the clock is a tick-time
+  // job, never render's: the number must not drift on re-render.
+  const rateEstimatorRef = useRef<ReplyRateEstimator | null>(null);
+  rateEstimatorRef.current ??= createReplyRateEstimator();
+  const rateEstimator = rateEstimatorRef.current;
+  const [rate, setRate] = useState<number | null>(null);
+  useEffect(() => {
+    if (!running) {
+      setRate(null);
+      return;
+    }
+    const update = () =>
+      setRate(rateEstimator.rate(phase, streaming, compacting, Date.now()));
+    update();
+    const id = setInterval(update, 300);
+    return () => clearInterval(id);
+  }, [running, phase, streaming, compacting, rateEstimator]);
   // The run's last words, so the row can fade out saying them.
   const lastLabel = useRef('');
   if (label) lastLabel.current = label;
@@ -79,6 +103,11 @@ export function ComposerActivity({
           {tokens && (
             <span className="composer-activity-tokens" title={t('i18n.estimatedTokens')}>
               {tokens}
+            </span>
+          )}
+          {running && rate !== null && (
+            <span className="composer-activity-rate" title={t('i18n.streamingTokensPerSecond')}>
+              {t('activity.tokenRate', { tps: rate.toFixed(1) })}
             </span>
           )}
         </div>

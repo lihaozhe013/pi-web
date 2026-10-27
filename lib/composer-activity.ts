@@ -5,7 +5,18 @@ import {
   isSearchToolName,
   isShellToolName
 } from './tool-names';
-import { getTokenEstimateText, type BlockEstimator } from './token-estimate';
+import {
+  estimateUpdatedTokens,
+  getTokenEstimateText,
+  type BlockEstimator,
+  type TokenEstimateCacheEntry
+} from './token-estimate';
+import {
+  streamRateKey,
+  streamRateStart,
+  streamTokensPerSecond,
+  type StreamRateStart
+} from './stream-token-rate';
 import type { AgentMessage, AssistantMessage } from './types';
 
 /** The i18n translate function shape this module needs. */
@@ -93,6 +104,69 @@ export function composerActivityTokens(
   if (block?.type === 'thinking')
     return estimator.estimate(getTokenEstimateText(block), content.length - 1);
   return null;
+}
+
+/**
+ * The live speed beside the label's number. That number is one block at a time
+ * by design; the rate instead measures the whole streaming reply — how fast
+ * this model writes — and shares its anchor with the message header's badge
+ * (`stream-token-rate`), so the two never disagree about the same stream.
+ * Branch order mirrors `composerActivityTokens`: the rate shows exactly while
+ * that count is growing, and hides whenever the model is silent.
+ */
+export interface ReplyRateEstimator {
+  rate(
+    phase: AgentPhase,
+    streaming: AssistantMessage | null,
+    compacting: boolean,
+    now: number
+  ): number | null;
+}
+
+export function createReplyRateEstimator(): ReplyRateEstimator {
+  let cache: Map<number, TokenEstimateCacheEntry> | null = null;
+  let replyKey: string | null | undefined;
+  let start: StreamRateStart | null = null;
+  return {
+    rate(phase, streaming, compacting, now) {
+      if (compacting) return null;
+      // While a call executes the model is silent and the count is frozen: a
+      // rate over frozen tokens would only fall as the tool runs.
+      if (phase?.kind === 'running_tools') return null;
+      if (!streaming) return null;
+      const block = streaming.content.at(-1);
+      // The label prefers the wait over stale thinking; only a call being
+      // written survives it, because the model is streaming its arguments.
+      const draftingCall = block?.type === 'toolCall';
+      const activeThinking =
+        block?.type === 'thinking' &&
+        phase?.kind !== 'waiting_model' &&
+        phase?.kind !== 'running_command';
+      if (!draftingCall && !activeThinking) return null;
+
+      // A new reply restarts from its own blocks; earlier ones are final, so
+      // their cache entries hit instead of being re-estimated.
+      const key = streamRateKey(streaming);
+      if (key !== replyKey) {
+        replyKey = key;
+        cache = new Map();
+        start = null;
+      }
+      const next = new Map<number, TokenEstimateCacheEntry>();
+      let total = 0;
+      for (const [index, item] of streaming.content.entries()) {
+        const text = getTokenEstimateText(item);
+        if (text === null) continue;
+        const tokens = estimateUpdatedTokens(cache?.get(index), text);
+        next.set(index, { text, tokens });
+        total += tokens;
+      }
+      cache = next;
+      if (total <= 0) return null;
+      start ??= streamRateStart(key, total, now);
+      return streamTokensPerSecond(start, total, now);
+    }
+  };
 }
 
 /** Streamed arguments arrive before the call is reported as running. */

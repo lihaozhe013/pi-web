@@ -58,6 +58,11 @@ export interface SessionStatsInfo {
   contextUsage?: ContextUsage;
   /** Estimated active time across all entries in the session file. */
   totalActiveMs?: number;
+  /** Real output tokens ÷ generation time from messages that recorded a duration; absent when none did. */
+  speed?: {
+    outputTokens: number;
+    generationMs: number;
+  };
 }
 
 interface PromptTemplateLike {

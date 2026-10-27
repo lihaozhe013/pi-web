@@ -14,6 +14,16 @@ export interface SessionFileStats {
     total: number;
   };
   cost: number;
+  /**
+   * Real output tokens and generation time, accumulated only from assistant
+   * messages that recorded both a duration (pi 1.1+) and billed output: the
+   * numerator and denominator always come from the same responses, so their
+   * ratio is an honest average output speed. Older messages stay out of both.
+   */
+  speed: {
+    outputTokens: number;
+    generationMs: number;
+  };
 }
 
 /** One session's totals for the agent switcher (POST /api/sessions/stats). */
@@ -33,7 +43,8 @@ function emptyStats(): SessionFileStats {
     toolResults: 0,
     totalMessages: 0,
     tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-    cost: 0
+    cost: 0,
+    speed: { outputTokens: 0, generationMs: 0 }
   };
 }
 
@@ -61,6 +72,11 @@ function addMessage(stats: SessionFileStats, message: SessionMessage): void {
       stats.toolCalls += message.content.filter((c) => c.type === 'toolCall').length;
     }
     addUsage(stats, message.usage);
+    const output = message.usage?.output ?? 0;
+    if (output > 0 && typeof message.durationMs === 'number' && message.durationMs > 0) {
+      stats.speed.outputTokens += output;
+      stats.speed.generationMs += message.durationMs;
+    }
   }
 }
 
@@ -98,6 +114,7 @@ export function mergeSessionStats(
     total: 0
   };
   tokens.total = tokens.input + tokens.output + tokens.cacheRead + tokens.cacheWrite;
+  const fileSpeed = fileStats.speed ?? { outputTokens: 0, generationMs: 0 };
   return {
     userMessages: fileStats.userMessages + delta(current.userMessages, loaded.userMessages),
     assistantMessages:
@@ -106,7 +123,13 @@ export function mergeSessionStats(
     toolResults: fileStats.toolResults + delta(current.toolResults, loaded.toolResults),
     totalMessages: fileStats.totalMessages + delta(current.totalMessages, loaded.totalMessages),
     tokens,
-    cost: fileStats.cost + delta(current.cost, loaded.cost)
+    cost: fileStats.cost + delta(current.cost, loaded.cost),
+    speed: {
+      outputTokens:
+        fileSpeed.outputTokens + delta(current.speed.outputTokens, loaded.speed.outputTokens),
+      generationMs:
+        fileSpeed.generationMs + delta(current.speed.generationMs, loaded.speed.generationMs)
+    }
   };
 }
 

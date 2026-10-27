@@ -1007,6 +1007,8 @@ export function ChatWindow({
         sessionStats.tokens.cacheWrite,
         sessionStats.tokens.total,
         sessionStats.cost ?? 0,
+        sessionStats.speed?.outputTokens ?? 0,
+        sessionStats.speed?.generationMs ?? 0,
         sessionStats.totalActiveMs ?? 0
       ].join('|')
     : null;

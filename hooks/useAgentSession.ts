@@ -743,15 +743,18 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       snapshotActiveMs === undefined && liveActiveMs === undefined
         ? undefined
         : Math.max(snapshotActiveMs ?? 0, liveActiveMs ?? 0);
+    const fileStats = data?.stats;
+    const stats = mergeSessionStats(fileStats, data?.context.messages ?? [], messages);
     if (sessionStatsOverride) {
+      // The override speaks for the counters; the speed average comes from the
+      // same merged stats the panel reads the rest of the time.
       return {
         ...sessionStatsOverride,
+        speed: stats.speed,
         totalActiveMs,
         ...(contextUsage ? { contextUsage } : {})
       };
     }
-    const fileStats = data?.stats;
-    const stats = mergeSessionStats(fileStats, data?.context.messages ?? [], messages);
     if (stats.tokens.total === 0 && messages.length === 0 && !fileStats) return null;
     return {
       sessionFile: data?.filePath || undefined,
