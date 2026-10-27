@@ -211,11 +211,7 @@ test('under prefers-reduced-motion nothing is held: the card goes at once', () =
 
 test('one element that shows and goes: open, fading, gone', () => {
   const view = renderHook(({ active }) => useExitHold(active), { active: false });
-  assert.deepEqual(
-    view.result,
-    { open: false, exiting: false, fading: false },
-    'closed on mount'
-  );
+  assert.deepEqual(view.result, { open: false, exiting: false, fading: false }, 'closed on mount');
   view.rerender({ active: true });
   assert.deepEqual(view.result, { open: true, exiting: false, fading: false });
   // No minimum: the fade starts at once, and the element is gone after it.

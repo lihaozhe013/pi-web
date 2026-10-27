@@ -6,11 +6,11 @@ creating a parallel protocol.
 
 ## Changes
 
-- Read [project direction](docs/README.md) and [interface principles](docs/design.md) for product
-  or UI work. Read [architecture](docs/architecture.md) for runtime and API changes.
+- Read [project direction](docs/README.md) and [interface principles](docs/design.md) for product or
+  UI work. Read [architecture](docs/architecture.md) for runtime and API changes.
 - Prefer simple solutions. Check consumers before removing shared behavior.
-- Preserve user data, session history, conversation inputs, and security checks. Keep path and origin
-  validation, credential isolation, and session shutdown intact.
+- Preserve user data, session history, conversation inputs, and security checks. Keep path and
+  origin validation, credential isolation, and session shutdown intact.
 - For UI changes, support keyboard use, visible focus, narrow screens, and reduced motion; use
   semantic theme variables.
 - Write project documentation in English and update relevant docs with code changes.
@@ -29,5 +29,5 @@ creating a parallel protocol.
 
 ## Commits
 
-- Use Conventional Commits: `<type>[optional scope]: <description>` (for example, `feat: add X`
-  or `fix(api): handle Y`).
+- Use Conventional Commits: `<type>[optional scope]: <description>` (for example, `feat: add X` or
+  `fix(api): handle Y`).

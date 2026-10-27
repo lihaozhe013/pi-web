@@ -943,18 +943,15 @@ function codemodeCall(toolCallId, code) {
 }
 
 function renderCodemode(block, result, runningId) {
-  const view = React.createElement(
-    MessageView,
-    {
-      message: {
-        role: 'assistant',
-        provider: 'anthropic',
-        model: 'claude-test',
-        content: [block]
-      },
-      toolResults: new Map(result ? [[block.toolCallId, result]] : [])
-    }
-  );
+  const view = React.createElement(MessageView, {
+    message: {
+      role: 'assistant',
+      provider: 'anthropic',
+      model: 'claude-test',
+      content: [block]
+    },
+    toolResults: new Map(result ? [[block.toolCallId, result]] : [])
+  });
   // A running script keeps its card only while the run reports it as live
   // (lib/quiet-activity.ts); the provider stands in for that report.
   const tree =

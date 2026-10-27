@@ -90,6 +90,13 @@ configuration.
 
 ## Transitional structure
 
-Historical configuration surfaces and retired workspace helpers remain. They are implementation
-debt, not product commitments. Remove them after auditing consumers and preserving the conversation
-workflow. See [cleanup](cleanup.md).
+Historical configuration surfaces and retired workspace helpers remain implementation debt, not
+product commitments. Review management panels individually, preferring Pi configuration where a
+separate panel adds little value. Preserve the underlying agent capabilities and essential
+conversation controls.
+
+Before removing obsolete code, audit consumers and tests. In particular, shared file APIs still
+serve attachments and references; Git identity and worktree fallback affect session grouping and
+directory selection; and transcript filtering must not remove reasoning from history or exports.
+Check saved sessions, drafts, streaming, keyboard and narrow-screen behavior, and legacy browser
+preferences as relevant to each change.

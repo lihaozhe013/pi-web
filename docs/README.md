@@ -46,11 +46,9 @@ All project documentation is maintained in English, without translated copies.
 | Document                            | Purpose                             |
 | ----------------------------------- | ----------------------------------- |
 | [README](../README.md)              | Usage, security, and attribution    |
-| [Development](../CONTRIBUTING.md)   | Environment and completion criteria |
 | [Agent instructions](../AGENTS.md)  | Rules for coding assistants         |
 | [Interface principles](design.md)   | Presentation and interaction        |
 | [Architecture](architecture.md)     | Current entry points and boundaries |
-| [Cleanup](cleanup.md)               | Pending integration work            |
 | [Packaging](../packaging/README.md) | Local portable builds               |
 | [Browser tests](../e2e/README.md)   | Local browser regression testing    |
 

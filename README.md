@@ -64,8 +64,6 @@ before deleting sessions or changing configuration.
 - [Project direction and documentation index](docs/README.md)
 - [Interface principles](docs/design.md)
 - [Architecture](docs/architecture.md)
-- [Integration and cleanup plan](docs/cleanup.md)
-- [Development guide](CONTRIBUTING.md)
 - [Coding agent instructions](AGENTS.md)
 - [Local browser tests](e2e/README.md)
 
