@@ -9,6 +9,11 @@ Pi supplies the agent capabilities. This project improves the visibility and usa
 workflow, without replacing Pi or creating a parallel configuration, extension, or execution system.
 Visualizing the CLI does not require a graphical manager for every command or setting.
 
+Minimal describes the result, not the goal. The goal is reviewable signal: show what lets the user
+review the agent's work and judge whether it is on track, and hide what does not serve that — long
+exploratory output, raw dumps, and other detail that cannot be read at a glance. A quiet interface
+is worth having only because it leaves that signal visible.
+
 Priorities: smooth conversation, clear execution feedback, a quiet and polished interface, then
 feature count.
 
