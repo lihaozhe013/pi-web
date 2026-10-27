@@ -5,12 +5,12 @@ import { artifactName } from './portable.mjs';
 
 // The actual extracted-archive runtime smoke test is mandatory in packagePortable.
 test('portable artifact names identify platform, architecture and Linux libc', () => {
-  assert.equal(artifactName('0.12.2', 'linux', 'x64'), 'pi-web-0.12.2-linux-x64-glibc');
-  assert.equal(artifactName('0.12.2', 'linux', 'arm64'), 'pi-web-0.12.2-linux-arm64-glibc');
-  assert.equal(artifactName('0.12.2', 'win32', 'x64'), 'pi-web-0.12.2-win32-x64');
+  assert.equal(artifactName('0.1.0', 'linux', 'x64'), 'pi-web-0.1.0-linux-x64-glibc');
+  assert.equal(artifactName('0.1.0', 'linux', 'arm64'), 'pi-web-0.1.0-linux-arm64-glibc');
+  assert.equal(artifactName('0.1.0', 'win32', 'x64'), 'pi-web-0.1.0-win32-x64');
   assert.equal(
-    artifactName('0.12.2-fork.1', 'darwin', 'arm64'),
-    'pi-web-0.12.2-fork.1-darwin-arm64'
+    artifactName('0.1.0-local.1', 'darwin', 'arm64'),
+    'pi-web-0.1.0-local.1-darwin-arm64'
   );
 });
 
