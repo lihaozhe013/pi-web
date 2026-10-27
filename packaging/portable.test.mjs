@@ -25,7 +25,7 @@ test('portable packaging keeps Node.js runtime commands and local-only packaging
   assert.equal(pkg.scripts.release, undefined);
   assert.equal(
     pkg.scripts.start,
-    'node node_modules/next/dist/bin/next start -H 127.0.0.1 -p 30141'
+    'node node_modules/next/dist/bin/next start -H 0.0.0.0 -p 30141'
   );
   assert.equal(pkg.scripts['package:portable'], 'node packaging/portable.mjs');
   assert.ok(pkg.files.includes('bin') && pkg.files.includes('.next'));

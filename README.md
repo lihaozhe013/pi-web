@@ -35,6 +35,11 @@ Open <http://127.0.0.1:30141>. The app uses local Pi configuration and credentia
 to `~/.pi/agent/sessions/`. Existing sessions can be browsed without model credentials; sending
 prompts requires a configured provider.
 
+For a production build, run `bun run build` followed by `bun run start`. The production server
+listens on all IPv4 interfaces by default, so other devices can connect at
+`http://<server-lan-ip>:30141`. Use `bun run start:local` to listen only on loopback. The
+development server remains loopback-only by default; `bun run dev:lan` enables LAN access.
+
 Bun manages dependencies and invokes scripts. Node.js remains the runtime.
 
 ```sh
@@ -49,7 +54,10 @@ There is no maintained CI, npm publication workflow, or automated update commitm
 ## Security
 
 This interface controls an agent that can read and write files and execute commands. It is not a
-read-only website. Keep the default loopback binding; prefer SSH forwarding for remote access:
+read-only website. `bun run start` exposes it to any device that can reach the server, including
+potentially the internet. Without `PI_WEB_PASSWORD`, access is unauthenticated and can allow command
+execution and access to local files. Use `bun run start:local` and prefer SSH forwarding for remote
+access:
 
 ```sh
 ssh -N -L 30141:127.0.0.1:30141 user@server

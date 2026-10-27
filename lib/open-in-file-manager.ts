@@ -31,9 +31,9 @@ export function fileManagerCommand(
  *
  * `Host` is client-controlled, so this is a usability guard rather than access
  * control: it keeps a phone or another computer on the LAN from raising a
- * window on the server. The real boundaries are the default 127.0.0.1 bind
- * (only `dev:lan` / `start:lan` listen publicly) and the caller's path
- * allow-list. A missing Host header is treated as remote.
+ * window on the server. Loopback-only binds and the caller's path allow-list
+ * provide stronger boundaries; `start` and the LAN scripts listen on all IPv4
+ * interfaces. A missing Host header is treated as remote.
  * @param host The Host header
  * @returns Whether it names a loopback address
  */
