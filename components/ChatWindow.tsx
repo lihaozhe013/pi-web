@@ -3,6 +3,7 @@ import { AskUserPanel, isAskUserRequest } from './AskUserPanel';
 import { ComposerActivity } from './ComposerActivity';
 import { mainTranscriptBlocks } from '@/lib/quiet-activity';
 import { ToolActivityProvider, liveToolIds } from './ToolActivity'; // display-only execution status
+import { ToolPresetEditorModal } from './ToolPresetEditorModal';
 import { registerAbortHandler } from '@/hooks/useKeyboardShortcuts';
 import Image from 'next/image';
 import {
@@ -376,6 +377,18 @@ export function ChatWindow({
   });
   const [restoreAnchorReady, setRestoreAnchorReady] = useState(false);
 
+  const [toolPresetEditorOpen, setToolPresetEditorOpen] = useState(false);
+  // A copy of the loaded tool definitions, so the preset editor can describe the
+  // tools it combines; the hook forwards the same value to the app's panel.
+  const [editorTools, setEditorTools] = useState<ToolEntry[] | null>(null);
+  const handleEditorToolsChange = useCallback(
+    (tools: ToolEntry[] | null) => {
+      setEditorTools(tools);
+      onSystemToolsChange?.(tools);
+    },
+    [onSystemToolsChange]
+  );
+
   const {
     loading,
     error,
@@ -397,6 +410,7 @@ export function ChatWindow({
     modelThinkingLevels,
     modelThinkingLevelMaps,
     toolPreset,
+    customToolPresets,
     thinkingLevel,
     retryInfo,
     contextUsage,
@@ -448,6 +462,7 @@ export function ChatWindow({
     handleRecallQueue,
     handleBuiltinSlashCommand,
     handleToolPresetChange,
+    saveCustomToolPresets,
     handleThinkingLevelChange,
     handleSetDefaultModel,
     handleSetDefaultThinkingLevel,
@@ -473,7 +488,7 @@ export function ChatWindow({
     chatInputRef,
     onBranchDataChange,
     onSystemPromptChange,
-    onSystemToolsChange,
+    onSystemToolsChange: handleEditorToolsChange,
     onSystemInfoLoaderChange,
     onSessionStatsPanelOpen,
     onOpenSettings,
@@ -1310,6 +1325,14 @@ export function ChatWindow({
       compactResult={compactResult}
       toolPreset={toolPreset}
       onToolPresetChange={session || isNew ? handleToolPresetChange : undefined}
+      customToolPresets={customToolPresets}
+      onManageToolPresets={
+        session || isNew
+          ? () => {
+              setToolPresetEditorOpen(true);
+            }
+          : undefined
+      }
       thinkingLevel={thinkingLevel}
       isAutoThinkingSelection={isAutoThinkingSelection}
       onThinkingLevelChange={session || isNew ? handleThinkingLevelChange : undefined}
@@ -2166,6 +2189,16 @@ export function ChatWindow({
         </div>
         {isEmptyNew && <div className="min-h-0 flex-1" />}
       </div>
+      {createPortal(
+        <ToolPresetEditorModal
+          open={toolPresetEditorOpen}
+          presets={customToolPresets}
+          tools={editorTools}
+          onSave={saveCustomToolPresets}
+          onClose={() => setToolPresetEditorOpen(false)}
+        />,
+        document.body
+      )}
     </ToolActivityProvider>
   );
 }

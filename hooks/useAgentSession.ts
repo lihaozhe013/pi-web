@@ -34,11 +34,15 @@ import { getPreferredToolPreset, setPreferredToolPreset } from '@/lib/tool-prese
 import {
   CONFIGURED_TOOL_PRESET,
   getPresetForSession,
-  getToolNamesForPreset,
+  getToolNamesForSelection,
   getWorkModeForPreset,
   type ToolEntry,
-  type ToolPreset
+  type ToolPresetSelection
 } from '@/lib/tool-presets';
+import type {
+  CustomToolPreset,
+  CustomToolPresetDocument
+} from '@/lib/custom-tool-presets-shared';
 import type { WorkMode } from '@/lib/work-mode';
 import type { SessionStatsInfo } from '@/lib/pi-types';
 import { mergeSessionStats, type SessionFileStats } from '@/lib/session-stats';
@@ -238,7 +242,7 @@ export interface UseAgentSessionOptions {
   onSessionStatsPanelOpen?: () => void;
   /** Opens Settings on a section; a bare `/mcp` the built-in MCP extension owns opens Settings › MCP. */
   onOpenSettings?: (section: SettingsSection) => void;
-  setToolPreset?: (preset: ToolPreset) => void;
+  setToolPreset?: (preset: ToolPresetSelection) => void;
   deferInitialScroll?: boolean;
   /** A fresh composer's model and reasoning picks to start with: the composer it replaces had them. */
   initialNewSessionChoices?: NewSessionChoices | null;
@@ -455,7 +459,14 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     () => initialChoices?.model ?? null
   );
   const [newSessionDefaultModel, setNewSessionDefaultModel] = useState<SelectedModel | null>(null);
-  const [toolPreset, setToolPreset] = useState<ToolPreset>(CONFIGURED_TOOL_PRESET);
+  const [toolPreset, setToolPreset] = useState<ToolPresetSelection>(CONFIGURED_TOOL_PRESET);
+  // The user's custom tool presets, served from `pi-web-tool-presets.json`. The
+  // list is read once and refreshed after each editor save; the ref lets the
+  // session callbacks below resolve a `custom:<id>` selection without becoming
+  // dependent on the list.
+  const [customToolPresets, setCustomToolPresets] = useState<CustomToolPreset[]>([]);
+  const customToolPresetsRef = useRef<CustomToolPreset[]>([]);
+  customToolPresetsRef.current = customToolPresets;
   const [newSessionThinkingLevel, setNewSessionThinkingLevel] =
     useState<ConcreteThinkingLevel | null>(() => initialChoices?.thinkingLevel ?? null);
   const [newSessionDefaultThinkingLevel, setNewSessionDefaultThinkingLevel] =
@@ -624,6 +635,21 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     if (!existingSessionId && (!isNew || sessionIdRef.current)) return;
     setToolPresetState(getPreferredToolPreset());
   }, [existingSessionId, isNew, setToolPresetState]);
+
+  // Custom presets are shared, not per-session: one read on mount, refreshed
+  // after each editor save. A failed read leaves the built-in presets working.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/tools/presets')
+      .then((res) => (res.ok ? (res.json() as Promise<{ presets?: CustomToolPreset[] }>) : null))
+      .then((body) => {
+        if (!cancelled && body?.presets) setCustomToolPresets(body.presets);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const onNewSessionChoicesChange = opts.onNewSessionChoicesChange;
   useEffect(() => {
@@ -911,7 +937,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
           // Tool-preset state is independent of the view cache: it must be applied
           // on every read, cached window or not (#700).
           sessionToolsPinnedRef.current = d.toolNames !== undefined;
-          setToolPresetState(getPresetForSession(d.toolNames, d.mode));
+          setToolPresetState(getPresetForSession(d.toolNames, d.mode, customToolPresetsRef.current));
           setCurrentModelOverride((current) => (modelSwitchPendingRef.current ? current : null));
           setCurrentThinkingOverride(null);
           setError(null);
@@ -1061,9 +1087,12 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         });
         const tools = result?.tools;
         if (!tools || !sessionHookMountedRef.current || sessionIdRef.current !== sid) return null;
-        const { getPresetFromTools } = await import('@/lib/tool-presets');
         const pinned = sessionToolsPinnedRef.current
-          ? getPresetFromTools(tools)
+          ? getPresetForSession(
+              tools.filter((tool) => tool.active).map((tool) => tool.name),
+              undefined,
+              customToolPresetsRef.current
+            )
           : CONFIGURED_TOOL_PRESET;
         setToolPresetState(result.workMode === 'plan' ? 'plan' : pinned);
         onSystemToolsChange?.(tools);
@@ -1120,7 +1149,8 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       if (selectedModel) setPendingModel(selectedModel);
       // Undefined means the user never overrode the loadout: omit the field entirely
       // so pi resolves settings.json defaultTools instead of being pinned to ours (#700).
-      const toolNames = getToolNamesForPreset(toolPreset);
+      // A custom preset that was deleted resolves the same way.
+      const toolNames = getToolNamesForSelection(toolPreset, customToolPresetsRef.current);
       const workMode = getWorkModeForPreset(toolPreset);
       sessionToolsPinnedRef.current = toolNames !== undefined;
       const res = await fetch('/api/agent/new', {
@@ -2981,8 +3011,8 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   );
 
   const handleToolPresetChange = useCallback(
-    async (preset: ToolPreset) => {
-      const toolNames = getToolNamesForPreset(preset);
+    async (preset: ToolPresetSelection) => {
+      const toolNames = getToolNamesForSelection(preset, customToolPresetsRef.current);
       setPreferredToolPreset(preset);
       setToolPresetState(preset);
       const sid = sessionIdRef.current ?? (await ensuringNewSessionRef.current);
@@ -3039,6 +3069,21 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       syncLiveModel
     ]
   );
+
+  /** Replaces the whole custom preset list server-side and adopts the saved copy. */
+  const saveCustomToolPresets = useCallback(async (document: CustomToolPresetDocument) => {
+    const res = await fetch('/api/tools/presets', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(document)
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as { error?: unknown } | null;
+      throw new Error(typeof body?.error === 'string' ? body.error : `HTTP ${res.status}`);
+    }
+    const saved = (await res.json()) as { presets?: CustomToolPreset[] };
+    if (saved.presets) setCustomToolPresets(saved.presets);
+  }, []);
 
   const scrollToMessage = useCallback((element: HTMLElement, viewportOffset = 16) => {
     const container = scrollContainerRef.current;
@@ -3453,6 +3498,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     modelThinkingLevelMaps,
     newSessionModel,
     toolPreset,
+    customToolPresets,
     thinkingLevel,
     retryInfo,
     contextUsage,
@@ -3513,6 +3559,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     addNotice,
     setNoticePaused: setPausedNoticeId,
     handleToolPresetChange,
+    saveCustomToolPresets,
     handleThinkingLevelChange,
     handleSetDefaultModel,
     handleSetDefaultThinkingLevel,

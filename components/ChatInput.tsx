@@ -51,7 +51,12 @@ import { useEnterSendMode } from '@/hooks/useEnterSendMode';
 import { useI18n } from '@/hooks/useI18n';
 import { useChatAppearance } from '@/hooks/useChatAppearance';
 import { useFontPreferences } from '@/hooks/useFontPreferences';
-import type { ToolPreset } from '@/lib/tool-presets';
+import {
+  CUSTOM_TOOL_PRESET_PREFIX,
+  customPresetSelection,
+  type ToolPresetSelection
+} from '@/lib/tool-presets';
+import type { CustomToolPreset } from '@/lib/custom-tool-presets-shared';
 import { SelectorRow } from './SelectorRow';
 import { ModelSelector, type ModelSelectorOption } from './ModelSelector';
 
@@ -95,8 +100,12 @@ interface Props {
   compactError?: string | null;
   onDismissCompactError?: () => void;
   compactResult?: CompactResultInfo | null;
-  toolPreset?: ToolPreset;
-  onToolPresetChange?: (preset: ToolPreset) => void;
+  toolPreset?: ToolPresetSelection;
+  onToolPresetChange?: (preset: ToolPresetSelection) => void;
+  /** The user's custom presets, shown under the built-in ones. */
+  customToolPresets?: CustomToolPreset[];
+  /** Opens the preset editor; absent while the dropdown offers no customization. */
+  onManageToolPresets?: () => void;
   thinkingLevel?: 'auto' | 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
   /** New session has not committed a thinking level; the button still shows the resolved default. */
   isAutoThinkingSelection?: boolean;
@@ -143,7 +152,7 @@ export interface ChatInputHandle {
 // "configured" sends no override, so the session follows settings.json defaultTools.
 const TOOL_PRESETS = ['configured', 'plan', 'chat-only', 'read-only', 'default', 'full'] as const;
 type ToolPresetLabel = (typeof TOOL_PRESETS)[number];
-const TOOL_PRESET_MAP: Record<ToolPresetLabel, ToolPreset> = {
+const TOOL_PRESET_MAP: Record<ToolPresetLabel, ToolPresetSelection> = {
   configured: 'configured',
   plan: 'plan',
   'chat-only': 'none',
@@ -151,6 +160,73 @@ const TOOL_PRESET_MAP: Record<ToolPresetLabel, ToolPreset> = {
   default: 'default',
   full: 'full'
 };
+
+/** One selectable row of the tool dropdown: a check, the label, and a dim description. */
+function PresetMenuItem({
+  label,
+  description,
+  active,
+  title,
+  onSelect
+}: {
+  label: string;
+  description: string;
+  active: boolean;
+  title?: string;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      onClick={onSelect}
+      title={title}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        width: '100%',
+        padding: '7px 12px',
+        background: active ? 'var(--bg-selected)' : 'none',
+        border: 'none',
+        color: active ? 'var(--text)' : 'var(--text-muted)',
+        cursor: 'pointer',
+        fontSize: 12,
+        textAlign: 'left',
+        fontWeight: active ? 600 : 400,
+        whiteSpace: 'nowrap'
+      }}
+      onMouseEnter={(e) => {
+        if (!active) e.currentTarget.style.background = 'var(--bg-hover)';
+      }}
+      onMouseLeave={(e) => {
+        if (!active) e.currentTarget.style.background = 'none';
+      }}
+    >
+      {active ? (
+        <svg
+          width="10"
+          height="10"
+          viewBox="0 0 10 10"
+          fill="none"
+          stroke="var(--accent)"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{ flexShrink: 0 }}
+        >
+          <polyline points="1.5 5 4 7.5 8.5 2.5" />
+        </svg>
+      ) : (
+        <span style={{ width: 10, flexShrink: 0 }} />
+      )}
+      <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        {label}
+      </span>
+      {description && (
+        <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 8 }}>{description}</span>
+      )}
+    </button>
+  );
+}
 const COMPOSITION_END_ENTER_GRACE_MS = 100;
 const TEXT_COLLATOR = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
 const ANCHORED_MENU_GAP = 8;
@@ -796,6 +872,8 @@ export const ChatInput = memo(
       compactResult,
       toolPreset,
       onToolPresetChange,
+      customToolPresets,
+      onManageToolPresets,
       thinkingLevel,
       isAutoThinkingSelection = false,
       onThinkingLevelChange,
@@ -1937,15 +2015,22 @@ export const ChatInput = memo(
       if (lvl === 'auto' || !thinkingLevelMap) return lvl;
       return thinkingLevelMap[lvl] ?? lvl;
     })();
-    const rawToolPresetLabel =
-      Object.entries(TOOL_PRESET_MAP).find(([, v]) => v === (toolPreset ?? 'configured'))?.[0] ??
-      'configured';
-    const toolPresetLabel =
-      rawToolPresetLabel === 'chat-only'
+    const toolPresetLabel = (() => {
+      const current = toolPreset ?? 'configured';
+      if (current.startsWith(CUSTOM_TOOL_PRESET_PREFIX)) {
+        const preset = (customToolPresets ?? []).find(
+          (candidate) => customPresetSelection(candidate.id) === current
+        );
+        return preset ? preset.name : t('chat.customPresetMissing');
+      }
+      const builtin =
+        Object.entries(TOOL_PRESET_MAP).find(([, v]) => v === current)?.[0] ?? 'configured';
+      return builtin === 'chat-only'
         ? t('chat.chatOnly')
-        : rawToolPresetLabel === 'plan'
+        : builtin === 'plan'
           ? t('chat.planMode')
-          : rawToolPresetLabel;
+          : builtin;
+    })();
 
     // Close dropdowns on outside click
     useEffect(() => {
@@ -3305,8 +3390,11 @@ export const ChatInput = memo(
                             border: '1px solid var(--border)',
                             borderRadius: 8,
                             boxShadow: '0 -4px 16px rgba(0,0,0,0.10)',
-                            overflow: 'hidden',
-                            minWidth: 120
+                            overflowY: 'auto',
+                            overflowX: 'hidden',
+                            minWidth: 160,
+                            maxWidth: 320,
+                            maxHeight: 'min(60dvh, 420px)'
                           }}
                         >
                           {TOOL_PRESETS.map((lvl) => {
@@ -3321,61 +3409,52 @@ export const ChatInput = memo(
                             else if (lvl === 'default') desc = t('chat.builtInTools', { count: 4 });
                             else desc = t('chat.allBuiltInTools');
                             return (
-                              <button
+                              <PresetMenuItem
                                 key={lvl}
-                                onClick={() => {
+                                label={lvl}
+                                description={desc}
+                                active={isActive}
+                                onSelect={() => {
                                   setToolDropdownOpen(false);
                                   if (!isActive) onToolPresetChange(preset);
                                 }}
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: 8,
-                                  width: '100%',
-                                  padding: '7px 12px',
-                                  background: isActive ? 'var(--bg-selected)' : 'none',
-                                  border: 'none',
-                                  color: isActive ? 'var(--text)' : 'var(--text-muted)',
-                                  cursor: 'pointer',
-                                  fontSize: 12,
-                                  textAlign: 'left',
-                                  fontWeight: isActive ? 600 : 400,
-                                  whiteSpace: 'nowrap'
-                                }}
-                                onMouseEnter={(e) => {
-                                  if (!isActive)
-                                    e.currentTarget.style.background = 'var(--bg-hover)';
-                                }}
-                                onMouseLeave={(e) => {
-                                  if (!isActive) e.currentTarget.style.background = 'none';
-                                }}
-                              >
-                                {isActive ? (
-                                  <svg
-                                    width="10"
-                                    height="10"
-                                    viewBox="0 0 10 10"
-                                    fill="none"
-                                    stroke="var(--accent)"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    style={{ flexShrink: 0 }}
-                                  >
-                                    <polyline points="1.5 5 4 7.5 8.5 2.5" />
-                                  </svg>
-                                ) : (
-                                  <span style={{ width: 10, flexShrink: 0 }} />
-                                )}
-                                <span style={{ flex: 1 }}>{lvl}</span>
-                                <span
-                                  style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 8 }}
-                                >
-                                  {desc}
-                                </span>
-                              </button>
+                              />
                             );
                           })}
+                          {(customToolPresets ?? []).map((preset) => {
+                            const selection = customPresetSelection(preset.id);
+                            const isActive = (toolPreset ?? 'configured') === selection;
+                            return (
+                              <PresetMenuItem
+                                key={preset.id}
+                                label={preset.name}
+                                description={t('chat.toolCount', { count: preset.tools.length })}
+                                active={isActive}
+                                title={preset.tools.join(', ')}
+                                onSelect={() => {
+                                  setToolDropdownOpen(false);
+                                  if (!isActive) onToolPresetChange(selection);
+                                }}
+                              />
+                            );
+                          })}
+                          {onManageToolPresets && (
+                            <>
+                              <div
+                                role="separator"
+                                style={{ height: 1, margin: '3px 0', background: 'var(--border)' }}
+                              />
+                              <PresetMenuItem
+                                label={t('chat.customizeToolPresets')}
+                                description=""
+                                active={false}
+                                onSelect={() => {
+                                  setToolDropdownOpen(false);
+                                  onManageToolPresets();
+                                }}
+                              />
+                            </>
+                          )}
                         </div>
                       )}
                     </div>

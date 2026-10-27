@@ -75,6 +75,14 @@ carries a work mode, because it pins the same read-only tools as Read-only; the 
 the session log (`lib/work-mode.ts`, `pi-web:work-mode`) and travels next to the tool list in
 `GET /api/sessions/[id]` and `get_tools`.
 
+Users combine the built-in coding tools into named custom presets beside the built-in ones. The
+list lives in `pi-web-tool-presets.json` in the agent directory (`lib/custom-tool-presets.ts`), is
+served whole by `GET/PUT /api/tools/presets`, and stores canonical tool names (`bash` stands for
+whatever shell the PowerShell setting selects). A pick is stored and pinned like any preset: the
+UI carries it as `custom:<id>` and resolves it against the list (`getToolNamesForSelection`),
+while the session itself keeps pinning plain tool names, so a deleted preset simply releases the
+sessions that still prefer it back to the configured defaults.
+
 `lib/plan-mode-extension.ts` reads that entry on every prompt and tool call:
 
 - The prompt gains the plan guidelines, so the model discusses and asks before proposing changes.
