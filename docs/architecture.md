@@ -92,6 +92,14 @@ Pi sessions normally live under `~/.pi/agent/sessions/`. The app also maintains 
 session pins and archive choices. Avoid unnecessary changes to Pi's data format or duplicate agent
 configuration.
 
+## Math rendering dependencies
+
+Markdown and the chat minimap use `rehype-katex` with the KaTeX stylesheet imported by
+`app/layout.tsx`. A scoped Bun override keeps the plugin's renderer on the same KaTeX version as
+the stylesheet, despite its older declared range. Review this override when upgrading the plugin;
+Mermaid and micromark retain their own KaTeX dependency versions. The scoped override requires a
+Bun version that supports lockfile version 3.
+
 ## Boundaries to preserve
 
 - Streaming updates, completed results, cancellation, and reconnects are distinct states.

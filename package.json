@@ -71,7 +71,7 @@
     "@types/web-push": "^3.6.4",
     "ansi_up": "^6.0.6",
     "jiti": "^2.7.0",
-    "katex": "^0.16.47",
+    "katex": "^0.19.1",
     "mermaid": "^12.2.0",
     "oxc-parser": "^0.155.0",
     "oxlint": "^1.89",
@@ -89,6 +89,9 @@
     "remark-math": "^6.0.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^7"
+  },
+  "overrides": {
+    "rehype-katex>katex": "$katex"
   },
   "trustedDependencies": [
     "@google/genai",

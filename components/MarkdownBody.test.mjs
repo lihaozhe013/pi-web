@@ -93,6 +93,25 @@ test('heading anchors are opt-in, scoped, formatted-text aware and generated bef
   );
 });
 
+test('renders KaTeX 0.19 markup in both transcript and preview', () => {
+  const markdown = '$a \\mapsfrom b$';
+  const preview = renderToStaticMarkup(
+    React.createElement(
+      ReactMarkdown,
+      {
+        remarkPlugins: markdownPreviewRemarkPlugins,
+        rehypePlugins: markdownPreviewRehypePlugins
+      },
+      markdown
+    )
+  );
+  for (const html of [renderMarkdown(markdown), preview]) {
+    assert.match(html, /class="katex"/);
+    assert.match(html, /katex-html/);
+    assert.doesNotMatch(html, /katex-error|Undefined control sequence/);
+  }
+});
+
 test('renders CJK sentence emphasis without spaces after closing punctuation', () => {
   const sentence = '今天天气很好。';
   const markdown = `**${sentence}**我们去公园散步吧。`;
