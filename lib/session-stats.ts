@@ -1,4 +1,5 @@
 import type { AgentMessage, AgentUsage, SessionEntry, SessionMessage } from './types';
+import { recordedStreamSpeeds, validStreamSpeed, type StreamSpeed } from './session-stream-speed';
 
 export interface SessionFileStats {
   userMessages: number;
@@ -24,6 +25,7 @@ export interface SessionFileStats {
     outputTokens: number;
     generationMs: number;
   };
+  streamSpeed?: StreamSpeed;
 }
 
 /** One session's totals for the agent switcher (POST /api/sessions/stats). */
@@ -72,6 +74,15 @@ function addMessage(stats: SessionFileStats, message: SessionMessage): void {
       stats.toolCalls += message.content.filter((c) => c.type === 'toolCall').length;
     }
     addUsage(stats, message.usage);
+    if (
+      validStreamSpeed(message.piWebStreamSpeed) &&
+      message.piWebStreamSpeed.outputTokens === message.usage?.output
+    ) {
+      stats.streamSpeed ??= { outputTokens: 0, streamMs: 0, responses: 0 };
+      stats.streamSpeed.outputTokens += message.piWebStreamSpeed.outputTokens;
+      stats.streamSpeed.streamMs += message.piWebStreamSpeed.streamMs;
+      stats.streamSpeed.responses++;
+    }
     const output = message.usage?.output ?? 0;
     if (output > 0 && typeof message.durationMs === 'number' && message.durationMs > 0) {
       stats.speed.outputTokens += output;
@@ -115,7 +126,18 @@ export function mergeSessionStats(
   };
   tokens.total = tokens.input + tokens.output + tokens.cacheRead + tokens.cacheWrite;
   const fileSpeed = fileStats.speed ?? { outputTokens: 0, generationMs: 0 };
+  const emptyStream = { outputTokens: 0, streamMs: 0, responses: 0 };
+  const fileStream = fileStats.streamSpeed ?? emptyStream;
+  const currentStream = current.streamSpeed ?? emptyStream;
+  const loadedStream = loaded.streamSpeed ?? emptyStream;
+  const streamSpeed = {
+    outputTokens:
+      fileStream.outputTokens + delta(currentStream.outputTokens, loadedStream.outputTokens),
+    streamMs: fileStream.streamMs + delta(currentStream.streamMs, loadedStream.streamMs),
+    responses: fileStream.responses + delta(currentStream.responses, loadedStream.responses)
+  };
   return {
+    ...(streamSpeed.responses > 0 ? { streamSpeed } : {}),
     userMessages: fileStats.userMessages + delta(current.userMessages, loaded.userMessages),
     assistantMessages:
       fileStats.assistantMessages + delta(current.assistantMessages, loaded.assistantMessages),
@@ -149,6 +171,8 @@ export function mergeSessionStats(
 export function computeSessionStats(entries: SessionEntry[]): SessionFileStats {
   const stats = emptyStats();
 
+  stats.streamSpeed = recordedStreamSpeeds(entries);
+  if (!stats.streamSpeed) delete stats.streamSpeed;
   for (const entry of entries) {
     if (entry.type === 'compaction' || entry.type === 'branch_summary' || entry.type === 'usage') {
       addUsage(stats, entry.usage);

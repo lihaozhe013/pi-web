@@ -751,6 +751,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       return {
         ...sessionStatsOverride,
         speed: stats.speed,
+        streamSpeed: stats.streamSpeed,
         totalActiveMs,
         ...(contextUsage ? { contextUsage } : {})
       };

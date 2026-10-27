@@ -61,8 +61,11 @@ the run's elapsed time, counted from its prompt for the whole run — waits, ret
 included — and frozen at its reading while the row fades out. While reasoning or a call's arguments
 stream, the row also carries the reply's live tokens-per-second — the same measurement the streaming
 message's header badge shows — and it hides whenever the model is silent. The session statistics
-popover pairs real output tokens with the generation time pi recorded per response, showing one
-end-to-end average output speed for comparing providers and models. A finished turn reports its own
+popover shows end-to-end output speed including first-token waits, and approximate streamed output
+speed after the first nonempty text, thinking, or tool-argument delta. The streamed metric shows its
+response count and excludes responses shorter than 500 ms, missing usage, and older responses
+without recorded stream timing. Provider-reported output includes the first chunk and may include
+hidden reasoning, so this is not a precise model decode benchmark. A finished turn reports its own
 totals once, beside its time: the tokens it billed under the final answer (the hover spells them
 out), or in the process group's header when the turn has one. The row keeps its height for the whole
 run, dropping only the text while a visible answer streams, so the composer never moves mid-run. It

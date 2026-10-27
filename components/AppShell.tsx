@@ -2874,6 +2874,12 @@ export function AppShell() {
                             ]
                           ]
                         : []),
+                      [
+                        translate('session.avgStreamSpeed'),
+                        sessionStats.streamSpeed && sessionStats.streamSpeed.streamMs > 0
+                          ? `${(sessionStats.streamSpeed.outputTokens / (sessionStats.streamSpeed.streamMs / 1000)).toFixed(1)} t/s (${sessionStats.streamSpeed.responses})`
+                          : '— (0)'
+                      ],
                       // Real output tokens ÷ generation time over the replies that
                       // recorded a duration: an end-to-end average that includes
                       // each request's first-token wait, so it reads lower than

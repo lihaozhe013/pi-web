@@ -54,6 +54,15 @@ still write global settings and refuse edits shadowed by the selected project's 
 4. The transcript renders replies, tool activity, and errors. Display filtering is separate from
    persisted history and model context.
 
+## Session output speed
+
+Pi Web observes the first nonempty assistant stream delta and response end with a monotonic clock.
+For successful responses with output usage and at least 500 ms of observed streaming, a Pi custom
+entry immediately before the assistant message records output tokens and stream duration. It is not
+model context. Full-file statistics count only records paired with their assistant message; live
+messages carry the same measurement separately for immediate display. Older history cannot recover
+first-token timing. The end-to-end speed continues to use Pi's recorded response durations.
+
 ## Modes and questions
 
 `lib/tool-presets.ts` selects the coding tools a session may call. Plan is the one preset that also

@@ -42,12 +42,14 @@ import {
   resolveSessionPath
 } from './session-reader';
 import { computeLiveSessionTotalActiveMs } from './session-timing';
+import { STREAM_SPEED_ENTRY, StreamSpeedTracker } from './session-stream-speed';
 import { getProjectTrustStatus, projectTrustReloadOptions } from './project-trust';
 import { notifySessionComplete } from './web-push';
 import { hasActiveSessionLivenessProvider } from './session-liveness';
 import type { SlashCommandInfo } from '@earendil-works/pi-coding-agent';
 import type { AgentSessionLike, ExtensionUiContextLike, ToolInfo } from './pi-types';
 import type {
+  AssistantMessage,
   ExtensionUiRequest,
   ExtensionUiResponse,
   ExtensionWidgetItem,
@@ -388,6 +390,7 @@ export class AgentSessionWrapper {
   // next stream miss that same event.
   private listeners = new Set<EventListener>();
   private activeToolEvents = new Map<string, AgentEvent>();
+  private readonly streamSpeedTracker = new StreamSpeedTracker();
   private pendingUiResponses = new Map<string, PendingUiResponse>();
   private pendingUiRequests = new Map<string, AgentEvent>();
   private activeCustomUis = new Map<string, ActiveCustomUi>();
@@ -540,7 +543,35 @@ export class AgentSessionWrapper {
       if (event.type === 'session_info_changed') invalidateSessionListCache();
       this.trackActiveToolEvent(event);
       if (IDLE_RESET_EVENT_TYPES.has(event.type)) this.resetIdleTimer();
-      this.emit(event.type === 'message_end' ? this.withTranscriptNotices(event) : event);
+      let outgoing = event;
+      const observedMessage = event.message as AssistantMessage | undefined;
+      if (event.type === 'message_start' && observedMessage?.role === 'assistant') {
+        this.streamSpeedTracker.reset();
+      } else if (event.type === 'message_update') {
+        this.streamSpeedTracker.update(
+          (event.assistantMessageEvent ?? {}) as { type?: unknown; delta?: unknown },
+          performance.now()
+        );
+      } else if (event.type === 'message_end' && observedMessage?.role === 'assistant') {
+        const message = observedMessage;
+        const speed = this.streamSpeedTracker.finish(message.usage?.output ?? 0, performance.now());
+        if (
+          speed &&
+          (message.stopReason === 'stop' ||
+            message.stopReason === 'toolUse' ||
+            message.stopReason === 'length')
+        ) {
+          try {
+            // Pi appends the assistant message immediately after notifying listeners.
+            // This custom parent entry keeps metrics out of model context.
+            this.inner.sessionManager.appendCustomEntry(STREAM_SPEED_ENTRY, speed);
+            outgoing = { ...event, message: { ...message, piWebStreamSpeed: speed } };
+          } catch (error) {
+            console.warn('[pi-web] stream speed recording failed:', error);
+          }
+        }
+      }
+      this.emit(outgoing.type === 'message_end' ? this.withTranscriptNotices(outgoing) : outgoing);
       if (event.type === 'agent_settled') this.notifyAgentRunCompleteIfIdle();
     });
     this.resetIdleTimer();

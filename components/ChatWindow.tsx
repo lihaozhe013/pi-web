@@ -1019,6 +1019,9 @@ export function ChatWindow({
         sessionStats.cost ?? 0,
         sessionStats.speed?.outputTokens ?? 0,
         sessionStats.speed?.generationMs ?? 0,
+        sessionStats.streamSpeed?.outputTokens ?? 0,
+        sessionStats.streamSpeed?.streamMs ?? 0,
+        sessionStats.streamSpeed?.responses ?? 0,
         sessionStats.totalActiveMs ?? 0
       ].join('|')
     : null;
