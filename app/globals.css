@@ -2898,6 +2898,7 @@ span.token.table {
   height: 20px;
   max-width: var(--chat-content-max-width, 820px);
   margin: 0 auto 6px;
+  padding-left: 15px;
   color: var(--text-muted);
   font-size: calc(13px + var(--ui-font-size-offset, 0px));
   line-height: 20px;
@@ -2980,6 +2981,9 @@ span.token.table {
 @media (max-width: 640px) {
   .composer-activity-slot {
     padding-right: 16px;
+  }
+  .composer-activity {
+    padding-left: 13px;
   }
 }
 
