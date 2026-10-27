@@ -22,10 +22,11 @@ import { getAllowedFileRoots, isExistingFilePathAllowed } from '@/lib/file-acces
 import { projectTrustReloadOptions } from '@/lib/project-trust';
 import { rememberProviderModels, withDeferredProviderModels } from '@/lib/deferred-provider-models';
 import { inferRemovedWorktree } from '@/lib/worktree';
+import { createGlobalModelSettings, getModelRuntimeWithExtensions } from '@/lib/model-runtime';
 
 export const dynamic = 'force-dynamic';
 
-async function loadModels(cwd: string): Promise<ModelsData> {
+async function loadModels(cwd: string | null): Promise<ModelsData> {
   const nameMap = new Map<string, string>();
   let modelList: { id: string; name: string; provider: string }[] = [];
   let defaultModel: { provider: string; modelId: string } | null = null;
@@ -36,12 +37,17 @@ async function loadModels(cwd: string): Promise<ModelsData> {
   // Gate untrusted project extensions: enumerating models still imports and
   // runs a repository's .pi/extensions factories, so honor project trust here
   // too (see lib/project-trust.ts, #236).
-  const trustReloadOptions = projectTrustReloadOptions(cwd, agentDir);
-  const services = await createAgentSessionServices({
-    cwd,
-    agentDir,
-    ...(trustReloadOptions ? { resourceLoaderReloadOptions: trustReloadOptions } : {})
-  });
+  const trustReloadOptions = cwd ? projectTrustReloadOptions(cwd, agentDir) : undefined;
+  const services = cwd
+    ? await createAgentSessionServices({
+        cwd,
+        agentDir,
+        ...(trustReloadOptions ? { resourceLoaderReloadOptions: trustReloadOptions } : {})
+      })
+    : {
+        settingsManager: createGlobalModelSettings(agentDir),
+        modelRuntime: await getModelRuntimeWithExtensions()
+      };
   const modelError = services.modelRuntime.getError();
   const settings: SettingsManager = services.settingsManager;
   await rememberProviderModels(services.modelRuntime);
@@ -113,7 +119,17 @@ const EMPTY_MODELS: ModelsData = {
 };
 
 export async function GET(req: Request) {
-  const requestedCwd = resolve(new URL(req.url).searchParams.get('cwd') || process.cwd());
+  const rawCwd = new URL(req.url).searchParams.get('cwd');
+  if (!rawCwd) {
+    try {
+      return Response.json(
+        await loadModelsWithCache(`\0global:${getAgentDir()}`, () => loadModels(null))
+      );
+    } catch {
+      return Response.json(withSafeModelLoadFailure(EMPTY_MODELS));
+    }
+  }
+  const requestedCwd = resolve(rawCwd);
   // A subagent run isolated in a worktree has that worktree removed when the run
   // finishes, yet its session file still records the worktree as its cwd. Fall back
   // to the main repo it branched from, so opening a finished subagent resolves the

@@ -1,11 +1,17 @@
 import {
   createAgentSessionServices,
   getAgentDir,
+  SettingsManager,
   type ModelRuntime
 } from '@earendil-works/pi-coding-agent';
 import { randomUUID } from 'node:crypto';
 import { rememberProviderModels } from './deferred-provider-models';
 import { serializeByKey } from './key-serializer';
+
+/** Read and write global settings without loading any project settings or resources. */
+export function createGlobalModelSettings(agentDir = getAgentDir()): SettingsManager {
+  return SettingsManager.create(agentDir, agentDir, { projectTrusted: false });
+}
 
 /**
  * ModelRuntime that also includes providers registered by extensions (an
@@ -22,7 +28,8 @@ import { serializeByKey } from './key-serializer';
  */
 export async function createModelRuntimeWithExtensions(): Promise<ModelRuntime> {
   const agentDir = getAgentDir();
-  const services = await createAgentSessionServices({ cwd: agentDir, agentDir });
+  const settingsManager = createGlobalModelSettings(agentDir);
+  const services = await createAgentSessionServices({ cwd: agentDir, agentDir, settingsManager });
   await rememberProviderModels(services.modelRuntime);
   return services.modelRuntime;
 }

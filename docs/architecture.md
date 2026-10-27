@@ -36,6 +36,13 @@ Existing family/weight keys and the chat text/width keys in `hooks/useChatAppear
 retained; no migration rewrites saved preferences. Font size changes notify the same consumers as
 font family changes. The session virtualizer includes UI-size growth in its row offsets.
 
+## Model settings context
+
+Model APIs use global Pi settings and global extensions when no working directory is selected. An
+explicit working directory retains path authorization, project trust, and project settings
+semantics. Global and project model lists have separate cache keys; default and reasoning edits
+still write global settings and refuse edits shadowed by the selected project's settings.
+
 ## Session flow
 
 1. Session APIs enumerate and read saved Pi sessions. Browsing does not itself require starting an

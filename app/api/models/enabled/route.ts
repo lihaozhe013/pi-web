@@ -22,7 +22,7 @@ import {
   type EnabledModelsView
 } from '@/lib/enabled-models-runtime';
 import type { EnabledModelsInput } from '@/lib/enabled-models';
-import { getModelRuntimeWithExtensions } from '@/lib/model-runtime';
+import { createGlobalModelSettings, getModelRuntimeWithExtensions } from '@/lib/model-runtime';
 import { withDeferredProviderModels } from '@/lib/deferred-provider-models';
 import { getAllowedFileRoots, isExistingFilePathAllowed } from '@/lib/file-access';
 import { invalidateModelsCache } from '@/lib/models-cache';
@@ -37,14 +37,16 @@ interface RequestContext {
   paths: { cwd: string; agentDir: string };
 }
 
-async function loadContext(cwd: string): Promise<RequestContext> {
+async function loadContext(cwd: string | null): Promise<RequestContext> {
   const modelRuntime = withDeferredProviderModels(await getModelRuntimeWithExtensions());
   const agentDir = getAgentDir();
   return {
     modelRuntime,
     models: await modelRuntime.getAvailable(),
-    settingsManager: SettingsManager.create(cwd, agentDir),
-    paths: { cwd, agentDir }
+    settingsManager: cwd
+      ? SettingsManager.create(cwd, agentDir)
+      : createGlobalModelSettings(agentDir),
+    paths: { cwd: cwd ?? agentDir, agentDir }
   };
 }
 
@@ -74,8 +76,10 @@ async function buildView(context: RequestContext): Promise<EnabledModelsView> {
  * shadowed. It is only read, never written, but it still points at a settings
  * file, so it goes through the same allow-list as `/api/files`.
  */
-async function resolveCwd(raw: string | null): Promise<{ cwd: string } | { error: Response }> {
-  if (!raw) return { cwd: process.cwd() };
+async function resolveCwd(
+  raw: string | null
+): Promise<{ cwd: string | null } | { error: Response }> {
+  if (!raw) return { cwd: null };
   const cwd = resolve(raw);
   let cwdStat;
   try {

@@ -13,6 +13,7 @@ import { resolveVisibleModels } from '@/lib/model-scope';
 import { withDeferredProviderModels } from '@/lib/deferred-provider-models';
 import { invalidateModelsCache } from '@/lib/models-cache';
 import { projectTrustReloadOptions } from '@/lib/project-trust';
+import { createGlobalModelSettings, getModelRuntimeWithExtensions } from '@/lib/model-runtime';
 
 export const dynamic = 'force-dynamic';
 
@@ -61,33 +62,40 @@ export async function PUT(req: Request) {
     );
   }
 
-  const cwd = resolve(typeof body.cwd === 'string' && body.cwd ? body.cwd : process.cwd());
-  let cwdStat;
-  try {
-    cwdStat = await stat(cwd);
-  } catch {
-    return Response.json({ error: `Directory does not exist: ${cwd}` }, { status: 400 });
-  }
-  if (!cwdStat.isDirectory()) {
-    return Response.json({ error: `Not a directory: ${cwd}` }, { status: 400 });
-  }
-  const allowedRoots = await getAllowedFileRoots();
-  if (!isExistingFilePathAllowed(cwd, allowedRoots)) {
-    return Response.json({ error: 'Access denied' }, { status: 403 });
+  const cwd = typeof body.cwd === 'string' && body.cwd ? resolve(body.cwd) : null;
+  if (cwd) {
+    let cwdStat;
+    try {
+      cwdStat = await stat(cwd);
+    } catch {
+      return Response.json({ error: `Directory does not exist: ${cwd}` }, { status: 400 });
+    }
+    if (!cwdStat.isDirectory()) {
+      return Response.json({ error: `Not a directory: ${cwd}` }, { status: 400 });
+    }
+    const allowedRoots = await getAllowedFileRoots();
+    if (!isExistingFilePathAllowed(cwd, allowedRoots)) {
+      return Response.json({ error: 'Access denied' }, { status: 403 });
+    }
   }
 
   try {
     const agentDir = getAgentDir();
-    const trustReloadOptions = projectTrustReloadOptions(cwd, agentDir);
-    const services = await createAgentSessionServices({
-      cwd,
-      agentDir,
-      ...(trustReloadOptions ? { resourceLoaderReloadOptions: trustReloadOptions } : {})
-    });
+    const trustReloadOptions = cwd ? projectTrustReloadOptions(cwd, agentDir) : undefined;
+    const services = cwd
+      ? await createAgentSessionServices({
+          cwd,
+          agentDir,
+          ...(trustReloadOptions ? { resourceLoaderReloadOptions: trustReloadOptions } : {})
+        })
+      : {
+          settingsManager: createGlobalModelSettings(agentDir),
+          modelRuntime: await getModelRuntimeWithExtensions()
+        };
     const { settingsManager } = services;
 
     const shadowed = shadowingProjectKeys(settingsManager, edit);
-    if (shadowed.length > 0) {
+    if (cwd && shadowed.length > 0) {
       const settingsPath = projectSettingsPath(cwd);
       return Response.json(
         {
