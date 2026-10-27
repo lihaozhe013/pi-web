@@ -2734,19 +2734,6 @@ select.mcp-add-input {
 /* Settings section for the custom tool presets (components/ToolPresetsSettings.tsx):
    the preset list beside an editor for the selected one, on the shared config
    panel styles. The intro sits above the split view, like a section's purpose line. */
-.tool-presets-intro {
-  flex-shrink: 0;
-  margin: 0;
-  padding: 0 16px 10px;
-  color: var(--text-muted);
-  font-size: calc(12px + var(--ui-font-size-offset, 0px));
-  line-height: 1.55;
-}
-
-.config-panel-root.is-modal .tool-presets-intro {
-  padding: 0 18px 10px;
-}
-
 .tool-presets-item-name {
   flex: 1;
   min-width: 0;
@@ -2853,6 +2840,33 @@ select.mcp-add-input {
   color: var(--text-muted);
   font-size: calc(12px + var(--ui-font-size-offset, 0px));
   line-height: 1.5;
+}
+
+/* Read-only reference rows (the built-in presets): the checkboxes are disabled,
+   so dim them and drop the pointer affordance; the "Built-in" tag beside the
+   title names the state in text, not by dimming alone. */
+.tool-presets-tag {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text-muted);
+  font-size: calc(10px + var(--ui-font-size-offset, 0px));
+  font-weight: 600;
+}
+
+.tool-presets-tool.is-readonly {
+  cursor: default;
+}
+
+.tool-presets-tool.is-readonly input[type='checkbox'] {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.tool-presets-tool.is-readonly code,
+.tool-presets-tool.is-readonly span {
+  color: var(--text-dim);
 }
 
 .tool-presets-summary {

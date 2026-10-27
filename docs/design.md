@@ -118,11 +118,12 @@ card on screen for its fade.
 
 The composer's tool menu lists the built-in presets first, then the user's custom ones, each named
 with its tool count, and ends with a single entry that opens Settings at the Tools section. The
-section shows the user's presets beside an editor for the selected one: a name, the built-in
-combinations to start from, and one checkbox per built-in coding tool. The draft stays local until
-Save replaces the whole list; Delete is a two-step button kept apart from Save. Deleting a preset
-keeps the sessions pinned to its tools and resolves their label to the configured defaults once
-the composer reloads its copy.
+section lists the built-in presets read-only above the user's own, so the list doubles as a
+reference, and shows an editor for the selected custom one: a name, the built-in combinations to
+start from, and one checkbox per built-in coding tool. The draft stays local until Save replaces
+the whole list; Delete is a two-step button kept apart from Save. Deleting a preset keeps the
+sessions pinned to its tools and resolves their label to the configured defaults once the
+composer reloads its copy.
 
 ## Questions near the composer
 

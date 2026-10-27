@@ -699,7 +699,7 @@ export const zhCNLocale: LocalePlugin = {
     'chat.customizeToolPresets': '自定义预设…',
     'chat.customPresetMissing': '自定义预设',
     'toolPresets.title': '自定义工具预设',
-    'toolPresets.description': '把内置工具组合成自己的预设，它们会出现在输入框的工具菜单里。',
+    'toolPresets.builtIn': '内置预设',
     'toolPresets.list': '我的预设',
     'toolPresets.newPreset': '新建预设',
     'toolPresets.untitled': '未命名预设',

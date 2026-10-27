@@ -3,6 +3,11 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { useI18n } from '@/hooks/useI18n';
 import {
+  PRESET_DEFAULT,
+  PRESET_FULL,
+  PRESET_READ_ONLY
+} from '@/lib/tool-presets';
+import {
   CANONICAL_CODING_TOOLS,
   CUSTOM_TOOL_PRESET_MAX_COUNT,
   CUSTOM_TOOL_PRESET_TOOLS,
@@ -13,6 +18,9 @@ import {
 import {
   ConfigButton,
   ConfigDetail,
+  ConfigDetailHeader,
+  ConfigDetailHeaderInfo,
+  ConfigDetailTitle,
   ConfigEmptyState,
   ConfigField,
   ConfigFooter,
@@ -28,13 +36,6 @@ import {
   ConfigSplitView
 } from './SettingsUi';
 
-interface Props {
-  embedded: boolean;
-  onClose: () => void;
-  /** The list was saved; the session's composer reloads its copy. */
-  onSaved: () => void;
-}
-
 /** The shell tool is stored canonically as `bash` and shown as one "shell" entry. */
 const SHELL_TOOL = 'bash';
 
@@ -45,10 +46,42 @@ const START_TOOLS: Record<'read-only' | 'default' | 'full', readonly string[]> =
 };
 
 /**
+ * The built-in presets, shown read-only beside the user's own so the list
+ * doubles as a reference. Ids carry a `builtin:` prefix, which custom ids
+ * (letters, digits, `_`, `-`) can never collide with. `tools: null` means the
+ * preset pins no list of its own.
+ */
+const BUILT_IN_PRESETS: {
+  id: string;
+  name: 'configured' | 'plan' | 'chat-only' | 'read-only' | 'default' | 'full';
+  descriptionKey: string;
+  tools: readonly string[] | null;
+}[] = [
+  { id: 'configured', name: 'configured', descriptionKey: 'chat.configuredTools', tools: null },
+  { id: 'plan', name: 'plan', descriptionKey: 'chat.planModeTools', tools: PRESET_READ_ONLY },
+  { id: 'chat-only', name: 'chat-only', descriptionKey: 'chat.chatOnly', tools: [] },
+  {
+    id: 'read-only',
+    name: 'read-only',
+    descriptionKey: 'chat.readOnlyTools',
+    tools: PRESET_READ_ONLY
+  },
+  { id: 'default', name: 'default', descriptionKey: 'chat.builtInTools', tools: PRESET_DEFAULT },
+  { id: 'full', name: 'full', descriptionKey: 'chat.allBuiltInTools', tools: PRESET_FULL }
+];
+
+interface Props {
+  embedded: boolean;
+  onClose: () => void;
+  /** The list was saved; the session's composer reloads its copy. */
+  onSaved: () => void;
+}
+
+/**
  * Settings section for the custom tool presets (`lib/custom-tool-presets.ts`):
- * the preset list beside an editor for the selected one. Edits stay in the
- * draft until Save replaces the whole server-side list; Delete is a two-step
- * button kept apart from Save.
+ * the built-in presets read-only, the user's presets beside an editor for the
+ * selected one. Custom edits stay in the draft until Save replaces the whole
+ * server-side list; Delete is a two-step button kept apart from Save.
  */
 export function ToolPresetsSettings({ embedded, onClose, onSaved }: Props) {
   const { t } = useI18n();
@@ -70,13 +103,17 @@ export function ToolPresetsSettings({ embedded, onClose, onSaved }: Props) {
           cache: 'no-store',
           signal: controller.signal
         });
-        const data = (await response.json()) as { presets?: CustomToolPreset[]; error?: string };
+        const data = (await response.json()) as {
+          presets?: CustomToolPreset[];
+          error?: string;
+        };
         if (!response.ok || data.error) throw new Error(data.error ?? `HTTP ${response.status}`);
         if (controller.signal.aborted) return;
         const presets = data.presets ?? [];
         setLoaded(presets);
         setDraft(presets.map((preset) => ({ ...preset, tools: [...preset.tools] })));
-        setSelectedId(presets[0]?.id ?? null);
+        // Land on the user's first preset, or on the reference list when none exist yet.
+        setSelectedId(presets[0]?.id ?? `builtin:${BUILT_IN_PRESETS[0].id}`);
       } catch (cause) {
         if (!controller.signal.aborted) {
           setError(cause instanceof Error ? cause.message : String(cause));
@@ -86,6 +123,14 @@ export function ToolPresetsSettings({ embedded, onClose, onSaved }: Props) {
     return () => controller.abort();
   }, []);
 
+  const selectedBuiltIn = selectedId?.startsWith('builtin:')
+    ? (BUILT_IN_PRESETS.find((preset) => `builtin:${preset.id}` === selectedId) ?? null)
+    : null;
+  // Extracted so the tool list's non-null type survives into the JSX callbacks.
+  const builtInView =
+    selectedBuiltIn && selectedBuiltIn.tools !== null
+      ? { ...selectedBuiltIn, tools: selectedBuiltIn.tools }
+      : null;
   const selected = draft.find((preset) => preset.id === selectedId) ?? null;
   const dirty =
     loaded !== null &&
@@ -112,9 +157,7 @@ export function ToolPresetsSettings({ embedded, onClose, onSaved }: Props) {
     if (!selected) return;
     const tools = selected.tools.includes(tool)
       ? selected.tools.filter((name) => name !== tool)
-      : CUSTOM_TOOL_PRESET_TOOLS.filter(
-          (name) => selected.tools.includes(name) || name === tool
-        );
+      : CUSTOM_TOOL_PRESET_TOOLS.filter((name) => selected.tools.includes(name) || name === tool);
     updateSelected({ tools });
   };
 
@@ -141,7 +184,7 @@ export function ToolPresetsSettings({ embedded, onClose, onSaved }: Props) {
     setDraft((current) => current.filter((preset) => preset.id !== selected.id));
     setSelectedId((current) => {
       const rest = draft.filter((preset) => preset.id !== current);
-      return rest[0]?.id ?? null;
+      return rest[0]?.id ?? `builtin:${BUILT_IN_PRESETS[0].id}`;
     });
     setConfirmingDelete(false);
     setError(null);
@@ -193,6 +236,16 @@ export function ToolPresetsSettings({ embedded, onClose, onSaved }: Props) {
   const nameError = selected
     ? customPresetNameError(draft, selected.id, selected.name)
     : undefined;
+  const builtInName = (preset: (typeof BUILT_IN_PRESETS)[number]): string =>
+    preset.name === 'plan'
+      ? t('chat.planMode')
+      : preset.name === 'chat-only'
+        ? t('chat.chatOnly')
+        : preset.name;
+  const builtInDescription = (preset: (typeof BUILT_IN_PRESETS)[number]): string =>
+    preset.descriptionKey === 'chat.readOnlyTools' || preset.descriptionKey === 'chat.builtInTools'
+      ? t(preset.descriptionKey, { count: 4 })
+      : t(preset.descriptionKey);
 
   return (
     <ConfigPanelShell
@@ -201,11 +254,28 @@ export function ToolPresetsSettings({ embedded, onClose, onSaved }: Props) {
       closeLabel={t('i18n.close')}
       onClose={onClose}
     >
-      <p className="tool-presets-intro">{t('toolPresets.description')}</p>
       <ConfigSplitView>
         <ConfigSidebar>
-          <ConfigSidebarGroupLabel>{t('toolPresets.list')}</ConfigSidebarGroupLabel>
           <ConfigSidebarList>
+            <ConfigSidebarGroupLabel>{t('toolPresets.builtIn')}</ConfigSidebarGroupLabel>
+            {BUILT_IN_PRESETS.map((preset) => (
+              <ConfigSidebarItem
+                key={preset.id}
+                active={selectedBuiltIn?.id === preset.id}
+                onClick={() => {
+                  setSelectedId(`builtin:${preset.id}`);
+                  setConfirmingDelete(false);
+                }}
+              >
+                <ConfigSidebarText className="tool-presets-item-name">
+                  {builtInName(preset)}
+                </ConfigSidebarText>
+                <ConfigSidebarText className="tool-presets-item-count">
+                  {preset.tools === null ? '' : preset.tools.length}
+                </ConfigSidebarText>
+              </ConfigSidebarItem>
+            ))}
+            <ConfigSidebarGroupLabel>{t('toolPresets.list')}</ConfigSidebarGroupLabel>
             {draft.map((preset) => (
               <ConfigSidebarItem
                 key={preset.id}
@@ -227,14 +297,48 @@ export function ToolPresetsSettings({ embedded, onClose, onSaved }: Props) {
           <ConfigListAction
             onClick={addPreset}
             disabled={atLimit}
-            title={atLimit ? t('toolPresets.limitReached', { count: CUSTOM_TOOL_PRESET_MAX_COUNT }) : undefined}
+            title={
+              atLimit
+                ? t('toolPresets.limitReached', { count: CUSTOM_TOOL_PRESET_MAX_COUNT })
+                : undefined
+            }
           >
             {t('toolPresets.newPreset')}
           </ConfigListAction>
         </ConfigSidebar>
 
         <ConfigDetail>
-          {selected ? (
+          {builtInView ? (
+            <div className="tool-presets-form">
+              <ConfigDetailHeader>
+                <ConfigDetailHeaderInfo>
+                  <ConfigDetailTitle>{builtInName(builtInView)}</ConfigDetailTitle>
+                  <span className="tool-presets-tag">{t('toolPresets.builtIn')}</span>
+                </ConfigDetailHeaderInfo>
+              </ConfigDetailHeader>
+              <p className="tool-presets-summary">
+                {builtInDescription(builtInView)}
+                {builtInView.tools.length > 0 && (
+                  <>
+                    {' · '}
+                    {t('toolPresets.summary', { tools: builtInView.tools.join(', ') })}
+                  </>
+                )}
+              </p>
+              {builtInView.tools.length > 0 && (
+                <fieldset className="tool-presets-tools">
+                  <ConfigSectionTitle>{t('toolPresets.tools')}</ConfigSectionTitle>
+                  {CANONICAL_CODING_TOOLS.map((tool) => (
+                    <label key={tool} className="tool-presets-tool is-readonly">
+                      <input type="checkbox" checked={builtInView.tools.includes(tool)} disabled readOnly />
+                      <code>{tool === SHELL_TOOL ? 'shell' : tool}</code>
+                      <span>{t(`toolPresets.tool.${tool}`)}</span>
+                    </label>
+                  ))}
+                </fieldset>
+              )}
+            </div>
+          ) : selected ? (
             <div className="tool-presets-form">
               <ConfigField label={t('toolPresets.name')}>
                 <input
@@ -314,17 +418,19 @@ export function ToolPresetsSettings({ embedded, onClose, onSaved }: Props) {
         }
       >
         {selected && (
-          <ConfigButton
-            variant="danger"
-            onClick={deleteSelected}
-            onBlur={() => setConfirmingDelete(false)}
-          >
-            {confirmingDelete ? t('toolPresets.deleteConfirm') : t('toolPresets.delete')}
-          </ConfigButton>
+          <>
+            <ConfigButton
+              variant="danger"
+              onClick={deleteSelected}
+              onBlur={() => setConfirmingDelete(false)}
+            >
+              {confirmingDelete ? t('toolPresets.deleteConfirm') : t('toolPresets.delete')}
+            </ConfigButton>
+            <ConfigButton variant="primary" onClick={() => void save()} disabled={saving || !dirty}>
+              {saving ? t('toolPresets.saving') : t('toolPresets.save')}
+            </ConfigButton>
+          </>
         )}
-        <ConfigButton variant="primary" onClick={() => void save()} disabled={saving || !dirty}>
-          {saving ? t('toolPresets.saving') : t('toolPresets.save')}
-        </ConfigButton>
       </ConfigFooter>
     </ConfigPanelShell>
   );

@@ -700,7 +700,7 @@ export const zhTWLocale: LocalePlugin = {
     'chat.customizeToolPresets': '自訂預設…',
     'chat.customPresetMissing': '自訂預設',
     'toolPresets.title': '自訂工具預設',
-    'toolPresets.description': '把內建工具組合成自己的預設，它們會出現在輸入框的工具選單裡。',
+    'toolPresets.builtIn': '內建預設',
     'toolPresets.list': '我的預設',
     'toolPresets.newPreset': '新增預設',
     'toolPresets.untitled': '未命名預設',

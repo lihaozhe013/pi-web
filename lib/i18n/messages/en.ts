@@ -716,8 +716,7 @@ export const enLocale: LocalePlugin = {
     'chat.customizeToolPresets': 'Customize presets…',
     'chat.customPresetMissing': 'Custom preset',
     'toolPresets.title': 'Customize tool presets',
-    'toolPresets.description':
-      'Combine the built-in tools into your own presets. They appear in the composer tool menu.',
+    'toolPresets.builtIn': 'Built-in',
     'toolPresets.list': 'Your presets',
     'toolPresets.newPreset': 'New preset',
     'toolPresets.untitled': 'Untitled preset',
