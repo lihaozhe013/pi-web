@@ -3,7 +3,6 @@ import { AskUserPanel, isAskUserRequest } from './AskUserPanel';
 import { ComposerActivity } from './ComposerActivity';
 import { mainTranscriptBlocks } from '@/lib/quiet-activity';
 import { ToolActivityProvider, liveToolIds } from './ToolActivity'; // display-only execution status
-import { ToolPresetEditorModal } from './ToolPresetEditorModal';
 import { registerAbortHandler } from '@/hooks/useKeyboardShortcuts';
 import Image from 'next/image';
 import {
@@ -127,6 +126,8 @@ interface Props {
   onSessionCreated?: (session: SessionInfo, sourceDraftKey: string) => void;
   onSessionForked?: (newSessionId: string) => void;
   modelsRefreshKey?: number;
+  /** Bumped when Settings › Tools saves; the composer reloads its preset copy. */
+  toolPresetsRefreshKey?: number;
   chatInputRef?: React.RefObject<ChatInputHandle | null>;
   onBranchDataChange?: (
     tree: SessionTreeNode[],
@@ -321,6 +322,7 @@ export function ChatWindow({
   onSessionCreated,
   onSessionForked,
   modelsRefreshKey,
+  toolPresetsRefreshKey,
   chatInputRef,
   onBranchDataChange,
   onSystemPromptChange,
@@ -376,18 +378,6 @@ export function ChatWindow({
     return position && !position.atBottom ? position : null;
   });
   const [restoreAnchorReady, setRestoreAnchorReady] = useState(false);
-
-  const [toolPresetEditorOpen, setToolPresetEditorOpen] = useState(false);
-  // A copy of the loaded tool definitions, so the preset editor can describe the
-  // tools it combines; the hook forwards the same value to the app's panel.
-  const [editorTools, setEditorTools] = useState<ToolEntry[] | null>(null);
-  const handleEditorToolsChange = useCallback(
-    (tools: ToolEntry[] | null) => {
-      setEditorTools(tools);
-      onSystemToolsChange?.(tools);
-    },
-    [onSystemToolsChange]
-  );
 
   const {
     loading,
@@ -462,7 +452,6 @@ export function ChatWindow({
     handleRecallQueue,
     handleBuiltinSlashCommand,
     handleToolPresetChange,
-    saveCustomToolPresets,
     handleThinkingLevelChange,
     handleSetDefaultModel,
     handleSetDefaultThinkingLevel,
@@ -485,10 +474,11 @@ export function ChatWindow({
     onSessionCreated,
     onSessionForked,
     modelsRefreshKey,
+    toolPresetsRefreshKey,
     chatInputRef,
     onBranchDataChange,
     onSystemPromptChange,
-    onSystemToolsChange: handleEditorToolsChange,
+    onSystemToolsChange,
     onSystemInfoLoaderChange,
     onSessionStatsPanelOpen,
     onOpenSettings,
@@ -1327,9 +1317,9 @@ export function ChatWindow({
       onToolPresetChange={session || isNew ? handleToolPresetChange : undefined}
       customToolPresets={customToolPresets}
       onManageToolPresets={
-        session || isNew
+        (session || isNew) && onOpenSettings
           ? () => {
-              setToolPresetEditorOpen(true);
+              onOpenSettings('tools');
             }
           : undefined
       }
@@ -2189,16 +2179,6 @@ export function ChatWindow({
         </div>
         {isEmptyNew && <div className="min-h-0 flex-1" />}
       </div>
-      {createPortal(
-        <ToolPresetEditorModal
-          open={toolPresetEditorOpen}
-          presets={customToolPresets}
-          tools={editorTools}
-          onSave={saveCustomToolPresets}
-          onClose={() => setToolPresetEditorOpen(false)}
-        />,
-        document.body
-      )}
     </ToolActivityProvider>
   );
 }

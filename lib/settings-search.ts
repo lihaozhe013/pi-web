@@ -141,6 +141,13 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     keywords:
       'model provider api key base url reasoning context 模型 提供商 供应商 密钥 上下文 推理'
   },
+  {
+    section: 'tools',
+    label: 'settings.tools',
+    description: 'settings.toolsDescription',
+    keywords:
+      'tool preset customize combine read bash edit write grep find ls 工具 预设 自定义 组合 組合 自訂'
+  },
   { section: 'skills', label: 'common.skills', keywords: 'skill install prompt 技能 安装 安裝' },
   {
     section: 'agents',
@@ -179,6 +186,7 @@ export const SETTINGS_SECTION_LABELS: Record<SettingsSection, string> = {
   instructions: 'settings.globalInstructions',
   appearance: 'settings.appearance',
   models: 'common.models',
+  tools: 'settings.tools',
   skills: 'common.skills',
   agents: 'common.agents',
   plugins: 'common.plugins',

@@ -3,6 +3,7 @@ export const SETTINGS_SECTION_VALUES = [
   'instructions',
   'appearance',
   'models',
+  'tools',
   'skills',
   'agents',
   'plugins',
@@ -67,7 +68,8 @@ function readState(storage: StorageLike): SettingsNavigationState {
 }
 
 function selectionKey(section: SettingsDetailSection, cwd?: string | null): string | null {
-  if (section === 'models') return section;
+  // Models and Tools are global: their selection needs no project.
+  if (section === 'models' || section === 'tools') return section;
   if (cwd) return JSON.stringify([section, cwd]);
   // MCP works without a project; its selection then lives under the bare name,
   // which no project key (always an array) can collide with.

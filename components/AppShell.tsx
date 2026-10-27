@@ -233,6 +233,8 @@ export function AppShell() {
   );
   const [settingsSection, setSettingsSection] = useState<SettingsSection | null>(null);
   const [modelsRefreshKey, setModelsRefreshKey] = useState(0);
+  // Bumped when Settings › Tools saves; the session's composer reloads its preset copy.
+  const [toolPresetsRefreshKey, setToolPresetsRefreshKey] = useState(0);
   const [projectTrust, setProjectTrust] = useState<ProjectTrustStatus | null>(null);
   const [projectTrustDialogOpen, setProjectTrustDialogOpen] = useState(false);
   const [projectTrustBusy, setProjectTrustBusy] = useState(false);
@@ -2545,6 +2547,7 @@ export function AppShell() {
                 onSessionCreated={handleSessionCreated}
                 onSessionForked={handleSessionForked}
                 modelsRefreshKey={modelsRefreshKey}
+                toolPresetsRefreshKey={toolPresetsRefreshKey}
                 chatInputRef={chatInputRef}
                 onBranchDataChange={handleBranchDataChange}
                 onSystemPromptChange={handleSystemPromptChange}
@@ -3169,6 +3172,7 @@ export function AppShell() {
           projectTrust={projectTrust}
           onOpenTrustDialog={openProjectTrustDialog}
           onProjectTrustChanged={handleProjectTrustChanged}
+          onToolPresetsChanged={() => setToolPresetsRefreshKey((key) => key + 1)}
         />
       )}
       {/* After Settings, so it opens above it (z-index 1100 over 1000) when Settings › MCP asks for it. */}

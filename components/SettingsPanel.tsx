@@ -22,6 +22,7 @@ import { ModelsConfig } from './ModelsConfig';
 import { PluginsConfig } from './PluginsConfig';
 import { ConfigButton, ConfigSwitch } from './SettingsUi';
 import { SkillsConfig } from './SkillsConfig';
+import { ToolPresetsSettings } from './ToolPresetsSettings';
 
 interface Props {
   cwd: string | null;
@@ -37,6 +38,8 @@ interface Props {
   onOpenTrustDialog?: () => void;
   /** Settings › MCP added a project server, which changed `cwd`'s trust (and may have trusted a fresh folder). */
   onProjectTrustChanged?: (cwd: string, status: ProjectTrustStatus) => void;
+  /** Settings › Tools saved the custom tool presets; the composer reloads its copy. */
+  onToolPresetsChanged?: () => void;
 }
 
 export function SettingsSectionIcon({
@@ -89,6 +92,12 @@ export function SettingsSectionIcon({
         <rect x="4" y="4" width="16" height="16" rx="2" />
         <rect x="9" y="9" width="6" height="6" />
         <path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 15h3M1 9h3M1 15h3" />
+      </svg>
+    );
+  if (section === 'tools')
+    return (
+      <svg {...common}>
+        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
       </svg>
     );
   if (section === 'skills')
@@ -464,7 +473,8 @@ export function SettingsPanel({
   onQuoteSelectionChange,
   projectTrust,
   onOpenTrustDialog,
-  onProjectTrustChanged
+  onProjectTrustChanged,
+  onToolPresetsChanged
 }: Props) {
   const { t } = useI18n();
   const [section, setSection] = useState<SettingsSection>(initialSection);
@@ -479,6 +489,7 @@ export function SettingsPanel({
       { id: 'instructions', label: t('settings.globalInstructions') },
       { id: 'appearance', label: t('settings.appearance') },
       { id: 'models', label: t('common.models') },
+      { id: 'tools', label: t('settings.tools') },
       { id: 'skills', label: t('common.skills') },
       { id: 'agents', label: t('common.agents') },
       { id: 'plugins', label: t('common.plugins') },
@@ -674,6 +685,15 @@ export function SettingsPanel({
               />
             )}
             {sectionHost('models', <ModelsConfig embedded cwd={cwd} onClose={onClose} />)}
+            {/* No project needed: the custom presets are global, like the composer's other presets. */}
+            {sectionHost(
+              'tools',
+              <ToolPresetsSettings
+                embedded
+                onClose={onClose}
+                onSaved={() => onToolPresetsChanged?.()}
+              />
+            )}
             {/* Visited sections stay mounted, so the ones whose answer depends on trust take the page's
               status and load again in place when trusting from Settings › MCP changes it. */}
             {cwd &&

@@ -2730,3 +2730,135 @@ select.mcp-add-input {
     }
   }
 }
+
+/* Settings section for the custom tool presets (components/ToolPresetsSettings.tsx):
+   the preset list beside an editor for the selected one, on the shared config
+   panel styles. The intro sits above the split view, like a section's purpose line. */
+.tool-presets-intro {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0 16px 10px;
+  color: var(--text-muted);
+  font-size: calc(12px + var(--ui-font-size-offset, 0px));
+  line-height: 1.55;
+}
+
+.config-panel-root.is-modal .tool-presets-intro {
+  padding: 0 18px 10px;
+}
+
+.tool-presets-item-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-presets-item-count {
+  flex-shrink: 0;
+  color: var(--text-dim);
+  font-size: calc(10px + var(--ui-font-size-offset, 0px));
+}
+
+.tool-presets-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 12px 16px 16px;
+}
+
+.tool-presets-name-input {
+  width: 100%;
+  max-width: 320px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-panel);
+  color: var(--text);
+  font-size: calc(13px + var(--ui-font-size-offset, 0px));
+  outline: none;
+}
+
+.tool-presets-name-input:focus-visible {
+  border-color: var(--accent);
+}
+
+.tool-presets-name-input[aria-invalid='true'] {
+  border-color: #ef4444;
+}
+
+.tool-presets-field-error {
+  margin: 4px 0 0;
+  color: #ef4444;
+  font-size: calc(11px + var(--ui-font-size-offset, 0px));
+  line-height: 1.45;
+}
+
+.tool-presets-start {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* One tool per row, its checkbox at the left: a label wraps the control, so the
+   whole row toggles. Rows stay tall enough for a comfortable touch target. */
+.tool-presets-tools {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.tool-presets-tool {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  min-height: 34px;
+  padding: 6px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  cursor: pointer;
+}
+
+.tool-presets-tool:last-of-type {
+  border-bottom: 0;
+}
+
+.tool-presets-tool input[type='checkbox'] {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.tool-presets-tool input[type='checkbox']:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.tool-presets-tool code {
+  flex-shrink: 0;
+  min-width: 56px;
+  color: var(--text);
+  font-size: calc(11px + var(--ui-font-size-offset, 0px));
+  font-weight: 600;
+}
+
+.tool-presets-tool span {
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: calc(12px + var(--ui-font-size-offset, 0px));
+  line-height: 1.5;
+}
+
+.tool-presets-summary {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: calc(11px + var(--ui-font-size-offset, 0px));
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}

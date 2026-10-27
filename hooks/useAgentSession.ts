@@ -40,8 +40,7 @@ import {
   type ToolPresetSelection
 } from '@/lib/tool-presets';
 import type {
-  CustomToolPreset,
-  CustomToolPresetDocument
+  CustomToolPreset
 } from '@/lib/custom-tool-presets-shared';
 import type { WorkMode } from '@/lib/work-mode';
 import type { SessionStatsInfo } from '@/lib/pi-types';
@@ -242,6 +241,8 @@ export interface UseAgentSessionOptions {
   onSessionStatsPanelOpen?: () => void;
   /** Opens Settings on a section; a bare `/mcp` the built-in MCP extension owns opens Settings › MCP. */
   onOpenSettings?: (section: SettingsSection) => void;
+  /** Bumped when Settings › Tools saves the presets; the composer reloads its copy. */
+  toolPresetsRefreshKey?: number;
   setToolPreset?: (preset: ToolPresetSelection) => void;
   deferInitialScroll?: boolean;
   /** A fresh composer's model and reasoning picks to start with: the composer it replaces had them. */
@@ -411,6 +412,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     onSessionCreated,
     onSessionForked,
     modelsRefreshKey,
+    toolPresetsRefreshKey = 0,
     onBranchDataChange,
     onSystemPromptChange,
     onSystemToolsChange,
@@ -637,7 +639,8 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   }, [existingSessionId, isNew, setToolPresetState]);
 
   // Custom presets are shared, not per-session: one read on mount, refreshed
-  // after each editor save. A failed read leaves the built-in presets working.
+  // when Settings › Tools saves a new list (toolPresetsRefreshKey bumps).
+  // A failed read leaves the built-in presets working.
   useEffect(() => {
     let cancelled = false;
     fetch('/api/tools/presets')
@@ -649,7 +652,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [toolPresetsRefreshKey]);
 
   const onNewSessionChoicesChange = opts.onNewSessionChoicesChange;
   useEffect(() => {
@@ -3070,21 +3073,6 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     ]
   );
 
-  /** Replaces the whole custom preset list server-side and adopts the saved copy. */
-  const saveCustomToolPresets = useCallback(async (document: CustomToolPresetDocument) => {
-    const res = await fetch('/api/tools/presets', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(document)
-    });
-    if (!res.ok) {
-      const body = (await res.json().catch(() => null)) as { error?: unknown } | null;
-      throw new Error(typeof body?.error === 'string' ? body.error : `HTTP ${res.status}`);
-    }
-    const saved = (await res.json()) as { presets?: CustomToolPreset[] };
-    if (saved.presets) setCustomToolPresets(saved.presets);
-  }, []);
-
   const scrollToMessage = useCallback((element: HTMLElement, viewportOffset = 16) => {
     const container = scrollContainerRef.current;
     if (!container) return;
@@ -3559,7 +3547,6 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     addNotice,
     setNoticePaused: setPausedNoticeId,
     handleToolPresetChange,
-    saveCustomToolPresets,
     handleThinkingLevelChange,
     handleSetDefaultModel,
     handleSetDefaultThinkingLevel,
