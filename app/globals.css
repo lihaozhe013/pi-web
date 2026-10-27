@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import './directory-picker.css';
 /* Agent worktrees: scanning them makes webpack snapshot their symlinked
    node_modules, which crashes `next build` with "reading 'length'". */
 @source not "../.claude";

@@ -986,18 +986,26 @@ export function SessionSidebar({
   );
   const handleDefaultCwd = useCallback(
     async (purpose: 'project' | 'new-session' = 'project') => {
+      if (customPathValidating) return;
+      setCustomPathValidating(true);
+      setCustomPathError(null);
       try {
         const res = await fetch('/api/default-cwd', { method: 'POST' });
         const data = (await res.json()) as { cwd?: string; error?: string };
         // Select it like any other directory, so validation, project identity and
         // the file allow-list all go through /api/cwd/validate. It is not a path
         // the user typed, so the custom-path picker does not remember it.
-        if (data.cwd) await commitCustomPath(data.cwd, { remember: false, purpose });
-      } catch {
-        // ignore
+        if (!res.ok || data.error || !data.cwd) {
+          throw new Error(data.error ?? `HTTP ${res.status}`);
+        }
+        await commitCustomPath(data.cwd, { remember: false, purpose });
+      } catch (cause) {
+        setCustomPathError(cause instanceof Error ? cause.message : String(cause));
+      } finally {
+        setCustomPathValidating(false);
       }
     },
-    [commitCustomPath]
+    [commitCustomPath, customPathValidating]
   );
   // The composer's bar asks through the handle, which is made once.
   const handleDefaultCwdRef = useRef(handleDefaultCwd);
@@ -2611,6 +2619,7 @@ export function SessionSidebar({
       {customPathOpen && (
         <DirectoryPicker
           initialPath={customPathValue}
+          onUseDefaultDirectory={() => void handleDefaultCwd(customPathOpen)}
           busy={customPathValidating}
           error={customPathError}
           onCancel={() => {

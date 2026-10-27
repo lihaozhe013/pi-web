@@ -27,6 +27,12 @@ preservation, skip, three viewport widths, and light/dark themes. Screenshots us
 `test-results/e2e/` directory. Runtime request metadata, replay, cancellation, and tool results are
 covered separately by `lib/ask-user.integration.test.mjs`.
 
+Run `node e2e/directory-picker.mjs` for isolated project-directory dialog coverage without a server
+or personal sessions. It exercises the real component with a mocked filesystem: browsing versus
+selection, the one-click default action and failures, local filtering, inline creation, keyboard
+focus and Escape, draft preservation, and light/dark layouts at desktop, tablet, phone and landscape
+sizes. It does not exercise the live filesystem or the sidebar's validation API integration.
+
 Live provider prompts and real agent execution require separate validation. Native phone keyboards
 also need real-device testing.
 

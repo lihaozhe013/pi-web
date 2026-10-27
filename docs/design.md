@@ -128,6 +128,19 @@ pending question does not also show a raw tool card in the main transcript; comp
 inspectable and raw history is unchanged. Other extensions continue using their existing dialogs and
 custom panels.
 
+## Opening a project
+
+The directory dialog separates two actions: a prominent one-click **Open in default location** uses
+today's `~/pi-cwd/YYYYMMDD` folder through the existing default-directory and validation APIs; the
+browser below chooses another folder. Default picks do not overwrite the remembered custom path.
+Folder rows navigate, while **Open this folder** commits the location displayed in the footer.
+Editing a path requires Go before committing. Loading and failed navigation disable that commit. A
+local name filter narrows only the current folder's children. New folders are created inline and
+browsed before selection, without a second modal. The dialog contains keyboard focus, restores its
+opener, and handles Escape locally (closing an unfinished new-folder form first). Errors stay
+visible and failed navigation offers Retry. The layout keeps the destination and action buttons
+outside the scrolling directory list, including on phones.
+
 ## Navigation and accessibility
 
 The conversation directory uses a lightweight overlay entry point rather than a permanent column.
