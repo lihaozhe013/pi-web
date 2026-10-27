@@ -30,6 +30,11 @@ sessions in process; Bun manages dependencies and script invocation.
 the appearance editor. `lib/settings-search.ts` is a metadata-only index with stable control IDs,
 translated labels and availability hints. Searches do not read persisted configuration content.
 
+Settings › Global AGENTS.md edits Pi's user-level context file from `getAgentDir()` as plain text.
+`components/GlobalAgentsConfig.tsx` reads and saves it through `app/api/global-agents`;
+`lib/global-agents-file.ts` keeps the path fixed, bounds the file at 1 MiB, and replaces it
+atomically. There is no Markdown preview or general file access on that route.
+
 `hooks/useFontPreferences.ts` restores UI/monospace families, weights and independent sizes,
 publishes CSS variables, persists browser preferences and synchronizes font changes between tabs.
 Existing family/weight keys and the chat text/width keys in `hooks/useChatAppearance.ts` are

@@ -1084,6 +1084,42 @@
   overflow: auto;
 }
 
+.global-agents-description {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: calc(12px + var(--ui-font-size-offset, 0px));
+  line-height: 1.5;
+}
+
+/* Settings › Global AGENTS.md: the whole pane is the plain-text editor. */
+.global-agents-editor {
+  flex: 1;
+  width: 100%;
+  min-height: 240px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-panel);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: calc(12px + var(--ui-font-size-offset, 0px));
+  line-height: 1.6;
+  outline: none;
+  overflow: auto;
+  resize: none;
+  tab-size: 2;
+  white-space: pre;
+}
+
+.global-agents-editor::placeholder {
+  color: var(--text-dim);
+}
+
+.global-agents-editor:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
 .config-add-source-examples {
   display: flex;
   flex-direction: column;

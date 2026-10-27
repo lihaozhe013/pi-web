@@ -130,6 +130,12 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     availability: 'auth'
   },
   {
+    section: 'instructions',
+    label: 'settings.globalInstructions',
+    description: 'globalAgents.description',
+    keywords: 'AGENTS.md global instructions context memory 全局 全域 指令 上下文 记忆 記憶'
+  },
+  {
     section: 'models',
     label: 'common.models',
     keywords:
@@ -170,6 +176,7 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
 
 export const SETTINGS_SECTION_LABELS: Record<SettingsSection, string> = {
   general: 'settings.general',
+  instructions: 'settings.globalInstructions',
   appearance: 'settings.appearance',
   models: 'common.models',
   skills: 'common.skills',

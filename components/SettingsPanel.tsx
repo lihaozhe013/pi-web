@@ -14,6 +14,7 @@ import { focusModalPanel, listenForPanelEscape } from '@/lib/stacked-dialog';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { AgentsConfig } from './AgentsConfig';
 import { AppearanceSettings } from './AppearanceSettings';
+import { GlobalAgentsConfig } from './GlobalAgentsConfig';
 import { SettingsSearch } from './SettingsSearch';
 import type { SettingsSearchEntry } from '@/lib/settings-search';
 import { McpConfig } from './McpConfig';
@@ -73,6 +74,13 @@ export function SettingsSectionIcon({
       <svg {...common}>
         <circle cx="12" cy="12" r="9" />
         <path d="M12 3v18M12 8h7M12 13h8M12 18h5" />
+      </svg>
+    );
+  if (section === 'instructions')
+    return (
+      <svg {...common}>
+        <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z" />
+        <path d="M14 3v6h6M8 13h8M8 17h6" />
       </svg>
     );
   if (section === 'models')
@@ -468,6 +476,7 @@ export function SettingsPanel({
   const sections: { id: SettingsSection; label: string; requiresProject: boolean }[] = (
     [
       { id: 'general', label: t('settings.general') },
+      { id: 'instructions', label: t('settings.globalInstructions') },
       { id: 'appearance', label: t('settings.appearance') },
       { id: 'models', label: t('common.models') },
       { id: 'skills', label: t('common.skills') },
@@ -655,6 +664,15 @@ export function SettingsPanel({
               />
             )}
             {sectionHost('appearance', <AppearanceSettings />)}
+            {sectionHost(
+              'instructions',
+              <GlobalAgentsConfig
+                embedded
+                sessionId={sessionId}
+                onClose={onClose}
+                onReloaded={onSessionReloaded}
+              />
+            )}
             {sectionHost('models', <ModelsConfig embedded cwd={cwd} onClose={onClose} />)}
             {/* Visited sections stay mounted, so the ones whose answer depends on trust take the page's
               status and load again in place when trusting from Settings › MCP changes it. */}
