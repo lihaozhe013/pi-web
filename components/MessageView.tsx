@@ -222,7 +222,6 @@ interface Props {
   message: AgentMessage;
   isStreaming?: boolean;
   toolResults?: Map<string, ToolResultMessage>;
-  modelNames?: Record<string, string>;
   cwd?: string;
   onOpenFile?: (filePath: string, page?: number) => void;
   onOpenSubagent?: (sessionId: string, label: string) => void;
@@ -248,29 +247,6 @@ interface Props {
   onCompact?: () => void;
   isCompacting?: boolean;
   compactError?: string | null;
-}
-
-export function getModelDisplayName(
-  provider: string,
-  responseModel: string,
-  modelNames?: Record<string, string>
-): string {
-  const normalizedProvider = provider.toLowerCase();
-  const normalizedResponse = responseModel.toLowerCase();
-  const configured = Object.entries(modelNames ?? {}).flatMap(([key, name]) => {
-    const separator = key.indexOf(':');
-    return separator > 0 && key.slice(0, separator).toLowerCase() === normalizedProvider
-      ? [{ id: key.slice(separator + 1).toLowerCase(), name }]
-      : [];
-  });
-  return (
-    configured.find((model) => model.id === normalizedResponse)?.name ??
-    configured.find((model) => normalizedResponse.endsWith(`/${model.id}`))?.name ??
-    Object.entries(modelNames ?? {}).find(
-      ([key]) => key.toLowerCase() === normalizedResponse
-    )?.[1] ??
-    `${provider}/${responseModel}`
-  );
 }
 
 function formatTime(ts?: number): string | null {
@@ -332,7 +308,6 @@ export const MessageView = memo(
     message,
     isStreaming,
     toolResults,
-    modelNames,
     cwd,
     onOpenFile,
     onOpenSubagent,
@@ -373,7 +348,6 @@ export const MessageView = memo(
           message={message as AssistantMessage}
           isStreaming={isStreaming}
           toolResults={toolResults}
-          modelNames={modelNames}
           cwd={cwd}
           onOpenFile={onOpenFile}
           onOpenSubagent={onOpenSubagent}
@@ -412,7 +386,6 @@ export const MessageView = memo(
       prev.message === next.message &&
       prev.isStreaming === next.isStreaming &&
       haveSameRelevantToolResults(prev.message, prev.toolResults, next.toolResults) &&
-      prev.modelNames === next.modelNames &&
       prev.cwd === next.cwd &&
       prev.onOpenFile === next.onOpenFile &&
       prev.onOpenSubagent === next.onOpenSubagent &&
@@ -888,7 +861,6 @@ function AssistantMessageView({
   message,
   isStreaming,
   toolResults,
-  modelNames,
   cwd,
   onOpenFile,
   onOpenSubagent,
@@ -906,7 +878,6 @@ function AssistantMessageView({
   message: AssistantMessage;
   isStreaming?: boolean;
   toolResults?: Map<string, ToolResultMessage>;
-  modelNames?: Record<string, string>;
   cwd?: string;
   onOpenFile?: (filePath: string, page?: number) => void;
   onOpenSubagent?: (sessionId: string, label: string) => void;
@@ -1083,86 +1054,71 @@ function AssistantMessageView({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {/* Model label */}
-      <div
-        style={{
-          fontSize: 11,
-          color: 'var(--text-dim)',
-          marginBottom: 4,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6
-        }}
-      >
-        {message.provider && (
-          <span>{getModelDisplayName(message.provider, message.model, modelNames)}</span>
-        )}
-        {isStreaming &&
-          (() => {
-            const est = Math.round(estimatedTokens);
-            return (
-              <>
-                {est > 0 && (
-                  <span
-                    style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text)' }}
-                    title={t('i18n.estimatedTokens')}
-                  >
-                    <span
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 2,
-                        fontSize: 11,
-                        fontWeight: 400
-                      }}
-                    >
-                      <svg
-                        width="10"
-                        height="10"
-                        viewBox="0 0 10 10"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <line x1="5" y1="1.5" x2="5" y2="8.5" />
-                        <polyline points="2 6 5 8.5 8 6" />
-                      </svg>
-                      {est}
-                    </span>
-                    {tps !== null &&
-                      (() => {
-                        const bg =
-                          tps >= 50
-                            ? '#53b3cb'
-                            : tps >= 30
-                              ? '#9bc53d'
-                              : tps >= 15
-                                ? '#f9c22e'
-                                : '#e01a4f';
-                        return (
-                          <span
-                            style={{
-                              marginLeft: 6,
-                              padding: '1px 6px',
-                              borderRadius: 4,
-                              background: bg,
-                              color: '#fff',
-                              fontSize: 11,
-                              fontWeight: 400
-                            }}
-                          >
-                            {tps.toFixed(1)} t/s
-                          </span>
-                        );
-                      })()}
-                  </span>
-                )}
-              </>
-            );
-          })()}
-      </div>
+      {/* Streaming stats: estimated tokens and rate; gone once the turn settles. */}
+      {isStreaming && Math.round(estimatedTokens) > 0 && (
+        <div
+          style={{
+            fontSize: 11,
+            color: 'var(--text-dim)',
+            marginBottom: 4,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6
+          }}
+        >
+          <span
+            style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text)' }}
+            title={t('i18n.estimatedTokens')}
+          >
+            <span
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 2,
+                fontSize: 11,
+                fontWeight: 400
+              }}
+            >
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 10 10"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <line x1="5" y1="1.5" x2="5" y2="8.5" />
+                <polyline points="2 6 5 8.5 8 6" />
+              </svg>
+              {Math.round(estimatedTokens)}
+            </span>
+            {tps !== null && (
+              <span
+                style={{
+                  marginLeft: 6,
+                  padding: '1px 6px',
+                  borderRadius: 4,
+                  background:
+                    tps >= 50
+                      ? '#53b3cb'
+                      : tps >= 30
+                        ? '#9bc53d'
+                        : tps >= 15
+                          ? '#f9c22e'
+                          : '#e01a4f',
+                  color: '#fff',
+                  fontSize: 11,
+                  fontWeight: 400
+                }}
+              >
+                {tps.toFixed(1)} t/s
+              </span>
+            )}
+          </span>
+        </div>
+      )}
 
       {/* Keep activity steps visually distinct from the message body. */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -1271,16 +1227,9 @@ function AssistantMessageView({
           marginTop: 4
         }}
       >
-        {(message.usage || turnDurationMs !== undefined) && !isStreaming && (
+        {turnDurationMs !== undefined && !isStreaming && (
           <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-            {[
-              message.usage ? formatUsage(message.usage) : null,
-              turnDurationMs !== undefined
-                ? t('chat.turnDuration', { time: formatTurnDuration(turnDurationMs) })
-                : null
-            ]
-              .filter(Boolean)
-              .join(' \u00b7 ')}
+            {t('chat.turnDuration', { time: formatTurnDuration(turnDurationMs) })}
           </div>
         )}
         {textContent && !isStreaming && (
@@ -3160,22 +3109,6 @@ function getToolPreview(block: ToolCallContent): string {
   return String(first).slice(0, 120);
 }
 
-function formatUsage(usage: {
-  input: number;
-  output: number;
-  cacheRead: number;
-  cacheWrite: number;
-  cost: { total: number };
-}): string {
-  const parts = [];
-  if (usage.input) parts.push(`${usage.input.toLocaleString()} in`);
-  if (usage.output) parts.push(`${usage.output.toLocaleString()} out`);
-  if (usage.cacheRead) parts.push(`${usage.cacheRead.toLocaleString()} cache R`);
-  if (usage.cacheWrite) parts.push(`${usage.cacheWrite.toLocaleString()} cache W`);
-  if (usage.cost?.total) parts.push(`$${usage.cost.total.toFixed(4)}`);
-  return parts.join(' · ');
-}
-
 function BashExecutionView({
   message,
   sessionId
@@ -3242,10 +3175,11 @@ function BashExecutionView({
 
   // A command the user ran itself keeps its live card, and folds it away when it
   // ends: hold it until it has been visible long enough to be read, then fade.
-  const { open: cardOpen, exiting: cardExiting, fading: cardFading } = useExitHold(
-    isPending || isError,
-    { minVisibleMs: TOOL_CARD_MIN_VISIBLE_MS }
-  );
+  const {
+    open: cardOpen,
+    exiting: cardExiting,
+    fading: cardFading
+  } = useExitHold(isPending || isError, { minVisibleMs: TOOL_CARD_MIN_VISIBLE_MS });
 
   if (!cardOpen) return null;
 

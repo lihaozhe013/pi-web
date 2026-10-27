@@ -1540,7 +1540,6 @@ export function ChatWindow({
                             key={`${keyPrefix}-view-${messageKey}`}
                             message={msg}
                             toolResults={toolResultsMap}
-                            modelNames={modelNames}
                             cwd={messageCwd}
                             onOpenFile={onOpenFile}
                             onOpenSubagent={onOpenSubagent}
@@ -1838,7 +1837,6 @@ export function ChatWindow({
                         store={streamingStore}
                         onCommit={updatePromptAnchor}
                         toolResults={toolResultsMap}
-                        modelNames={modelNames}
                         cwd={messageCwd}
                         onOpenFile={onOpenFile}
                         onOpenSubagent={onOpenSubagent}
@@ -2156,7 +2154,6 @@ const StreamingReply = memo(function StreamingReply({
   store,
   onCommit,
   toolResults,
-  modelNames,
   cwd,
   onOpenFile,
   onOpenSubagent
@@ -2165,7 +2162,6 @@ const StreamingReply = memo(function StreamingReply({
   /** Runs after each chunk is in the DOM. */
   onCommit: () => void;
   toolResults: Map<string, ToolResultMessage>;
-  modelNames: Record<string, string>;
   cwd?: string;
   onOpenFile?: (filePath: string, page?: number) => void;
   onOpenSubagent?: (sessionId: string, label: string) => void;
@@ -2178,7 +2174,6 @@ const StreamingReply = memo(function StreamingReply({
       message={message}
       toolResults={toolResults}
       isStreaming
-      modelNames={modelNames}
       cwd={cwd}
       onOpenFile={onOpenFile}
       onOpenSubagent={onOpenSubagent}

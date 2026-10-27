@@ -16,7 +16,6 @@ const {
   PatchDiffFiles,
   ThinkingBlock,
   formatToolDuration,
-  getModelDisplayName,
   getToolCallInputText,
   replaceUserMessageText
 } = await jiti.import('./MessageView.tsx');
@@ -60,17 +59,6 @@ test('updates a reused message when its written files change', () => {
     MessageView.compare(props, { ...props, writtenFiles: [{ path: '/tmp/result.txt' }] }),
     false
   );
-});
-
-test('matches response model aliases and otherwise includes the provider', () => {
-  const names = {
-    'gateway:claude-sonnet-5': 'Sonnet 5',
-    'custom-api:GLM-5.3': 'GLM 5.3'
-  };
-
-  assert.equal(getModelDisplayName('gateway', 'anthropic/claude-sonnet-5', names), 'Sonnet 5');
-  assert.equal(getModelDisplayName('CUSTOM-API', 'glm-5.3', names), 'GLM 5.3');
-  assert.equal(getModelDisplayName('gateway', 'unknown-model', names), 'gateway/unknown-model');
 });
 
 test('labels collapsed thinking without a preview and reveals the full text when expanded', () => {
