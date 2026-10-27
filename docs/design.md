@@ -76,7 +76,7 @@ Current main-transcript behavior:
 - A tool card appears when the call actually starts executing, and not while the model is still
   writing its arguments: a half-streamed JSON blob would intrude, while a running call's card is the
   progress the user asked for. A shell or codemode card therefore opens at execution with its live
-  output and, once it has succeeded, lingers until the card has been visible for about two seconds
+  output and, once it has succeeded, lingers open until the card has been visible for about two seconds
   from its start — so a command that finished in a blink still reads as a step rather than a flash,
   while a long one has already been on screen — and then folds out of the main transcript; failures
   retain an inspectable error summary.

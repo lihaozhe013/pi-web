@@ -1666,7 +1666,10 @@ function ToolCallBlock({
     (isApplyPatchToolName(block.toolName) && applyPatchResultHasFailures(result?.details));
   const activityState = useToolState(block.toolCallId, result !== undefined, toolError);
   const toolState = executing ? 'running' : activityState;
-  const expanded = expansionOverride ?? isToolCardExpandedByDefault(block.toolName, toolState);
+  // A card on its way out (`exiting`) keeps however it stood, so an open shell
+  // or codemode card lingers open with its result until its fade, not folded.
+  const expanded =
+    expansionOverride ?? (exiting || isToolCardExpandedByDefault(block.toolName, toolState));
   // A card only moves when it lived in this page: a call that was still running
   // at mount. Restored history, a re-render or a scroll never replays the fade.
   const [enteredLive] = useState(() => toolState === 'running' || toolState === 'pending');
@@ -1739,8 +1742,8 @@ function ToolCallBlock({
   const codeLanguage = isStreamingInput ? undefined : toolCodeLanguage(block.toolName, block.input);
 
   // A shell or codemode card leaves the transcript once it succeeded; while it
-  // is on its way out (`exiting`) it keeps drawing itself, folded to its header
-  // — first held visibly, then fading (`fading`).
+  // is on its way out (`exiting`) it keeps drawing itself as it stood — open —
+  // first held visibly, then fading (`fading`).
   if ((shellTool || codemodeTool) && toolState === 'success' && !exiting) return null;
 
   return (
