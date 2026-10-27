@@ -41,7 +41,6 @@ import {
   ArchiveIcon,
   BranchIcon,
   ChevronIcon,
-  FolderPlusIcon,
   MoreIcon,
   PinIcon,
   PlusIcon,
@@ -133,7 +132,6 @@ export interface SessionTreeProps {
   onToggleArchiveGroup?(projectKey: string, all: boolean): void;
   /** An archive header's ⋯: Restore all, Delete…. */
   onArchiveGroupMenu?(project: SidebarProject, opener: HTMLElement): void;
-  onOpenOtherProject(opener: HTMLElement): void;
   onOpenArchive(): void;
   /** Scroll a row into view (and maybe focus it); see SessionTreeReveal. */
   reveal?: SessionTreeReveal | null;
@@ -1231,19 +1229,6 @@ const PlainRowView = memo(function PlainRowView({
           data-row-key={row.key}
         >
           {t('sidebar.noLiveSessions')}
-        </div>
-      );
-    case 'footer-open':
-      return (
-        <div className="session-tree-row session-tree-footer" style={style} data-row-key={row.key}>
-          <button
-            type="button"
-            className="session-tree-footer-button"
-            onClick={(event) => handlers.current.onOpenOtherProject(event.currentTarget)}
-          >
-            <FolderPlusIcon size={12} />
-            <span className="session-tree-footer-label">{t('sidebar.openOtherProject')}</span>
-          </button>
         </div>
       );
     case 'footer-archived':

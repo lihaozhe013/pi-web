@@ -82,6 +82,7 @@ import {
   type RefObject
 } from 'react';
 import { DirectoryPicker } from './DirectoryPicker';
+import { NewSessionChooser } from './NewSessionChooser';
 import { PiWebTitle } from './PiWebTitle';
 import { SessionSearch } from './SessionSearch';
 import { sessionRowTitle, SessionTree, type SessionTreeReveal } from './SessionTree';
@@ -173,7 +174,7 @@ export interface SessionSidebarControl {
     onPicked: (target: NewSessionTarget) => void,
     returnFocusTo: HTMLElement | null
   ): void;
-  /** "Use default directory": today's ~/pi-cwd folder, validated as the folder picker's, goes to `onPicked`. */
+  /** "Start without a project": today's scratch folder, validated as the folder picker's, goes to `onPicked`. */
   openDefaultDirectoryForNewSession(onPicked: (target: NewSessionTarget) => void): void;
 }
 
@@ -472,8 +473,13 @@ export function SessionSidebar({
   const [sessionDetailsLoaded, setSessionDetailsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedCwd, setSelectedCwd] = useState<string | null>(null);
-  // Directory selection from the session list or a fresh composer.
-  const [customPathOpen, setCustomPathOpen] = useState<false | 'project' | 'new-session'>(false);
+  // The folder picker, and who asked for it: the composer's bar moves itself
+  // there (`new-session`), while the sidebar's "New" dialog starts a session.
+  const [customPathOpen, setCustomPathOpen] = useState<false | 'new-session' | 'start-session'>(
+    false
+  );
+  // The header's "New": one dialog with the two ways to begin.
+  const [newSessionChooserOpen, setNewSessionChooserOpen] = useState(false);
   const [customPathValue, setCustomPathValue] = useState(loadLastCustomCwd);
   const [customPathError, setCustomPathError] = useState<string | null>(null);
   const [customPathValidating, setCustomPathValidating] = useState(false);
@@ -557,7 +563,7 @@ export function SessionSidebar({
   const [uiWriteFailures, setUiWriteFailures] = useState(0);
   const shownUiWriteFailuresRef = useRef(0);
   const contextMenuFocusRef = useRef<HTMLElement | null>(null);
-  // The composer's "Open another project…": where the validated folder goes,
+  // The composer's "Add a project…": where the validated folder goes,
   // and the control focus returns to when the composer does not move.
   const folderPickRef = useRef<((target: NewSessionTarget) => void) | null>(null);
   const folderReturnFocusRef = useRef<HTMLElement | null>(null);
@@ -590,6 +596,8 @@ export function SessionSidebar({
   } = useSessionUiState();
 
   const headerRef = useRef<HTMLDivElement>(null);
+  // Where focus returns when the "New" dialog or the folder picker closes.
+  const newButtonRef = useRef<HTMLButtonElement>(null);
   // The toolbar row's search button: always there and enabled, so focus has
   // somewhere to go when there are no tabs (selectedTabButton).
   const searchButtonRef = useRef<HTMLButtonElement>(null);
@@ -929,7 +937,7 @@ export function SessionSidebar({
     t
   ]);
 
-  // `purpose`: who asked, the folder picker's opener by default ("Use default directory" names its own).
+  // `purpose`: who asked, the sidebar's "New" dialog or the composer's bar.
   const commitCustomPath = useCallback(
     async (candidate?: string, { remember = true, purpose = customPathOpen } = {}) => {
       const path = (candidate ?? customPathValue).trim();
@@ -970,12 +978,14 @@ export function SessionSidebar({
           focusAfterCommit(() => (opener?.isConnected ? opener : null));
           return;
         }
-        setValidatedProject({
+        // The "New" dialog asked for a project: the conversation starts there.
+        setNewSessionChooserOpen(false);
+        startNewSessionInRef.current({
           cwd: data.cwd,
-          root: data.projectRoot,
-          key: data.projectKey
+          projectKey: data.projectKey,
+          projectRoot: data.projectRoot
         });
-        setSelectedCwd(data.cwd);
+        focusAfterCommit(() => (newButtonRef.current?.isConnected ? newButtonRef.current : null));
       } catch (e) {
         setCustomPathError(e instanceof Error ? e.message : String(e));
       } finally {
@@ -985,7 +995,7 @@ export function SessionSidebar({
     [customPathOpen, customPathValue, customPathValidating, focusAfterCommit]
   );
   const handleDefaultCwd = useCallback(
-    async (purpose: 'project' | 'new-session' = 'project') => {
+    async (purpose: 'new-session' | 'start-session' = 'new-session') => {
       if (customPathValidating) return;
       setCustomPathValidating(true);
       setCustomPathError(null);
@@ -1039,7 +1049,7 @@ export function SessionSidebar({
     },
     [onNewSession]
   );
-  // The handle below is made once: it calls the newest closure.
+  // The callbacks above run later than this render: they call the newest closure.
   const startNewSessionInRef = useRef(startNewSessionIn);
   startNewSessionInRef.current = startNewSessionIn;
 
@@ -1062,11 +1072,16 @@ export function SessionSidebar({
     []
   );
 
-  // Header "+": a new session in the sidebar's current cwd (worktree).
-  const handleNewSession = useCallback(() => {
-    if (!selectedCwd) return;
-    startNewSessionIn({ cwd: selectedCwd });
-  }, [selectedCwd, startNewSessionIn]);
+  // Header "New": choose a project to add, or a conversation without one.
+  const openNewSessionChooser = useCallback(() => {
+    setCustomPathError(null);
+    setNewSessionChooserOpen(true);
+  }, []);
+  const closeNewSessionChooser = useCallback(() => {
+    setNewSessionChooserOpen(false);
+    setCustomPathError(null);
+    focusAfterCommit(() => (newButtonRef.current?.isConnected ? newButtonRef.current : null));
+  }, [focusAfterCommit]);
 
   const recentProjects = useMemo(() => getRecentProjects(allSessions), [allSessions]);
 
@@ -2207,11 +2222,6 @@ export function SessionSidebar({
     window.open(newSessionDeepLink(cwd), '_blank', 'noopener,noreferrer');
   };
 
-  const handleOpenOtherProject = () => {
-    setCustomPathOpen('project');
-    setCustomPathError(null);
-  };
-
   const sessionMenuItems = (row: SessionRow): SidebarMenuItem[] =>
     sessionMenuEntries(row.context, row.status).map((entry, index) => {
       if (entry.kind === 'separator') return { type: 'separator', id: `separator-${index}` };
@@ -2605,7 +2615,6 @@ export function SessionSidebar({
     onGroupMenu: handleGroupMenu,
     onToggleArchiveGroup: handleToggleArchiveGroup,
     onArchiveGroupMenu: handleArchiveGroupMenu,
-    onOpenOtherProject: handleOpenOtherProject,
     onOpenArchive: () => openArchiveView(),
     // The archive view has no group rows: only the main tree's can be dragged.
     onMoveGroup: moveProject
@@ -2616,21 +2625,48 @@ export function SessionSidebar({
 
   return (
     <div ref={sidebarRef} className={`session-sidebar${toast ? ' has-toast' : ''}`}>
+      {newSessionChooserOpen && (
+        <NewSessionChooser
+          onClose={closeNewSessionChooser}
+          onAddProject={() => {
+            setNewSessionChooserOpen(false);
+            setCustomPathError(null);
+            setCustomPathOpen('start-session');
+          }}
+          onStartWithoutProject={() => void handleDefaultCwd('start-session')}
+          busy={customPathValidating}
+          error={customPathError}
+        />
+      )}
       {customPathOpen && (
         <DirectoryPicker
           initialPath={customPathValue}
-          onUseDefaultDirectory={() => void handleDefaultCwd(customPathOpen)}
+          onBack={
+            customPathOpen === 'start-session'
+              ? () => {
+                  setCustomPathOpen(false);
+                  setCustomPathError(null);
+                  setNewSessionChooserOpen(true);
+                }
+              : undefined
+          }
           busy={customPathValidating}
           error={customPathError}
           onCancel={() => {
-            // The composer's "Open another project…" puts focus back on its
-            // control: the picker took it and leaves nothing behind.
+            // The composer's "Add a project…" puts focus back on its control:
+            // the picker took it and leaves nothing behind.
             const opener = customPathOpen === 'new-session' ? folderReturnFocusRef.current : null;
             folderPickRef.current = null;
             folderReturnFocusRef.current = null;
             setCustomPathOpen(false);
             setCustomPathError(null);
-            if (opener) focusAfterCommit(() => (opener.isConnected ? opener : null));
+            focusAfterCommit(() =>
+              opener?.isConnected
+                ? opener
+                : newButtonRef.current?.isConnected
+                  ? newButtonRef.current
+                  : null
+            );
           }}
           onSelect={(path) => void commitCustomPath(path)}
         />
@@ -2640,15 +2676,13 @@ export function SessionSidebar({
         <PiWebTitle onWidthChange={fitHeader} />
         <span className="sidebar-header-spacer" />
         <button
+          ref={newButtonRef}
           type="button"
           className="sidebar-new-button"
-          onClick={handleNewSession}
-          disabled={!selectedCwd}
-          title={
-            selectedCwd
-              ? t('sidebar.newSessionTitle', { path: selectedCwd })
-              : t('sidebar.selectProject')
-          }
+          onClick={openNewSessionChooser}
+          title={t('sidebar.newSession')}
+          aria-haspopup="dialog"
+          aria-expanded={newSessionChooserOpen}
         >
           <PlusIcon size={12} />
           <span className="sidebar-new-label">{t('sidebar.new')}</span>

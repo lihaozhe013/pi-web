@@ -195,7 +195,8 @@ export async function checkProjectNavigation({
         await input.fill('Keep this source-tab draft');
         await showSessions();
         const sourceUrl = page.url();
-        const sourceCwd = await page.locator('.sidebar-new-button').getAttribute('title');
+        const currentToggle = '.session-tree-group.is-current .session-tree-group-toggle';
+        const sourceCwd = await page.locator(currentToggle).getAttribute('title');
         for (const [key, cwd, label] of [
           [current.projectKey, current.cwd, 'current worktree'],
           [other.projectKey, other.projectRoot, 'other project'],
@@ -213,7 +214,7 @@ export async function checkProjectNavigation({
           assert.equal(page.url(), sourceUrl);
           assert.equal(await selected(page).getAttribute('href'), `?session=${fixture.id}`);
           assert.equal(await input.inputValue(), 'Keep this source-tab draft');
-          assert.equal(await page.locator('.sidebar-new-button').getAttribute('title'), sourceCwd);
+          assert.equal(await page.locator(currentToggle).getAttribute('title'), sourceCwd);
           assert.equal(
             await group(key).locator('.session-tree-group-toggle').getAttribute('aria-expanded'),
             expanded

@@ -7,6 +7,7 @@ import './globals.css';
 import './settings.css';
 import './sidebar.css';
 import './sidebar-menu.css';
+import './new-session-chooser.css';
 import './workspace.css';
 import './tool-cards.css';
 import './catppuccin.css';

@@ -1,7 +1,7 @@
 import { homedir } from 'os';
 import path from 'path';
 
-// "Use default directory" opens a fresh folder per day, ~/pi-cwd/<YYYYMMDD>.
+// "Start without a project" opens a fresh folder per day, ~/pi-cwd/<YYYYMMDD>.
 // The date keeps a first-time user from landing in a folder that already holds
 // their own data, and doubles as a daily scratch cwd.
 const DEFAULT_CWD_PARENT = 'pi-cwd';

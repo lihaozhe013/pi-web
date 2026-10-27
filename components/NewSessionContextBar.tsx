@@ -18,9 +18,9 @@ interface Props {
   onInitialFocusDone: () => void;
   /** Start the fresh composer over in `target`; the shell ignores a move to where it already is. */
   onPick: (target: NewSessionTarget, from: NewSessionContextControl) => void;
-  /** "Use default directory": today's folder, which goes to `onPick`. */
-  onUseDefaultDirectory: () => void;
-  /** "Open another project…": the folder picker, which hands its folder to `onPick`. */
+  /** "Start without a project": today's scratch folder, which goes to `onPick`. */
+  onStartWithoutProject: () => void;
+  /** "Add a project…": the folder picker, which hands its folder to `onPick`. */
   onOpenFolder: (opener: HTMLElement | null) => void;
 }
 
@@ -31,7 +31,7 @@ export function NewSessionContextBar({
   initialFocus,
   onInitialFocusDone,
   onPick,
-  onUseDefaultDirectory,
+  onStartWithoutProject,
   onOpenFolder
 }: Props) {
   const { t } = useI18n();
@@ -60,7 +60,7 @@ export function NewSessionContextBar({
         mobile={mobile}
         label={t('workspace.newSessionContext')}
         onPick={onPick}
-        onUseDefaultDirectory={onUseDefaultDirectory}
+        onStartWithoutProject={onStartWithoutProject}
         onOpenFolder={onOpenFolder}
       />
     </div>

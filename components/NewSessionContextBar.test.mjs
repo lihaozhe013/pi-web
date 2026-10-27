@@ -24,7 +24,7 @@ function render(value = context, mobile = false) {
         initialFocus: null,
         onInitialFocusDone() {},
         onPick() {},
-        onUseDefaultDirectory() {},
+        onStartWithoutProject() {},
         onOpenFolder() {}
       })
     )

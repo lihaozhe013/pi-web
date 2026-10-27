@@ -1175,7 +1175,7 @@ export function AppShell() {
         initialFocus={newSessionBarFocusRef.current}
         onInitialFocusDone={handleNewSessionBarFocusDone}
         onPick={handlePickNewSessionContext}
-        onUseDefaultDirectory={handleDefaultDirectoryForNewSession}
+        onStartWithoutProject={handleDefaultDirectoryForNewSession}
         onOpenFolder={handleOpenFolderForNewSession}
       />
     ) : null;

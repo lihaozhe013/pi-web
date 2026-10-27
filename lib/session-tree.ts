@@ -36,7 +36,6 @@ export type SidebarRowKind =
   | 'group-more'
   | 'group-empty'
   | 'spacer'
-  | 'footer-open'
   | 'footer-archived'
   | 'archive-group';
 
@@ -57,7 +56,6 @@ export const SIDEBAR_ROW_HEIGHTS: Record<SidebarLayout, Record<SidebarRowKind, n
     'group-more': 26,
     'group-empty': 28,
     spacer: 8,
-    'footer-open': 28,
     'footer-archived': 28,
     'archive-group': 28
   },
@@ -69,7 +67,6 @@ export const SIDEBAR_ROW_HEIGHTS: Record<SidebarLayout, Record<SidebarRowKind, n
     'group-more': 36,
     'group-empty': 44,
     spacer: 8,
-    'footer-open': 44,
     'footer-archived': 44,
     'archive-group': 44
   }
@@ -144,7 +141,6 @@ export type SidebarRow =
     }
   | { kind: 'group-empty'; key: string; project: SidebarProject }
   | { kind: 'spacer'; key: 'pinned-spacer' | 'footer-spacer' }
-  | { kind: 'footer-open'; key: 'footer-open' }
   | { kind: 'footer-archived'; key: 'footer-archived'; count: number }
   | {
       kind: 'archive-group';
@@ -696,11 +692,14 @@ export function buildSessionTree(input: SessionTreeInput): SessionTreeModel {
 
   // Groups sit right on each other, open or folded: a gap between two of
   // them would only push the next header away. One spacer parts them from
-  // the footer, as one parts the pinned section from them.
-  if (orderedProjects.length > 0) rows.push({ kind: 'spacer', key: 'footer-spacer' });
-  rows.push({ kind: 'footer-open', key: 'footer-open' });
+  // the archive footer, as one parts the pinned section from them.
+  if (orderedProjects.length > 0 && archivedCount > 0)
+    rows.push({ kind: 'spacer', key: 'footer-spacer' });
   if (archivedCount > 0)
     rows.push({ kind: 'footer-archived', key: 'footer-archived', count: archivedCount });
+  // A spacer parts two things: with nothing below the pinned section, it would
+  // just hang under the last row.
+  if (rows.at(-1)?.kind === 'spacer') rows.pop();
 
   return {
     rows,

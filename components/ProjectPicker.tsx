@@ -21,7 +21,7 @@ interface Props {
   layout: 'inline';
   handleRef?: Ref<ProjectPickerHandle>;
   onPick: (target: NewSessionTarget, from: ProjectControl) => void;
-  onUseDefaultDirectory: () => void;
+  onStartWithoutProject: () => void;
   onOpenFolder: (opener: HTMLElement | null) => void;
 }
 
@@ -32,7 +32,7 @@ export function ProjectPicker({
   label,
   handleRef,
   onPick,
-  onUseDefaultDirectory,
+  onStartWithoutProject,
   onOpenFolder
 }: Props) {
   const { t } = useI18n();
@@ -65,13 +65,13 @@ export function ProjectPicker({
     {
       type: 'item',
       id: 'default',
-      label: t('sidebar.useDefaultDirectory'),
-      onSelect: onUseDefaultDirectory
+      label: t('sidebar.startWithoutProject'),
+      onSelect: onStartWithoutProject
     },
     {
       type: 'item',
       id: 'browse',
-      label: t('sidebar.openOtherProject'),
+      label: t('sidebar.addProject'),
       onSelect: () => onOpenFolder(buttonRef.current)
     }
   );

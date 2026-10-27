@@ -23,7 +23,7 @@ try {
     import { I18nProvider } from ${JSON.stringify(join(root, 'hooks/useI18n.tsx'))};
     import { DirectoryPicker } from ${JSON.stringify(join(root, 'components/DirectoryPicker.tsx'))};
     window.picks = [];
-    window.defaultCount = 0;
+    window.backCount = 0;
     function Harness() {
       const [open, setOpen] = useState(false);
       const [busy, setBusy] = useState(false);
@@ -33,15 +33,7 @@ try {
         {open && <DirectoryPicker initialPath="/projects" busy={busy} error={error}
           onCancel={() => setOpen(false)}
           onSelect={path => { window.picks.push(path); setOpen(false); }}
-          onUseDefaultDirectory={async () => {
-            window.defaultCount++;
-            setBusy(true); setError(null);
-            const res = await fetch('/api/default-cwd', { method: 'POST' });
-            const data = await res.json();
-            if (res.ok) { window.picks.push(data.cwd); setOpen(false); }
-            else setError(data.error);
-            setBusy(false);
-          }} />}
+          onBack={() => { window.backCount++; setOpen(false); }} />}
       </I18nProvider>;
     }
     createRoot(document.querySelector('#root')).render(<Harness />);
@@ -65,7 +57,6 @@ try {
   assert.equal(build.status, 0, build.stdout + build.stderr);
   browser = await chromium.launch({ headless: true });
   const page = await browser.newPage({ locale: 'en-US' });
-  let failDefault = false;
   let failCreate = false;
   let browseCount = 0;
   await page.route('http://directory.test/**', async (route) => {
@@ -77,12 +68,6 @@ try {
         contentType: 'text/html',
         body: '<!doctype html><html><body><div id="root"></div></body></html>'
       });
-    if (url.pathname === '/api/default-cwd') {
-      await new Promise((resolve) => setTimeout(resolve, 150));
-      return failDefault
-        ? reply({ error: 'Permission denied' }, 500)
-        : reply({ cwd: '/home/test/pi-cwd/20260622' });
-    }
     if (route.request().method() === 'POST') {
       const { path, name } = route.request().postDataJSON();
       return failCreate
@@ -138,9 +123,10 @@ try {
   await page.keyboard.press('Tab');
   assert.equal(
     await dialog
-      .getByRole('button', { name: 'Close', exact: true })
+      .getByRole('button', { name: 'Back', exact: true })
       .evaluate((el) => el === document.activeElement),
-    true
+    true,
+    'Tab wraps to the first control, Back'
   );
   const filter = dialog.getByRole('searchbox', { name: 'Filter folders…' });
   const beforeFilter = browseCount;
@@ -203,18 +189,10 @@ try {
   await dialog.waitFor({ state: 'hidden' });
 
   await open();
-  failDefault = true;
-  await dialog.getByRole('button', { name: /Open in default location/ }).click();
-  await dialog.getByRole('alert').waitFor();
-  failDefault = false;
-  await dialog.getByRole('button', { name: /Open in default location/ }).dblclick();
+  await dialog.getByRole('button', { name: 'Back', exact: true }).click();
   await dialog.waitFor({ state: 'hidden' });
-  assert.equal(
-    await page.evaluate(() => window.defaultCount),
-    2,
-    'busy default ignores duplicate clicks'
-  );
-  assert.equal((await page.evaluate(() => window.picks)).at(-1), '/home/test/pi-cwd/20260622');
+  assert.equal(await page.evaluate(() => window.backCount), 1, 'back returns to the choices');
+  assert.deepEqual(await page.evaluate(() => window.picks), ['/projects/alpha']);
   assert.equal(
     await page.getByRole('textbox', { name: 'Draft', exact: true }).inputValue(),
     'Keep my draft'
@@ -255,7 +233,7 @@ try {
     }
   }
   console.log(
-    'Directory picker: navigation, default shortcut, failures, creation, focus, drafts and responsive themes passed.'
+    'Directory picker: navigation, back, failures, creation, focus, drafts and responsive themes passed.'
   );
 } finally {
   await browser?.close();

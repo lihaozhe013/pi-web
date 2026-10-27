@@ -19,7 +19,8 @@ interface BrowseResponse {
 interface Props {
   onCancel: () => void;
   onSelect: (path: string) => void;
-  onUseDefaultDirectory: () => void;
+  /** Back to the choices this picker is one step of; no button is shown without it. */
+  onBack?: () => void;
   initialPath?: string;
   busy?: boolean;
   error?: string | null;
@@ -45,7 +46,7 @@ function FolderIcon() {
 export function DirectoryPicker({
   onCancel,
   onSelect,
-  onUseDefaultDirectory,
+  onBack,
   initialPath,
   busy = false,
   error
@@ -202,9 +203,34 @@ export function DirectoryPicker({
         }}
       >
         <header className="directory-picker-header">
-          <div>
-            <h2 id="directory-picker-title">{t('directoryPicker.openProject')}</h2>
-            <p id="directory-picker-description">{t('directoryPicker.description')}</p>
+          <div className="directory-picker-heading">
+            {onBack && (
+              <button
+                type="button"
+                className="directory-picker-back-link"
+                onClick={onBack}
+                disabled={locked}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="m15 6-6 6 6 6" />
+                </svg>
+                <span>{t('directoryPicker.back')}</span>
+              </button>
+            )}
+            <div>
+              <h2 id="directory-picker-title">{t('directoryPicker.openProject')}</h2>
+              <p id="directory-picker-description">{t('directoryPicker.description')}</p>
+            </div>
           </div>
           <button
             type="button"
@@ -216,22 +242,6 @@ export function DirectoryPicker({
             ×
           </button>
         </header>
-
-        <button
-          type="button"
-          className="directory-picker-default"
-          onClick={onUseDefaultDirectory}
-          disabled={locked}
-        >
-          <span className="directory-picker-default-icon">
-            <FolderIcon />
-          </span>
-          <span className="directory-picker-default-copy">
-            <strong>{t('directoryPicker.openDefault')}</strong>
-            <span>{t('directoryPicker.defaultDescription')}</span>
-          </span>
-          <span aria-hidden="true">›</span>
-        </button>
 
         <section className="directory-picker-browser" aria-label={t('directoryPicker.browseOther')}>
           <div className="directory-picker-section-title">{t('directoryPicker.browseOther')}</div>
