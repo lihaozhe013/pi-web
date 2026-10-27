@@ -25,6 +25,7 @@ const { splitFinalAssistantBlocks } = await jiti.import('@/lib/message-display')
 const { clearExpandedToolCalls, setToolCallExpanded } = await jiti.import(
   '@/lib/tool-call-expansion'
 );
+const { ToolActivityProvider } = await jiti.import('./ToolActivity');
 const { parseUnifiedPatch } = await jiti.import('@/lib/patch');
 
 function renderMessage(message, props = {}) {
@@ -941,16 +942,33 @@ function codemodeCall(toolCallId, code) {
   return { type: 'toolCall', toolCallId, toolName: 'codemode', input: { code } };
 }
 
-function renderCodemode(block, result) {
-  return renderMessage(
+function renderCodemode(block, result, runningId) {
+  const view = React.createElement(
+    MessageView,
     {
-      role: 'assistant',
-      provider: 'anthropic',
-      model: 'claude-test',
-      content: [block]
-    },
-    { toolResults: new Map(result ? [[block.toolCallId, result]] : []) }
+      message: {
+        role: 'assistant',
+        provider: 'anthropic',
+        model: 'claude-test',
+        content: [block]
+      },
+      toolResults: new Map(result ? [[block.toolCallId, result]] : [])
+    }
   );
+  // A running script keeps its card only while the run reports it as live
+  // (lib/quiet-activity.ts); the provider stands in for that report.
+  const tree =
+    runningId === undefined
+      ? view
+      : React.createElement(
+          ToolActivityProvider,
+          {
+            phase: { kind: 'running_tools', tools: [{ id: runningId }] },
+            partialResults: new Map()
+          },
+          view
+        );
+  return renderToStaticMarkup(React.createElement(I18nProvider, null, tree));
 }
 
 const CODEMODE_SCRIPT =
@@ -959,9 +977,12 @@ const CODEMODE_SCRIPT =
 test('collapses a codemode call to its first script line and call count', (t) => {
   const block = codemodeCall('call-codemode-collapsed', CODEMODE_SCRIPT);
   t.after(() => setToolCallExpanded(block.toolCallId, false));
+  // A succeeded script leaves the transcript like a shell, so the collapsed
+  // header is asserted on a failed one, which keeps its card.
   const html = renderCodemode(block, {
     role: 'toolResult',
     toolCallId: block.toolCallId,
+    isError: true,
     content: [
       { type: 'text', text: 'Script completed\nWall time 0.1 seconds\nOutput:\n' },
       { type: 'text', text: '3' }
@@ -1055,22 +1076,36 @@ test("shows a running script's calls without an empty output", (t) => {
   const block = codemodeCall('call-codemode-running', 'await tools.read({ path: "a" })');
   setToolCallExpanded(block.toolCallId, true);
   t.after(() => setToolCallExpanded(block.toolCallId, false));
-  const html = renderCodemode(block, {
-    role: 'toolResult',
-    toolCallId: block.toolCallId,
-    content: [],
-    details: {
-      calls: [
-        { id: 'call-codemode-running/201', name: 'read', args: '{"path":"a"}', status: 'running' }
-      ],
-      omittedCalls: 200
-    }
-  });
+  const html = renderCodemode(
+    block,
+    {
+      role: 'toolResult',
+      toolCallId: block.toolCallId,
+      content: [],
+      details: {
+        calls: [
+          { id: 'call-codemode-running/201', name: 'read', args: '{"path":"a"}', status: 'running' }
+        ],
+        omittedCalls: 200
+      }
+    },
+    block.toolCallId
+  );
   const text = textOf(html);
   assert.match(text, /201 calls/);
   assert.match(text, /200 earlier calls not shown/);
   assert.match(html, /aria-label="Running"/);
   assert.doesNotMatch(text, /No output/i);
+});
+
+test('a codemode call that succeeded leaves no card, like a shell', () => {
+  const block = codemodeCall('call-codemode-done', CODEMODE_SCRIPT);
+  const html = renderCodemode(block, {
+    role: 'toolResult',
+    toolCallId: block.toolCallId,
+    content: [{ type: 'text', text: '3' }]
+  });
+  assert.equal(textOf(html), '');
 });
 
 test('a codemode call with no script falls back to a plain body', (t) => {
@@ -1093,8 +1128,9 @@ test('a codemode call with no script falls back to a plain body', (t) => {
   setToolCallExpanded(other.toolCallId, true);
   t.after(() => setToolCallExpanded(other.toolCallId, false));
   // An argument this view does not understand is still an argument: no script box,
-  // but the flat row shows it.
-  const otherHtml = renderCodemode(other, resultOf(other));
+  // but the flat row shows it. A failed call keeps its card, so the fallback body
+  // is asserted on one.
+  const otherHtml = renderCodemode(other, resultOf(other, { isError: true }));
   assert.match(otherHtml, /<table/);
   assert.match(otherHtml, />x<\/td>/);
   assert.doesNotMatch(textOf(otherHtml), /"script": "x"/);
@@ -1160,12 +1196,14 @@ test('keeps the registered name where no result names the server and tool', (t) 
   assert.doesNotMatch(unnamed, /docs_v2\//);
 
   // A codemode script's calls carry only that name, which is also what the script calls.
+  // The failed result keeps the card a success would have folded away.
   const script = codemodeCall('call-codemode-mcp', 'await tools.mcp__docs_v2__search_pages({})');
   setToolCallExpanded(script.toolCallId, true);
   t.after(() => setToolCallExpanded(script.toolCallId, false));
   const html = renderCodemode(script, {
     role: 'toolResult',
     toolCallId: script.toolCallId,
+    isError: true,
     content: [{ type: 'text', text: 'Script completed\nWall time 0.1 seconds\nOutput:\n' }],
     details: {
       calls: [

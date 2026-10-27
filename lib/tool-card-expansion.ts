@@ -1,8 +1,9 @@
 /**
- * Writes and edits default open; shells and patches open only during execution.
- * Explicit choices continue to take precedence over these lifecycle defaults.
+ * Writes and edits default open; shells, patches, and codemode open only during
+ * execution. Explicit choices continue to take precedence over these lifecycle defaults.
  */
 
+import { CODEMODE_TOOL_NAME } from './codemode-view';
 import {
   isWriteToolName,
   isEditToolName,
@@ -23,7 +24,10 @@ export function isToolCardExpandedByDefault(
   return (
     isWriteToolName(toolName) ||
     isEditToolName(toolName) ||
-    (state === 'running' && (isShellToolName(toolName) || isApplyPatchToolName(toolName)))
+    (state === 'running' &&
+      (isShellToolName(toolName) ||
+        isApplyPatchToolName(toolName) ||
+        toolName === CODEMODE_TOOL_NAME))
   );
 }
 

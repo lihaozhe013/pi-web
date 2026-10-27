@@ -1728,6 +1728,7 @@ function ToolCallBlock({
     (result?.isError ?? false) ||
     (isApplyPatchToolName(block.toolName) && applyPatchResultHasFailures(result?.details));
   const shellTool = isShellToolName(block.toolName);
+  const codemodeTool = block.toolName === CODEMODE_TOOL_NAME;
   // Only a long shell result folds: a short one reads whole, as before.
   const shellTail = shellTool && resultText !== null ? shellOutputTail(resultText) : null;
   const subagent = isSubagentToolDetails(result?.details) ? result.details : null;
@@ -1737,10 +1738,10 @@ function ToolCallBlock({
   // is colored while the input is still streaming JSON.
   const codeLanguage = isStreamingInput ? undefined : toolCodeLanguage(block.toolName, block.input);
 
-  // A shell card leaves the transcript once it succeeded; while it is on its way
-  // out (`exiting`) it keeps drawing itself, folded to its header — first held
-  // visibly, then fading (`fading`).
-  if (shellTool && toolState === 'success' && !exiting) return null;
+  // A shell or codemode card leaves the transcript once it succeeded; while it
+  // is on its way out (`exiting`) it keeps drawing itself, folded to its header
+  // — first held visibly, then fading (`fading`).
+  if ((shellTool || codemodeTool) && toolState === 'success' && !exiting) return null;
 
   return (
     <ToolCodeLanguageProvider lang={codeLanguage}>
