@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { stripTypeScriptTypes } from 'node:module';
 import test from 'node:test';
-import ts from 'typescript5';
 import { bareMcpOpensSettings } from '../lib/mcp-command.ts';
+import { astNodes, declarationName, nodeText, parseSource } from '../lib/source-testing.mjs';
 
 // A bare /mcp opens Settings › MCP when pi's built-in MCP extension owns it, or
 // when the session has no /mcp at all (ADR 0006, lib/mcp-command.ts). These tests
@@ -11,38 +12,20 @@ import { bareMcpOpensSettings } from '../lib/mcp-command.ts';
 const read = async (path) =>
   (await readFile(new URL(path, import.meta.url), 'utf8')).replace(/\r\n/g, '\n');
 const hookSource = await read('./useAgentSession.ts');
-const hookFile = ts.createSourceFile(
-  'useAgentSession.ts',
-  hookSource,
-  ts.ScriptTarget.Latest,
-  true,
-  ts.ScriptKind.TS
-);
+const hookNodes = astNodes(parseSource(hookSource, 'useAgentSession.ts'));
 
 /** The function a `const <name> = useCallback(fn, deps)` declaration wraps, as JavaScript. */
 function callbackSource(name) {
-  let found;
-  const visit = (node) => {
-    if (found) return;
-    if (
-      ts.isVariableDeclaration(node) &&
-      node.name.getText(hookFile) === name &&
-      node.initializer &&
-      ts.isCallExpression(node.initializer) &&
-      node.initializer.expression.getText(hookFile) === 'useCallback'
-    ) {
-      found = node.initializer.arguments[0];
-      return;
-    }
-    ts.forEachChild(node, visit);
-  };
-  visit(hookFile);
-  assert.ok(found, `useCallback ${name} not found`);
-  return ts
-    .transpileModule(`(${found.getText(hookFile)})`, {
-      compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext }
-    })
-    .outputText.trim()
+  const node = hookNodes.find(
+    (node) =>
+      node.type === 'VariableDeclarator' &&
+      declarationName(node) === name &&
+      node.init?.type === 'CallExpression' &&
+      nodeText(hookSource, node.init.callee) === 'useCallback'
+  );
+  assert.ok(node, `useCallback ${name} not found`);
+  return stripTypeScriptTypes(`(${nodeText(hookSource, node.init.arguments[0])})`)
+    .trim()
     .replace(/;$/, '');
 }
 

@@ -1,34 +1,25 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { stripTypeScriptTypes } from 'node:module';
 import test from 'node:test';
 import { Script } from 'node:vm';
 import { createJiti } from 'jiti';
-import ts from 'typescript5';
+import { astNodes, declarationName, nodeText, parseSource } from '../lib/source-testing.mjs';
 
 const jiti = createJiti(import.meta.url);
 const { dropMentionText, splitDroppedItems } = await jiti.import('../lib/file-upload-client.ts');
 
 const sourceText = readFileSync(new URL('./ChatWindow.tsx', import.meta.url), 'utf8');
-const source = ts.createSourceFile(
-  'ChatWindow.tsx',
-  sourceText,
-  ts.ScriptTarget.Latest,
-  true,
-  ts.ScriptKind.TSX
-);
+const nodes = astNodes(parseSource(sourceText, 'ChatWindow.tsx'));
 
 /** Runs one of ChatWindow's useCallback bodies against the given scope. */
 function chatWindowCallback(name, context) {
-  function findCallback(node) {
-    if (ts.isVariableDeclaration(node) && node.name.getText(source) === name) {
-      return node.initializer.arguments[0];
-    }
-    return ts.forEachChild(node, findCallback);
-  }
+  const declaration = nodes.find(
+    (node) => node.type === 'VariableDeclarator' && declarationName(node) === name
+  );
+  assert.ok(declaration, `useCallback ${name} not found`);
   return new Script(
-    ts.transpileModule(findCallback(source).getText(source), {
-      compilerOptions: { target: ts.ScriptTarget.ES2020 }
-    }).outputText
+    stripTypeScriptTypes(`(${nodeText(sourceText, declaration.init.arguments[0])})`)
   ).runInNewContext(context);
 }
 

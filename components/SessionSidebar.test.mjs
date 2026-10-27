@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { stripTypeScriptTypes } from 'node:module';
 import test from 'node:test';
 import { createJiti } from 'jiti';
-import ts from 'typescript5';
 import vm from 'node:vm';
 
 const jiti = createJiti(import.meta.url, { jsx: { runtime: 'automatic' }, tsconfigPaths: true });
@@ -248,9 +248,7 @@ test("a read or a mark in another tab reaches this one: the storage handler adop
     'const onStorage = (event: StorageEvent) => {',
     '\n    window.addEventListener('
   );
-  const code = ts.transpileModule(`${parse}\n${handler}`, {
-    compilerOptions: { target: ts.ScriptTarget.ES2020 }
-  }).outputText;
+  const code = stripTypeScriptTypes(`${parse}\n${handler}`);
   const updaters = [];
   const onStorage = vm.runInNewContext(`${code}\nonStorage`, {
     UNREAD_SESSIONS_STORAGE_KEY: 'pi-web:unread-session-ids',

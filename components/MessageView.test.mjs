@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { createJiti } from 'jiti';
-import ts from 'typescript5';
+import { astNodes, nodeText, parseSource } from '../lib/source-testing.mjs';
 
 const jiti = createJiti(import.meta.url, {
   jsx: { runtime: 'automatic' },
@@ -154,26 +154,18 @@ test("keys an assistant message's blocks by their place, not the entry id (#1184
   // A message of the running turn gets its entry id when the file is read again.
   // A block keyed by it remounted then: open thinking closed, a tool output's
   // scroll went back to the top. ThinkingBlock drops what it loaded for another id.
-  const source = ts.createSourceFile(
-    'MessageView.tsx',
-    readFileSync(new URL('./MessageView.tsx', import.meta.url), 'utf8'),
-    ts.ScriptTarget.Latest,
-    true,
-    ts.ScriptKind.TSX
-  );
-  const keys = [];
-  (function visit(node) {
-    if (
-      (ts.isJsxSelfClosingElement(node) || ts.isJsxOpeningElement(node)) &&
-      node.tagName.getText(source) === 'BlockView'
-    ) {
-      const key = node.attributes.properties.find(
-        (attribute) => ts.isJsxAttribute(attribute) && attribute.name.getText(source) === 'key'
+  const source = readFileSync(new URL('./MessageView.tsx', import.meta.url), 'utf8');
+  const keys = astNodes(parseSource(source, 'MessageView.tsx'))
+    .filter(
+      (node) => node.type === 'JSXOpeningElement' && nodeText(source, node.name) === 'BlockView'
+    )
+    .map((node) => {
+      const key = node.attributes.find(
+        (attribute) =>
+          attribute.type === 'JSXAttribute' && nodeText(source, attribute.name) === 'key'
       );
-      keys.push(key?.initializer?.expression?.getText(source));
-    }
-    ts.forEachChild(node, visit);
-  })(source);
+      return key?.value?.expression ? nodeText(source, key.value.expression) : undefined;
+    });
   assert.deepEqual(keys, ['originalIndex']);
 });
 

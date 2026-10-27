@@ -1,43 +1,34 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { stripTypeScriptTypes } from 'node:module';
 import test from 'node:test';
 import { Script, createContext } from 'node:vm';
-import ts from 'typescript5';
+import { astNodes, declarationName, nodeText, parseSource } from '../lib/source-testing.mjs';
 
-const source = ts.createSourceFile(
-  'AppShell.tsx',
-  await readFile(new URL('./AppShell.tsx', import.meta.url), 'utf8'),
-  ts.ScriptTarget.Latest,
-  true,
-  ts.ScriptKind.TSX
-);
-const nodes = [];
-function visit(node) {
-  nodes.push(node);
-  ts.forEachChild(node, visit);
-}
-visit(source);
+const source = await readFile(new URL('./AppShell.tsx', import.meta.url), 'utf8');
+const nodes = astNodes(parseSource(source, 'AppShell.tsx'));
 function script(text) {
-  return new Script(
-    ts.transpileModule(text, { compilerOptions: { target: ts.ScriptTarget.ESNext } }).outputText
-  );
+  return new Script(stripTypeScriptTypes(text));
 }
 function setup(collapsed = false) {
   const preference = nodes.find(
     (node) =>
-      ts.isVariableDeclaration(node) && node.name.getText(source) === 'desktopSidebarOpenRef'
+      node.type === 'VariableDeclarator' && declarationName(node) === 'desktopSidebarOpenRef'
   );
   assert.ok(preference, 'desktop preference must be independent of drawer state');
   const effect = nodes.find(
     (node) =>
-      ts.isCallExpression(node) &&
-      node.expression.getText(source) === 'useEffect' &&
-      node.arguments[1]?.getText(source) === '[isMobile]' &&
-      node.arguments[0].getText(source).includes('setSidebarOpen')
+      node.type === 'CallExpression' &&
+      nodeText(source, node.callee) === 'useEffect' &&
+      node.arguments[1] &&
+      nodeText(source, node.arguments[1]) === '[isMobile]' &&
+      nodeText(source, node.arguments[0]).includes('setSidebarOpen')
   );
+  assert.ok(effect, 'the sidebar breakpoint effect not found');
   const toggle = nodes.find(
-    (node) => ts.isVariableDeclaration(node) && node.name.getText(source) === 'handleSidebarToggle'
+    (node) => node.type === 'VariableDeclarator' && declarationName(node) === 'handleSidebarToggle'
   );
+  assert.ok(toggle, 'handleSidebarToggle not found');
   const context = createContext({
     initialNavigation: { sidebarCollapsed: collapsed },
     isMobile: false,
@@ -46,16 +37,14 @@ function setup(collapsed = false) {
     setActiveTopPanel() {},
     setMobileToolbarMoreOpen() {}
   });
-  context.desktopSidebarOpenRef = script(preference.initializer.getText(source)).runInContext(
-    context
-  );
+  context.desktopSidebarOpenRef = script(nodeText(source, preference.init)).runInContext(context);
   context.setSidebarOpen = (value) => {
     context.sidebarOpen = typeof value === 'function' ? value(context.sidebarOpen) : value;
   };
   const runEffect = () =>
-    script(`(${effect.arguments[0].getText(source)})()`).runInContext(context);
+    script(`(${nodeText(source, effect.arguments[0])})()`).runInContext(context);
   const runToggle = () =>
-    script(`(${toggle.initializer.arguments[0].getText(source)})()`).runInContext(context);
+    script(`(${nodeText(source, toggle.init.arguments[0])})()`).runInContext(context);
   return {
     context,
     runToggle,
@@ -100,7 +89,8 @@ test('URL sidebar collapse survives hydration and repeated breakpoint crossings'
   state.runToggle();
   state.resize(false);
   assert.equal(state.context.sidebarOpen, false);
+  state.runToggle();
   state.resize(true);
   state.resize(false);
-  assert.equal(state.context.sidebarOpen, false);
+  assert.equal(state.context.sidebarOpen, true);
 });

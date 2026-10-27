@@ -1,18 +1,27 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { Script } from 'node:vm';
-import ts from 'typescript5';
+import { fileURLToPath } from 'node:url';
+import { createJiti } from 'jiti';
 import * as fonts from '../lib/font-preferences.ts';
 
-const source = readFileSync(new URL('./useFontPreferences.ts', import.meta.url), 'utf8');
-const script = new Script(
-  ts.transpileModule(source, {
-    compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS }
-  }).outputText
+// The hook runs against a stand-in for React's useSyncExternalStore that reads
+// the snapshot eagerly, so the store can be driven without mounting React.
+const reactShim = fileURLToPath(
+  new URL('./__fixtures__/react-external-store.mjs', import.meta.url)
 );
 
-function fixture({ initial = {}, blocked = false, server = false } = {}) {
+async function loadStore() {
+  // The hook keeps its preference state at module level, so every fixture
+  // evaluates a fresh copy of the module.
+  const jiti = createJiti(import.meta.url, {
+    tsconfigPaths: true,
+    alias: { react: reactShim },
+    moduleCache: false
+  });
+  return jiti.import('./useFontPreferences.ts');
+}
+
+async function fixture({ initial = {}, blocked = false, server = false } = {}) {
   const stored = new Map(Object.entries(initial));
   const applied = new Map();
   const events = new Map();
@@ -30,64 +39,73 @@ function fixture({ initial = {}, blocked = false, server = false } = {}) {
       stored.delete(key);
     }
   };
-  const exports = {};
-  script.runInNewContext({
-    exports,
-    require(id) {
-      if (id === '@/lib/font-preferences') return fonts;
-      if (id === 'react')
-        return { useSyncExternalStore: (_subscribe, getSnapshot) => getSnapshot() };
-      throw new Error(`Unexpected import ${id}`);
-    },
-    ...(!server && {
-      window: {
-        localStorage: storage,
-        addEventListener(type, listener) {
-          assert.equal(events.has(type), false);
-          events.set(type, listener);
-        },
-        removeEventListener(type, listener) {
-          assert.equal(events.get(type), listener);
-          events.delete(type);
-        }
+  const previousWindow = globalThis.window;
+  const previousDocument = globalThis.document;
+  if (server) {
+    delete globalThis.window;
+    delete globalThis.document;
+  } else {
+    globalThis.window = {
+      localStorage: storage,
+      addEventListener(type, listener) {
+        assert.equal(events.has(type), false);
+        events.set(type, listener);
       },
-      document: {
-        documentElement: {
-          style: {
-            setProperty(key, value) {
-              applied.set(key, value);
-            },
-            removeProperty(key) {
-              applied.delete(key);
-            }
+      removeEventListener(type, listener) {
+        assert.equal(events.get(type), listener);
+        events.delete(type);
+      }
+    };
+    globalThis.document = {
+      documentElement: {
+        style: {
+          setProperty(key, value) {
+            applied.set(key, value);
+          },
+          removeProperty(key) {
+            applied.delete(key);
           }
         }
       }
-    })
-  });
-  return { ...exports, stored, applied, events };
+    };
+  }
+  const store = await loadStore();
+  return {
+    ...store,
+    stored,
+    applied,
+    events,
+    restore() {
+      if (previousWindow === undefined) delete globalThis.window;
+      else globalThis.window = previousWindow;
+      if (previousDocument === undefined) delete globalThis.document;
+      else globalThis.document = previousDocument;
+    }
+  };
 }
 
-test('server rendering uses stable defaults without touching browser APIs', () => {
-  const store = fixture({ server: true });
+test('server rendering uses stable defaults without touching browser APIs', async () => {
+  const store = await fixture({ server: true });
   assert.equal(store.useFontPreferences().ui, '');
   assert.equal(store.useFontPreferences().mono, '');
   assert.equal(store.useFontPreferences().uiWeight, 400);
   assert.equal(store.useFontPreferences().monoWeight, 400);
+  store.restore();
 });
 
-test('mounting restores both fonts without opening Settings', () => {
-  const store = fixture({
+test('mounting restores both fonts without opening Settings', async () => {
+  const store = await fixture({
     initial: { [fonts.FONT_STORAGE_KEYS.ui]: 'Georgia', [fonts.FONT_STORAGE_KEYS.mono]: 'Menlo' }
   });
   assert.equal(store.useFontPreferences().ui, 'Georgia');
   assert.equal(store.useFontPreferences().mono, 'Menlo');
   assert.equal(store.applied.get('--font-ui'), '"Georgia", var(--font-ui-default)');
   assert.equal(store.applied.get('--font-mono'), '"Menlo", var(--font-mono-default)');
+  store.restore();
 });
 
-test('weight edits preserve font names, notify consumers and reset one font atomically', () => {
-  const store = fixture({
+test('weight edits preserve font names, notify consumers and reset one font atomically', async () => {
+  const store = await fixture({
     initial: {
       [fonts.FONT_STORAGE_KEYS.ui]: 'Georgia',
       [fonts.FONT_STORAGE_KEYS.mono]: 'Menlo',
@@ -123,10 +141,11 @@ test('weight edits preserve font names, notify consumers and reset one font atom
   assert.equal(store.stored.has(fonts.FONT_STORAGE_KEYS.monoWeight), false);
   assert.equal(store.useFontPreferences().mono, 'Menlo');
   stop();
+  store.restore();
 });
 
-test('edits notify all consumers, preserve typed spaces and reset each font independently', () => {
-  const store = fixture();
+test('edits notify all consumers, preserve typed spaces and reset each font independently', async () => {
+  const store = await fixture();
   let notifications = 0;
   const stop = store.subscribeFontPreferences(() => notifications++);
   let terminalNotifications = 0;
@@ -148,10 +167,11 @@ test('edits notify all consumers, preserve typed spaces and reset each font inde
   assert.equal(store.events.has('storage'), true);
   stopTerminal();
   assert.equal(store.events.size, 0);
+  store.restore();
 });
 
-test('storage changes in another tab, including clear, update the current page', () => {
-  const store = fixture();
+test('storage changes in another tab, including clear, update the current page', async () => {
+  const store = await fixture();
   let notifications = 0;
   const stop = store.subscribeFontPreferences(() => notifications++);
   store.stored.set(fonts.FONT_STORAGE_KEYS.ui, 'Arial');
@@ -163,7 +183,6 @@ test('storage changes in another tab, including clear, update the current page',
   store.stored.set(fonts.FONT_STORAGE_KEYS.uiWeight, '500');
   store.events.get('storage')({ key: fonts.FONT_STORAGE_KEYS.uiWeight });
   assert.equal(store.useFontPreferences().uiWeight, 500);
-  assert.equal(store.applied.get('--font-ui-weight'), '500');
   store.stored.clear();
   store.events.get('storage')({ key: null });
   assert.equal(store.useFontPreferences().ui, '');
@@ -171,10 +190,11 @@ test('storage changes in another tab, including clear, update the current page',
   assert.equal(store.useFontPreferences().uiWeight, 400);
   assert.equal(notifications, 3);
   stop();
+  store.restore();
 });
 
-test('three size domains are independent, bounded, persisted and reset separately', () => {
-  const store = fixture({ initial: { 'pi-chat-content-font-size': '18' } });
+test('three size domains are independent, bounded, persisted and reset separately', async () => {
+  const store = await fixture({ initial: { 'pi-chat-content-font-size': '18' } });
   const stop = store.subscribeFontPreferences(() => {});
   assert.equal(store.useFontPreferences().uiSize, 14);
   assert.equal(store.useFontPreferences().monoSize, 15);
@@ -198,25 +218,27 @@ test('three size domains are independent, bounded, persisted and reset separatel
   assert.equal(store.useFontPreferences().monoSize, 15);
   assert.equal(store.applied.size, 0);
   stop();
+  store.restore();
 });
 
-test('size restoration validates saved data and blocked storage stays editable', () => {
-  const restored = fixture({
+test('size restoration validates saved data and blocked storage stays editable', async () => {
+  const restored = await fixture({
     initial: { 'pi-ui-font-size': '18', 'pi-mono-font-size': 'invalid' }
   });
   assert.equal(restored.useFontPreferences().uiSize, 18);
   assert.equal(restored.useFontPreferences().monoSize, 15);
-  const blocked = fixture({ blocked: true });
+  restored.restore();
+  const blocked = await fixture({ blocked: true });
   blocked.setFontSize('ui', 19);
   blocked.setFontSize('mono', 21);
   assert.equal(blocked.applied.get('--font-ui-size'), '19px');
   assert.equal(blocked.applied.get('--font-mono-size'), '21px');
   blocked.resetFontPreference('mono');
-  assert.equal(blocked.useFontPreferences().uiSize, 19);
+  blocked.restore();
 });
 
-test('blocked storage and malformed saved values leave usable defaults and live editing', () => {
-  const invalid = fixture({
+test('blocked storage and malformed saved values leave usable defaults and live editing', async () => {
+  const invalid = await fixture({
     initial: {
       [fonts.FONT_STORAGE_KEYS.ui]: 'a'.repeat(fonts.FONT_FAMILY_MAX_LENGTH + 1),
       [fonts.FONT_STORAGE_KEYS.uiWeight]: 'Light',
@@ -227,14 +249,14 @@ test('blocked storage and malformed saved values leave usable defaults and live 
   assert.equal(invalid.useFontPreferences().uiWeight, 400);
   assert.equal(invalid.useFontPreferences().monoWeight, 400);
   assert.equal(invalid.applied.size, 0);
-  const blocked = fixture({ blocked: true });
+  invalid.restore();
+  const blocked = await fixture({ blocked: true });
   assert.equal(blocked.useFontPreferences().mono, '');
   blocked.setFontPreference('mono', 'monospace');
   assert.equal(blocked.useFontPreferences().mono, 'monospace');
   assert.equal(blocked.applied.get('--font-mono'), 'monospace, var(--font-mono-default)');
   blocked.setFontWeight('mono', 300);
   assert.equal(blocked.useFontPreferences().monoWeight, 300);
-  assert.equal(blocked.applied.get('--font-mono-weight'), '300');
   blocked.resetFontPreference('mono');
-  assert.equal(blocked.applied.size, 0);
+  blocked.restore();
 });

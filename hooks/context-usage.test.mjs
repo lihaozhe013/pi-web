@@ -1,36 +1,23 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { stripTypeScriptTypes } from 'node:module';
 import test from 'node:test';
 import { Script, createContext } from 'node:vm';
-import ts from 'typescript5';
 import { createJiti } from 'jiti';
+import { astNodes, declarationName, nodeText, parseSource } from '../lib/source-testing.mjs';
 
 const { agentStatusUrl } = await createJiti(import.meta.url, { interopDefault: true }).import(
   '../lib/agent-client.ts'
 );
 
-const source = ts.createSourceFile(
-  'useAgentSession.ts',
-  await readFile(new URL('./useAgentSession.ts', import.meta.url), 'utf8'),
-  ts.ScriptTarget.Latest,
-  true
-);
-const nodes = [];
-function visit(node) {
-  nodes.push(node);
-  ts.forEachChild(node, visit);
-}
-visit(source);
+const source = await readFile(new URL('./useAgentSession.ts', import.meta.url), 'utf8');
+const nodes = astNodes(parseSource(source, 'useAgentSession.ts'));
 function callback(name) {
   const node = nodes.find(
-    (node) => ts.isVariableDeclaration(node) && node.name.getText(source) === name
+    (node) => node.type === 'VariableDeclarator' && declarationName(node) === name
   );
   assert.ok(node, `missing ${name}`);
-  return new Script(
-    ts.transpileModule(`(${node.initializer.arguments[0].getText(source)})`, {
-      compilerOptions: { target: ts.ScriptTarget.ESNext }
-    }).outputText
-  );
+  return new Script(stripTypeScriptTypes(`(${nodeText(source, node.init.arguments[0])})`));
 }
 function setup() {
   const writes = [];
@@ -165,14 +152,12 @@ test('failed reads preserve usage and a subsequent read can recover', async () =
 test('only completed assistant messages trigger an immediate usage read', () => {
   const messageEnd = nodes.find(
     (node) =>
-      ts.isCaseClause(node) &&
-      ts.isStringLiteral(node.expression) &&
-      node.expression.text === 'message_end'
+      node.type === 'SwitchCase' &&
+      node.test?.type === 'Literal' &&
+      node.test.value === 'message_end'
   );
   const script = new Script(
-    ts.transpileModule(`(() => { switch(event.type) { ${messageEnd.getText(source)} } })()`, {
-      compilerOptions: { target: ts.ScriptTarget.ESNext }
-    }).outputText
+    stripTypeScriptTypes(`(() => { switch(event.type) { ${nodeText(source, messageEnd)} } })()`)
   );
   for (const role of ['assistant', 'toolResult', 'user', 'system']) {
     const reads = [];
@@ -196,14 +181,10 @@ test('only completed assistant messages trigger an immediate usage read', () => 
 test('each event stream connection reads usage, since connecting resumes an idle-reaped session', () => {
   const connected = nodes.find(
     (node) =>
-      ts.isCaseClause(node) &&
-      ts.isStringLiteral(node.expression) &&
-      node.expression.text === 'connected'
+      node.type === 'SwitchCase' && node.test?.type === 'Literal' && node.test.value === 'connected'
   );
   const script = new Script(
-    ts.transpileModule(`(() => { switch(event.type) { ${connected.getText(source)} } })()`, {
-      compilerOptions: { target: ts.ScriptTarget.ESNext }
-    }).outputText
+    stripTypeScriptTypes(`(() => { switch(event.type) { ${nodeText(source, connected)} } })()`)
   );
   for (const [sid, isStreaming] of [
     ['a', false],

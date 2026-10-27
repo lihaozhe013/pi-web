@@ -1,32 +1,19 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { stripTypeScriptTypes } from 'node:module';
 import test from 'node:test';
 import { Script, createContext } from 'node:vm';
-import ts from 'typescript5';
+import { astNodes, declarationName, nodeText, parseSource } from '../lib/source-testing.mjs';
 
-const source = ts.createSourceFile(
-  'useAgentSession.ts',
-  await readFile(new URL('./useAgentSession.ts', import.meta.url), 'utf8'),
-  ts.ScriptTarget.Latest,
-  true
-);
-const nodes = [];
-function visit(node) {
-  nodes.push(node);
-  ts.forEachChild(node, visit);
-}
-visit(source);
+const source = await readFile(new URL('./useAgentSession.ts', import.meta.url), 'utf8');
+const nodes = astNodes(parseSource(source, 'useAgentSession.ts'));
 
 function callback(name) {
   const node = nodes.find(
-    (node) => ts.isVariableDeclaration(node) && node.name.getText(source) === name
+    (node) => node.type === 'VariableDeclarator' && declarationName(node) === name
   );
   assert.ok(node, `missing ${name}`);
-  return new Script(
-    ts.transpileModule(`(${node.initializer.arguments[0].getText(source)})`, {
-      compilerOptions: { target: ts.ScriptTarget.ESNext }
-    }).outputText
-  );
+  return new Script(stripTypeScriptTypes(`(${nodeText(source, node.init.arguments[0])})`));
 }
 
 function setup({ snapshotActiveMs, liveActiveMs, liveSessionId = 'a', sessionId = 'a' } = {}) {

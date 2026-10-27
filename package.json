@@ -39,8 +39,7 @@
     "test": "node --experimental-strip-types --test \"app/**/*.test.mjs\" \"components/**/*.test.mjs\" \"hooks/**/*.test.mjs\" \"lib/**/*.test.mjs\" \"public/**/*.test.mjs\"",
     "package:portable": "node packaging/portable.mjs",
     "test:portable": "node --test packaging/portable.test.mjs",
-    "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
-    "test:ts": "node scripts/test-ts.mjs"
+    "typecheck": "node node_modules/typescript/bin/tsc --noEmit"
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "1.4.0",
@@ -73,6 +72,7 @@
     "jiti": "^2.7.0",
     "katex": "^0.16.47",
     "mermaid": "^12.2.0",
+    "oxc-parser": "^0.155.0",
     "oxlint": "^1.89",
     "playwright": "^1.64.1",
     "postcss": "^8.5.31",
@@ -87,8 +87,7 @@
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",
     "tailwindcss": "^4.3.3",
-    "typescript": "^7",
-    "typescript5": "npm:typescript@5.9.3"
+    "typescript": "^7"
   },
   "trustedDependencies": [
     "sharp"

@@ -1,37 +1,22 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { stripTypeScriptTypes } from 'node:module';
 import test from 'node:test';
 import { Script, createContext } from 'node:vm';
-import ts from 'typescript5';
+import { astNodes, nodeText, parseSource } from '../lib/source-testing.mjs';
 
 const { captureScrollDistance, getNextVisibleCount } = await import('../lib/chat-lazy-load.ts');
 
-const source = ts.createSourceFile(
-  'ChatWindow.tsx',
-  await readFile(new URL('./ChatWindow.tsx', import.meta.url), 'utf8'),
-  ts.ScriptTarget.Latest,
-  true,
-  ts.ScriptKind.TSX
-);
-const nodes = [];
-function visit(node) {
-  nodes.push(node);
-  ts.forEachChild(node, visit);
-}
-visit(source);
+const source = await readFile(new URL('./ChatWindow.tsx', import.meta.url), 'utf8');
+const nodes = astNodes(parseSource(source, 'ChatWindow.tsx'));
 const hook = (name, includes) =>
   nodes.find(
     (node) =>
-      ts.isCallExpression(node) &&
-      node.expression.getText(source) === name &&
-      node.arguments[0].getText(source).includes(includes)
+      node.type === 'CallExpression' &&
+      nodeText(source, node.callee) === name &&
+      nodeText(source, node.arguments[0]).includes(includes)
   );
-const compile = (node) =>
-  new Script(
-    ts.transpileModule(`(${node.getText(source)})`, {
-      compilerOptions: { target: ts.ScriptTarget.ESNext }
-    }).outputText
-  );
+const compile = (node) => new Script(stripTypeScriptTypes(`(${nodeText(source, node)})`));
 const effect = hook('useEffect', 'new IntersectionObserver');
 assert.ok(effect, 'missing the sentinel observer effect');
 const [body] = effect.arguments;
