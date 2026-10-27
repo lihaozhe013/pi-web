@@ -18,7 +18,7 @@ copies.
 
 ## Environment and commands
 
-Use Node.js >=22.19.0 and Bun 1.4.4:
+Use the latest Node.js LTS release and the latest Bun release:
 
 ```sh
 bun install --frozen-lockfile

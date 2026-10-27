@@ -36,8 +36,9 @@ with the owner or remove application localization.
 
 ## Development
 
-- Use Bun 1.4.4. Install with `bun install --frozen-lockfile`; change dependencies with `bun add` /
-  `bun remove` and commit `bun.lock`.
+- Use the latest Bun release and the latest Node.js LTS release. Install with
+  `bun install --frozen-lockfile`; change dependencies with `bun add` / `bun remove` and commit
+  `bun.lock`.
 - Pin every `@earendil-works/*` package with `bun add --exact`.
 - Node.js remains the runtime. Keep explicit `node` invocations; do not use `bun --bun`.
 - Use `bun run dev`, `bun run test`, `bun run typecheck`, `bun run lint`, and

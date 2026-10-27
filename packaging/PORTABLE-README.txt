@@ -3,9 +3,9 @@ Pi Web portable package
 Personal-use build of a minimal GUI for the Pi coding agent. There is no
 automated release service or self-updater.
 
-Prerequisite: Node.js 22.19.0 or newer on PATH. Bun is needed to build, not to
-run this archive. Use the archive matching your operating system, CPU, and Linux
-libc.
+Prerequisite: the latest Node.js LTS release on PATH. Bun is needed to build,
+not to run this archive. Use the archive matching your operating system, CPU,
+and Linux libc.
 
 From the extracted directory:
   node bin/pi-web.js --no-open
@@ -15,7 +15,7 @@ From the extracted directory:
 The application directory must be writable (startup rotates preview secrets).
 Keep the complete directory, including hidden .next and node_modules. Do not
 replace the bundled Next.js or copy node_modules between platforms. Build and
-test locally with Bun 1.4.4 and Node.js 22.19.0 or newer.
+test locally with the latest Bun release and the latest Node.js LTS release.
 
 Linux packages target glibc, not Alpine/musl. Cross-platform certification is
 not provided. Native dependencies may require system libraries.

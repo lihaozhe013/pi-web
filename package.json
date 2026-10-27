@@ -11,9 +11,6 @@
     "url": "https://github.com/lihaozhe013/pi-web/issues"
   },
   "license": "MIT",
-  "engines": {
-    "node": ">=22.19.0"
-  },
   "browserslist": [
     "chrome >= 130"
   ],
@@ -93,7 +90,6 @@
     "typescript": "^7",
     "typescript5": "npm:typescript@5.9.3"
   },
-  "packageManager": "bun@1.4.4",
   "trustedDependencies": [
     "sharp"
   ]

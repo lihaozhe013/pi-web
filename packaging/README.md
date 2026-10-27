@@ -5,9 +5,9 @@ publication step.
 
 ## Requirements
 
-The build machine needs Git, Bun 1.4.4, Node.js satisfying `package.json.engines`, and gzip-capable
-`tar`. Build for the same operating system and architecture as the target. Linux packages require
-glibc; Alpine/musl and cross-compilation are unsupported.
+The build machine needs Git, the latest Bun release, the latest Node.js LTS release, and
+gzip-capable `tar`. Build for the same operating system and architecture as the target. Linux
+packages require glibc; Alpine/musl and cross-compilation are unsupported.
 
 ```sh
 bun install --frozen-lockfile

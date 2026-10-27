@@ -24,7 +24,7 @@ presence is not a commitment to retain them.
 
 ## Run locally
 
-Requires Node.js **22.19.0 or newer** and Bun **1.4.4**.
+Use the latest Node.js LTS release and the latest Bun release.
 
 ```sh
 bun install --frozen-lockfile
