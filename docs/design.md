@@ -67,8 +67,11 @@ Current main-transcript behavior:
   stays out of the transcript whether it succeeded or failed.
 - A tool card appears when the call actually starts executing, and not while the model is still
   writing its arguments: a half-streamed JSON blob would intrude, while a running call's card is the
-  progress the user asked for. A shell card therefore opens at execution with its live output and
-  leaves the main transcript after success; failures retain an inspectable error summary.
+  progress the user asked for. A shell card therefore opens at execution with its live output and,
+  once it has succeeded, lingers until the card has been visible for about two seconds from its
+  start — so a command that finished in a blink still reads as a step rather than a flash, while a
+  long one has already been on screen — and then folds out of the main transcript; failures retain
+  an inspectable error summary.
 - Write/edit cards default to expanded. Patch cards fold after completion.
 - A command the user ran themselves (`!`) keeps its live card, because its progress is the answer
   they asked for.
@@ -88,8 +91,9 @@ the body from the page.
 
 Motion explains a change; it never decorates one. A card fades in when its call starts, its status
 mark fades when it changes, its body folds open and shut, a result pane rises into place, and a card
-that leaves the transcript — a shell that succeeded — fades and folds away where it stood instead of
-vanishing in one frame. Only a card that lived in this page moves: the card remembers whether the
+that leaves the transcript — a shell that succeeded — first lingers where it stood until its
+visible time is spent, then fades and folds away in place instead of vanishing in one frame. Only a
+card that lived in this page moves: the card remembers whether the
 call was still running at mount, so restoring a session, re-reading the same message, scrolling
 history or re-grouping a turn replays none of it. The run status row above the composer is always in
 the stack: it folds open with the run, folds away when the run ends, and only its words change in

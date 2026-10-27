@@ -8,7 +8,12 @@ import { ThinkingIcon } from './ThinkingIcon';
 import { copyText } from '@/lib/clipboard';
 import { useI18n } from '@/hooks/useI18n';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { useBodyContent, useExitHold, useExitingItems } from '@/hooks/useToolCardMotion';
+import {
+  TOOL_CARD_MIN_VISIBLE_MS,
+  useBodyContent,
+  useExitHold,
+  useExitingItems
+} from '@/hooks/useToolCardMotion';
 import { parseCompactionSummary } from '@/lib/compaction-summary';
 import {
   getAssistantErrorMessage,
@@ -931,9 +936,12 @@ function AssistantMessageView({
         ),
     [message.content, toolResults, live]
   );
-  // A card that just left (a shell that succeeded) fades out where it stood
-  // instead of vanishing in one frame, so the steps below it do not jump.
-  const heldItems = useExitingItems(blockItems, (item) => String(item.originalIndex));
+  // A card that just left (a shell that succeeded) stays where it stood until it
+  // has been visible long enough to be read — a command that finished in a blink
+  // is topped up to that moment — then fades and folds away where it stood.
+  const heldItems = useExitingItems(blockItems, (item) => String(item.originalIndex), {
+    minVisibleMs: TOOL_CARD_MIN_VISIBLE_MS
+  });
   const blocks = useMemo(() => blockItems.map(({ block }) => block), [blockItems]);
   const providerError = getAssistantErrorMessage(message, { isStreaming });
   const truncated = isAssistantTruncated(message, { isStreaming });
@@ -1160,11 +1168,12 @@ function AssistantMessageView({
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {/* Not keyed by the entry id: a message of this run gets one when the file is
             read again, and its blocks keep their state across that read (#1184). */}
-        {heldItems.map(({ item: { block, originalIndex }, exiting }) => (
+        {heldItems.map(({ item: { block, originalIndex }, exiting, fading }) => (
           <BlockView
             key={originalIndex}
             block={block}
             exiting={exiting}
+            fading={fading}
             searchTarget={block === searchBlock}
             toolResults={toolResults}
             isStreaming={isStreaming}
@@ -1345,6 +1354,7 @@ function AssistantMessageView({
 function BlockView({
   block,
   exiting,
+  fading,
   searchTarget,
   toolResults,
   isStreaming,
@@ -1360,6 +1370,8 @@ function BlockView({
   block: AssistantContentBlock;
   /** The block just left the transcript and is fading out. */
   exiting?: boolean;
+  /** The leaving card's hold is spent: the exit fold plays now. */
+  fading?: boolean;
   searchTarget?: boolean;
   toolResults?: Map<string, ToolResultMessage>;
   isStreaming?: boolean;
@@ -1405,6 +1417,7 @@ function BlockView({
         result={result}
         duration={duration}
         exiting={exiting}
+        fading={fading}
         onOpenSubagent={onOpenSubagent}
       />
     );
@@ -1630,7 +1643,8 @@ function ToolCallBlock({
   duration,
   onOpenSubagent,
   executing,
-  exiting
+  exiting,
+  fading
 }: {
   block: ToolCallContent;
   result?: ToolResultMessage;
@@ -1639,6 +1653,8 @@ function ToolCallBlock({
   executing?: boolean;
   /** The card is on its way out of the transcript: it keeps its last look and fades. */
   exiting?: boolean;
+  /** The leaving card's hold is spent: the exit fold plays now. */
+  fading?: boolean;
 }) {
   const { t } = useI18n();
   // only explicit user choices are state; lifecycle defaults stay derived.
@@ -1721,13 +1737,17 @@ function ToolCallBlock({
   // is colored while the input is still streaming JSON.
   const codeLanguage = isStreamingInput ? undefined : toolCodeLanguage(block.toolName, block.input);
 
-  // A shell card leaves the transcript once it succeeded; while it is fading out
-  // (`exiting`) it keeps drawing itself, folded to its header.
+  // A shell card leaves the transcript once it succeeded; while it is on its way
+  // out (`exiting`) it keeps drawing itself, folded to its header — first held
+  // visibly, then fading (`fading`).
   if (shellTool && toolState === 'success' && !exiting) return null;
 
   return (
     <ToolCodeLanguageProvider lang={codeLanguage}>
-      <div className={exiting ? 'tool-card-exit' : undefined} inert={exiting ? true : undefined}>
+      <div
+        className={exiting && fading ? 'tool-card-exit' : undefined}
+        inert={exiting ? true : undefined}
+      >
         <div
           className="tool-card"
           data-state={toolState}
@@ -3221,14 +3241,23 @@ function BashExecutionView({
       };
 
   // A command the user ran itself keeps its live card, and folds it away when it
-  // ends: hold the card for the fade instead of cutting it off.
-  const { open: cardOpen, exiting: cardExiting } = useExitHold(isPending || isError);
+  // ends: hold it until it has been visible long enough to be read, then fade.
+  const { open: cardOpen, exiting: cardExiting, fading: cardFading } = useExitHold(
+    isPending || isError,
+    { minVisibleMs: TOOL_CARD_MIN_VISIBLE_MS }
+  );
 
   if (!cardOpen) return null;
 
   return (
     <div style={{ margin: '6px 0' }}>
-      <ToolCallBlock block={block} result={result} executing={isPending} exiting={cardExiting} />
+      <ToolCallBlock
+        block={block}
+        result={result}
+        executing={isPending}
+        exiting={cardExiting}
+        fading={cardFading}
+      />
       {message.truncated && fullOutputUrl && (
         <div style={{ padding: '4px 10px', fontSize: 11, marginTop: -1 }}>
           {showFullButton && (
