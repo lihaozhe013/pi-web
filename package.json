@@ -91,6 +91,8 @@
     "typescript": "^7"
   },
   "trustedDependencies": [
+    "@google/genai",
+    "protobufjs",
     "sharp"
   ]
 }
