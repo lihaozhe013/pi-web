@@ -96,8 +96,8 @@ export async function checkModelContext(page) {
     const [field, text] = await Promise.all([input.boundingBox(), name.boundingBox()]);
     assert.ok(
       Math.abs(field.y + field.height / 2 - (text.y + text.height / 2)) < 4 &&
-        field.height <= text.height,
-      "The input sits on the model's line without making the row taller"
+        (page.viewportSize().width <= 600 || field.height <= text.height),
+      'The input aligns with the model text, with room for the phone touch target'
     );
     await input.fill('500000');
     assert.equal(writes, 0, 'Editing must wait for the shared Save button');

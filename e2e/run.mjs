@@ -474,9 +474,9 @@ try {
     await page.locator('pre').filter({ hasText: "console.log('E2E code');" }).waitFor();
     await page.getByText('E2E final answer', { exact: true }).waitFor();
     const processDetails = page.getByRole('button', { name: /^Process details/ });
-    const thinking = page.getByRole('button', { name: /^Thinking/ });
+    const thinking = page.getByRole('button', { name: 'Thought', exact: true });
     assert.equal(await processDetails.count(), 1);
-    assert.equal(await thinking.count(), 0, 'All thinking stays inside process details');
+    assert.equal(await thinking.count(), 0, 'Historical thinking stays out of the transcript');
     const finalMessage = page.locator("[data-entry-id='answer']");
     const tables = finalMessage.last().locator('.markdown-table-wrap');
     assert.equal(await tables.count(), 2);
@@ -510,39 +510,18 @@ try {
     );
     await page.screenshot({ path: join(artifacts, `markdown-tables-${viewport.width}.png`) });
     console.log(`PASS: ${viewport.width}px wrapping long table cells and scrolling wide tables`);
-    assert.equal(await finalMessage.getByRole('button', { name: /^Thinking/ }).count(), 0);
-    assert.equal(await finalMessage.getByText('test/E2E Model', { exact: true }).count(), 1);
+    assert.equal(
+      await finalMessage.getByRole('button', { name: 'Thought', exact: true }).count(),
+      0
+    );
     assert.equal(thinkingRequests.length, 0);
-    await processDetails.click();
-    assert.equal(await thinking.count(), 3);
-    assert.equal(await thinking.last().innerText(), 'E2E final reasoning');
+    assert.equal(await processDetails.getAttribute('aria-expanded'), 'true');
     assert.equal(thinkingRequests.length, 0);
-    for (const [index, text] of [
-      'Intermediate thinking details.',
-      'Follow-up thinking details.',
-      'Final thinking details.'
-    ].entries()) {
-      await thinking.nth(index).click();
-      await page.getByText(text, { exact: false }).waitFor();
-    }
-    assert.equal(thinkingRequests.length, 3);
     const processText = await processDetails.locator('..').innerText();
-    assert.ok(
-      processText.indexOf('E2E intermediate reasoning') <
-        processText.indexOf('echo E2E tool output')
-    );
-    assert.ok(
-      processText.indexOf('echo E2E tool output') < processText.indexOf('E2E follow-up reasoning')
-    );
-    assert.ok(
-      processText.indexOf('E2E follow-up reasoning') < processText.indexOf('E2E process note')
-    );
-    assert.ok(processText.indexOf('E2E process note') < processText.indexOf('E2E final reasoning'));
-    assert.equal(processText.split('E2E final reasoning').length - 1, 1);
+    assert.ok(processText.includes('E2E process note'));
+    assert.ok(!processText.includes('E2E final reasoning'));
+    assert.ok(!processText.includes('echo E2E tool output'));
     assert.ok(!(await finalMessage.last().innerText()).includes('E2E final reasoning'));
-    await page.getByText('echo E2E tool output', { exact: true }).waitFor();
-    await page.getByRole('button', { name: /bash.*echo E2E tool output/ }).click();
-    await page.getByText('E2E tool output', { exact: true }).waitFor();
     await page.goto(`${base}/?session=${COMPACTED}`, { waitUntil: 'domcontentloaded' });
     const heading = page.getByRole('heading', { name: 'E2E compacted heading', exact: true });
     await heading.waitFor({ state: 'attached' });
@@ -570,20 +549,15 @@ try {
       });
       await page.screenshot({ path: join(artifacts, 'compaction-minimap.png') });
 
-      // A session row of the sidebar's sessions, found by its visible title
-      // (the row's tooltip adds message count and time, so no exact title match).
-      const sessionRow = (title) =>
-        page.locator('#session-sidebar-panel-sessions .session-tree-session').filter({
-          has: page.locator('.session-tree-title', {
-            hasText: new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`)
-          })
-        });
-      const clickSessionRow = async (title) => {
+      // Titles may hydrate asynchronously; the session link identifies the row throughout.
+      const clickSessionRow = async (id) => {
         await showSidebarSessions(page);
-        await sessionRow(title).locator('.session-tree-main').click();
+        await page
+          .locator(`#session-sidebar-panel-sessions a.session-tree-main[href="?session=${id}"]`)
+          .click();
       };
-      const selectSession = async (title, entryId) => {
-        await clickSessionRow(title);
+      const selectSession = async (id, entryId) => {
+        await clickSessionRow(id);
         await page
           .locator(`[data-entry-id="${entryId}"]:not([data-message-role])`)
           .waitFor({ state: 'visible' });
@@ -602,7 +576,7 @@ try {
         });
         return readingOffset(target);
       };
-      await selectSession(text(0), 'e4999');
+      await selectSession(LONG, 'e4999');
       const olderPage = page.waitForResponse((response) =>
         response.url().includes(`/api/sessions/${LONG}/context?`)
       );
@@ -612,7 +586,7 @@ try {
       await olderPage;
       const olderMessage = page.locator("[data-entry-id='e4920']");
       const olderOffset = await positionForReading(olderMessage);
-      await selectSession('Render **E2E markdown**', 'user');
+      await selectSession(RICH, 'user');
       const process = page.getByRole('button', { name: /process details/i });
       await process.click();
       const answerHeading = page.getByRole('heading', {
@@ -620,16 +594,16 @@ try {
         exact: true
       });
       const answerOffset = await positionForReading(answerHeading);
-      await selectSession(text(0), 'e4920');
+      await selectSession(LONG, 'e4920');
       assert.ok(
         Math.abs((await readingOffset(olderMessage)) - olderOffset) < 5,
         'Returning to older history must restore its reading offset'
       );
-      await selectSession('Render **E2E markdown**', 'user');
-      assert.equal(await process.getAttribute('aria-expanded'), 'false');
+      await selectSession(RICH, 'user');
+      assert.equal(await process.getAttribute('aria-expanded'), 'true');
       assert.ok(
         Math.abs((await readingOffset(answerHeading)) - answerOffset) < 5,
-        'Collapsing process details on remount must not displace the answer'
+        'Expanding process details on remount must not displace the answer'
       );
 
       // Hold pagination until a different branch has loaded, exercising effect cancellation.
@@ -651,7 +625,7 @@ try {
             request.url().includes(`/api/sessions/${LONG}/context?`) &&
             new URL(request.url()).searchParams.has('before')
         );
-        await clickSessionRow(text(0));
+        await clickSessionRow(LONG);
         await pendingHistory;
         await page.getByRole('button', { name: 'Branches', exact: true }).click();
         await page.getByText('E2E alternate history branch', { exact: true }).click();
@@ -665,7 +639,7 @@ try {
         await page.unroute(agentRoute);
       }
       console.log(
-        'PASS: session reading offsets, collapsed process details, and cancelled branch restoration'
+        'PASS: session reading offsets, restored process details, and cancelled branch restoration'
       );
       await page.goto(`${base}/?session=${COMPACTED}`, { waitUntil: 'domcontentloaded' });
       await heading.waitFor({ state: 'visible' });

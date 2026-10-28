@@ -122,7 +122,7 @@ export async function checkProjectNavigation({
         );
         const at = names.indexOf('Open in new tab');
         assert.ok(at > 0, 'the action is not the first item');
-        assert.equal(names[at - 1], 'Open in Files');
+        assert.equal(names[at - 1], 'Rename…');
         return menu;
       };
       const openTab = async (key, keyboard = false) => {

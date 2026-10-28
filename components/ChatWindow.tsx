@@ -985,10 +985,10 @@ export function ChatWindow({
     sessionIdRef
   ]);
 
-  // Keep the rendered window at least as large as what's loaded, so prepended
-  // (older) pages stay visible instead of being sliced off the top.
+  // Each turn may add a copy control alongside its messages. Allow room for
+  // those rows too, so a newly prepended page is not sliced off the top.
   useEffect(() => {
-    setVisibleCount((current) => Math.max(current, messages.length));
+    setVisibleCount((current) => Math.max(current, messages.length * 2));
   }, [messages.length]);
 
   // After visibleCount increases (more messages prepended), restore the

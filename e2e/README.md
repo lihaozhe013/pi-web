@@ -15,11 +15,12 @@ Fixtures use a temporary `PI_CODING_AGENT_DIR` and are removed afterward. The su
 model credentials or existing personal sessions. Project navigation fixtures use ordinary
 directories.
 
-Tests cover areas such as session pagination, branching, navigation, transcript rendering,
-appearance, model selection, and extension dialogs. Appearance coverage includes separate
-UI/chat/mono sizes, live preview, reset isolation, multilingual settings search and keyboard result
-navigation. Some scripts still reflect removed UI; audit and update those assertions as cleanup
-proceeds. Test code is not a commitment to restore obsolete product features.
+Tests cover areas such as session pagination (including prepended turns with copy controls),
+branching, navigation, transcript rendering, appearance, model selection, and extension dialogs.
+Appearance coverage includes separate UI/chat/mono sizes, live preview, reset isolation,
+multilingual settings search and keyboard result navigation. Some scripts still reflect removed UI;
+audit and update those assertions as cleanup proceeds. Test code is not a commitment to restore
+obsolete product features.
 
 Run `node e2e/conversation-scope.mjs` for isolated conversation-boundary checks without an app
 server. It bundles the current settings and new-conversation components and checks that agent
