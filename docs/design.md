@@ -118,6 +118,8 @@ card on screen for its fade.
 
 The composer's tool menu lists the built-in presets first, then the user's custom ones, each named
 with its tool count, and ends with a single entry that opens Settings at the Tools section. The
+control stays visible while a run is in progress — showing which preset the turn uses — but is
+disabled so the preset cannot be switched mid-run. The
 section lists the built-in presets read-only above the user's own, so the list doubles as a
 reference, and shows an editor for the selected custom one: a name, the built-in combinations to
 start from, and one checkbox per built-in coding tool. The draft stays local until Save replaces

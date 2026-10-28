@@ -3324,14 +3324,18 @@ export const ChatInput = memo(
                       )}
                     </div>
                   )}
-                  {!isStreaming && onToolPresetChange && (
+                  {onToolPresetChange && (
                     <div ref={toolDropdownRef} style={{ position: 'relative' }}>
                       <button
                         onClick={(e) => {
                           if (!isStreaming && !isStrayClick(e)) setToolDropdownOpen((v) => !v);
                         }}
                         disabled={isStreaming}
-                        title={t('chat.changeToolPreset') + `: ${toolPresetLabel}`}
+                        title={
+                          isStreaming
+                            ? t('chat.currentToolPreset', { preset: toolPresetLabel })
+                            : t('chat.changeToolPreset') + `: ${toolPresetLabel}`
+                        }
                         aria-label={t('chat.changeToolPreset')}
                         style={{
                           display: 'flex',
