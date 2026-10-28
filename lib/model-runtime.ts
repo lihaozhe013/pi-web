@@ -7,6 +7,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import { rememberProviderModels } from './deferred-provider-models';
 import { serializeByKey } from './key-serializer';
+import { withContextWindowLimit } from './model-context-limit';
 
 /** Read and write global settings without loading any project settings or resources. */
 export function createGlobalModelSettings(agentDir = getAgentDir()): SettingsManager {
@@ -84,8 +85,13 @@ export async function getModelRuntimeWithExtensions(): Promise<ModelRuntime> {
   // ago still read as missing.
   return serializeByKey(REFRESH_QUEUE_KEY, entry.queueKey, async () => {
     await shared.refresh({ allowNetwork: false });
+    // The deferred catalog stores native windows: the remembered models are
+    // filled into later runtimes before those apply the limit themselves.
     await rememberProviderModels(shared);
-    return shared;
+    // Every model the shared runtime serves is capped by the global context
+    // window limit, so the listings, switches and auth lookups see what a
+    // session started on it would see.
+    return withContextWindowLimit(shared);
   });
 }
 

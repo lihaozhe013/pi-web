@@ -23,6 +23,7 @@ import { projectTrustReloadOptions } from '@/lib/project-trust';
 import { rememberProviderModels, withDeferredProviderModels } from '@/lib/deferred-provider-models';
 import { inferRemovedWorktree } from '@/lib/worktree';
 import { createGlobalModelSettings, getModelRuntimeWithExtensions } from '@/lib/model-runtime';
+import { withContextWindowLimit } from '@/lib/model-context-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,8 +54,9 @@ async function loadModels(cwd: string | null): Promise<ModelsData> {
   await rememberProviderModels(services.modelRuntime);
   // `enabledModels` supports globs and fuzzy patterns, so resolve it the same
   // way the CLI does instead of comparing pattern strings literally (#307).
+  // The context window limit wraps last, so the deferred models are capped too.
   const scope = await resolveVisibleModels(
-    withDeferredProviderModels(services.modelRuntime),
+    withContextWindowLimit(withDeferredProviderModels(services.modelRuntime)),
     settings.getEnabledModels()
   );
   const { visible, thinkingLevelPins, warnings } = scope;

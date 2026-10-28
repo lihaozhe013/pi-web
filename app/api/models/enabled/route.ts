@@ -23,6 +23,7 @@ import {
 } from '@/lib/enabled-models-runtime';
 import type { EnabledModelsInput } from '@/lib/enabled-models';
 import { createGlobalModelSettings, getModelRuntimeWithExtensions } from '@/lib/model-runtime';
+import { withContextWindowLimit } from '@/lib/model-context-limit';
 import { withDeferredProviderModels } from '@/lib/deferred-provider-models';
 import { getAllowedFileRoots, isExistingFilePathAllowed } from '@/lib/file-access';
 import { invalidateModelsCache } from '@/lib/models-cache';
@@ -38,7 +39,11 @@ interface RequestContext {
 }
 
 async function loadContext(cwd: string | null): Promise<RequestContext> {
-  const modelRuntime = withDeferredProviderModels(await getModelRuntimeWithExtensions());
+  // The context window limit wraps last, so the deferred models are capped too:
+  // the per-model inputs' placeholders name the effective window.
+  const modelRuntime = withContextWindowLimit(
+    withDeferredProviderModels(await getModelRuntimeWithExtensions())
+  );
   const agentDir = getAgentDir();
   return {
     modelRuntime,

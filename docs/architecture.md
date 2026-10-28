@@ -48,6 +48,18 @@ explicit working directory retains path authorization, project trust, and projec
 semantics. Global and project model lists have separate cache keys; default and reasoning edits
 still write global settings and refuse edits shadowed by the selected project's settings.
 
+Settings › Models › General saves a global context window limit in `pi-web-model-settings.json` in
+the agent directory (`lib/model-context-limit.ts`, served by `app/api/models/context-limit`).
+Because pi compacts from the session model's native `contextWindow`, the limit is applied where
+models are resolved: `withContextWindowLimit()` wraps the `ModelRuntime` the same transparent way
+`withDeferredProviderModels()` does — session runtimes in `lib/rpc-manager.ts`, the shared
+extension-loaded runtime in `lib/model-runtime.ts`, and the listing routes. Every model then
+resolves with `min(native, limit)` as its window, so compaction triggers earlier and prompts stay
+smaller. A smaller native window keeps itself, and an explicit per-model `contextWindow` in
+`models.json` replaces the default entirely. The limit is re-read per resolution, so a save applies
+to new resolutions without rebuilding a runtime; open sessions keep their model object until the
+model is selected again. Pi CLI sharing the agent directory does not apply the cap.
+
 ## Session flow
 
 1. Session APIs enumerate and read saved Pi sessions. Browsing does not itself require starting an
@@ -75,15 +87,15 @@ carries a work mode, because it pins the same read-only tools as Read-only; the 
 the session log (`lib/work-mode.ts`, `pi-web:work-mode`) and travels next to the tool list in
 `GET /api/sessions/[id]` and `get_tools`.
 
-Users combine the built-in coding tools into named custom presets beside the built-in ones. The
-list lives in `pi-web-tool-presets.json` in the agent directory (`lib/custom-tool-presets.ts`), is
-served whole by `GET/PUT /api/tools/presets`, and stores canonical tool names (`bash` stands for
-whatever shell the PowerShell setting selects). Settings › Tools edits the list
+Users combine the built-in coding tools into named custom presets beside the built-in ones. The list
+lives in `pi-web-tool-presets.json` in the agent directory (`lib/custom-tool-presets.ts`), is served
+whole by `GET/PUT /api/tools/presets`, and stores canonical tool names (`bash` stands for whatever
+shell the PowerShell setting selects). Settings › Tools edits the list
 (`components/ToolPresetsSettings.tsx`), and a save bumps a refresh key so the session's composer
 reloads its copy. A pick is stored and pinned like any preset: the UI carries it as `custom:<id>`
 and resolves it against the list (`getToolNamesForSelection`), while the session itself keeps
-pinning plain tool names, so a deleted preset simply releases the sessions that still prefer it
-back to the configured defaults.
+pinning plain tool names, so a deleted preset simply releases the sessions that still prefer it back
+to the configured defaults.
 
 `lib/plan-mode-extension.ts` reads that entry on every prompt and tool call:
 
@@ -110,10 +122,10 @@ configuration.
 ## Math rendering dependencies
 
 Markdown and the chat minimap use `rehype-katex` with the KaTeX stylesheet imported by
-`app/layout.tsx`. A scoped Bun override keeps the plugin's renderer on the same KaTeX version as
-the stylesheet, despite its older declared range. Review this override when upgrading the plugin;
-Mermaid and micromark retain their own KaTeX dependency versions. The scoped override requires a
-Bun version that supports lockfile version 3.
+`app/layout.tsx`. A scoped Bun override keeps the plugin's renderer on the same KaTeX version as the
+stylesheet, despite its older declared range. Review this override when upgrading the plugin;
+Mermaid and micromark retain their own KaTeX dependency versions. The scoped override requires a Bun
+version that supports lockfile version 3.
 
 ## Boundaries to preserve
 

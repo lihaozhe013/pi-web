@@ -142,6 +142,13 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
       'model provider api key base url reasoning context 模型 提供商 供应商 密钥 上下文 推理'
   },
   {
+    section: 'models',
+    label: 'models.contextLimit',
+    description: 'models.contextLimitHelp',
+    target: 'models-context-limit',
+    keywords: 'context window limit compact tokens cap 上下文 窗口 上限 壓縮 視窗 壓縮'
+  },
+  {
     section: 'tools',
     label: 'settings.tools',
     description: 'settings.toolsDescription',

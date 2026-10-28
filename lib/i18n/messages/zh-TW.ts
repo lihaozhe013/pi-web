@@ -1628,6 +1628,11 @@ export const zhTWLocale: LocalePlugin = {
     'models.contextInvalid': '{model} 的上下文視窗：請輸入正整數 Token 數量。',
     'models.contextOverrideHelp': '上下文視窗（Token），留空使用預設值。',
     'models.applyHelp': '已開啟的工作階段：重選該模型後生效。',
+    'models.general': '一般',
+    'models.contextLimit': '預設上下文視窗（Token）',
+    'models.contextLimitHelp':
+      '為所有模型的上下文視窗設定預設上限：視窗更大的模型會以此大小執行，因而更早壓縮、每次提示消耗更少 Token。視窗較小的模型仍用自己的值；下方列表中為單一模型設定的值一律優先。',
+    'models.contextLimitInvalid': '請輸入正整數 Token 數量，或留空表示不限制。',
     'models.defaults': '新工作階段預設設定',
     'models.defaultsHelp':
       '新工作階段開始使用的模型與推理層級。選擇後會立即儲存到 pi 的全域設定；專案裡的 .pi/settings.json 仍可覆寫它。',

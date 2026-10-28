@@ -20,6 +20,7 @@ import { resolve } from 'path';
 import { isDeepStrictEqual } from 'util';
 import { validateAgentImages } from './image-attachments';
 import { invalidateModelsCache } from './models-cache';
+import { withContextWindowLimit } from './model-context-limit';
 import { invalidateModelRuntimeWithExtensions } from './model-runtime';
 import { resolveVisibleModels, selectInitialModelScope } from './model-scope';
 import {
@@ -2961,6 +2962,9 @@ export async function startRpcSession(
     ) {
       throw new Error('Code mode is unavailable: builtin:codemode was not registered');
     }
+    // Every model this session resolves — startup pick, switches, subagents,
+    // compaction thresholds — is capped by the global context window limit.
+    services.modelRuntime = withContextWindowLimit(services.modelRuntime);
     const enabledModels = services.settingsManager.getEnabledModels();
     const scope = await resolveVisibleModels(services.modelRuntime, enabledModels);
     // A provider an extension registers only at session_start (lib/deferred-provider-models.ts)

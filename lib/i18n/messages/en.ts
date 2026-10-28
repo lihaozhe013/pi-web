@@ -738,7 +738,8 @@ export const enLocale: LocalePlugin = {
     'toolPresets.errorName.required': 'A preset needs a name.',
     'toolPresets.errorName.too-long': 'The name is too long (at most 40 characters).',
     'toolPresets.errorName.taken': 'Another preset already uses this name.',
-    'toolPresets.errorNoTools': '“{name}” has no tools. Pick at least one, or use the built-in Chat only.',
+    'toolPresets.errorNoTools':
+      '“{name}” has no tools. Pick at least one, or use the built-in Chat only.',
     'toolPresets.tool.read': 'Read a file from the workspace',
     'toolPresets.tool.bash': 'Run shell commands',
     'toolPresets.tool.edit': 'Edit a file with an exact replacement',
@@ -1733,6 +1734,12 @@ export const enLocale: LocalePlugin = {
     'models.contextInvalid': 'Context window of {model}: enter a positive whole number of tokens.',
     'models.contextOverrideHelp': 'Context window in tokens; blank uses the default.',
     'models.applyHelp': 'Open sessions: select the model again to apply.',
+    'models.general': 'General',
+    'models.contextLimit': 'Default context window (tokens)',
+    'models.contextLimitHelp':
+      'Caps the context window every model defaults to: a model with a larger window runs as if it were this size, so compaction starts earlier and prompts use fewer tokens. A model with a smaller window keeps its own, and a per-model value in the lists below always wins.',
+    'models.contextLimitInvalid':
+      'Enter a positive whole number of tokens, or leave blank for no cap.',
     'models.defaults': 'New chat defaults',
     'models.defaultsHelp':
       "The model and reasoning level a new chat starts with. Picking one saves it to pi's global settings right away; a project's .pi/settings.json can still override it.",

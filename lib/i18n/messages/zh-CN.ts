@@ -1623,6 +1623,11 @@ export const zhCNLocale: LocalePlugin = {
     'models.contextInvalid': '{model} 的上下文窗口：请输入正整数 tokens 数量。',
     'models.contextOverrideHelp': '上下文窗口（tokens），留空使用默认值。',
     'models.applyHelp': '已打开的会话：重选该模型后生效。',
+    'models.general': '常规',
+    'models.contextLimit': '默认上下文窗口（tokens）',
+    'models.contextLimitHelp':
+      '为所有模型的上下文窗口设置默认上限：窗口更大的模型会按此大小运行，从而更早压缩、每次提示消耗更少 token。窗口更小的模型仍用自己的值；下方列表中为单个模型设置的值始终优先。',
+    'models.contextLimitInvalid': '请输入正整数 tokens 数量，或留空表示不限制。',
     'models.defaults': '新会话默认设置',
     'models.defaultsHelp':
       '新会话开始使用的模型和推理级别。选择后会立即保存到 pi 的全局设置；项目里的 .pi/settings.json 仍可覆盖它。',

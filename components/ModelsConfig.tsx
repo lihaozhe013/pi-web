@@ -66,6 +66,7 @@ import {
   type EnabledModelsController
 } from './EnabledModelsSection';
 import { providerBadgeLabel } from './enabled-models-helpers';
+import { ModelGeneralSettings } from './ModelGeneralSettings';
 import { ModelReasoningDefaults } from './ModelReasoningDefaults';
 import { NewSessionDefaults } from './NewSessionDefaults';
 import { OAuthPastePanel } from './OAuthPastePanel';
@@ -164,6 +165,7 @@ type ModelCatalogState =
   | { phase: 'error'; message: string };
 
 type Selection =
+  | { type: 'general' }
   | { type: 'defaults' }
   | { type: 'reasoning' }
   | { type: 'provider'; name: string }
@@ -178,6 +180,7 @@ function readRememberedSelection(): Selection | null {
     const value: unknown = JSON.parse(raw);
     if (value === null || typeof value !== 'object') return null;
     const selection = value as Record<string, unknown>;
+    if (selection.type === 'general') return { type: 'general' };
     if (selection.type === 'defaults') return { type: 'defaults' };
     if (selection.type === 'reasoning') return { type: 'reasoning' };
     if (selection.type === 'provider' && typeof selection.name === 'string') {
@@ -3317,6 +3320,7 @@ export function ModelsConfig({
   // Resolve current detail
   const detailContent = (() => {
     if (!selection) return null;
+    if (selection.type === 'general') return <ModelGeneralSettings />;
     if (selection.type === 'defaults') return <NewSessionDefaults cwd={cwd} />;
     if (selection.type === 'reasoning')
       return <ModelReasoningDefaults cwd={cwd} providers={orderedProviders} />;
@@ -3402,6 +3406,27 @@ export function ModelsConfig({
           {/* Left: tree */}
           <ConfigSidebar>
             <ConfigSidebarList>
+              <ConfigSidebarItem
+                active={selection?.type === 'general'}
+                onClick={() => setSelection({ type: 'general' })}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ color: 'var(--text-dim)', flexShrink: 0 }}
+                  aria-hidden="true"
+                >
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg>
+                <ConfigSidebarText className="is-grow">{t('models.general')}</ConfigSidebarText>
+              </ConfigSidebarItem>
               <ConfigSidebarItem
                 active={selection?.type === 'defaults'}
                 onClick={() => setSelection({ type: 'defaults' })}
