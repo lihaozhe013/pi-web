@@ -25,14 +25,6 @@ import {
 import { mayReadProjectConfigNow } from './project-trust';
 import { PROJECT_SETTINGS_MAX_BYTES, readRegularFileText } from './regular-file';
 
-// The built-in extensions the pi CLI prepends from a module the SDK does not
-// export (ADR 0006, "Loading"). Normal sessions load them under the CLI's
-// names, so `-builtin:<name>`, project overrides, `noExtensions`, and
-// replacement by a third-party extension that registers `/mcp`, `codemode`, or
-// `tool_search` behave as in the CLI. `llama.cpp` is not among them: it serves
-// a local model server, not a feature of the session. Chat-only sessions load
-// none of them; a subagent only what its profile turns on.
-
 export const MCP_DISABLE_VARIABLE = 'PI_WEB_DISABLE_MCP';
 
 export type BuiltinFeatureStatus = { available: true } | { available: false; reason: string };
@@ -393,7 +385,7 @@ function builtin(name: BuiltinExtensionName, factory: ExtensionFactory): InlineE
 /**
  * `tool-search`, `mcp`, and the host that decides which servers `mcp` connects, in the CLI's
  * order. Servers whose tools only scripts reach register as `deferred` while
- * `codemodeAvailable()` is false. `gate` wraps each built-in's factory.
+ * `codemodeAvailable()` is false.
  */
 function createMcpBuiltins(
   mcp: McpRuntimeResult,
@@ -401,10 +393,8 @@ function createMcpBuiltins(
     agentDir: string;
     codemodeAvailable: () => boolean;
     mcpHost?: Pick<McpHostOptions, 'idleMs' | 'promptWaitMs'>;
-    gate?: (name: BuiltinExtensionName, factory: ExtensionFactory) => ExtensionFactory;
   }
 ): PiWebBuiltinExtensions {
-  const gate = options.gate ?? ((_name, factory) => factory);
   const mcpHost = mcp.available
     ? new McpHost({
         ...options.mcpHost,
@@ -414,105 +404,39 @@ function createMcpBuiltins(
       })
     : undefined;
   const extensions = [
-    builtin('tool-search', gate('tool-search', createToolSearchExtension())),
+    builtin('tool-search', createToolSearchExtension()),
     builtin(
       'mcp',
-      gate(
-        'mcp',
-        mcp.available && mcpHost
-          ? createMcpExtension({
-              loadConfig: createMcpExtensionConfigLoader(mcp.internals, options.agentDir),
-              createTransport: mcpHost.wrapTransportFactory(
-                createPiWebMcpTransportFactory(mcp.internals)
-              ),
-              // The host already waited, and Stop ends its wait. The extension's own wait for
-              // servers with `direct` tools, at a session's first prompt, ignores Stop.
-              startupWaitMs: 0,
-              // `/mcp login` already shows the address in the chat; a browser
-              // opened on the server host is one a remote user never sees.
-              openUrl: () => {}
-            })
-          : unavailableExtension
-      )
+      mcp.available && mcpHost
+        ? createMcpExtension({
+            loadConfig: createMcpExtensionConfigLoader(mcp.internals, options.agentDir),
+            createTransport: mcpHost.wrapTransportFactory(
+              createPiWebMcpTransportFactory(mcp.internals)
+            ),
+            // The host already waited, and Stop ends its wait. The extension's own wait for
+            // servers with `direct` tools, at a session's first prompt, ignores Stop.
+            startupWaitMs: 0,
+            // `/mcp login` already shows the address in the chat; a browser
+            // opened on the server host is one a remote user never sees.
+            openUrl: () => {}
+          })
+        : unavailableExtension
     )
   ];
   if (mcpHost) extensions.push(mcpHost.extension());
   return { extensions, mcpHost };
 }
 
-/**
- * Code mode for a subagent whose profile turns it on. A plain inline extension, not
- * `builtin:codemode`: a child that loads no extensions runs with `noExtensions`, which drops
- * named built-ins too. Its factory reads the `-builtin:codemode` switch on every load instead,
- * so the settings that switch Code mode off for normal sessions switch it off here as well.
- */
-export async function createSubagentCodemodeExtension(options: {
-  agentDir: string;
-  cwd: string;
-  projectTrusted: () => boolean;
-}): Promise<InlineExtension> {
-  const sandbox = await checkCodemodeSandbox();
-  if (!sandbox.available) throw new Error(`Code mode is unavailable: ${sandbox.reason}`);
-  const codemode = createCodemodeExtension();
-  return {
-    name: 'codemode',
-    replaceable: true,
-    factory: async (pi) => {
-      const switches = await readBuiltinExtensionSwitches({
-        agentDir: options.agentDir,
-        cwd: options.cwd,
-        projectTrusted: options.projectTrusted()
-      });
-      if (switches.codemode.enabled) await codemode(pi);
-    }
-  };
-}
-
-/**
- * MCP for a subagent whose profile turns it on (`mcp: on`): `builtin:tool-search` and
- * `builtin:mcp` with a host of the child's own, as a normal session loads them. The child names
- * both in `additionalExtensionPaths` (`SUBAGENT_MCP_EXTENSION_PATHS`), which loads a built-in
- * under `noExtensions` as well, but also past a `-builtin:` setting, so each factory reads its
- * switch on every load, as the child's Code mode does. `codemode` servers are reachable from
- * scripts only when the child has Code mode; otherwise they register as `deferred`.
- */
-export async function createSubagentMcpExtensions(options: {
-  agentDir: string;
-  cwd: string;
-  projectTrusted: () => boolean;
-  codemode: boolean;
-  /** Timing overrides for tests. */
-  mcpHost?: Pick<McpHostOptions, 'idleMs' | 'promptWaitMs'>;
-}): Promise<PiWebBuiltinExtensions> {
-  return createMcpBuiltins(await loadMcpRuntime(), {
-    agentDir: options.agentDir,
-    codemodeAvailable: () => options.codemode,
-    ...(options.mcpHost ? { mcpHost: options.mcpHost } : {}),
-    gate: (name, factory) => async (pi) => {
-      const switches = await readBuiltinExtensionSwitches({
-        agentDir: options.agentDir,
-        cwd: options.cwd,
-        projectTrusted: options.projectTrusted()
-      });
-      if (switches[name].enabled) await factory(pi);
-    }
-  });
-}
-
 export interface PiWebBuiltinExtensionsOptions {
   agentDir: string;
-  /** Timing overrides for tests. */
   mcpHost?: Pick<McpHostOptions, 'idleMs' | 'promptWaitMs'>;
 }
 
 export interface PiWebBuiltinExtensions {
-  /** For the resource loader's `extensionFactories`, in the CLI's order, then the MCP host. */
   extensions: InlineExtension[];
-  /** Decides which MCP servers the session connects; undefined while MCP is off. */
   mcpHost: McpHost | undefined;
 }
 
-/** The built-in extensions of a normal session and the host that feeds the MCP one. */
 export async function createPiWebBuiltinExtensions(
   options: PiWebBuiltinExtensionsOptions
 ): Promise<PiWebBuiltinExtensions> {
@@ -524,8 +448,6 @@ export async function createPiWebBuiltinExtensions(
   });
   return {
     extensions: [
-      // Pi Web's own session tools load first, so a question or a Plan-mode refusal answers
-      // before the MCP and subagent policies below run.
       createAskUserExtension(),
       createPlanModeExtension(),
       builtin('codemode', sandbox.available ? createCodemodeExtension() : unavailableExtension),

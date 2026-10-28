@@ -230,7 +230,6 @@ export class AgentEventConnection {
 export interface SessionLeaseReply {
   running?: boolean;
   awaitingInput?: boolean;
-  subagentsActive?: boolean;
 }
 
 /**
@@ -239,16 +238,11 @@ export interface SessionLeaseReply {
  */
 export const SESSION_LEASE_TIMEOUT_MS = 5_000;
 
-/**
- * Whether the server reports anything under way in the session: a run, a queued prompt, a `!`
- * command, a compaction, an extension dialog waiting for an answer, or a subagent left to finish
- * (its end starts a turn there). A hidden page keeps or reopens the session's stream while it does.
- */
 export function sessionLeaseShowsActivity(
   reply: SessionLeaseReply | 'unanswered' | null | undefined
 ): boolean {
   if (!reply || reply === 'unanswered') return false;
-  return Boolean(reply.running || reply.awaitingInput || reply.subagentsActive);
+  return Boolean(reply.running || reply.awaitingInput);
 }
 
 /**

@@ -157,25 +157,6 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
   },
   { section: 'skills', label: 'common.skills', keywords: 'skill install prompt 技能 安装 安裝' },
   {
-    section: 'agents',
-    label: 'common.agents',
-    keywords: 'subagent profile tools model prompt 子代理 智能体 配置 工具'
-  },
-  {
-    section: 'agents',
-    label: 'agents.maxConcurrent',
-    target: 'settings-agent-concurrency',
-    description: 'agents.maxConcurrentDescription',
-    keywords: 'concurrent subagents 并发 併發'
-  },
-  {
-    section: 'agents',
-    label: 'agents.builtInTitle',
-    target: 'settings-agent-builtin',
-    description: 'agents.builtInDescription',
-    keywords: 'builtin subagents 内置代理 內建代理'
-  },
-  {
     section: 'plugins',
     label: 'common.plugins',
     keywords: 'plugin extension package 插件 扩展 擴充 套件'
@@ -195,7 +176,6 @@ export const SETTINGS_SECTION_LABELS: Record<SettingsSection, string> = {
   models: 'common.models',
   tools: 'settings.tools',
   skills: 'common.skills',
-  agents: 'common.agents',
   plugins: 'common.plugins',
   mcp: 'settings.mcp'
 };

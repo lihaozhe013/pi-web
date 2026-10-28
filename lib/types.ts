@@ -343,9 +343,6 @@ export interface BranchPreview {
   text: string;
 }
 
-export type SubagentSessionStatus =
-  'starting' | 'queued' | 'running' | 'completed' | 'failed' | 'aborted' | 'interrupted';
-
 export interface SessionTreeNode {
   entry: SessionEntry;
   children: SessionTreeNode[];
@@ -365,30 +362,15 @@ export interface SessionInfo {
   firstMessage: string;
   /** True while the sidebar has only header/stat metadata for this session. */
   detailsPending?: boolean;
-  parentSessionId?: string; // source session for a fork, or parent session for a subagent
-  /** How this session relates to another session. Forks remain top-level in the
-   *  UI; only subagent relations form a visible parent/child tree. */
-  relation?:
-    | { kind: 'fork'; originSessionId?: string }
-    | {
-        kind: 'subagent';
-        parentSessionId: string;
-        profile: string;
-        description: string;
-        status: SubagentSessionStatus;
-      };
-  /** Main repo root shared by all worktrees of this cwd (cwd itself for non-git dirs).
-   *  Always set by the server; optional because the client builds transient
-   *  SessionInfo objects before the first refresh. Fall back to cwd. */
+  /** Source session for a fork. */
+  parentSessionId?: string;
+  relation?: { kind: 'fork'; originSessionId?: string };
+  /** Working directory used for grouping; falls back to cwd. */
   projectRoot?: string;
   /** Stable server-computed project identity for grouping and comparison.
    *  Unlike projectRoot, Windows keys are case- and separator-insensitive.
    *  Internal only: use projectRoot/cwd for display and filesystem operations. */
   projectKey?: string;
-  /** Current git branch for any git repo (undefined for non-git or detached HEAD) */
-  branch?: string;
-  /** True when cwd is a linked git worktree (not the main checkout) */
-  isWorktree?: boolean;
   /** True while the runtime session exists only in memory and its JSONL file
    *  has not been created yet. Disk-backed actions must wait until this clears. */
   transient?: boolean;

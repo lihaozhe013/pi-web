@@ -1,48 +1,18 @@
 // #1207: a project group's menu opens its fresh composer in another browser
 // tab, using the same directory as + and leaving this tab's work alone.
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
 import { mkdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { showSidebarSessions } from './sidebar.mjs';
 
-/** Seed before the server starts: a real linked worktree and an empty project. */
+/** Seed a conversation directory and a separate empty project. */
 export function createProjectNavigationFixtures({ agentDir, sessionDir, timestamp }) {
-  const root = join(realpathSync(agentDir), 'project-tabs');
-  const worktree = join(realpathSync(agentDir), 'project-tabs-worktrees', 'tab #1 & 中文');
+  const root = join(realpathSync(agentDir), 'project-tabs', 'tab #1 & special');
   const empty = join(realpathSync(agentDir), 'empty project');
-  const hooks = join(agentDir, 'empty-hooks');
-  const gitConfig = join(agentDir, 'empty.gitconfig');
-  for (const path of [root, empty, hooks]) mkdirSync(path, { recursive: true });
-  writeFileSync(gitConfig, '');
-  const git = (...args) =>
-    execFileSync(
-      'git',
-      [
-        '-C',
-        root,
-        '-c',
-        `core.hooksPath=${hooks}`,
-        '-c',
-        'commit.gpgsign=false',
-        '-c',
-        'user.name=Pi Web E2E',
-        '-c',
-        'user.email=pi-web-test@example.invalid',
-        ...args
-      ],
-      {
-        env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: gitConfig },
-        timeout: 10_000,
-        stdio: 'pipe'
-      }
-    );
-  git('init', '-q');
-  git('commit', '--allow-empty', '-qm', 'fixture');
-  git('worktree', 'add', '-b', 'test/project-tab', worktree);
+  for (const path of [root, empty]) mkdirSync(path, { recursive: true });
   const id = 'e2e-project-navigation';
   const entries = [
-    { type: 'session', version: 3, id, timestamp, cwd: worktree },
+    { type: 'session', version: 3, id, timestamp, cwd: root },
     {
       type: 'message',
       id: 'project-user',
@@ -55,14 +25,14 @@ export function createProjectNavigationFixtures({ agentDir, sessionDir, timestam
       id: 'project-answer',
       parentId: 'project-user',
       timestamp,
-      message: { role: 'assistant', content: 'E2E linked-worktree answer' }
+      message: { role: 'assistant', content: 'E2E directory answer' }
     }
   ];
   writeFileSync(
     join(sessionDir, `2026-08-23T00-00-00-000Z_${id}.jsonl`),
     entries.map((entry) => JSON.stringify(entry)).join('\n') + '\n'
   );
-  return { id, root, worktree, empty };
+  return { id, root, empty };
 }
 
 export async function checkProjectNavigation({
@@ -82,7 +52,7 @@ export async function checkProjectNavigation({
   assert.equal(
     current.projectRoot,
     fixture.root,
-    'the linked worktree belongs to its main project'
+    'the conversation is grouped by its working directory'
   );
   const empty = await post('/api/cwd/validate', { cwd: fixture.empty });
   const pin = { action: 'pin-project', projectKey: empty.projectKey, root: empty.projectRoot };
@@ -191,14 +161,14 @@ export async function checkProjectNavigation({
           otherSessionId
         );
         await page.goto(`${base}/?session=${fixture.id}`, { waitUntil: 'domcontentloaded' });
-        await page.getByText('E2E linked-worktree answer', { exact: true }).waitFor();
+        await page.getByText('E2E directory answer', { exact: true }).waitFor();
         await input.fill('Keep this source-tab draft');
         await showSessions();
         const sourceUrl = page.url();
         const currentToggle = '.session-tree-group.is-current .session-tree-group-toggle';
         const sourceCwd = await page.locator(currentToggle).getAttribute('title');
         for (const [key, cwd, label] of [
-          [current.projectKey, current.cwd, 'current worktree'],
+          [current.projectKey, current.cwd, 'current directory'],
           [other.projectKey, other.projectRoot, 'other project'],
           [empty.projectKey, empty.cwd, 'pinned project without sessions']
         ]) {
@@ -236,7 +206,7 @@ export async function checkProjectNavigation({
             "PASS: an unavailable project's new tab shows the validation error, not another session"
           );
         }
-        // + still means New here, not another tab, and chooses the same worktree.
+        // + still means New here, not another tab, and chooses the same directory.
         await showSessions();
         await group(current.projectKey).hover();
         await group(current.projectKey)

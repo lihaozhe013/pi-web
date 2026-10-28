@@ -1,6 +1,5 @@
 import type { InlineExtension } from '@earendil-works/pi-coding-agent';
 import { ASK_USER_TOOL_NAME } from './ask-user-extension';
-import { SUBAGENT_CONTROL_TOOL_NAMES } from './subagents';
 import {
   isApplyPatchToolName,
   isEditToolName,
@@ -10,25 +9,9 @@ import {
 import type { SessionEntry } from './types';
 import { readWorkMode } from './work-mode';
 
-/**
- * Plan mode is a read-only conversation: the agent may read the workspace and ask the user
- * questions, and it must not change anything until the user leaves the mode.
- *
- * The mode is stored in the session log (`pi-web:work-mode`), so this extension can be loaded
- * for every session and only act while the mode is on. The tool selection that comes with the
- * preset is the first line of defense; this handler is the guarantee, because a carried
- * extension tool (a shell alias, a patch tool, a subagent) is not part of that selection.
- */
-
 export const PLAN_MODE_EXTENSION_NAME = 'pi-web-plan-mode';
 
-const PLAN_BLOCKED_EXACT = new Set<string>([
-  'bash',
-  'powershell',
-  'edit',
-  'write',
-  ...SUBAGENT_CONTROL_TOOL_NAMES
-]);
+const PLAN_BLOCKED_EXACT = new Set<string>(['bash', 'powershell', 'edit', 'write']);
 
 /** Whether plan mode refuses this call. MCP tools keep their own `readOnlyHint` policy. */
 export function isPlanModeBlockedTool(toolName: string): boolean {

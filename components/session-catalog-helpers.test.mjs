@@ -32,14 +32,10 @@ test('a hydrated row clears the pending marker the first paint set', () => {
 
 test('dropped optional keys are cleared, not inherited', () => {
   const current = row({
-    relation: { kind: 'fork' },
-    branch: 'feature/x',
-    isWorktree: true
+    relation: { kind: 'fork' }
   });
   const merged = mergeCatalogRow(current, row());
   assert.equal(merged.relation, undefined);
-  assert.equal(merged.branch, undefined);
-  assert.equal(merged.isWorktree, undefined);
 });
 
 test('a locally applied title survives until the catalogue carries it', () => {
@@ -58,12 +54,12 @@ test('values the catalogue does carry always win', () => {
     row({
       modified: '2026-06-01',
       messageCount: 99,
-      relation: { kind: 'subagent', parentSessionId: 'p1' }
+      relation: { kind: 'fork', originSessionId: 'p1' }
     })
   );
   assert.equal(merged.modified, '2026-06-01');
   assert.equal(merged.messageCount, 99);
-  assert.deepEqual(merged.relation, { kind: 'subagent', parentSessionId: 'p1' });
+  assert.deepEqual(merged.relation, { kind: 'fork', originSessionId: 'p1' });
 });
 
 test('a persisted row clears the transient flag of a fresh session', () => {

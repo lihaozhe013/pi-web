@@ -57,7 +57,6 @@ import {
 import { TurnWrittenFiles } from './TurnWrittenFiles';
 import type { WrittenFile } from '@/lib/turn-written-files';
 import { skillExpansionToCommand } from '@/lib/slash-display';
-import type { SubagentToolDetails } from '@/lib/subagent-extension';
 import {
   CODEMODE_TOOL_NAME,
   codemodeCalls,
@@ -224,7 +223,6 @@ interface Props {
   toolResults?: Map<string, ToolResultMessage>;
   cwd?: string;
   onOpenFile?: (filePath: string, page?: number) => void;
-  onOpenSubagent?: (sessionId: string, label: string) => void;
   entryId?: string;
   searchBlock?: AssistantContentBlock;
   onFork?: (entryId: string) => void;
@@ -343,7 +341,6 @@ export const MessageView = memo(
     toolResults,
     cwd,
     onOpenFile,
-    onOpenSubagent,
     entryId,
     searchBlock,
     onFork,
@@ -384,7 +381,6 @@ export const MessageView = memo(
           toolResults={toolResults}
           cwd={cwd}
           onOpenFile={onOpenFile}
-          onOpenSubagent={onOpenSubagent}
           showTimestamp={showTimestamp}
           prevTimestamp={prevTimestamp}
           sessionId={sessionId}
@@ -423,7 +419,6 @@ export const MessageView = memo(
       haveSameRelevantToolResults(prev.message, prev.toolResults, next.toolResults) &&
       prev.cwd === next.cwd &&
       prev.onOpenFile === next.onOpenFile &&
-      prev.onOpenSubagent === next.onOpenSubagent &&
       prev.entryId === next.entryId &&
       prev.searchBlock === next.searchBlock &&
       prev.onFork === next.onFork &&
@@ -824,7 +819,6 @@ function AssistantMessageView({
   toolResults,
   cwd,
   onOpenFile,
-  onOpenSubagent,
   showTimestamp,
   prevTimestamp,
   sessionId,
@@ -842,7 +836,6 @@ function AssistantMessageView({
   toolResults?: Map<string, ToolResultMessage>;
   cwd?: string;
   onOpenFile?: (filePath: string, page?: number) => void;
-  onOpenSubagent?: (sessionId: string, label: string) => void;
   showTimestamp?: boolean;
   prevTimestamp?: number;
   sessionId?: string;
@@ -1083,7 +1076,6 @@ function AssistantMessageView({
             toolCallDurations={toolCallDurations}
             cwd={cwd}
             onOpenFile={onOpenFile}
-            onOpenSubagent={onOpenSubagent}
             sessionId={sessionId}
             entryId={entryId}
             blockIndex={originalIndex}
@@ -1206,7 +1198,6 @@ function BlockView({
   toolCallDurations,
   cwd,
   onOpenFile,
-  onOpenSubagent,
   sessionId,
   entryId,
   blockIndex
@@ -1223,7 +1214,6 @@ function BlockView({
   toolCallDurations?: Map<string, number>;
   cwd?: string;
   onOpenFile?: (filePath: string, page?: number) => void;
-  onOpenSubagent?: (sessionId: string, label: string) => void;
   sessionId?: string;
   entryId?: string;
   blockIndex: number;
@@ -1262,7 +1252,6 @@ function BlockView({
         duration={duration}
         exiting={exiting}
         fading={fading}
-        onOpenSubagent={onOpenSubagent}
       />
     );
   }
@@ -1448,12 +1437,6 @@ export function ThinkingBlock({
   );
 }
 
-function isSubagentToolDetails(value: unknown): value is SubagentToolDetails {
-  if (!value || typeof value !== 'object') return false;
-  const details = value as Partial<SubagentToolDetails>;
-  return details.kind === 'pi-web-subagent' && typeof details.sessionId === 'string';
-}
-
 /** A duration pi recorded on a message, or undefined when there is none to trust. */
 function recordedDurationMs(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined;
@@ -1485,7 +1468,6 @@ function ToolCallBlock({
   block,
   result,
   duration,
-  onOpenSubagent,
   executing,
   exiting,
   fading
@@ -1493,7 +1475,6 @@ function ToolCallBlock({
   block: ToolCallContent;
   result?: ToolResultMessage;
   duration?: number;
-  onOpenSubagent?: (sessionId: string, label: string) => void;
   executing?: boolean;
   /** The card is on its way out of the transcript: it keeps its last look and fades. */
   exiting?: boolean;
@@ -1578,7 +1559,6 @@ function ToolCallBlock({
   const codemodeTool = block.toolName === CODEMODE_TOOL_NAME;
   // Only a long shell result folds: a short one reads whole, as before.
   const shellTail = shellTool && resultText !== null ? shellOutputTail(resultText) : null;
-  const subagent = isSubagentToolDetails(result?.details) ? result.details : null;
   const codemodeCallCount = codemode ? codemode.calls.length + codemode.omitted : 0;
   // the syntax of everything this card shows — a file's code for read/write/
   // edit, a shell script for bash/powershell (lib/tool-code-language.ts). Nothing
@@ -1714,42 +1694,6 @@ function ToolCallBlock({
                 <polyline points="2 3.5 5 6.5 8 3.5" />
               </svg>
             </button>
-            {subagent && onOpenSubagent && (
-              <button
-                type="button"
-                onClick={() =>
-                  onOpenSubagent(subagent.sessionId, subagent.description || subagent.profile)
-                }
-                title={t('subagent.openTab')}
-                aria-label={t('subagent.openTab')}
-                style={{
-                  width: 32,
-                  display: 'grid',
-                  placeItems: 'center',
-                  border: 'none',
-                  borderLeft: CARD_RULE,
-                  background: 'none',
-                  color: 'var(--text-muted)',
-                  cursor: 'pointer',
-                  flexShrink: 0
-                }}
-              >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <rect x="5" y="7" width="14" height="11" rx="2" />
-                  <path d="M9 11h.01M15 11h.01M9 15h6M12 7V4M10 4h4" />
-                </svg>
-              </button>
-            )}
           </div>
 
           {/* The body folds open and shut (`app/tool-cards.css`): its content is

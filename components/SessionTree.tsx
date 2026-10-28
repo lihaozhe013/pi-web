@@ -14,7 +14,6 @@ import {
   type ReactNode,
   type RefObject
 } from 'react';
-import type { SessionFamily } from '@/lib/session-family';
 import { splitForkSuffix } from '@/lib/session-fork-name';
 import { MAX_PROJECT_NAME_LENGTH, type ProjectMovePosition } from '@/lib/session-ui-state-shared';
 import {
@@ -39,7 +38,6 @@ import { useScrollbarVisibility } from '@/hooks/useScrollbarVisibility';
 import type { SidebarMenuAnchor } from './SidebarMenu';
 import {
   ArchiveIcon,
-  BranchIcon,
   ChevronIcon,
   MoreIcon,
   PinIcon,
@@ -51,7 +49,7 @@ import {
 
 /**
  * The sessions tab's tree: the pinned section, every project as a group of
- * session families, and the footer links, or the archive view's rows. It
+ * session conversations, and the footer links, or the archive view's rows. It
  * renders the flat rows of lib/session-tree.ts in one virtualized scroll and
  * owns nothing but scroll position, viewport size, which row has focus and a
  * group being dragged (hooks/useGroupDrag.ts); every decision (what is shown,
@@ -104,26 +102,26 @@ export interface SessionTreeProps {
   confirmDeleteRootId: string | null;
   /** Row whose menu is open: kept mounted, its ⋯ shown pressed. A group row's key works too. */
   activeMenuRowKey: string | null;
-  onSelectFamily(family: SessionFamily): void;
+  onSelectConversation(conversation: SessionInfo): void;
   /** `all` (Alt+click): every group follows this one. */
   onToggleGroup(projectKey: string, all: boolean): void;
-  /** Reveal SHOW_MORE_STEP more families; key is a projectKey or PINNED_MORE_KEY. */
+  /** Reveal SHOW_MORE_STEP more conversations; key is a projectKey or PINNED_MORE_KEY. */
   onShowMore(key: string): void;
   /** Back to the base limit; key is a projectKey or PINNED_MORE_KEY. */
   onShowLess(key: string): void;
   onTogglePinned(): void;
-  onArchiveFamily(family: SessionFamily): void;
-  onRestoreFamily(family: SessionFamily): void;
+  onArchiveConversation(conversation: SessionInfo): void;
+  onRestoreConversation(conversation: SessionInfo): void;
   onOpenRowMenu(row: SessionRow, anchor: SidebarMenuAnchor, opener: HTMLElement | null): void;
   /** The sidebar dispatches the downstream event first. */
   onRowContextMenu(row: SessionRow, event: ReactMouseEvent): void;
   /** `value` is the raw input text; the caller trims and skips unchanged titles. */
-  onRenameCommit(family: SessionFamily, value: string): void;
+  onRenameCommit(conversation: SessionInfo, value: string): void;
   onRenameCancel(): void;
   /** `value` is the raw input text; the caller decides what it saves. */
   onRenameProjectCommit(project: SidebarProject, value: string): void;
   onRenameProjectCancel(): void;
-  onDeleteConfirm(family: SessionFamily, event: ReactMouseEvent): void;
+  onDeleteConfirm(conversation: SessionInfo, event: ReactMouseEvent): void;
   onDeleteCancel(): void;
   /** A group's "+": a new session in that project at once. */
   onGroupNew(project: SidebarProject): void;
@@ -313,7 +311,7 @@ export function SessionTree(props: SessionTreeProps): ReactNode {
         indices.push(index);
       else if (
         row.kind === 'session' &&
-        (row.family.root.id === renamingRootId || row.family.root.id === confirmDeleteRootId)
+        (row.conversation.id === renamingRootId || row.conversation.id === confirmDeleteRootId)
       )
         indices.push(index);
       else if (row.kind === 'group' && row.project.key === renamingProjectKey) indices.push(index);
@@ -526,8 +524,8 @@ export function SessionTree(props: SessionTreeProps): ReactNode {
                     top={top}
                     height={height}
                     now={now}
-                    renaming={row.family.root.id === renamingRootId}
-                    confirming={row.family.root.id === confirmDeleteRootId}
+                    renaming={row.conversation.id === renamingRootId}
+                    confirming={row.conversation.id === confirmDeleteRootId}
                     menuOpen={menuOpen}
                     handlers={handlersRef}
                   />
@@ -632,8 +630,8 @@ const SessionRowView = memo(function SessionRowView({
   handlers: Handlers;
 }) {
   const { locale, t } = useI18n();
-  const { family, context, status } = row;
-  const root = family.root;
+  const { conversation, context, status } = row;
+  const root = conversation;
   const title = sessionRowTitle(root);
   const nowDate = new Date(now);
   const className = [
@@ -669,7 +667,7 @@ const SessionRowView = memo(function SessionRowView({
           cancelLabel={t('sidebar.cancel')}
           onConfirm={(event) => {
             event.stopPropagation();
-            handlers.current.onDeleteConfirm(family, event);
+            handlers.current.onDeleteConfirm(conversation, event);
           }}
           onCancel={(event) => {
             event.stopPropagation();
@@ -686,20 +684,19 @@ const SessionRowView = memo(function SessionRowView({
         <RenameInput
           initialValue={title}
           label={t('sidebar.rename')}
-          onCommit={(value) => handlers.current.onRenameCommit(family, value)}
+          onCommit={(value) => handlers.current.onRenameCommit(conversation, value)}
           onCancel={() => handlers.current.onRenameCancel()}
         />
       </div>
     );
   }
 
-  const branch = root.isWorktree && root.branch ? root.branch : null;
   // For a forked session, truncate the title before its distinguishing suffix.
   const forkTitle = root.name && root.relation?.kind === 'fork' ? splitForkSuffix(root.name) : null;
   const details = root.detailsPending
     ? '…'
     : t('sidebar.messagesCount', { count: root.messageCount });
-  const tooltip = `${title}\n${details} · ${formatRelativeTime(root.modified, locale, nowDate)}${branch ? ` · ⑂ ${branch}` : ''}`;
+  const tooltip = `${title}\n${details} · ${formatRelativeTime(root.modified, locale, nowDate)}`;
 
   // The right column says the one thing worth knowing: awaiting input, else
   // running, else unread, else when (a pinned row names its project instead, an
@@ -740,11 +737,11 @@ const SessionRowView = memo(function SessionRowView({
   } else if (context === 'archive' && row.archivedAt !== null) {
     meta = formatShortRelativeTime(new Date(row.archivedAt), locale, nowDate);
   } else {
-    meta = formatShortRelativeTime(family.latestModified, locale, nowDate);
+    meta = formatShortRelativeTime(conversation.modified, locale, nowDate);
   }
 
   // Archive (or restore) one click away: desktop only, never for a running
-  // family, which would come straight back.
+  // conversation, which would come straight back.
   const quickAction = layout === 'desktop' && (context === 'archive' || !status.running);
 
   const mainContent = (
@@ -757,12 +754,7 @@ const SessionRowView = memo(function SessionRowView({
       ) : (
         <span className="session-tree-title">{title}</span>
       )}
-      {branch && (
-        <span className="session-tree-branch">
-          <BranchIcon size={10} className="session-tree-branch-icon" />
-          {branch}
-        </span>
-      )}
+
       <span className={`session-tree-meta${metaState}`} title={metaTitle}>
         {meta}
       </span>
@@ -774,7 +766,7 @@ const SessionRowView = memo(function SessionRowView({
       className={className}
       style={rowStyle(top, height)}
       data-row-key={row.key}
-      onClick={() => handlers.current.onSelectFamily(family)}
+      onClick={() => handlers.current.onSelectConversation(conversation)}
       onContextMenu={(event) => handlers.current.onRowContextMenu(row, event)}
     >
       {status.transient ? (
@@ -802,7 +794,7 @@ const SessionRowView = memo(function SessionRowView({
             event.stopPropagation();
             if (!isPlainActivation(event)) return;
             event.preventDefault();
-            handlers.current.onSelectFamily(family);
+            handlers.current.onSelectConversation(conversation);
           }}
         >
           {mainContent}
@@ -819,7 +811,7 @@ const SessionRowView = memo(function SessionRowView({
                 title={t('sidebar.restore')}
                 onClick={(event) => {
                   event.stopPropagation();
-                  handlers.current.onRestoreFamily(family);
+                  handlers.current.onRestoreConversation(conversation);
                 }}
               >
                 <RestoreIcon size={13} />
@@ -832,7 +824,7 @@ const SessionRowView = memo(function SessionRowView({
                 title={t('sidebar.archive')}
                 onClick={(event) => {
                   event.stopPropagation();
-                  handlers.current.onArchiveFamily(family);
+                  handlers.current.onArchiveConversation(conversation);
                 }}
               >
                 <ArchiveIcon size={13} />

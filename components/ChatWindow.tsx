@@ -149,7 +149,6 @@ interface Props {
   onOpenFile?: (filePath: string, page?: number) => void;
   /** Files dropped onto the chat were written into the working directory. */
   onFilesUploaded?: () => void;
-  onOpenSubagent?: (sessionId: string, label: string) => void;
   onAskInNewChat?: (
     prompt: string,
     sourceSessionId: string,
@@ -335,7 +334,6 @@ export function ChatWindow({
   onContextUsageChange,
   onOpenFile,
   onFilesUploaded,
-  onOpenSubagent,
   onAskInNewChat,
   quoteSelectionEnabled = false,
   initialPrompt,
@@ -348,7 +346,6 @@ export function ChatWindow({
 }: Props) {
   const { t } = useI18n();
   const isMobile = useIsMobile();
-  const completionNotificationsEnabled = session?.relation?.kind !== 'subagent';
 
   // Wrap onAgentEnd to play the completion sound. This is more reliable than
   // wrapping handleAgentEventRef because useAgentSession overwrites that ref
@@ -362,12 +359,12 @@ export function ChatWindow({
   const wrappedOnAgentEnd = useCallback(
     (end: AgentEndInfo) => {
       // A run someone stopped did not finish anything.
-      if (completionNotificationsEnabled && soundEnabledRef.current && !end.aborted) {
+      if (soundEnabledRef.current && !end.aborted) {
         playDoneSoundRef.current();
       }
       onAgentEnd?.(end);
     },
-    [completionNotificationsEnabled, onAgentEnd]
+    [onAgentEnd]
   );
 
   const initialScrollPositionRef = useRef(searchTarget ? null : (initialScrollPosition ?? null));
@@ -680,9 +677,9 @@ export function ChatWindow({
   useEffect(() => {
     const surfaced = Boolean(extensionDialog) && !extensionDialogShownRef.current;
     extensionDialogShownRef.current = Boolean(extensionDialog);
-    if (!completionNotificationsEnabled || !surfaced) return;
+    if (!surfaced) return;
     playDoneSoundRef.current();
-  }, [completionNotificationsEnabled, extensionDialog]);
+  }, [extensionDialog]);
 
   // Register the abort handler for the global Esc shortcut
   useEffect(() => {
@@ -1492,9 +1489,6 @@ export function ChatWindow({
                           break;
                         }
                       }
-                      // Anchor for live-tail detection. A compaction summary or subagent
-                      // completion can sit after the last user message and own the
-                      // still-streaming segment. lastUserIdx stays the scroll target.
                       let lastAnchorIdx = -1;
                       for (let i = messages.length - 1; i >= 0; i--) {
                         if (isMessageGroupAnchor(messages[i])) {
@@ -1570,7 +1564,6 @@ export function ChatWindow({
                             toolResults={toolResultsMap}
                             cwd={messageCwd}
                             onOpenFile={onOpenFile}
-                            onOpenSubagent={onOpenSubagent}
                             entryId={entryIds[idx]}
                             searchBlock={
                               entryIds[idx] === pendingSearchScroll?.entryId
@@ -1882,7 +1875,6 @@ export function ChatWindow({
                         toolResults={toolResultsMap}
                         cwd={messageCwd}
                         onOpenFile={onOpenFile}
-                        onOpenSubagent={onOpenSubagent}
                       />
                     )}
 
@@ -1905,7 +1897,6 @@ export function ChatWindow({
                           } as BashExecutionMessage
                         }
                         sessionId={session?.id ?? sessionIdRef.current ?? undefined}
-                        onOpenSubagent={onOpenSubagent}
                       />
                     )}
 
@@ -2120,11 +2111,7 @@ export function ChatWindow({
               </button>
             </div>
           )}
-          {/* The brand (the logo, "Pi Web" and its versions line), then the
-            project/worktree row right above the composer, all on the
-            composer's left edge (.new-session-brand, .new-session-meta and
-            .new-session-context in app/globals.css; the side padding and
-            width are inline here). */}
+
           {isEmptyNew && (
             <div
               className="new-session-hero"
@@ -2198,8 +2185,7 @@ const StreamingReply = memo(function StreamingReply({
   onCommit,
   toolResults,
   cwd,
-  onOpenFile,
-  onOpenSubagent
+  onOpenFile
 }: {
   store: StreamingStore;
   /** Runs after each chunk is in the DOM. */
@@ -2207,7 +2193,6 @@ const StreamingReply = memo(function StreamingReply({
   toolResults: Map<string, ToolResultMessage>;
   cwd?: string;
   onOpenFile?: (filePath: string, page?: number) => void;
-  onOpenSubagent?: (sessionId: string, label: string) => void;
 }) {
   const message = useStreamingSelector(store, selectStreamingMessage);
   useLayoutEffect(onCommit, [message, onCommit]);
@@ -2219,7 +2204,6 @@ const StreamingReply = memo(function StreamingReply({
       isStreaming
       cwd={cwd}
       onOpenFile={onOpenFile}
-      onOpenSubagent={onOpenSubagent}
     />
   );
 });

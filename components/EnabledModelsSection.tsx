@@ -415,7 +415,7 @@ export function EnabledModelsSection({
   const noteId = useId();
 
   if (loading && !view) {
-    return <div className="enabled-models-empty">{t('agents.modelsLoading')}</div>;
+    return <div className="enabled-models-empty">{t('models.loading')}</div>;
   }
   if (!provider) {
     return failure?.message ? (

@@ -37,7 +37,7 @@ function decode(html) {
 
 const noop = () => {};
 const items = [
-  { type: 'header', id: 'head', label: 'New session in which worktree?' },
+  { type: 'header', id: 'head', label: 'New session in which directory?' },
   { type: 'item', id: 'pin', label: 'Pin', icon: h(PinIcon), shortcut: 'P', onSelect: noop },
   {
     type: 'item',
@@ -54,7 +54,7 @@ const items = [
     label: 'feature/x',
     mono: true,
     checked: false,
-    title: '/work/app-worktrees/feature-x',
+    title: '/work/app-directorys/feature-x',
     onSelect: noop
   },
   {
@@ -109,7 +109,7 @@ test('desktop menu markup: menu roles, check marks, shortcuts, notes and disable
   );
   assert.match(
     html,
-    /<div class="sidebar-menu-header" role="presentation">New session in which worktree\?<\/div>/
+    /<div class="sidebar-menu-header" role="presentation">New session in which directory\?<\/div>/
   );
   assert.match(html, /<div class="sidebar-menu-separator" role="separator"><\/div>/);
 
@@ -137,7 +137,7 @@ test('desktop menu markup: menu roles, check marks, shortcuts, notes and disable
   );
   assert.match(
     feature,
-    /title="\/work\/app-worktrees\/feature-x"/,
+    /title="\/work\/app-directorys\/feature-x"/,
     'a tooltip shows what the label shortens'
   );
   assert.doesNotMatch(main, /title=/);
@@ -355,7 +355,7 @@ test("focus never goes to an opener that is hidden: the row's own button takes i
 
 test("a body swapped into an open menu takes the focus from a long list's filter field", () => {
   // Eight choices show a filter above the list, marked to take focus when the
-  // menu opens. "New worktree…" then adds a form under the list whose branch
+  // menu opens. "New directory…" then adds a form under the list whose branch
   // field is marked too — and comes after the filter in the page, so the
   // first marked control would stay the filter. The swap's own target is the
   // form's field.
@@ -461,14 +461,14 @@ test("a classic menu: main's dropdown look, paths cut at their left, a footer an
   const html = surface({
     classic: true,
     items: classicItems,
-    footer: h('form', { className: 'footer' }, 'New worktree')
+    footer: h('form', { className: 'footer' }, 'New directory')
   });
   // A footer stands after the list, so the surface is a dialog holding a menu.
   assert.match(
     html,
     /^<div class="sidebar-menu is-classic" role="dialog" aria-label="Session actions"[^>]*><div role="menu" aria-label="Session actions">/
   );
-  assert.match(html, /<\/div><form class="footer">New worktree<\/form><\/div>$/);
+  assert.match(html, /<\/div><form class="footer">New directory<\/form><\/div>$/);
   // A path is cut at its left, the text kept left to right.
   assert.match(
     html,
@@ -527,12 +527,12 @@ test('filter markup: a field above the list, the empty label, focus only on a de
     classic: true,
     items: projectMenu,
     filter,
-    footer: h('input', { className: 'sidebar-worktree-input', 'data-sidebar-menu-autofocus': '' })
+    footer: h('input', { className: 'sidebar-directory-input', 'data-sidebar-menu-autofocus': '' })
   });
   assert.equal((form.match(/data-sidebar-menu-autofocus=""/g) ?? []).length, 2);
   assert.match(
     form,
-    /data-sidebar-menu-filter="" data-sidebar-menu-autofocus=""[\s\S]*sidebar-worktree-input" data-sidebar-menu-autofocus=""/
+    /data-sidebar-menu-filter="" data-sidebar-menu-autofocus=""[\s\S]*sidebar-directory-input" data-sidebar-menu-autofocus=""/
   );
 });
 
@@ -543,9 +543,9 @@ test("an item's secondary action is its own menu item at the row's end; a badge 
       id: 'feature',
       label: 'feature/x',
       checked: false,
-      title: '/work/app-worktrees/feature-x',
+      title: '/work/app-directorys/feature-x',
       secondary: {
-        label: 'Remove worktree checkout /work/app-worktrees/feature-x',
+        label: 'Remove directory checkout /work/app-directorys/feature-x',
         icon: h(TrashIcon, { size: 12 }),
         danger: true,
         onSelect: noop
@@ -578,7 +578,7 @@ test("an item's secondary action is its own menu item at the row's end; a badge 
   const html = surface({ items: removeItems });
   assert.match(
     html,
-    /<div class="sidebar-menu-row is-choice" role="none"><button type="button" role="menuitemradio" aria-checked="false" tabindex="-1" title="\/work\/app-worktrees\/feature-x" data-sidebar-menu-item="" class="sidebar-menu-item is-choice">[\s\S]*?<\/button><button type="button" role="menuitem" aria-label="Remove worktree checkout \/work\/app-worktrees\/feature-x" tabindex="-1" title="Remove worktree checkout \/work\/app-worktrees\/feature-x" data-sidebar-menu-item="" class="sidebar-menu-secondary is-danger"><svg/
+    /<div class="sidebar-menu-row is-choice" role="none"><button type="button" role="menuitemradio" aria-checked="false" tabindex="-1" title="\/work\/app-directorys\/feature-x" data-sidebar-menu-item="" class="sidebar-menu-item is-choice">[\s\S]*?<\/button><button type="button" role="menuitem" aria-label="Remove directory checkout \/work\/app-directorys\/feature-x" tabindex="-1" title="Remove directory checkout \/work\/app-directorys\/feature-x" data-sidebar-menu-item="" class="sidebar-menu-secondary is-danger"><svg/
   );
   assert.match(
     html,

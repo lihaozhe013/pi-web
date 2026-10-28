@@ -8,9 +8,9 @@ const source = await readFile(new URL('./AppShell.tsx', import.meta.url), 'utf8'
 
 function handleSessionDeletedBody() {
   const start = source.indexOf('  const handleSessionDeleted = useCallback');
-  const end = source.indexOf('  const handleOpenSubagent = useCallback', start);
+  const end = source.indexOf('  const handleViewFullHistory = useCallback', start);
   assert.notEqual(start, -1, 'handleSessionDeleted callback not found');
-  assert.notEqual(end, -1, 'handleOpenSubagent callback not found after handleSessionDeleted');
+  assert.notEqual(end, -1, 'handleViewFullHistory callback not found after handleSessionDeleted');
   return source.slice(start, end);
 }
 

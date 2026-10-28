@@ -7,7 +7,7 @@ import { createJiti } from 'jiti';
 // event stream (#1283): over HTTP/1.1 every open stream holds one of the
 // browser's six connections per origin, shared by all tabs. The page's lease
 // request, renewed every 30 s either way, says what is under way in the session:
-// a run, an extension dialog or a subagent left to finish keeps the stream, and
+// A run or an extension dialog keeps the stream, and
 // opens a released one again while the page is still hidden. The page's return
 // reopens it and shows what the server has under way.
 const shimPath = fileURLToPath(new URL('./__fixtures__/react-hook-shim.mjs', import.meta.url));
@@ -41,14 +41,13 @@ async function setup() {
   mock.timers.enable({ apis: ['setTimeout', 'setInterval'] });
   const sources = [];
   const requests = [];
-  // What the lease reply (busy, awaitingInput, subagentsActive) and the session's
+  // What the lease reply (busy, awaitingInput) and the session's
   // state read (state) report; tests change it. `answer` turns the lease request
   // into one that never answers (it only ends when aborted), a network failure or
   // an HTTP error.
   const server = {
     busy: false,
     awaitingInput: false,
-    subagentsActive: false,
     state: { isStreaming: false, isPromptRunning: false },
     answer: 'json'
   };
@@ -98,8 +97,7 @@ async function setup() {
       return json({
         success: true,
         running: server.busy,
-        awaitingInput: server.awaitingInput,
-        subagentsActive: server.subagentsActive
+        awaitingInput: server.awaitingInput
       });
     }
     if (url === '/api/agent/s1' && init.body) return json({ success: true, data: null });
@@ -210,26 +208,6 @@ test('a quick tab switch keeps the stream and reads nothing', async () => {
     assert.equal(state.sources.length, 1);
     assert.equal(state.open().length, 1);
     assert.equal(state.reads(), reads);
-  } finally {
-    await teardown(state);
-  }
-});
-
-test('a subagent left to finish keeps the stream, checked again each grace', async () => {
-  const state = await setup();
-  try {
-    await connectIdle(state);
-    state.server.subagentsActive = true;
-    state.hide();
-    await state.tick(HIDDEN_PAGE_GRACE_MS);
-    assert.equal(state.checks(), 1);
-    assert.equal(state.open().length, 1, 'its end starts a turn here');
-    await state.tick(HIDDEN_PAGE_GRACE_MS);
-    assert.equal(state.checks(), 2);
-    assert.equal(state.open().length, 1);
-    state.server.subagentsActive = false;
-    await state.tick(HIDDEN_PAGE_GRACE_MS);
-    assert.equal(state.open().length, 0);
   } finally {
     await teardown(state);
   }
@@ -438,11 +416,8 @@ test('a released page opens the stream again for an extension dialog, and lets g
 });
 
 test('only a lease reply with nothing under way releases; any activity reopens', () => {
-  assert.equal(
-    canReleaseHiddenEventStream({ running: false, awaitingInput: false, subagentsActive: false }),
-    true
-  );
-  for (const busy of ['running', 'awaitingInput', 'subagentsActive']) {
+  assert.equal(canReleaseHiddenEventStream({ running: false, awaitingInput: false }), true);
+  for (const busy of ['running', 'awaitingInput']) {
     assert.equal(canReleaseHiddenEventStream({ [busy]: true }), false, busy);
     assert.equal(sessionLeaseShowsActivity({ [busy]: true }), true, busy);
   }

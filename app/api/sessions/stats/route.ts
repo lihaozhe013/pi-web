@@ -9,12 +9,6 @@ import type { SessionEntry } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
-// The agent switcher's per-agent usage: the totals the stats popover shows,
-// for the main session and each subagent at once. Reads like
-// GET /api/sessions/[id] (a live wrapper's entries, else the cached file) and
-// never starts an AgentSession. The switcher polls this while an agent runs,
-// so a summary is reused until its session gains an entry.
-
 const MAX_SESSION_STATS_IDS = 200;
 const NO_STORE = { 'Cache-Control': 'no-store' };
 

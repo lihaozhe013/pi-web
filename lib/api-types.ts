@@ -1,16 +1,5 @@
 import type { McpExposure, ResourceDiagnostic } from '@earendil-works/pi-coding-agent';
 import type { McpImportNote } from './mcp-import-core';
-import type { SubagentProfile } from './subagents';
-
-export interface SubagentProfilesResponse {
-  profiles: SubagentProfile[];
-}
-
-export interface SubagentSettingsResponse {
-  enabled: boolean;
-  maxConcurrent: number;
-}
-
 /** Code mode's one choice (ADR 0006): Automatic writes nothing, Always on adds `+codemode` to the global defaultTools. */
 export type McpCodemodePreference = 'automatic' | 'always';
 

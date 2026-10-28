@@ -5,7 +5,7 @@ import { useI18n } from '@/hooks/useI18n';
 import {
   describeProjectChoices,
   type NewSessionTarget,
-  type ProjectWorktreeContext
+  type ProjectPickerContext
 } from '@/lib/new-session-context';
 import { SidebarMenu, type SidebarMenuAnchor, type SidebarMenuItem } from './SidebarMenu';
 
@@ -15,7 +15,7 @@ export interface ProjectPickerHandle {
   openMenu(control: ProjectControl): void;
 }
 interface Props {
-  context: ProjectWorktreeContext;
+  context: ProjectPickerContext;
   mobile: boolean;
   label: string;
   layout: 'inline';

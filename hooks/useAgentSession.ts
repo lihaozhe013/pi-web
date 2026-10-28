@@ -39,9 +39,7 @@ import {
   type ToolEntry,
   type ToolPresetSelection
 } from '@/lib/tool-presets';
-import type {
-  CustomToolPreset
-} from '@/lib/custom-tool-presets-shared';
+import type { CustomToolPreset } from '@/lib/custom-tool-presets-shared';
 import type { WorkMode } from '@/lib/work-mode';
 import type { SessionStatsInfo } from '@/lib/pi-types';
 import { mergeSessionStats, type SessionFileStats } from '@/lib/session-stats';
@@ -940,7 +938,9 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
           // Tool-preset state is independent of the view cache: it must be applied
           // on every read, cached window or not (#700).
           sessionToolsPinnedRef.current = d.toolNames !== undefined;
-          setToolPresetState(getPresetForSession(d.toolNames, d.mode, customToolPresetsRef.current));
+          setToolPresetState(
+            getPresetForSession(d.toolNames, d.mode, customToolPresetsRef.current)
+          );
           setCurrentModelOverride((current) => (modelSwitchPendingRef.current ? current : null));
           setCurrentThinkingOverride(null);
           setError(null);
@@ -1358,17 +1358,6 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     return request.promise;
   }, []);
 
-  // A page hidden for HIDDEN_PAGE_GRACE_MS lets go of the selected session's
-  // stream while nothing needs it (#1283): each one holds a browser connection,
-  // and over HTTP/1.1 a few background tabs exhaust the six per origin, so every
-  // other request (Settings, message sync) queues in the browser until a tab
-  // closes. A run, a `!` command, a compaction or an open extension dialog in the
-  // page keeps it without asking. Otherwise the grace ends with a lease request,
-  // and the stream closes only if its reply shows nothing under way
-  // (canReleaseHiddenEventStream(): a run another tab started, an extension
-  // dialog, a subagent whose end starts a turn here); the check repeats each
-  // grace while hidden. A run that settles while hidden starts the grace again,
-  // which also covers extension follow-ups right after prompt_done.
   const eventStreamIdle =
     !agentRunning &&
     !bashRunning &&

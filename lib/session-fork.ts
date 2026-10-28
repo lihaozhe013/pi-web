@@ -3,8 +3,6 @@ import { existsSync, writeFileSync } from 'fs';
 import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { forkSessionName, sessionDisplayTitle } from './session-fork-name';
 import { scanSessionFileInfo } from './session-list-scanner';
-import { readSubagentRun } from './subagents';
-import type { SessionEntry } from './types';
 
 /**
  * The sidebar's Fork action implements pi's `/clone` (a copy of the current branch, positioned
@@ -13,7 +11,7 @@ import type { SessionEntry } from './types';
  * named: the source's title plus a short random suffix (session-fork-name.ts).
  */
 
-export type SessionForkRefusal = 'not_found' | 'unsaved' | 'empty' | 'subagent';
+export type SessionForkRefusal = 'not_found' | 'unsaved' | 'empty';
 
 export class SessionForkError extends Error {
   constructor(
@@ -89,11 +87,6 @@ export function forkSessionBranch(
   }
 
   const branch = manager.getBranch(leafId);
-  // A copy carrying a subagent's metadata would be read as that subagent and
-  // folded, out of sight, into its parent's family.
-  if (readSubagentRun(branch as unknown as SessionEntry[], '', sourcePath)) {
-    throw new SessionForkError('subagent', 'A subagent session cannot be forked');
-  }
   if (!branch.some((entry) => entry.type === 'message')) {
     throw new SessionForkError('empty', 'Nothing to fork: the session has no messages');
   }

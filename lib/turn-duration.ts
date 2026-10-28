@@ -20,13 +20,6 @@ function answersTurn(message: AgentMessage): boolean {
   );
 }
 
-/**
- * How long a finished turn took: from its anchor (the user's message, a compaction summary,
- * a subagent completion) until the last response or tool result in `messages[anchorIdx + 1, endIdx)`
- * ended, less the waits between an answer and a run an extension started after it (its message,
- * e.g. pi's `triggerTurn`, is no anchor). Undefined when the anchor has no time, or when the turn's
- * last response predates `durationMs`: its timestamp is when it started, so the turn's end is unknown.
- */
 export function getTurnDurationMs(
   messages: AgentMessage[],
   anchorIdx: number,

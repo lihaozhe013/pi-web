@@ -334,25 +334,6 @@ a.session-tree-main {
   white-space: pre;
 }
 
-/* Meta, in the rows' own type: a worktree's branch after its icon. */
-.session-tree-branch {
-  flex: none;
-  max-width: 78px;
-  overflow: hidden;
-  color: var(--text-dim);
-  font-size: calc(11px + var(--ui-font-size-offset, 0px));
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Inline in the chip's text, so the ellipsis still cuts the name (the
-   base styles make an svg a block); lowered to sit on the letters' middle. */
-.session-tree-branch-icon {
-  display: inline-block;
-  margin-right: 3px;
-  vertical-align: -1px;
-}
-
 /* The right column: the time, or the running spinner / unread dot in its place. */
 .session-tree-meta {
   display: flex;

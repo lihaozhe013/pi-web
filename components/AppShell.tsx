@@ -36,7 +36,6 @@ import {
 } from '@/lib/panel-layout';
 import type { SessionStatsInfo } from '@/lib/pi-types';
 import { setupPushSubscription } from '@/lib/push-client';
-import { getAgentsBadge, getSessionFamily } from '@/lib/session-family';
 import {
   formatActiveDuration,
   formatCompactCount,
@@ -62,8 +61,7 @@ import {
   workspaceKeyOf
 } from '@/lib/workspace-memory';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { AgentSessionPanel } from './AgentSessionPanel';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { BranchNavigator, hasSessionBranches } from './BranchNavigator';
 import type { ChatInputHandle } from './ChatInput';
 import { ChatWindow } from './ChatWindow';
@@ -155,18 +153,6 @@ export function AppShell() {
       return refreshed ? mergeCatalogRow(current, refreshed) : current;
     });
   }, []);
-  const sessionsWithSelection = useMemo(() => {
-    if (!selectedSession) return sessionCatalog;
-    return [
-      ...sessionCatalog.filter((session) => session.id !== selectedSession.id),
-      selectedSession
-    ];
-  }, [selectedSession, sessionCatalog]);
-  const activeSessionFamily = useMemo(
-    () => getSessionFamily(sessionsWithSelection, selectedSession?.id),
-    [selectedSession?.id, sessionsWithSelection]
-  );
-  const hasSubagentSessions = Boolean(activeSessionFamily?.subagents.length);
   const [runningSessionIds, setRunningSessionIds] = useState<Set<string>>(() => new Set());
   const handleRunningSessionIdsChange = useCallback((ids: Set<string>) => {
     setRunningSessionIds((previous) => {
@@ -174,12 +160,6 @@ export function AppShell() {
       return ids;
     });
   }, []);
-  const agentsBadge = activeSessionFamily
-    ? getAgentsBadge(activeSessionFamily.subagents, runningSessionIds)
-    : null;
-  const agentsButtonLabel = agentsBadge?.running
-    ? translate('agentSwitcher.titleRunning', { count: agentsBadge.count })
-    : translate('agentSwitcher.title');
   // The temporary id distinguishes consecutive fresh composers in one cwd.
   const [newSessionCwd, setNewSessionCwd] = useState<string | null>(null);
   const [newSessionDraftId, setNewSessionDraftId] = useState('initial');
@@ -191,9 +171,6 @@ export function AppShell() {
   const sidebarControlRef = useRef<SessionSidebarControl | null>(null);
   const [sidebarNewSessionContext, setSidebarNewSessionContext] =
     useState<NewSessionContext | null>(null);
-  // The bar's last move until the sidebar reports that cwd (a commit later),
-  // so the bar of the new composer shows the target's project, and a worktree
-  // it just created, from its first frame.
   const newSessionMoveRef = useRef<NewSessionMove | null>(null);
   const handleSidebarNewSessionContext = useCallback((context: NewSessionContext | null) => {
     if (context && context.cwd === newSessionMoveRef.current?.cwd) newSessionMoveRef.current = null;
@@ -371,7 +348,7 @@ export function AppShell() {
 
   // The toolbar opens one information surface at a time.
   const [activeTopPanel, setActiveTopPanel] = useState<
-    'agents' | 'branches' | 'system' | 'tools' | 'session' | null
+    'branches' | 'system' | 'tools' | 'session' | null
   >(null);
 
   useEffect(() => {
@@ -381,17 +358,11 @@ export function AppShell() {
   }, [sessionHasBranches]);
 
   useEffect(() => {
-    if (!hasSubagentSessions) {
-      setActiveTopPanel((panel) => (panel === 'agents' ? null : panel));
-    }
-  }, [hasSubagentSessions]);
-
-  useEffect(() => {
     if (settingsSection) setActiveTopPanel(null);
   }, [settingsSection]);
 
   const toggleTopPanel = useCallback(
-    (panel: 'agents' | 'branches' | 'system' | 'tools' | 'session') => {
+    (panel: 'branches' | 'system' | 'tools' | 'session') => {
       if (isMobile) setSidebarOpen(false);
       setActiveTopPanel((cur) => (cur === panel ? null : panel));
       setMobileToolbarMoreOpen(false);
@@ -603,8 +574,6 @@ export function AppShell() {
           clearLastOpen(projectKey);
           return;
         }
-        // Keep the temporary composer's draft in its cwd, even when the
-        // remembered session belongs to another worktree of this project.
         const activeDraftKey = activeNewSessionDraftKeyRef.current;
         if (activeDraftKey) {
           rekeyDraft(activeDraftKey, parkedNewSessionDraftKey(cwd));
@@ -659,9 +628,6 @@ export function AppShell() {
       // The server may hydrate a normalized key after a custom cwd is already
       // active. Updating identity for the exact same cwd is not a user switch.
       if (currentFreshCwd === cwd && currentProject !== newProject) return;
-      // Existing sessions stay open when the worktree selector moves within the
-      // same project. A fresh composer must remount when its effective cwd moves,
-      // otherwise its already-created runtime would keep sending to the old cwd.
       if (currentProject === newProject && (selectedSession !== null || currentFreshCwd === cwd)) {
         return;
       }
@@ -835,10 +801,6 @@ export function AppShell() {
     activeCwd
   });
 
-  // Client-built transient SessionInfo (new session / fork) lacks the
-  // server-computed projectKey, which the same-project check in
-  // handleCwdChange relies on. Hydrate it from the session list so switching
-  // worktrees right after creating a session doesn't close the chat.
   const hydrateSelectedSession = useCallback((sessionId: string) => {
     void fetch('/api/sessions', { cache: 'no-store' })
       .then((r) => (r.ok ? (r.json() as Promise<{ sessions: SessionInfo[] }>) : null))
@@ -918,7 +880,7 @@ export function AppShell() {
       // (handleSessionsChange), so no list fetch of its own here.
       setRefreshKey((k) => k + 1);
 
-      if (end.aborted || selectedSession?.relation?.kind === 'subagent') return;
+      if (end.aborted) return;
       if (!shouldShowBrowserNotification()) return;
       const targetSession = selectedSession;
       deliverSessionNotification({
@@ -933,7 +895,6 @@ export function AppShell() {
 
   const handleAttentionNeeded = useCallback(
     (request: BlockingExtensionUiRequest) => {
-      if (selectedSession?.relation?.kind === 'subagent') return;
       if (!shouldShowBrowserNotification()) return;
       if (!claimExtensionAttentionNotification(request, notifiedAttentionRequestIdsRef.current))
         return;
@@ -1077,29 +1038,6 @@ export function AppShell() {
     [invalidateWorkspaceRestore, router]
   );
 
-  const handleOpenSubagent = useCallback(
-    async (id: string) => {
-      const currentSessionId = selectedSessionRef.current?.id;
-      const known = sessionsWithSelection.find((session) => session.id === id);
-      if (known) {
-        setActiveTopPanel(null);
-        handleSelectSession(known);
-        return;
-      }
-      try {
-        const response = await fetch(`/api/sessions/${encodeURIComponent(id)}?tree=summary&tail=1`);
-        const data = (await response.json()) as { info?: SessionInfo };
-        if (response.ok && data.info && selectedSessionRef.current?.id === currentSessionId) {
-          setActiveTopPanel(null);
-          handleSelectSession(data.info);
-        }
-      } catch (error) {
-        console.error('Failed to open subagent session:', error);
-      }
-    },
-    [handleSelectSession, sessionsWithSelection]
-  );
-
   const handleViewFullHistory = useCallback(() => {
     if (!selectedSession) return;
     window.open(
@@ -1132,7 +1070,6 @@ export function AppShell() {
       )
         return;
       newSessionBarFocusRef.current = from;
-      // A worktree just created already left its move, with the branch.
       if (
         target.projectKey &&
         target.projectRoot &&
@@ -1140,8 +1077,7 @@ export function AppShell() {
       ) {
         newSessionMoveRef.current = {
           cwd: target.cwd,
-          project: { key: target.projectKey, root: target.projectRoot },
-          branch: null
+          project: { key: target.projectKey, root: target.projectRoot }
         };
       }
       sidebarControlRef.current?.startNewSessionIn({ ...target, carryComposer: true });
@@ -1648,119 +1584,7 @@ export function AppShell() {
             </button>
           );
         })()}
-        {hasSubagentSessions && agentsBadge && (
-          <button
-            type="button"
-            onClick={() => toggleTopPanel('agents')}
-            title={agentsButtonLabel}
-            aria-label={agentsButtonLabel}
-            aria-pressed={activeTopPanel === 'agents'}
-            aria-controls="session-information"
-            style={{
-              position: 'relative',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 6,
-              width: mobile ? TOP_BAR_ICON_BUTTON_SIZE : undefined,
-              height: '100%',
-              padding: mobile ? 0 : '0 12px',
-              background: activeTopPanel === 'agents' ? 'var(--bg-selected)' : 'none',
-              border: 'none',
-              borderTop:
-                activeTopPanel === 'agents' ? '2px solid var(--accent)' : '2px solid transparent',
-              borderRight: '1px solid var(--border)',
-              color: activeTopPanel === 'agents' ? 'var(--text)' : 'var(--text-muted)',
-              cursor: 'pointer',
-              flexShrink: 0,
-              fontSize: 11,
-              whiteSpace: 'nowrap',
-              transition: 'color 0.1s, background 0.1s'
-            }}
-            data-mobile-toolbar-action={mobile ? 'agents' : undefined}
-          >
-            <svg
-              width="13"
-              height="13"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.9"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <rect x="5" y="7" width="14" height="11" rx="2" />
-              <path d="M9 11h.01M15 11h.01M9 15h6M12 7V4M10 4h4" />
-            </svg>
-            {!mobile && <span>{translate('agentSwitcher.title')}</span>}
-            {/* While subagents run: their count, ringed by a spinner; otherwise all of them. */}
-            <span
-              aria-hidden="true"
-              style={{
-                position: 'relative',
-                minWidth: 15,
-                height: 15,
-                padding: '0 4px',
-                display: 'grid',
-                placeItems: 'center',
-                borderRadius: 7,
-                background: agentsBadge.running
-                  ? 'color-mix(in srgb, var(--accent) 22%, var(--bg-panel))'
-                  : 'var(--bg-selected)',
-                color: 'var(--accent)',
-                fontSize: 10,
-                lineHeight: 1,
-                fontVariantNumeric: 'tabular-nums',
-                fontWeight: agentsBadge.running ? 600 : undefined,
-                ...(mobile
-                  ? {
-                      position: 'absolute',
-                      top: 3,
-                      right: 3,
-                      minWidth: 13,
-                      height: 13,
-                      padding: '0 3px',
-                      fontSize: 9
-                    }
-                  : {})
-              }}
-            >
-              {agentsBadge.running && (
-                <svg
-                  className="animate-spin motion-reduce:animate-none"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  aria-hidden="true"
-                  style={{
-                    position: 'absolute',
-                    top: -3,
-                    left: -3,
-                    width: 'calc(100% + 6px)',
-                    height: 'calc(100% + 6px)',
-                    pointerEvents: 'none'
-                  }}
-                >
-                  <circle
-                    cx="12"
-                    cy="12"
-                    r="11"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    opacity="0.2"
-                  />
-                  <path
-                    d="M23 12a11 11 0 0 0-11-11"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              )}
-              {agentsBadge.count}
-            </span>
-          </button>
-        )}
+
         {sessionHasBranches && (
           <button
             type="button"
@@ -2557,7 +2381,6 @@ export function AppShell() {
                 onSessionStatsPanelOpen={openSessionStatsPanel}
                 onOpenSettings={openSettingsSection}
                 onContextUsageChange={handleContextUsageChange}
-                onOpenSubagent={handleOpenSubagent}
                 onAskInNewChat={handleAskInNewChat}
                 quoteSelectionEnabled={quoteSelectionEnabled}
                 initialPrompt={
@@ -2702,7 +2525,6 @@ export function AppShell() {
             title={translate(
               (
                 {
-                  agents: 'agentSwitcher.title',
                   branches: 'i18n.branches',
                   system: 'system.prompt',
                   tools: 'tools.title',
@@ -2723,18 +2545,7 @@ export function AppShell() {
                 embedded
               />
             )}
-            {activeTopPanel === 'agents' && activeSessionFamily && selectedSession && (
-              <AgentSessionPanel
-                rootSession={activeSessionFamily.root}
-                subagents={activeSessionFamily.subagents}
-                selectedSessionId={selectedSession.id}
-                runningSessionIds={runningSessionIds}
-                onSelectSession={(session) => {
-                  setActiveTopPanel(null);
-                  handleSelectSession(session);
-                }}
-              />
-            )}
+
             {activeTopPanel === 'system' && (
               <SystemPromptPanel
                 loading={systemInfoLoading}

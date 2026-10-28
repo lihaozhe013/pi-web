@@ -16,7 +16,6 @@ import { computeSessionStats } from '@/lib/session-stats';
 import { startServerPerf } from '@/lib/perf';
 import { computeSessionRevision } from '@/lib/session-revision';
 import type { SessionEntry } from '@/lib/types';
-import { readSubagentRun, readSubagentSessionResources } from '@/lib/subagents';
 import { readSessionToolSelection } from '@/lib/session-tool-selection';
 import { readWorkMode } from '@/lib/work-mode';
 import { jsonResponse } from '@/lib/json-response';
@@ -118,10 +117,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const parentSessionId = header?.parentSession
       ? await resolveSessionIdByPath(header.parentSession)
       : undefined;
-    const subagent = header ? readSubagentRun(entries as never, header.id, filePath) : null;
-    const toolNames =
-      readSubagentSessionResources(entries as never)?.tools ??
-      readSessionToolSelection(entries as never);
+    const toolNames = readSessionToolSelection(entries as never);
     // Plan and Read-only pin the same tools, so the stored mode is reported beside them.
     const workMode = readWorkMode(entries as never);
     const info = header
@@ -149,24 +145,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
                   })()
                 : '(no messages)',
               parentSessionId,
-              ...(subagent
+              ...(header.parentSession
                 ? {
                     relation: {
-                      kind: 'subagent' as const,
-                      parentSessionId: subagent.parentSessionId,
-                      profile: subagent.profile,
-                      description: subagent.description,
-                      status: liveRpc?.isRunning() ? ('running' as const) : subagent.status
+                      kind: 'fork' as const,
+                      ...(parentSessionId ? { originSessionId: parentSessionId } : {})
                     }
                   }
-                : header.parentSession
-                  ? {
-                      relation: {
-                        kind: 'fork' as const,
-                        ...(parentSessionId ? { originSessionId: parentSessionId } : {})
-                      }
-                    }
-                  : {}),
+                : {}),
               transient: !filePath || !existsSync(filePath)
             }
           ])
@@ -236,7 +222,6 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
 }
 
-// DELETE /api/sessions/[id] - the session and the subagent sessions below it (lib/session-delete.ts).
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   try {

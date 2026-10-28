@@ -6,18 +6,13 @@ import { createJiti } from 'jiti';
 import vm from 'node:vm';
 
 const jiti = createJiti(import.meta.url, { jsx: { runtime: 'automatic' }, tsconfigPaths: true });
-const React = await jiti.import('react');
-const { renderToStaticMarkup } = await jiti.import('react-dom/server');
-const { I18nProvider } = await jiti.import('@/hooks/useI18n');
-const { SessionSidebar, nearestEnabledKey, handOffDisabledKeyFocus, sameIdsOr } =
+const { nearestEnabledKey, handOffDisabledKeyFocus, sameIdsOr } =
   await jiti.import('./SessionSidebar.tsx');
 const { buildSessionTree, getRowOffsets, getVisibleRowIndices } =
   await jiti.import('@/lib/session-tree.ts');
 
 const source = await readFile(new URL('./SessionSidebar.tsx', import.meta.url), 'utf8');
 
-const h = React.createElement;
-const noop = () => {};
 const BASE = Date.parse('2026-10-01T00:00:00.000Z');
 
 function between(startAnchor, endAnchor) {
@@ -64,20 +59,6 @@ function treeInput(overrides = {}) {
   };
 }
 
-function render(props = {}) {
-  return renderToStaticMarkup(
-    h(
-      I18nProvider,
-      null,
-      h(SessionSidebar, {
-        selectedSessionId: null,
-        onSelectSession: noop,
-        ...props
-      })
-    )
-  );
-}
-
 test('scrolling keeps the focused session and the viewport mounted without expanding the whole tree', () => {
   const sessions = Array.from({ length: 2000 }, (_, index) =>
     session(`s${index}`, { modified: BASE - index * 60_000 })
@@ -110,43 +91,10 @@ test('scrolling keeps the focused session and the viewport mounted without expan
   }
 });
 
-test('subagents fold into their main session row, which carries their running, unread and selected state', () => {
-  const child = session('child', {
-    relation: {
-      kind: 'subagent',
-      parentSessionId: 'main',
-      profile: 'explore',
-      description: '',
-      status: 'running'
-    }
-  });
-  const { rows } = buildSessionTree(
-    treeInput({
-      sessions: [session('main'), child],
-      runningIds: new Set(['child']),
-      unreadIds: new Set(['child']),
-      selectedSessionId: 'child',
-      currentProject: { key: '/work/alpha', root: '/work/alpha' }
-    })
-  );
-  const sessionRows = rows.filter((row) => row.kind === 'session');
-  assert.deepEqual(
-    sessionRows.map((row) => row.family.root.id),
-    ['main']
-  );
-  assert.deepEqual(sessionRows[0].status, {
-    running: true,
-    awaiting: false,
-    unread: true,
-    selected: true,
-    transient: false
-  });
-});
-
 test('only Shift skips the session deletion confirmation', () => {
   assert.match(
     callbackBody('requestDelete'),
-    /if \(shiftKey\) \{\s*void performDelete\(family\);\s*\} else \{[\s\S]*?setConfirmDeleteRootId\(family\.root\.id\);/
+    /if \(shiftKey\) \{\s*void performDelete\(conversation\);\s*\} else \{[\s\S]*?setConfirmDeleteRootId\(conversation\.id\);/
   );
 });
 
@@ -280,12 +228,4 @@ test("a read or a mark in another tab reaches this one: the storage handler adop
   // The listener is registered for the storage event and taken off again.
   assert.match(source, /window\.addEventListener\(['"]storage['"], onStorage\);/);
   assert.match(source, /window\.removeEventListener\(['"]storage['"], onStorage\);/);
-});
-
-test('the sidebar contains session management without the retired file workspace', () => {
-  const html = render();
-  assert.match(html, /id="session-sidebar-panel-sessions" role="region"/);
-  assert.match(html, /class="sidebar-brand/);
-  assert.doesNotMatch(html, /session-sidebar-panel-files|sidebar-files|role="tablist"/);
-  assert.doesNotMatch(source, /\/api\/(?:git|worktrees|terminal|open-in-explorer)/);
 });

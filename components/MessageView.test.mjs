@@ -376,13 +376,13 @@ test('an edit call shows no table: its arguments are a list of patches', () => {
   }
 });
 
-test('a subagent and a flat MCP call show one row per argument', (t) => {
+test('an extension and a flat MCP call show one row per argument', (t) => {
   const cases = [
     {
       id: 'call-agent-rows',
-      toolName: 'Agent',
-      input: { subagent_type: 'Explore', prompt: 'Find the parser' },
-      expect: ['>subagent_type</td>', 'Find the parser']
+      toolName: 'extension_tool',
+      input: { category: 'Explore', prompt: 'Find the parser' },
+      expect: ['>category</td>', 'Find the parser']
     },
     {
       id: 'call-mcp-flat-rows',
@@ -414,8 +414,8 @@ test('a long or multi-line value stays inside the card', (t) => {
   const block = {
     type: 'toolCall',
     toolCallId: 'call-agent-long',
-    toolName: 'Agent',
-    input: { subagent_type: 'a'.repeat(200), prompt: content }
+    toolName: 'extension_tool',
+    input: { category: 'a'.repeat(200), prompt: content }
   };
   setToolCallExpanded(block.toolCallId, true);
   t.after(() => setToolCallExpanded(block.toolCallId, false));
@@ -435,74 +435,6 @@ test('a long or multi-line value stays inside the card', (t) => {
   assert.match(html, /max-height:260px/);
   assert.match(html, /overflow:auto/);
   assert.ok(textOf(html).includes('line 39'));
-});
-
-test('renders subagents as standard tool calls with only an extra side-panel button', () => {
-  const block = {
-    type: 'toolCall',
-    toolCallId: 'call-agent-1',
-    toolName: 'Agent',
-    input: {
-      subagent_type: 'Explore',
-      prompt: 'Find the parser',
-      description: 'Find parser'
-    }
-  };
-  const result = {
-    role: 'toolResult',
-    toolCallId: block.toolCallId,
-    content: [{ type: 'text', text: 'Parser is in lib/parser.ts' }],
-    details: {
-      kind: 'pi-web-subagent',
-      sessionId: 'child-session',
-      profile: 'Explore',
-      description: 'Find parser',
-      status: 'completed',
-      runInBackground: false,
-      createdAt: '2026-01-01T00:00:00.000Z'
-    }
-  };
-  const html = renderMessage(
-    {
-      role: 'assistant',
-      provider: 'anthropic',
-      model: 'claude-test',
-      content: [block]
-    },
-    {
-      toolResults: new Map([[block.toolCallId, result]]),
-      onOpenSubagent() {}
-    }
-  );
-
-  // the quiet card — no outline anywhere; the tint class alone draws it
-  // and the side-panel button's separator is the whisper rule.
-  const card = html.match(/<div class="tool-card"[^>]*>/)?.[0] ?? '';
-  assert.match(card, /class="tool-card" data-state="success"/);
-  assert.doesNotMatch(card, /border:|background:/);
-  assert.match(
-    html,
-    /border-left:1px solid color-mix\(in srgb, var\(--border\) 45%, transparent\)/
-  );
-  assert.match(html, />Agent</);
-  assert.match(html, />Explore</);
-  assert.match(html, /aria-label="View sub-agent work in side panel"/);
-  assert.doesNotMatch(html, />completed</);
-  assert.doesNotMatch(html, />Find parser</);
-
-  const ordinaryHtml = renderMessage(
-    {
-      role: 'assistant',
-      provider: 'anthropic',
-      model: 'claude-test',
-      content: [{ ...block, toolCallId: 'call-extension-1', toolName: 'extension_tool' }]
-    },
-    {
-      toolResults: new Map(),
-      onOpenSubagent() {}
-    }
-  );
-  assert.doesNotMatch(ordinaryHtml, /View sub-agent work in side panel/);
 });
 
 test('code, diffs and output sit in the card pane, not the page background', () => {
@@ -1083,8 +1015,18 @@ test("shows a running script's calls without an empty output", (t) => {
       content: [],
       details: {
         calls: [
-          { id: 'call-codemode-running/201', name: 'read', args: '{"path":"a"}', status: 'running' },
-          { id: 'call-codemode-running/202', name: 'grep', args: '{"pattern":"x"}', status: 'running' },
+          {
+            id: 'call-codemode-running/201',
+            name: 'read',
+            args: '{"path":"a"}',
+            status: 'running'
+          },
+          {
+            id: 'call-codemode-running/202',
+            name: 'grep',
+            args: '{"pattern":"x"}',
+            status: 'running'
+          },
           { id: 'call-codemode-running/203', name: 'ls', args: '{}', status: 'cancelled' }
         ],
         omittedCalls: 200

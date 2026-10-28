@@ -1,7 +1,6 @@
 @import 'tailwindcss';
 @import './directory-picker.css';
-/* Agent worktrees: scanning them makes webpack snapshot their symlinked
-   node_modules, which crashes `next build` with "reading 'length'". */
+
 @source not "../.claude";
 
 @theme {
@@ -1974,10 +1973,6 @@ code {
   }
 }
 
-/* The empty new-session page's header above the composer (ChatWindow), on
-   the composer's left edge: the brand (the logo, "Pi Web" and its versions
-   line), then the project and worktree row (NewSessionContextBar) right
-   above the composer card. Nothing on the right. */
 .new-session-hero-inner {
   margin: 0 auto;
 }
@@ -2037,9 +2032,6 @@ code {
   text-overflow: ellipsis;
 }
 
-/* The project and worktree: a row of their own, under the brand. The
-   project button's own padding is pulled out on the left, so its folder
-   icon stands on the logo's and the composer card's edge. */
 .new-session-context {
   display: flex;
   flex-wrap: nowrap;
@@ -2064,12 +2056,6 @@ code {
   }
 }
 
-/* The project and worktree picker (ProjectWorktreePicker). The files' (the
-   tab's stacked boxes, the row below the sessions), as the sidebar drew it
-   on main: two grey boxes in the header buttons' material, 11px, the
-   project's whole path and the worktree's branch in code type, cut at their
-   left; no icon and no chevron on the project: its path is the box. Above a
-   fresh composer (inline): names as text on the page, see below. */
 .project-picker {
   display: flex;
   align-items: center;
@@ -2272,64 +2258,6 @@ code {
   background: color-mix(in srgb, var(--accent) 6%, transparent);
   color: var(--text-dim);
   font-family: var(--font-mono);
-}
-
-/* No worktree list here (the files tab): a box that says why, and does nothing. */
-.project-picker-button.is-inactive,
-.project-picker-button.is-inactive:hover {
-  background: var(--bg-hover);
-  color: var(--text-dim);
-  cursor: default;
-  opacity: 0.82;
-}
-
-.project-picker-button.is-inactive:hover .project-picker-icon {
-  color: var(--text-dim);
-}
-
-/* The files tab: full width, one under the other, at the top of its head
-   (.sidebar-files-head, app/sidebar.css); the path or branch takes the room
-   before the notes. */
-.project-picker.is-stacked {
-  flex: none;
-  flex-direction: column;
-  align-items: stretch;
-}
-
-.project-picker.is-stacked .project-picker-button {
-  width: 100%;
-}
-
-.project-picker.is-stacked .project-picker-label,
-.project-picker.is-stacked .project-picker-path {
-  flex: 1 1 0;
-}
-
-/* The files below the sessions: the two boxes side by side in one row, a
-   little lower. The worktree box is as wide as its branch and notes, up to
-   55% of the row (the row is the head's whole width: a share of it, unlike
-   the bar's); the project box takes the rest, its path cut at its left. */
-.project-picker.is-row {
-  flex: none;
-  flex-direction: row;
-}
-
-.project-picker.is-row .project-picker-button {
-  height: 26px;
-}
-
-.project-picker.is-row .project-picker-button.is-project {
-  flex: 1 1 0;
-}
-
-.project-picker.is-row .project-picker-button:not(.is-project) {
-  flex: 0 1 auto;
-  max-width: 55%;
-}
-
-.project-picker.is-row .project-picker-label,
-.project-picker.is-row .project-picker-path {
-  flex: 1 1 0;
 }
 
 @media (pointer: coarse) {

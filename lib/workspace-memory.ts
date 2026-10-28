@@ -1,17 +1,3 @@
-/**
- * Per-workspace "last open session" memory.
- *
- * Switching to a workspace (project root or cwd) restores the session the user
- * had open there last, instead of landing on a blank new-session page. Without
- * this, every workspace switch required re-picking the session by hand.
- *
- * The workspace key is the server-provided project identity when known, so
- * Windows path variants and all worktrees of one repo share one memory slot.
- * Transient and legacy session objects fall back to projectRoot/cwd.
- *
- * Stored in localStorage; best-effort (silently ignored when unavailable).
- */
-
 const STORAGE_KEY = 'pi-web:last-open-by-workspace';
 
 interface StorageLike {

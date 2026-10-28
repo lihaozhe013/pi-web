@@ -145,7 +145,6 @@
   white-space: nowrap;
 }
 
-/* An item with an icon button of its own at its end (a worktree's remove). */
 .sidebar-menu-row {
   display: flex;
   align-items: center;
@@ -243,10 +242,6 @@
   unicode-bidi: plaintext;
 }
 
-/* The files tab's project and worktree menus on a desktop (`classic`,
-   components/ProjectWorktreePicker.tsx): main's dropdowns under their box.
-   Rows divided by lines, 11px, paths and branches in code type, a 10px check
-   (accent) where the icon goes, the folder actions after a double line. */
 .sidebar-menu.is-classic {
   padding: 0;
 }
@@ -326,90 +321,6 @@
   font-size: calc(11px + var(--ui-font-size-offset, 0px));
 }
 
-/* "New worktree…" under the list, and what went wrong. */
-.sidebar-menu.is-classic .sidebar-worktree-form {
-  padding: 6px 8px;
-}
-
-.sidebar-menu.is-classic .sidebar-worktree-input {
-  height: auto;
-  padding: 5px 8px;
-  font-size: calc(11px + var(--ui-font-size-offset, 0px));
-}
-
-.sidebar-menu.is-classic .sidebar-worktree-form-buttons {
-  gap: 5px;
-  margin-top: 5px;
-}
-
-.sidebar-menu.is-classic .sidebar-worktree-create,
-.sidebar-menu.is-classic .sidebar-worktree-cancel {
-  height: auto;
-  padding: 4px 0;
-  border-radius: 5px;
-  font-size: calc(11px + var(--ui-font-size-offset, 0px));
-}
-
-.sidebar-menu.is-classic .sidebar-worktree-cancel {
-  background: var(--bg-hover);
-}
-
-.sidebar-menu.is-classic .sidebar-worktree-error {
-  margin-top: 5px;
-}
-
-.sidebar-menu.is-classic > .sidebar-worktree-error {
-  margin: 0;
-  padding: 5px 10px 8px;
-}
-
-/* A dirty checkout's question in its own row. */
-.sidebar-worktree-confirm {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 10px;
-  border-bottom: 1px solid var(--border);
-  background: rgba(239, 68, 68, 0.06);
-}
-
-.sidebar-worktree-confirm-text {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  color: var(--text);
-  font-size: calc(11px + var(--ui-font-size-offset, 0px));
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.sidebar-worktree-confirm .sidebar-worktree-force,
-.sidebar-worktree-confirm .sidebar-worktree-cancel {
-  flex: none;
-  height: auto;
-  padding: 3px 9px;
-  border-radius: 5px;
-  font-size: calc(11px + var(--ui-font-size-offset, 0px));
-}
-
-.sidebar-worktree-confirm .sidebar-worktree-cancel {
-  background: var(--bg-hover);
-}
-
-.sidebar-worktree-confirm .sidebar-worktree-force[aria-disabled='true'] {
-  cursor: not-allowed;
-  opacity: 0.65;
-}
-
-/*
- * Mobile bottom sheet: its own backdrop above the drawer's (199) and the
- * drawer (200). The layer spans the visible area the way the drawer does, from
- * the top of the screen down to --app-viewport-height, which
- * hooks/useViewportHeight.ts shrinks to the visual viewport while the software
- * keyboard is up. iOS leaves the layout viewport, and with it `bottom: 0`,
- * under the keyboard; the sheet sits at the bottom of the layer instead, so the
- * "New worktree…" field and its buttons stay above the keyboard.
- */
 .sidebar-sheet-layer {
   position: fixed;
   top: 0;
@@ -711,110 +622,6 @@ html[data-keyboard-open] .sidebar-sheet {
   .sidebar-toast {
     animation: none;
   }
-}
-
-/* A worktree menu's "New worktree…" form (a custom menu body; components/WorktreeCreateForm.tsx),
-   and its removal body. */
-.sidebar-worktree-form {
-  padding: 2px 4px 4px;
-}
-
-.sidebar-worktree-input {
-  display: block;
-  width: 100%;
-  height: 28px;
-  padding: 0 8px;
-  box-sizing: border-box;
-  border: 1px solid var(--accent);
-  border-radius: 5px;
-  outline: none;
-  background: var(--bg);
-  color: var(--text);
-  font: inherit;
-  font-family: var(--font-mono);
-  font-size: calc(11.5px + var(--ui-font-size-offset, 0px));
-  user-select: text;
-  -webkit-user-select: text;
-}
-
-.sidebar-worktree-form-buttons {
-  display: flex;
-  gap: 6px;
-  margin-top: 6px;
-}
-
-.sidebar-worktree-create,
-.sidebar-worktree-force,
-.sidebar-worktree-cancel {
-  flex: 1;
-  height: 26px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg);
-  color: var(--text-muted);
-  font: inherit;
-  font-size: calc(12px + var(--ui-font-size-offset, 0px));
-  cursor: pointer;
-}
-
-.sidebar-worktree-cancel:hover {
-  background: var(--bg-hover);
-}
-
-.sidebar-worktree-create {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--accent-contrast);
-  font-weight: 600;
-}
-
-/* Force-removing a checkout discards its changes. */
-.sidebar-worktree-force {
-  border-color: #ef4444;
-  background: #ef4444;
-  color: #fff;
-  font-weight: 600;
-}
-
-.sidebar-worktree-create:disabled,
-.sidebar-worktree-force:disabled {
-  cursor: not-allowed;
-  opacity: 0.65;
-}
-
-.sidebar-worktree-create:focus-visible,
-.sidebar-worktree-force:focus-visible,
-.sidebar-worktree-cancel:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-
-/* A worktree menu's removal body (components/ProjectWorktreePicker.tsx): what Force would do. */
-.sidebar-worktree-message {
-  padding: 2px 4px 0;
-  color: var(--text);
-  font-size: calc(12px + var(--ui-font-size-offset, 0px));
-  line-height: 1.4;
-}
-
-.sidebar-worktree-error {
-  margin-top: 6px;
-  color: #ef4444;
-  font-size: calc(11px + var(--ui-font-size-offset, 0px));
-  line-height: 1.35;
-  overflow-wrap: anywhere;
-}
-
-.sidebar-sheet .sidebar-worktree-form {
-  padding: 10px 16px 4px;
-}
-
-.sidebar-sheet .sidebar-worktree-input,
-.sidebar-sheet .sidebar-worktree-create,
-.sidebar-sheet .sidebar-worktree-force,
-.sidebar-sheet .sidebar-worktree-cancel {
-  height: 40px;
-  font-size: calc(14px + var(--ui-font-size-offset, 0px));
 }
 
 /* A project menu's "Delete all sessions" question (a custom menu body;

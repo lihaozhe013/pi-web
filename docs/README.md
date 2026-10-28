@@ -24,7 +24,9 @@ them. Directory selection, attachments, inline media, and file references serve 
 they are not a file manager.
 
 Do not build an IDE, file workspace, Git/worktree manager, embedded terminal, multi-panel dashboard,
-or comprehensive configuration center. Prefer a good default over speculative settings.
+multi-agent orchestrator, or comprehensive configuration center. Pi Web does not implement or manage
+subagents; installed Pi extensions remain Pi's responsibility. Prefer a good default over
+speculative settings.
 
 Historical management pages, settings, and project-specific style layers remain in the code. They
 are not product commitments. Review them individually and leave configuration to Pi or its CLI when

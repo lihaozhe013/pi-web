@@ -18,9 +18,14 @@ its source project. It is not an IDE or an all-in-one manager.
 Pi provides the agent capabilities; this project provides their presentation and interaction.
 Visualizing the CLI does not mean building a management panel for every CLI feature.
 
-File browsing, file previews, Git/worktree management, terminal tabs, and the demo have been removed
-from the interface. Historical settings and management modules still exist in the code; their
-presence is not a commitment to retain them.
+Pi Web does not provide built-in subagents, multi-agent orchestration, Git/worktree management, file
+browsing, file previews, or terminal tabs. Sessions are grouped by their working directories, not by
+Git repositories. Installed Pi extensions still load according to Pi semantics; Pi Web does not add
+an agent-management layer around them.
+
+Historical Pi Web subagent sessions and settings are not migrated or supported. Existing files are
+not deleted automatically. Historical settings modules for other features are not commitments to
+retain those features.
 
 ## Run locally
 

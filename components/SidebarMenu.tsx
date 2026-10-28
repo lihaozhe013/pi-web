@@ -14,33 +14,14 @@ import {
 import { createPortal } from 'react-dom';
 import { CheckIcon } from './SidebarIcons';
 
-/**
- * The session sidebar's popup menu: a row's ⋯ or right-click menu, a project
- * group's menu; also the project and worktree menus of the files tab and of
- * the bar above a fresh composer (components/ProjectPicker.tsx). On a
- * desktop it is a small menu placed at a point or beside a button; on a phone
- * (`sheet`) a bottom sheet over its own backdrop. Either way it is portaled to `document.body`: the mobile sidebar
- * drawer moves with `transform`, which would make a `position: fixed` menu
- * inside it fixed to the 280px drawer instead of the screen.
- *
- * What it shows and whether it is open come from the parent, which keeps
- * them above the virtualized rows so a row scrolled out of view does not
- * take its open menu with it; the menu keeps only its filter field's text.
- */
-
 /** What an item's `onSelect` is told about the activation. */
 export interface SidebarMenuSelectEvent {
   /** Shift was held (click, Enter or the item's shortcut letter): Delete skips its confirmation. */
   shiftKey: boolean;
-  /**
-   * Leaves the menu open instead of closing it after `onSelect`: for an item
-   * that swaps the menu's body, such as "New worktree…" turning the worktree
-   * menu into a small form.
-   */
+
   keepOpen(): void;
 }
 
-/** An icon button at the end of an item's row with an action of its own (a worktree's remove). */
 export interface SidebarMenuSecondaryAction {
   /** Its accessible name and tooltip. */
   label: string;
@@ -58,7 +39,7 @@ export type SidebarMenuItem =
       icon?: ReactNode;
       /** One letter that activates the item while the menu has focus. */
       shortcut?: string;
-      /** Right-aligned hint shown instead of the shortcut (a worktree's "main"). */
+
       note?: string;
       /** Tooltip: what the label shortens (a project's full path). */
       title?: string;
@@ -92,12 +73,6 @@ export type SidebarMenuAnchor =
 
 export type SidebarMenuCloseReason = 'escape' | 'outside' | 'select' | 'cancel';
 
-/**
- * A field above the items that narrows the menu's choices (the items with
- * `checked`) by label, note and title, shown once there are
- * `SIDEBAR_MENU_FILTER_MIN_CHOICES` of them. Other items (an action such as
- * "New worktree…") always show.
- */
 export interface SidebarMenuFilter {
   placeholder: string;
   /** Shown when no choice matches. */
@@ -139,12 +114,9 @@ export interface SidebarMenuProps {
   returnFocusTo?: HTMLElement | null;
   /** Desktop width in px. */
   width?: number;
-  /**
-   * The files tab's project and worktree menus on a desktop: the look of the
-   * dropdowns they were on main, rows divided by lines, 11px.
-   */
+
   classic?: boolean;
-  /** Shown after the items, outside the list (a classic worktree menu's "New worktree…" form). */
+
   footer?: ReactNode;
   /** Focus goes into the menu again whenever this changes (a body swapped in or out). */
   focusKey?: string;
@@ -350,13 +322,6 @@ function initialFocusTarget(surface: HTMLElement): HTMLElement | null {
   return controls[0] ?? null;
 }
 
-/**
- * What focus goes to when the menu's body is swapped while it stays open (the
- * worktree menu's "New worktree…" form under, or in place of, its list): the
- * new body's marked control, not the list's filter field above it — first in
- * the page, it took the focus when the menu opened and would keep it. Back to
- * the list nothing else is marked, so the filter takes it again.
- */
 export function menuBodyFocusTarget(surface: HTMLElement): HTMLElement | null {
   const marked = Array.from(surface.querySelectorAll<HTMLElement>(AUTOFOCUS_SELECTOR)).filter(
     (element) => !element.matches(FILTER_SELECTOR) && isFocusable(element)
@@ -774,10 +739,6 @@ export function SidebarMenu({
     if (previous.visible !== visible || previous.custom !== custom) setFilterQuery('');
   }, [visible, custom]);
 
-  // Focus moves into the menu when it opens, and again when its body is
-  // swapped (the worktree menu turning into its form, or showing it below).
-  // The opening takes the first marked control (a filter field); a swap hands
-  // the claim to the new body's own, so a long list's filter does not keep it.
   const openedRef = useRef(false);
   const focusContextKey = JSON.stringify([visible, sheet, custom, focusKey]);
   const previousFocusContextKeyRef = useRef<string | null>(null);

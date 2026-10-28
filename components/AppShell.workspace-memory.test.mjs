@@ -124,7 +124,7 @@ test('New restores the draft after session navigation and workspace auto-restore
   );
   const cleanupEnd = hookSource.indexOf('    // eslint-disable-next-line', cleanupStart);
 
-  for (const rememberedCwd of ['/draft-project', '/draft-project-worktree']) {
+  for (const rememberedCwd of ['/draft-project', '/draft-project/other-directory']) {
     await t.test(`remembered session cwd: ${rememberedCwd}`, async () => {
       const cwd = '/draft-project';
       const session = { id: 'remembered', cwd: rememberedCwd, projectKey: cwd };
@@ -417,8 +417,10 @@ test("the composer's bar moves the fresh composer's draft and model picks instea
   // Nothing typed: the target's parked draft comes back, as it does without the bar.
   draftStore.clearDraft('new:p2-new:/p2');
   context.newSessionDraftId = 'p2-new';
-  context.navigate.handleNewSession('p2-again', '/p2-worktree', '/p2-key', { carryComposer: true });
-  assert.equal(draftStore.getDraft('new:p2-again:/p2-worktree'), null);
+  context.navigate.handleNewSession('p2-again', '/p2/other-directory', '/p2-key', {
+    carryComposer: true
+  });
+  assert.equal(draftStore.getDraft('new:p2-again:/p2/other-directory'), null);
   draftStore.setDraft('parked-new:/p3', parkedInP2);
   context.navigate.handleNewSession('p3-new', '/p3', '/p3-key', { carryComposer: true });
   assert.deepEqual(draftStore.getDraft('new:p3-new:/p3'), parkedInP2);
@@ -515,7 +517,7 @@ test('a new session puts the caret in the fresh composer on desktop only (#1313)
   context.document.activeElement = null;
 
   // The bar's move keeps its control, so no caret request is made for it.
-  context.newSessionBarFocusRef.current = 'worktree';
+  context.newSessionBarFocusRef.current = 'project';
   context.navigate.handleNewSession('p2-new', '/p2', '/p2-key', { carryComposer: true });
   assert.equal(frames.length, 0);
   context.newSessionBarFocusRef.current = null;

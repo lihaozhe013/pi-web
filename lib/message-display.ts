@@ -87,16 +87,11 @@ export function isMessageGroupAnchor(message: {
   customType?: string;
   display?: boolean;
 }): boolean {
-  // A background subagent completion starts a new displayed turn, same as a
-  // user message or compaction summary: pi-web's own, and @tintinweb/pi-subagents'
-  // (a follow-up that triggers a turn). Other custom messages stay inside the turn.
   return (
     message.role === 'user' ||
     (message.role === 'custom' &&
       !isHiddenCustomMessage(message) &&
-      (message.customType === 'compaction' ||
-        message.customType === 'pi-web:subagent-notification' ||
-        message.customType === 'subagent-notification'))
+      message.customType === 'compaction')
   );
 }
 

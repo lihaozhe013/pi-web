@@ -19,7 +19,7 @@ export function SessionSearch({
   children: ReactNode;
   selectedSessionId: string | null;
   onSelectSession: (session: SessionInfo, entryId?: string, blockIndex?: number) => void;
-  /** Ids of every session in an archived family: their results are tagged, not hidden. */
+  /** Ids of every session in an archived conversation: their results are tagged, not hidden. */
   archivedSessionIds?: ReadonlySet<string>;
 }) {
   const { t, locale } = useI18n();

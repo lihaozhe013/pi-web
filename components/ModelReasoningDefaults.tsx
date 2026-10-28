@@ -162,7 +162,7 @@ export function ModelReasoningDefaults({
       <p className="models-defaults-help">{t('models.modelReasoningHelp')}</p>
       {failure && <div className="enabled-models-error">{failure}</div>}
       {loading ? (
-        <div className="enabled-models-empty">{t('agents.modelsLoading')}</div>
+        <div className="enabled-models-empty">{t('models.loading')}</div>
       ) : total === 0 ? (
         <div className="enabled-models-empty">{t('models.modelReasoningEmpty')}</div>
       ) : (

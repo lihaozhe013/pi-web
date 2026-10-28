@@ -39,8 +39,7 @@ import {
   catalogFirstMessage,
   getLatestModelChange,
   invalidateSessionListCache,
-  readLatestSessionEntryId,
-  resolveSessionPath
+  readLatestSessionEntryId
 } from './session-reader';
 import { computeLiveSessionTotalActiveMs } from './session-timing';
 import { STREAM_SPEED_ENTRY, StreamSpeedTracker } from './session-stream-speed';
@@ -63,34 +62,14 @@ import {
   DEFAULT_CUSTOM_UI_COLUMNS,
   type HeadlessCustomUiTui
 } from './custom-ui-terminal';
-import { createSubagentExtension, preferPiWebSubagentExtension } from './subagent-extension';
-import {
-  listSubagentProfiles,
-  hasSubagentResourceSnapshot,
-  readSubagentRun,
-  readSubagentSessionResources,
-  subagentExtensionLoaderOptions,
-  subagentToolOptions,
-  SUBAGENT_CONTROL_TOOL_NAMES
-} from './subagents';
-import { createSubagentController } from './subagent-runtime';
-import { isBuiltInSubagentsEnabled } from './subagent-settings';
 import { resolveShellTools } from './powershell-settings';
 import { CHAT_ONLY_RESOURCE_LOADER_OPTIONS, contextFilesSystemPrompt } from './chat-only';
 import { readWorkMode, syncWorkMode, validateWorkMode, type WorkMode } from './work-mode';
 import { createExactSystemPromptExtension } from './exact-system-prompt';
-import {
-  createPiWebBuiltinExtensions,
-  createSubagentCodemodeExtension,
-  createSubagentMcpExtensions
-} from './builtin-extensions';
+import { createPiWebBuiltinExtensions } from './builtin-extensions';
 import type { McpHost } from './mcp-host';
 import { mcpPromptPreparation, type McpCommandCandidate } from './mcp-command';
-import {
-  createReadOnlyMcpPolicyExtension,
-  createSubagentMcpPolicyExtension
-} from './mcp-read-only-policy';
-import { createSubagentSkillsBinding } from './subagent-skills';
+import { createReadOnlyMcpPolicyExtension } from './mcp-read-only-policy';
 import { isNestedToolExecutionEvent } from './agent-event-wire';
 import {
   collectLiveAssistantNotices,
@@ -174,7 +153,6 @@ type AgentSessionWrapperOptions = {
   exactSystemPrompt?: () => string;
   chatOnly?: boolean;
   onAgentRunComplete?: AgentRunCompleteListener;
-  suppressCompletionNotifications?: boolean;
   /** Connects the session's MCP servers before a prompt starts a run, and lets go of them when it closes (lib/mcp-host.ts). */
   mcpHost?: Pick<McpHost, 'prepareForPrompt' | 'dispose'>;
   /** Chat only: the extension-provided model the session wanted, named when a prompt finds no model. */
@@ -342,14 +320,7 @@ class PlainTextTheme extends Theme {
 const PLAIN_TEXT_THEME = new PlainTextTheme();
 const CUSTOM_UI_KEYBINDINGS = new TuiKeybindingsManager(TUI_KEYBINDINGS);
 
-// Tools that belong to the session, not to a branch of it: the ones that reach other tools,
-// and pi-web's subagent tools, which the built-in subagent setting switches on for the whole
-// session. Navigation keeps them although the target branch was recorded without them.
-const SESSION_TOOL_NAMES = new Set<string>([
-  'codemode',
-  'tool_search',
-  ...SUBAGENT_CONTROL_TOOL_NAMES
-]);
+const SESSION_TOOL_NAMES = new Set<string>(['codemode', 'tool_search']);
 
 /**
  * The active tools for a coding tool selection. The selection replaces only the coding
@@ -414,7 +385,6 @@ export class AgentSessionWrapper {
   private readonly exactSystemPrompt?: () => string;
   private readonly chatOnly: boolean;
   private readonly onAgentRunComplete?: AgentRunCompleteListener;
-  private readonly suppressCompletionNotifications: boolean;
   private readonly mcpHost?: Pick<McpHost, 'prepareForPrompt' | 'dispose'>;
   private readonly chatOnlyExtensionModel?: { provider: string; id: string };
   private mcpHostDisposed = false;
@@ -444,7 +414,6 @@ export class AgentSessionWrapper {
     this.exactSystemPrompt = options.exactSystemPrompt;
     this.chatOnly = options.chatOnly ?? false;
     this.onAgentRunComplete = options.onAgentRunComplete;
-    this.suppressCompletionNotifications = options.suppressCompletionNotifications ?? false;
     this.mcpHost = options.mcpHost;
     this.chatOnlyExtensionModel = options.chatOnlyExtensionModel;
   }
@@ -520,10 +489,6 @@ export class AgentSessionWrapper {
 
   isChatOnly(): boolean {
     return this.chatOnly;
-  }
-
-  hasSuppressedCompletionNotifications(): boolean {
-    return this.suppressCompletionNotifications;
   }
 
   start(): void {
@@ -631,7 +596,7 @@ export class AgentSessionWrapper {
     if (!this.agentRunNeedsCompletion || this.isRunning()) return;
     this.agentRunNeedsCompletion = false;
     // A stopped run did not finish a task, as pi's own status reporting has it: nothing to announce.
-    if (this.suppressCompletionNotifications || this.lastRunAborted) return;
+    if (this.lastRunAborted) return;
     try {
       this.onAgentRunComplete?.(this.sessionId, this.inner.sessionManager.getSessionName());
     } catch (error) {
@@ -658,40 +623,6 @@ export class AgentSessionWrapper {
 
   async waitUntilReady(): Promise<void> {
     await this.waitForExtensionsBound();
-  }
-
-  /**
-   * A subagent run prompts the SDK session directly (`lib/subagent-runtime.ts`), past `send()`:
-   * connect the session's MCP servers first, as a sent prompt does, once session_start has bound
-   * the host. Stop (`abort`) ends the wait as it ends a sent prompt's, and so does `signal`.
-   * Resolves whether the run may start.
-   */
-  async prepareMcpForRun(signal: AbortSignal): Promise<boolean> {
-    const mcpHost = this.mcpHost;
-    if (!mcpHost || this.inner.isStreaming) return !signal.aborted;
-    const controller = new AbortController();
-    const stop = () => controller.abort();
-    if (signal.aborted) stop();
-    signal.addEventListener('abort', stop, { once: true });
-    // Registered before the binding is awaited, so a Stop meanwhile already ends it.
-    const waited = (async () => {
-      await this.waitForExtensionsBound();
-      if (!controller.signal.aborted) await mcpHost.prepareForPrompt(controller.signal);
-    })().catch((error: unknown) => {
-      console.error(
-        '[pi-web] MCP servers could not be prepared:',
-        error instanceof Error ? error.message : error
-      );
-    });
-    const wait = { controller, done: waited };
-    this.mcpPromptWait = wait;
-    try {
-      await waited;
-    } finally {
-      signal.removeEventListener('abort', stop);
-      if (this.mcpPromptWait === wait) this.mcpPromptWait = null;
-    }
-    return !controller.signal.aborted;
   }
 
   private ensureExtensionsBound(): Promise<void> {
@@ -797,12 +728,6 @@ export class AgentSessionWrapper {
     this.inner.setActiveToolsByName(resolveActiveToolNames(this.inner, toolNames, carry));
   }
 
-  /**
-   * pi restores the target branch's loadout from its transcript when it navigates the tree,
-   * which can bring back coding tools the pinned preset leaves out and drop codemode, so a
-   * normal session applies its selection again. Chat only declares no tools, and a
-   * subagent's tools are fixed by its profile; both keep what pi restored.
-   */
   private async navigateTreeKeepingToolSelection(
     targetId: string,
     options: { summarize?: boolean }
@@ -812,13 +737,11 @@ export class AgentSessionWrapper {
     if (result.cancelled || this.chatOnly) return { cancelled: result.cancelled };
 
     const entries = this.inner.sessionManager.getEntries() as unknown as SessionEntry[];
-    if (!readSubagentSessionResources(entries)) {
-      const activeAfter = this.inner.getActiveToolNames();
-      this.setActiveToolSelection(readSessionToolSelection(entries) ?? activeAfter, [
-        ...activeAfter,
-        ...activeBefore.filter((name) => SESSION_TOOL_NAMES.has(name))
-      ]);
-    }
+    const activeAfter = this.inner.getActiveToolNames();
+    this.setActiveToolSelection(readSessionToolSelection(entries) ?? activeAfter, [
+      ...activeAfter,
+      ...activeBefore.filter((name) => SESSION_TOOL_NAMES.has(name))
+    ]);
     return { cancelled: false };
   }
 
@@ -2409,39 +2332,6 @@ function registerRpcWrapper(wrapper: AgentSessionWrapper): void {
   if (!wrapper.isChatOnly()) wrapper.beginExtensionBinding();
 }
 
-const SUBAGENT_CONTROLLER = createSubagentController({
-  getSession: (sessionId) => getRegistry().get(sessionId),
-  registerSession: (inner, options) => {
-    const wrapper = new AgentSessionWrapper(inner, {
-      ...(options?.exactSystemPrompt !== undefined
-        ? { exactSystemPrompt: options.exactSystemPrompt }
-        : {}),
-      chatOnly: options?.chatOnly,
-      suppressCompletionNotifications: true,
-      ...(options?.mcpHost ? { mcpHost: options.mcpHost } : {})
-    });
-    registerRpcWrapper(wrapper);
-    return wrapper;
-  },
-  reopenSession: async (sessionId, sessionFile) =>
-    (await startRpcSession(sessionId, sessionFile, undefined)).session,
-  resolveSessionPath,
-  invalidateSessionList: invalidateSessionListCache,
-  isBuiltInSubagentsEnabled
-});
-
-export function getSubagentRun(sessionId: string) {
-  return SUBAGENT_CONTROLLER.get(sessionId);
-}
-
-export function steerSubagent(sessionId: string, message: string) {
-  return SUBAGENT_CONTROLLER.steer(sessionId, message);
-}
-
-export function abortSubagent(sessionId: string) {
-  return SUBAGENT_CONTROLLER.abort(sessionId);
-}
-
 function getLocks(): Map<string, Promise<{ session: AgentSessionWrapper; realSessionId: string }>> {
   if (!globalThis.__piStartLocks) globalThis.__piStartLocks = new Map();
   return globalThis.__piStartLocks;
@@ -2552,9 +2442,6 @@ export async function setRpcSessionTools(
       return setRpcSessionTools(sessionId, sessionFile, requestedToolNames, requestedMode);
     }
     const manager = SessionManager.open(sessionFile, undefined);
-    if (readSubagentSessionResources(manager.getEntries() as unknown as SessionEntry[])) {
-      throw new Error('Subagent tool selection is fixed by its profile');
-    }
     if (toolNames === undefined) appendClearedSessionToolSelection(manager);
     else appendSessionToolSelection(manager, toolNames);
     if (modeProvided) {
@@ -2566,13 +2453,6 @@ export async function setRpcSessionTools(
   }
 
   if (existing.isRunning()) throw new Error('Cannot change tools while the session is running');
-  if (
-    readSubagentSessionResources(
-      existing.inner.sessionManager.getEntries() as unknown as SessionEntry[]
-    )
-  ) {
-    throw new Error('Subagent tool selection is fixed by its profile');
-  }
 
   const hasCurrentResourcePolicy =
     typeof existing.isChatOnly === 'function' &&
@@ -2662,11 +2542,6 @@ export function getRpcSessionInfos(options: { includeTransient?: boolean } = {})
     const firstUserMessage = messages.find((entry) => entry.message.role === 'user');
     const sessionFile = manager.getSessionFile() ?? session.sessionFile;
     const persisted = Boolean(sessionFile && existsSync(sessionFile));
-    const subagent = readSubagentRun(
-      entries as unknown as SessionEntry[],
-      header?.id ?? session.sessionId,
-      sessionFile ?? ''
-    );
 
     // An ensure_session call creates an idle, empty runtime while the composer
     // loads commands. Do not leak it into history before a prompt is accepted.
@@ -2692,18 +2567,6 @@ export function getRpcSessionInfos(options: { includeTransient?: boolean } = {})
       firstMessage: catalogFirstMessage(
         firstUserMessage ? runtimeMessageText(firstUserMessage) || '(no messages)' : '(no messages)'
       ),
-      ...(subagent
-        ? {
-            parentSessionId: subagent.parentSessionId,
-            relation: {
-              kind: 'subagent' as const,
-              parentSessionId: subagent.parentSessionId,
-              profile: subagent.profile,
-              description: subagent.description,
-              status: session.isRunning() ? ('running' as const) : subagent.status
-            }
-          }
-        : {}),
       transient: !persisted
     });
   }
@@ -2744,16 +2607,6 @@ export function getAwaitingInputRpcSessionIds(): string[] {
   const ids = new Set<string>();
   for (const [sessionId, session] of getRegistry()) {
     if (session.isAwaitingInput()) ids.add(session.sessionId || sessionId);
-  }
-  return [...ids];
-}
-
-export function getCompletionNotificationSuppressedRpcSessionIds(): string[] {
-  const ids = new Set<string>();
-  for (const [sessionId, session] of getRegistry()) {
-    if (session.isRunning() && session.hasSuppressedCompletionNotifications()) {
-      ids.add(session.sessionId || sessionId);
-    }
   }
   return [...ids];
 }
@@ -2804,52 +2657,29 @@ export async function startRpcSession(
   }
   const sessionCwd = sessionManager.getCwd();
   const sessionEntries = sessionManager.getEntries() as unknown as SessionEntry[];
-  const hasPersistedSubagentSnapshot = sessionFile && hasSubagentResourceSnapshot(sessionEntries);
-  const subagentResources = sessionFile ? readSubagentSessionResources(sessionEntries) : null;
-  if (hasPersistedSubagentSnapshot && !subagentResources) {
-    throw new Error('Invalid subagent resource snapshot');
-  }
-  const persistedToolNames = subagentResources
-    ? undefined
-    : readSessionToolSelection(sessionEntries);
-  const selectedToolNames = subagentResources?.tools ?? persistedToolNames ?? requestedToolNames;
-  if (!subagentResources && persistedToolNames === undefined && requestedToolNames !== undefined) {
+  const persistedToolNames = readSessionToolSelection(sessionEntries);
+  const selectedToolNames = persistedToolNames ?? requestedToolNames;
+  if (persistedToolNames === undefined && requestedToolNames !== undefined) {
     appendSessionToolSelection(sessionManager, requestedToolNames);
   }
   // A new session starts in the mode the caller asked for. A session file's own entry stays
   // authoritative, because reopening it must not repeat the choice that created it.
-  if (!subagentResources && options.mode !== undefined) {
+  if (options.mode !== undefined) {
     syncWorkMode(
       sessionManager,
       sessionManager.getEntries() as unknown as SessionEntry[],
       validateWorkMode(options.mode)
     );
   }
-  const subagentLoadsResources = Boolean(
-    subagentResources?.loadExtensions ||
-    subagentResources?.loadSkills ||
-    subagentResources?.codemode ||
-    subagentResources?.mcp
-  );
-  const chatOnly = selectedToolNames?.length === 0 && !subagentLoadsResources;
+  const chatOnly = selectedToolNames?.length === 0;
   const finishStartingSession = trackStartingSession(sessionCwd);
   const starting = (async () => {
     // Some extensions access the SDK's global theme even outside the terminal UI.
     if (!chatOnly) initTheme();
     const agentDir = getAgentDir();
 
-    // Determine which tools to pass based on requested toolNames.
-    // Since v0.68.0, session creation expects string[] tool names instead of Tool[] instances.
-    // A subagent's tools come from its snapshot (subagentToolOptions() below).
     let toolsOption: string[] | undefined;
-    if (!subagentResources && selectedToolNames !== undefined) {
-      // toolNames === [] -> "all off" (an empty allow-list disables every tool).
-      // Otherwise DO NOT pass a builtin-only allow-list: passing CODING_TOOL_NAMES
-      // set allowedToolNames to coding builtins only, which filtered every
-      // extension/package-provided tool (e.g. subagents, web access) out of the
-      // tool registry — so they were unavailable in Pi Web sessions even though the
-      // `pi` CLI keeps them. Leaving the allow-list unset lets the SDK register all
-      // tools (and activate extension tools); we narrow the ACTIVE set below.
+    if (selectedToolNames !== undefined) {
       toolsOption = selectedToolNames.length === 0 ? [] : undefined;
     }
 
@@ -2857,113 +2687,39 @@ export async function startRpcSession(
     // before the SDK restores the saved model from the session file.
     // Gate untrusted project extensions so opening a repository does not run
     // its .pi/extensions code automatically (see lib/project-trust.ts, #236).
-    const trustReloadOptions = subagentResources
-      ? subagentLoadsResources
-        ? projectTrustReloadOptions(sessionCwd, agentDir)
-        : undefined
-      : chatOnly
-        ? undefined
-        : projectTrustReloadOptions(sessionCwd, agentDir);
+    const trustReloadOptions = chatOnly
+      ? undefined
+      : projectTrustReloadOptions(sessionCwd, agentDir);
     const settingsManager = SettingsManager.create(sessionCwd, agentDir);
-    // Chat-only sessions and subagents that replace Pi's prompt send an exact
-    // system prompt. The prompt is resolved at prompt time through this inline
-    // extension: it may read the session's context files, which exist only
-    // after the session is created, so the getter is filled in below.
     const exactSystemPromptRef: { current?: () => string } = {};
     const exactSystemPromptExtension = createExactSystemPromptExtension(() =>
       exactSystemPromptRef.current?.()
     );
     // codemode, tool-search, and mcp, as the pi CLI loads them, and the host that decides
     // which MCP servers the session connects (ADR 0006).
-    const builtins =
-      subagentResources || chatOnly ? undefined : await createPiWebBuiltinExtensions({ agentDir });
-    const subagentCodemode = subagentResources?.codemode
-      ? await createSubagentCodemodeExtension({
-          agentDir,
-          cwd: sessionCwd,
-          projectTrusted: () => settingsManager.isProjectTrusted()
-        })
-      : undefined;
-    const subagentMcp = subagentResources?.mcp
-      ? await createSubagentMcpExtensions({
-          agentDir,
-          cwd: sessionCwd,
-          projectTrusted: () => settingsManager.isProjectTrusted(),
-          codemode: subagentResources.codemode === true
-        })
-      : undefined;
-    const skillsBinding = subagentResources
-      ? createSubagentSkillsBinding({
-          loadSkills: subagentResources.loadSkills,
-          skills: subagentResources.skills,
-          exactSystemPrompt:
-            subagentResources.exactSystemPrompt ??
-            (chatOnly ? (subagentResources.appendSystemPrompt[0] ?? '') : undefined)
-        })
-      : undefined;
-    const subagentExtensionFactories = [
-      ...(subagentCodemode ? [subagentCodemode] : []),
-      ...(subagentMcp && subagentResources
-        ? [...subagentMcp.extensions, createSubagentMcpPolicyExtension(() => subagentResources)]
-        : []),
-      ...(skillsBinding?.loaderOptions.extensionFactories ?? [])
-    ];
+    const builtins = chatOnly ? undefined : await createPiWebBuiltinExtensions({ agentDir });
     const services = await createAgentSessionServices({
       cwd: sessionCwd,
       agentDir,
       settingsManager,
-      resourceLoaderOptions: subagentResources
+      resourceLoaderOptions: chatOnly
         ? {
-            ...subagentExtensionLoaderOptions(subagentResources),
-            ...skillsBinding!.loaderOptions,
-            ...(subagentExtensionFactories.length > 0
-              ? { extensionFactories: subagentExtensionFactories }
-              : {}),
-            noPromptTemplates: true,
-            noThemes: true,
-            noContextFiles: true,
-            ...(chatOnly
-              ? {
-                  systemPrompt: ' ',
-                  systemPromptOverride: () => undefined
-                }
-              : {}),
-            appendSystemPrompt: subagentResources.appendSystemPrompt
+            ...CHAT_ONLY_RESOURCE_LOADER_OPTIONS,
+            extensionFactories: [exactSystemPromptExtension]
           }
-        : chatOnly
-          ? {
-              ...CHAT_ONLY_RESOURCE_LOADER_OPTIONS,
-              extensionFactories: [exactSystemPromptExtension]
-            }
-          : {
-              extensionFactories: [
-                ...(builtins?.extensions ?? []),
-                createReadOnlyMcpPolicyExtension(),
-                createProjectCommandBashExtension({
-                  cwd: sessionCwd,
-                  settings: settingsManager
-                }),
-                createSubagentExtension(
-                  SUBAGENT_CONTROLLER.extensionRuntime,
-                  () => listSubagentProfiles(sessionCwd),
-                  isBuiltInSubagentsEnabled
-                )
-              ],
-              extensionsOverride: (base) =>
-                preferUserBashExtension(preferPiWebSubagentExtension(base))
-            },
+        : {
+            extensionFactories: [
+              ...(builtins?.extensions ?? []),
+              createReadOnlyMcpPolicyExtension(),
+              createProjectCommandBashExtension({
+                cwd: sessionCwd,
+                settings: settingsManager
+              })
+            ],
+            extensionsOverride: (base) => preferUserBashExtension(base)
+          },
       ...(trustReloadOptions ? { resourceLoaderReloadOptions: trustReloadOptions } : {})
     });
-    if (
-      subagentResources?.codemode &&
-      !services.resourceLoader
-        .getExtensions()
-        .extensions.some((extension) => extension.tools.has('codemode'))
-    ) {
-      throw new Error('Code mode is unavailable: builtin:codemode was not registered');
-    }
-    // Every model this session resolves — startup pick, switches, subagents,
-    // compaction thresholds — is capped by the global context window limit.
     services.modelRuntime = withContextWindowLimit(services.modelRuntime);
     const enabledModels = services.settingsManager.getEnabledModels();
     const scope = await resolveVisibleModels(services.modelRuntime, enabledModels);
@@ -3084,32 +2840,25 @@ export async function startRpcSession(
       ...(startupModel ? { model: startupModel } : {}),
       ...(initial?.thinkingLevel ? { thinkingLevel: initial.thinkingLevel } : {}),
       ...(scope.scopedModels.length > 0 ? { scopedModels: [...scope.scopedModels] } : {}),
-      ...(subagentResources
-        ? subagentToolOptions(subagentResources)
-        : toolsOption !== undefined
-          ? { tools: toolsOption }
-          : {})
+      ...(toolsOption !== undefined ? { tools: toolsOption } : {})
     });
 
     // A pinned selection replaces only the coding tools of the SDK's initial loadout, which
     // already holds the extension tools pi activates on registration and whatever
     // `defaultTools` names (such as `+codemode`), so installed extensions stay usable in
     // Pi Web just like in the `pi` CLI.
-    if (!subagentResources && !chatOnly) {
+    if (!chatOnly) {
       const initialToolNames = inner.getActiveToolNames();
       inner.setActiveToolsByName(
         resolveActiveToolNames(inner, selectedToolNames ?? initialToolNames, initialToolNames)
       );
     }
 
-    skillsBinding?.setActiveToolsGetter(() => inner.getActiveToolNames());
-    const exactSystemPrompt = subagentResources
-      ? skillsBinding!.getExactSystemPrompt
-      : chatOnly
-        ? () => contextFilesSystemPrompt(inner.resourceLoader.getAgentsFiles().agentsFiles)
-        : undefined;
+    const exactSystemPrompt = chatOnly
+      ? () => contextFilesSystemPrompt(inner.resourceLoader.getAgentsFiles().agentsFiles)
+      : undefined;
     exactSystemPromptRef.current = exactSystemPrompt;
-    const mcpHost = builtins?.mcpHost ?? subagentMcp?.mcpHost;
+    const mcpHost = builtins?.mcpHost;
     const wrapper = new AgentSessionWrapper(inner, {
       exactSystemPrompt,
       chatOnly,
@@ -3121,7 +2870,6 @@ export async function startRpcSession(
           );
         });
       },
-      suppressCompletionNotifications: Boolean(subagentResources),
       ...(mcpHost ? { mcpHost } : {}),
       ...(chatOnlyExtensionModel ? { chatOnlyExtensionModel } : {})
     });

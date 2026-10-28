@@ -73,22 +73,12 @@
   border-radius: var(--ui-radius-xs);
 }
 
-/* ── Class radii: fields, buttons, icon buttons ──────────────────────────── */
-
 .session-tree-rename,
 .sidebar-menu-item,
 .sidebar-menu-secondary,
 .sidebar-menu-filter-input,
-.sidebar-menu.is-classic .sidebar-worktree-create,
-.sidebar-menu.is-classic .sidebar-worktree-cancel,
-.sidebar-worktree-confirm .sidebar-worktree-force,
-.sidebar-worktree-confirm .sidebar-worktree-cancel,
 .sidebar-toast-action,
 .sidebar-toast-dismiss,
-.sidebar-worktree-input,
-.sidebar-worktree-create,
-.sidebar-worktree-force,
-.sidebar-worktree-cancel,
 .sidebar-menu-question-confirm,
 .sidebar-menu-question-cancel,
 .session-tree-action,
@@ -112,7 +102,6 @@
 .project-trust-path,
 .image-preview-close,
 .model-context-input,
-.agents-concurrency-control input,
 .mcp-add-input,
 .mcp-test-output {
   border-radius: var(--ui-radius-sm);
@@ -260,7 +249,6 @@
   font-size: calc(14px + var(--ui-font-size-offset, 0px));
 }
 
-.session-tree-branch,
 .session-tree-meta,
 .session-tree-summary,
 .session-tree-group-empty,
@@ -366,30 +354,14 @@
 }
 
 .sidebar-menu.is-classic .sidebar-menu-filter-input,
-.sidebar-menu.is-classic .sidebar-menu-empty,
-.sidebar-menu.is-classic .sidebar-worktree-input,
-.sidebar-menu.is-classic .sidebar-worktree-create,
-.sidebar-menu.is-classic .sidebar-worktree-cancel {
+.sidebar-menu.is-classic .sidebar-menu-empty {
   font-size: calc(12.5px + var(--ui-font-size-offset, 0px));
 }
 
-.sidebar-worktree-input {
-  font-size: calc(12.5px + var(--ui-font-size-offset, 0px));
-}
-
-.sidebar-worktree-create,
-.sidebar-worktree-force,
-.sidebar-worktree-cancel,
-.sidebar-worktree-message,
-.sidebar-worktree-confirm-text,
 .sidebar-menu-question-text,
 .sidebar-menu-question-confirm,
 .sidebar-menu-question-cancel {
   font-size: calc(13px + var(--ui-font-size-offset, 0px));
-}
-
-.sidebar-worktree-error {
-  font-size: calc(12px + var(--ui-font-size-offset, 0px));
 }
 
 .sidebar-toast,
@@ -420,11 +392,7 @@
 
 .sidebar-sheet .sidebar-menu-filter-input,
 .sidebar-sheet .sidebar-menu-question-text,
-.sidebar-sheet .sidebar-menu-question-confirm,
-.sidebar-sheet .sidebar-worktree-input,
-.sidebar-sheet .sidebar-worktree-create,
-.sidebar-sheet .sidebar-worktree-force,
-.sidebar-sheet .sidebar-worktree-cancel {
+.sidebar-sheet .sidebar-menu-question-confirm {
   font-size: calc(15px + var(--ui-font-size-offset, 0px));
 }
 

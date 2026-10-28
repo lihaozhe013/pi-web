@@ -11,9 +11,7 @@ import { createJiti } from 'jiti';
 
 const execFileAsync = promisify(execFile);
 
-// Real paths: `inferRemovedWorktree()` resolves the repo it infers, and the temp folder
-// is a link on macOS.
-const root = realpathSync(await mkdtemp(join(tmpdir(), 'pi-web-models-worktree-')));
+const root = realpathSync(await mkdtemp(join(tmpdir(), 'pi-web-models-route-')));
 const agentDir = join(root, 'agent');
 const repo = join(root, 'repo');
 const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
@@ -46,8 +44,6 @@ await writeFile(
   )
 );
 
-// A worktree folder is `<repoRoot>-worktrees/<dir>` (what `addWorktree()` makes), and the
-// sibling holding `.git` is the repo its removal is inferred back to.
 async function initRepo(name) {
   const path = join(root, name);
   await execFileAsync('git', ['init', path]);
@@ -62,8 +58,6 @@ const { GET } = await jiti.import('./route.ts');
 const { PUT: saveDefault } = await jiti.import('./default/route.ts');
 const { PUT: saveThinking } = await jiti.import('./thinking/route.ts');
 const { GET: getEnabled, PUT: saveEnabled } = await jiti.import('./enabled/route.ts');
-// The repo of the removed worktree below is a project some session named, which is what
-// makes it an allowed root; the fallback never adds one of its own.
 allowFileRoot(repo);
 
 after(async () => {
@@ -83,42 +77,10 @@ async function models(cwd) {
   return { status: response.status, body: await response.json() };
 }
 
-test('a removed worktree is listed from the repo it branched from', async () => {
-  // A finished subagent run: its worktree is gone, its session still names it as the cwd.
-  const removed = join(`${repo}-worktrees`, 'pi-web-agent-abc');
-
-  const fromRemoved = await models(removed);
-  const fromRepo = await models(repo);
-
-  assert.equal(fromRemoved.status, 200);
-  // Not merely some list: the same one the repo answers, which is what a session that ran
-  // without worktree isolation gets.
-  assert.deepEqual(fromRemoved.body, fromRepo.body);
-  assert.deepEqual(
-    fromRemoved.body.modelList.map((m) => `${m.provider}:${m.id}`),
-    ['acme:one'],
-    'an empty list would make the comparison say nothing'
-  );
-});
-
 test('a per-model reasoning default is listed for the settings panel', async () => {
   const listed = await models(repo);
   assert.equal(listed.status, 200);
   assert.deepEqual(listed.body.modelThinkingLevels, { 'acme/one': 'high' });
-});
-
-test('the repo a removed worktree falls back to is authorized as any other cwd', async () => {
-  // A repo no session and no `allowFileRoot()` ever named.
-  const unknown = await initRepo('unknown');
-  const denied = await models(join(`${unknown}-worktrees`, 'pi-web-agent-abc'));
-  assert.equal(denied.status, 403);
-  assert.deepEqual(denied.body, { error: 'Access denied' });
-
-  // Granting the worktree folder — what `addWorktree()` does for a live one — is not a
-  // grant for the repo: the folder the fallback answers from is the one checked.
-  const granted = join(`${unknown}-worktrees`, 'granted-only');
-  allowFileRoot(granted);
-  assert.equal((await models(granted)).status, 403);
 });
 
 test('global model settings work without a project and ignore agent directory project settings', async () => {
@@ -195,19 +157,4 @@ test('global model settings work without a project and ignore agent directory pr
     await readFile(join(agentDir, '.pi', 'settings.json'), 'utf8')
   );
   assert.equal(projectSettings.defaultThinkingLevel, 'low');
-});
-
-test('a missing folder that is not a removed worktree of a repo is refused as before', async () => {
-  const missing = join(root, 'never-existed');
-  const gone = await models(missing);
-  assert.equal(gone.status, 400);
-  assert.equal(gone.body.error, `Directory does not exist: ${missing}`);
-
-  // The `-worktrees` name alone is not enough: there has to be a repo to fall back to.
-  const orphan = await models(join(`${root}-worktrees`, 'orphan'));
-  assert.equal(orphan.status, 400);
-  assert.equal(
-    orphan.body.error,
-    `Directory does not exist: ${join(`${root}-worktrees`, 'orphan')}`
-  );
 });

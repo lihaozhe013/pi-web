@@ -1,27 +1,8 @@
-/**
- * Flat row model of the sidebar's session tree.
- *
- * Every project is a collapsible group of session families; pinned families
- * move to one global section above the groups, archived families leave the
- * tree for the archive view. The component renders `rows` with a virtualizer
- * over per-kind heights (`getRowOffsets` + `getVisibleRowIndices`), so every
- * decision about what is shown lives here, pure and testable.
- *
- * Pin and archive flags are keyed by the family ROOT session id. An archived
- * family returns on its own when the root session gets a newer message
- * (`root.modified`, not `latestModified`: subagent activity alone does not
- * bring it back) or while any member is running.
- *
- * Groups keep the stored project order (`projectOrder`): activity never moves
- * a project that has a place in it. Pinned projects come first, then the
- * rest; in each band the projects without a place come first.
- */
-
-import { listSessionFamilies, type SessionFamily } from './session-family';
+/** Flat sidebar rows for individual sessions, with project grouping, pins, and archives. */
 import {
   storedProjectName,
   type ProjectMovePosition,
-  type SessionUiFamilyState,
+  type SessionUiSessionState,
   type SessionUiState
 } from './session-ui-state-shared';
 import type { SessionInfo } from './types';
@@ -73,7 +54,7 @@ export const SIDEBAR_ROW_HEIGHTS: Record<SidebarLayout, Record<SidebarRowKind, n
 };
 export const GROUP_VISIBLE_LIMIT = 6;
 export const PINNED_VISIBLE_LIMIT = 8;
-/** How many more families each "show more" click reveals. */
+/** How many more conversations each "show more" click reveals. */
 export const SHOW_MORE_STEP = 20;
 /** `moreShown` entry for the pinned section's "show more". */
 export const PINNED_MORE_KEY = 'pinned';
@@ -90,7 +71,7 @@ export interface SidebarProject {
   pinned: boolean;
   current: boolean;
 }
-export interface SidebarFamilyStatus {
+export interface SidebarSessionStatus {
   running: boolean;
   awaiting: boolean;
   unread: boolean;
@@ -110,10 +91,10 @@ export type SidebarRow =
   | {
       kind: 'session';
       key: string;
-      family: SessionFamily;
+      conversation: SessionInfo;
       context: 'pinned' | 'group' | 'archive';
       project: SidebarProject;
-      status: SidebarFamilyStatus;
+      status: SidebarSessionStatus;
       archivedAt: number | null;
     }
   | {
@@ -151,7 +132,6 @@ export type SidebarRow =
     };
 
 export interface SessionTreeInput {
-  /** The full catalog (allSessions), subagents included. */
   sessions: readonly SessionInfo[];
   uiState: SessionUiState;
   runningIds: ReadonlySet<string>;
@@ -166,7 +146,7 @@ export interface SessionTreeInput {
    * page (effectiveGroupExpansion); see isGroupExpanded.
    */
   groupExpansion: Readonly<Record<string, boolean>>;
-  /** Families revealed beyond the base limit by "show more", per projectKey or PINNED_MORE_KEY. */
+  /** Conversations revealed beyond the base limit by "show more", per projectKey or PINNED_MORE_KEY. */
   moreShown: Readonly<Record<string, number>>;
   pinnedCollapsed: boolean;
 }
@@ -175,7 +155,7 @@ export interface SessionTreeModel {
   rows: SidebarRow[];
   /** Projects in group order. */
   projects: SidebarProject[];
-  /** Archived families across all projects. */
+  /** Archived conversations across all projects. */
   archivedCount: number;
   /**
    * Shown projects without a place in `projectOrder`, per band, top to
@@ -184,19 +164,22 @@ export interface SessionTreeModel {
   unorderedKeysByBand: { pinned: string[]; other: string[] };
   /**
    * Of those, the ones the sidebar saves on its own, top to bottom: pinned
-   * projects, and projects with a saved (not transient) live family. Not the
+   * projects, and projects with a saved (not transient) live conversation. Not the
    * current project while it has none, nor a project of transient sessions
    * only: either may never get a file.
    */
   projectKeysToRecord: string[];
 }
 
-type FamilyFlagsInput = Pick<
+type SessionFlagsInput = Pick<
   SessionTreeInput,
   'uiState' | 'runningIds' | 'awaitingIds' | 'unreadIds' | 'selectedSessionId'
 >;
 
-function familyEntry(state: SessionUiState, rootId: string): SessionUiFamilyState | undefined {
+function conversationEntry(
+  state: SessionUiState,
+  rootId: string
+): SessionUiSessionState | undefined {
   // Session ids such as "constructor" must not resolve to Object.prototype members.
   return Object.hasOwn(state.sessions, rootId) ? state.sessions[rootId] : undefined;
 }
@@ -216,50 +199,34 @@ function compareDesc(a: number, b: number): number {
   return a === b ? 0 : a > b ? -1 : 1;
 }
 
-export function familyIds(family: SessionFamily): string[] {
-  return [family.root.id, ...family.subagents.map((session) => session.id)];
-}
-
-function anyMemberIn(family: SessionFamily, ids: ReadonlySet<string>): boolean {
-  if (ids.size === 0) return false;
-  return ids.has(family.root.id) || family.subagents.some((session) => ids.has(session.id));
-}
-
-function isMember(family: SessionFamily, sessionId: string | null): boolean {
-  if (!sessionId) return false;
-  return (
-    family.root.id === sessionId || family.subagents.some((session) => session.id === sessionId)
-  );
-}
-
 /**
- * archivedAt set AND no family member running AND (root.detailsPending OR
+ * archivedAt set AND no conversation member running AND (root.detailsPending OR
  * archivedAt >= Date.parse(root.modified)). A summary row (detailsPending)
  * carries only stat metadata, so its time is not trusted to un-archive; an
- * unparsable root.modified likewise keeps the family archived.
+ * unparsable root.modified likewise keeps the conversation archived.
  */
-export function isFamilyArchived(
-  family: SessionFamily,
+export function isConversationArchived(
+  conversation: SessionInfo,
   state: SessionUiState,
   runningIds: ReadonlySet<string>
 ): boolean {
-  const archivedAt = finiteNumber(familyEntry(state, family.root.id)?.archivedAt);
+  const archivedAt = finiteNumber(conversationEntry(state, conversation.id)?.archivedAt);
   if (archivedAt === null) return false;
-  if (anyMemberIn(family, runningIds)) return false;
-  if (family.root.detailsPending) return true;
-  const modified = Date.parse(family.root.modified);
+  if (runningIds.has(conversation.id)) return false;
+  if (conversation.detailsPending) return true;
+  const modified = Date.parse(conversation.modified);
   return Number.isNaN(modified) || archivedAt >= modified;
 }
 
-/** pinnedAt set AND not isFamilyArchived. */
-export function isFamilyPinned(
-  family: SessionFamily,
+/** pinnedAt set AND not isConversationArchived. */
+export function isConversationPinned(
+  conversation: SessionInfo,
   state: SessionUiState,
   runningIds: ReadonlySet<string>
 ): boolean {
   return (
-    finiteNumber(familyEntry(state, family.root.id)?.pinnedAt) !== null &&
-    !isFamilyArchived(family, state, runningIds)
+    finiteNumber(conversationEntry(state, conversation.id)?.pinnedAt) !== null &&
+    !isConversationArchived(conversation, state, runningIds)
   );
 }
 
@@ -343,27 +310,30 @@ export function forgetKeptOpenGroups(
   return next;
 }
 
-function familyStatus(family: SessionFamily, input: FamilyFlagsInput): SidebarFamilyStatus {
+function conversationStatus(
+  conversation: SessionInfo,
+  input: SessionFlagsInput
+): SidebarSessionStatus {
   return {
-    running: anyMemberIn(family, input.runningIds),
-    awaiting: input.awaitingIds ? anyMemberIn(family, input.awaitingIds) : false,
-    unread: anyMemberIn(family, input.unreadIds),
-    selected: isMember(family, input.selectedSessionId),
-    transient: family.root.transient === true
+    running: input.runningIds.has(conversation.id),
+    awaiting: input.awaitingIds ? input.awaitingIds.has(conversation.id) : false,
+    unread: input.unreadIds.has(conversation.id),
+    selected: conversation.id === input.selectedSessionId,
+    transient: conversation.transient === true
   };
 }
 
-function familyProjectKey(family: SessionFamily): string {
-  return workspaceKeyOf(family.root);
+function conversationProjectKey(conversation: SessionInfo): string {
+  return workspaceKeyOf(conversation);
 }
 
-function familyProjectRoot(family: SessionFamily): string {
-  return family.root.projectRoot ?? family.root.cwd;
+function conversationProjectRoot(conversation: SessionInfo): string {
+  return conversation.projectRoot ?? conversation.cwd;
 }
 
 /**
  * SidebarProject for every key that is referenced. The root path comes from
- * the newest family of that key (families arrive newest first), then from the
+ * the newest conversation of that key (conversations arrive newest first), then from the
  * current project, then from the pinned-project entry.
  */
 function createProjectResolver(
@@ -374,9 +344,9 @@ function createProjectResolver(
   const projects = new Map<string, SidebarProject>();
 
   return {
-    noteFamily(family: SessionFamily) {
-      const key = familyProjectKey(family);
-      if (!roots.has(key)) roots.set(key, familyProjectRoot(family));
+    noteConversation(conversation: SessionInfo) {
+      const key = conversationProjectKey(conversation);
+      if (!roots.has(key)) roots.set(key, conversationProjectRoot(conversation));
     },
     get(key: string): SidebarProject {
       const cached = projects.get(key);
@@ -401,49 +371,49 @@ function createProjectResolver(
 }
 
 function sessionRow(
-  family: SessionFamily,
+  conversation: SessionInfo,
   context: 'pinned' | 'group' | 'archive',
   project: SidebarProject,
-  input: FamilyFlagsInput,
+  input: SessionFlagsInput,
   archivedAt: number | null
 ): SidebarRow {
   return {
     kind: 'session',
-    key: `session:${context}:${family.root.id}`,
-    family,
+    key: `session:${context}:${conversation.id}`,
+    conversation,
     context,
     project,
-    status: familyStatus(family, input),
+    status: conversationStatus(conversation, input),
     archivedAt
   };
 }
 
 /**
- * The first `limit` families, the `shown` positions "show more" opened past
- * them, and any later family that is running, unread or selected (sorted
- * order kept). Positions, not a budget: a family that turns selected, unread
+ * The first `limit` conversations, the `shown` positions "show more" opened past
+ * them, and any later conversation that is running, unread or selected (sorted
+ * order kept). Positions, not a budget: a conversation that turns selected, unread
  * or running inside the window keeps its place and frees nothing, so picking
  * the last revealed row never brings in an older one below it. `revealed`
  * counts the rows only the window shows (what "show less" would fold);
  * `nextShown` is the window a "show more" click opens, decided at the click:
- * SHOW_MORE_STEP more hidden families past this one (those that show anyway
+ * SHOW_MORE_STEP more hidden conversations past this one (those that show anyway
  * do not use up the click), or all that are left, and a long project never
  * mounts all of its rows at once.
  */
-function visibleFamilies(
-  families: readonly SessionFamily[],
+function visibleConversations(
+  conversations: readonly SessionInfo[],
   limit: number,
   shown: number,
-  input: FamilyFlagsInput
-): { visible: SessionFamily[]; revealed: number; nextShown: number } {
-  const flagged = families.map((family, index) => {
+  input: SessionFlagsInput
+): { visible: SessionInfo[]; revealed: number; nextShown: number } {
+  const flagged = conversations.map((conversation, index) => {
     if (index < limit) return false;
-    const status = familyStatus(family, input);
+    const status = conversationStatus(conversation, input);
     return status.running || status.unread || status.selected;
   });
   const end = limit + shown;
   let revealed = 0;
-  const visible = families.filter((_family, index) => {
+  const visible = conversations.filter((_conversation, index) => {
     if (index < limit || flagged[index]) return true;
     if (index < end) {
       revealed++;
@@ -451,8 +421,8 @@ function visibleFamilies(
     }
     return false;
   });
-  let next = Math.max(limit, Math.min(end, families.length));
-  for (let hidden = 0; next < families.length && hidden < SHOW_MORE_STEP; next++) {
+  let next = Math.max(limit, Math.min(end, conversations.length));
+  for (let hidden = 0; next < conversations.length && hidden < SHOW_MORE_STEP; next++) {
     if (!flagged[next]) hidden++;
   }
   return { visible, revealed, nextShown: next - limit };
@@ -466,7 +436,7 @@ export function shownMoreFor(moreShown: Readonly<Record<string, number>>, key: s
 }
 
 /** One "show more" click for `key`: the window its more row offers (`nextShown`). */
-export function showMoreFamilies(
+export function showMoreConversations(
   moreShown: Readonly<Record<string, number>>,
   key: string,
   nextShown: number
@@ -495,7 +465,7 @@ export function forgetShownMoreOfFolded(
 }
 
 /** "Show less": back to the base limit for `key`. */
-export function showLessFamilies(
+export function showLessConversations(
   moreShown: Readonly<Record<string, number>>,
   key: string
 ): Record<string, number> {
@@ -506,7 +476,7 @@ export function showLessFamilies(
 }
 
 /**
- * The "show more" row: how many families are still hidden, and whether
+ * The "show more" row: how many conversations are still hidden, and whether
  * "show less" would fold anything back (only rows "show more" revealed; the
  * running, unread or selected ones stay). Null when neither applies.
  */
@@ -522,51 +492,54 @@ function moreRowState(
 
 export function buildSessionTree(input: SessionTreeInput): SessionTreeModel {
   const { uiState, runningIds, currentProject } = input;
-  const families = listSessionFamilies(input.sessions);
+  const conversations = [...input.sessions].sort((a, b) => b.modified.localeCompare(a.modified));
   const resolver = createProjectResolver(uiState, currentProject);
 
   let archivedCount = 0;
-  const pinnedFamilies: SessionFamily[] = [];
-  // Insertion order follows family activity (newest first).
-  const projectFamilies = new Map<string, SessionFamily[]>();
+  const pinnedConversations: SessionInfo[] = [];
+  // Insertion order follows conversation activity (newest first).
+  const projectConversations = new Map<string, SessionInfo[]>();
   const projectActivity = new Map<string, number>();
-  // Projects with a live family that has a file (pinned families included).
+  // Projects with a live conversation that has a file (pinned conversations included).
   const savedKeys = new Set<string>();
 
-  for (const family of families) {
-    if (isFamilyArchived(family, uiState, runningIds)) {
+  for (const conversation of conversations) {
+    if (isConversationArchived(conversation, uiState, runningIds)) {
       archivedCount++;
       continue;
     }
-    resolver.noteFamily(family);
-    const key = familyProjectKey(family);
-    const activity = timeOf(family.latestModified);
+    resolver.noteConversation(conversation);
+    const key = conversationProjectKey(conversation);
+    const activity = timeOf(conversation.modified);
     projectActivity.set(key, Math.max(projectActivity.get(key) ?? -Infinity, activity));
-    if (!family.root.transient) savedKeys.add(key);
-    if (isFamilyPinned(family, uiState, runningIds)) {
-      pinnedFamilies.push(family);
+    if (!conversation.transient) savedKeys.add(key);
+    if (isConversationPinned(conversation, uiState, runningIds)) {
+      pinnedConversations.push(conversation);
       continue;
     }
-    const list = projectFamilies.get(key);
-    if (list) list.push(family);
-    else projectFamilies.set(key, [family]);
+    const list = projectConversations.get(key);
+    if (list) list.push(conversation);
+    else projectConversations.set(key, [conversation]);
   }
 
   const rows: SidebarRow[] = [];
 
-  // Pinned section: newest pin first; ties keep family activity order.
-  if (pinnedFamilies.length > 0) {
-    const pinnedAt = (family: SessionFamily) =>
-      finiteNumber(familyEntry(uiState, family.root.id)?.pinnedAt) ?? 0;
-    const sorted = pinnedFamilies
-      .map((family, index) => ({ family, index }))
-      .sort((a, b) => compareDesc(pinnedAt(a.family), pinnedAt(b.family)) || a.index - b.index)
-      .map(({ family }) => family);
+  // Pinned section: newest pin first; ties keep conversation activity order.
+  if (pinnedConversations.length > 0) {
+    const pinnedAt = (conversation: SessionInfo) =>
+      finiteNumber(conversationEntry(uiState, conversation.id)?.pinnedAt) ?? 0;
+    const sorted = pinnedConversations
+      .map((conversation, index) => ({ conversation, index }))
+      .sort(
+        (a, b) =>
+          compareDesc(pinnedAt(a.conversation), pinnedAt(b.conversation)) || a.index - b.index
+      )
+      .map(({ conversation }) => conversation);
     let running = 0;
     let unread = 0;
-    for (const family of sorted) {
-      if (anyMemberIn(family, runningIds)) running++;
-      if (anyMemberIn(family, input.unreadIds)) unread++;
+    for (const conversation of sorted) {
+      if (runningIds.has(conversation.id)) running++;
+      if (input.unreadIds.has(conversation.id)) unread++;
     }
     rows.push({
       kind: 'pinned-header',
@@ -577,15 +550,21 @@ export function buildSessionTree(input: SessionTreeInput): SessionTreeModel {
       unread
     });
     if (!input.pinnedCollapsed) {
-      const { visible, revealed, nextShown } = visibleFamilies(
+      const { visible, revealed, nextShown } = visibleConversations(
         sorted,
         PINNED_VISIBLE_LIMIT,
         shownMoreFor(input.moreShown, PINNED_MORE_KEY),
         input
       );
-      for (const family of visible) {
+      for (const conversation of visible) {
         rows.push(
-          sessionRow(family, 'pinned', resolver.get(familyProjectKey(family)), input, null)
+          sessionRow(
+            conversation,
+            'pinned',
+            resolver.get(conversationProjectKey(conversation)),
+            input,
+            null
+          )
         );
       }
       const more = moreRowState(sorted.length, visible.length, revealed);
@@ -594,8 +573,8 @@ export function buildSessionTree(input: SessionTreeInput): SessionTreeModel {
     rows.push({ kind: 'spacer', key: 'pinned-spacer' });
   }
 
-  // Projects: live non-pinned families, the current project, pinned projects.
-  const projectKeys: string[] = [...projectFamilies.keys()];
+  // Projects: live non-pinned conversations, the current project, pinned projects.
+  const projectKeys: string[] = [...projectConversations.keys()];
   const seen = new Set(projectKeys);
   const addKey = (key: string) => {
     if (seen.has(key)) return;
@@ -656,28 +635,29 @@ export function buildSessionTree(input: SessionTreeInput): SessionTreeModel {
     .map((project) => project.key);
 
   for (const project of orderedProjects) {
-    const groupFamilies = projectFamilies.get(project.key) ?? [];
+    const groupConversations = projectConversations.get(project.key) ?? [];
     const expanded = isGroupExpanded(project, input.groupExpansion);
     let running = 0;
     let unread = 0;
-    for (const family of groupFamilies) {
-      if (anyMemberIn(family, runningIds)) running++;
-      if (anyMemberIn(family, input.unreadIds)) unread++;
+    for (const conversation of groupConversations) {
+      if (runningIds.has(conversation.id)) running++;
+      if (input.unreadIds.has(conversation.id)) unread++;
     }
     rows.push({ kind: 'group', key: `group:${project.key}`, project, expanded, running, unread });
 
     if (expanded) {
-      if (groupFamilies.length === 0) {
+      if (groupConversations.length === 0) {
         rows.push({ kind: 'group-empty', key: `empty:${project.key}`, project });
       } else {
-        const { visible, revealed, nextShown } = visibleFamilies(
-          groupFamilies,
+        const { visible, revealed, nextShown } = visibleConversations(
+          groupConversations,
           GROUP_VISIBLE_LIMIT,
           shownMoreFor(input.moreShown, project.key),
           input
         );
-        for (const family of visible) rows.push(sessionRow(family, 'group', project, input, null));
-        const more = moreRowState(groupFamilies.length, visible.length, revealed);
+        for (const conversation of visible)
+          rows.push(sessionRow(conversation, 'group', project, input, null));
+        const more = moreRowState(groupConversations.length, visible.length, revealed);
         if (more)
           rows.push({
             kind: 'group-more',
@@ -729,8 +709,8 @@ export function nextProjectKeysToRecord(
 }
 
 /**
- * The archive view: archived families of every project, grouped by project.
- * Groups by their newest archivedAt (desc), families by archivedAt (desc).
+ * The archive view: archived conversations of every project, grouped by project.
+ * Groups by their newest archivedAt (desc), conversations by archivedAt (desc).
  * A group is open unless its project key is in `collapsed` (the browser's
  * own choice, lib/sidebar-prefs.ts); folded, only its header shows.
  */
@@ -747,24 +727,26 @@ export function buildArchiveRows(
   > & { collapsed?: ReadonlySet<string> }
 ): SidebarRow[] {
   const { uiState, runningIds } = input;
-  const flags: FamilyFlagsInput = input;
+  const flags: SessionFlagsInput = input;
   const resolver = createProjectResolver(uiState, input.currentProject);
   const groups = new Map<
     string,
-    { newest: number; families: { family: SessionFamily; archivedAt: number }[] }
+    { newest: number; conversations: { conversation: SessionInfo; archivedAt: number }[] }
   >();
 
-  for (const family of listSessionFamilies(input.sessions)) {
-    if (!isFamilyArchived(family, uiState, runningIds)) continue;
-    resolver.noteFamily(family);
-    const archivedAt = finiteNumber(familyEntry(uiState, family.root.id)?.archivedAt) ?? 0;
-    const key = familyProjectKey(family);
+  for (const conversation of [...input.sessions].sort((a, b) =>
+    b.modified.localeCompare(a.modified)
+  )) {
+    if (!isConversationArchived(conversation, uiState, runningIds)) continue;
+    resolver.noteConversation(conversation);
+    const archivedAt = finiteNumber(conversationEntry(uiState, conversation.id)?.archivedAt) ?? 0;
+    const key = conversationProjectKey(conversation);
     const group = groups.get(key);
     if (group) {
-      group.families.push({ family, archivedAt });
+      group.conversations.push({ conversation, archivedAt });
       group.newest = Math.max(group.newest, archivedAt);
     } else {
-      groups.set(key, { newest: archivedAt, families: [{ family, archivedAt }] });
+      groups.set(key, { newest: archivedAt, conversations: [{ conversation, archivedAt }] });
     }
   }
 
@@ -779,15 +761,15 @@ export function buildArchiveRows(
       kind: 'archive-group',
       key: `archive:${key}`,
       project,
-      count: group.families.length,
+      count: group.conversations.length,
       expanded
     });
     if (!expanded) continue;
-    const families = group.families
+    const conversations = group.conversations
       .map((entry, index) => ({ ...entry, index }))
       .sort((a, b) => compareDesc(a.archivedAt, b.archivedAt) || a.index - b.index);
-    for (const { family, archivedAt } of families) {
-      rows.push(sessionRow(family, 'archive', project, flags, archivedAt));
+    for (const { conversation, archivedAt } of conversations) {
+      rows.push(sessionRow(conversation, 'archive', project, flags, archivedAt));
     }
   }
   return rows;
@@ -795,10 +777,10 @@ export function buildArchiveRows(
 
 /**
  * Root ids of live, non-pinned, non-running, non-unread, non-selected
- * families of `projectKey` whose latestModified is older than
- * now - olderThanMs. Transient families have no file and are never archived.
+ * conversations of `projectKey` whose latestModified is older than
+ * now - olderThanMs. Transient conversations have no file and are never archived.
  */
-export function familiesToArchive(
+export function conversationsToArchive(
   input: Pick<
     SessionTreeInput,
     'sessions' | 'uiState' | 'runningIds' | 'unreadIds' | 'selectedSessionId'
@@ -809,65 +791,70 @@ export function familiesToArchive(
 ): string[] {
   const cutoff = now - olderThanMs;
   const ids: string[] = [];
-  for (const family of listSessionFamilies(input.sessions)) {
-    if (familyProjectKey(family) !== projectKey) continue;
-    if (isFamilyArchived(family, input.uiState, input.runningIds)) continue;
-    if (isFamilyPinned(family, input.uiState, input.runningIds)) continue;
-    const status = familyStatus(family, input);
+  for (const conversation of [...input.sessions].sort((a, b) =>
+    b.modified.localeCompare(a.modified)
+  )) {
+    if (conversationProjectKey(conversation) !== projectKey) continue;
+    if (isConversationArchived(conversation, input.uiState, input.runningIds)) continue;
+    if (isConversationPinned(conversation, input.uiState, input.runningIds)) continue;
+    const status = conversationStatus(conversation, input);
     if (status.running || status.unread || status.selected || status.transient) continue;
-    const modified = Date.parse(family.latestModified);
+    const modified = Date.parse(conversation.modified);
     if (Number.isNaN(modified) || modified >= cutoff) continue;
-    ids.push(family.root.id);
+    ids.push(conversation.id);
   }
   return ids;
 }
 
 /**
- * Root ids of the archived families the archive view's bulk actions take
- * (Restore all, Delete…): every archived family, or those of `projectKey`,
- * or those archived before `archivedBefore`. An archived family never runs
- * (isFamilyArchived) and always has a file.
+ * Root ids of the archived conversations the archive view's bulk actions take
+ * (Restore all, Delete…): every archived conversation, or those of `projectKey`,
+ * or those archived before `archivedBefore`. An archived conversation never runs
+ * (isConversationArchived) and always has a file.
  */
-export function archivedFamilyIds(
+export function archivedConversationIds(
   input: Pick<SessionTreeInput, 'sessions' | 'uiState' | 'runningIds'>,
   filter: { projectKey?: string; archivedBefore?: number } = {}
 ): string[] {
   const ids: string[] = [];
-  for (const family of listSessionFamilies(input.sessions)) {
-    if (filter.projectKey !== undefined && familyProjectKey(family) !== filter.projectKey) continue;
-    if (!isFamilyArchived(family, input.uiState, input.runningIds)) continue;
+  for (const conversation of [...input.sessions].sort((a, b) =>
+    b.modified.localeCompare(a.modified)
+  )) {
+    if (
+      filter.projectKey !== undefined &&
+      conversationProjectKey(conversation) !== filter.projectKey
+    )
+      continue;
+    if (!isConversationArchived(conversation, input.uiState, input.runningIds)) continue;
     if (filter.archivedBefore !== undefined) {
-      const archivedAt = finiteNumber(familyEntry(input.uiState, family.root.id)?.archivedAt);
+      const archivedAt = finiteNumber(
+        conversationEntry(input.uiState, conversation.id)?.archivedAt
+      );
       if (archivedAt === null || archivedAt >= filter.archivedBefore) continue;
     }
-    ids.push(family.root.id);
+    ids.push(conversation.id);
   }
   return ids;
 }
 
-/**
- * A project group's "Delete all sessions": root ids of every family of
- * `projectKey` that has a file, pinned and archived ones included (the
- * server deletes their subagent sessions with them), and how many families
- * it keeps because they run or wait for input: deleting one would stop its
- * run. Transient families have no file to delete.
- */
-export function familiesToDelete(
+export function conversationsToDelete(
   input: Pick<SessionTreeInput, 'sessions' | 'runningIds' | 'awaitingIds'>,
   projectKey: string
 ): { ids: string[]; running: number } {
   const ids: string[] = [];
   let running = 0;
-  for (const family of listSessionFamilies(input.sessions)) {
-    if (familyProjectKey(family) !== projectKey || family.root.transient) continue;
+  for (const conversation of [...input.sessions].sort((a, b) =>
+    b.modified.localeCompare(a.modified)
+  )) {
+    if (conversationProjectKey(conversation) !== projectKey || conversation.transient) continue;
     if (
-      anyMemberIn(family, input.runningIds) ||
-      (input.awaitingIds && anyMemberIn(family, input.awaitingIds))
+      input.runningIds.has(conversation.id) ||
+      (input.awaitingIds && input.awaitingIds.has(conversation.id))
     ) {
       running++;
       continue;
     }
-    ids.push(family.root.id);
+    ids.push(conversation.id);
   }
   return { ids, running };
 }

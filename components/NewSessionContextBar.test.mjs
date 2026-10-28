@@ -9,9 +9,7 @@ const { NewSessionContextBar } = await jiti.import('./NewSessionContextBar.tsx')
 const context = {
   cwd: '/work/app',
   project: { key: 'app', root: '/work/app' },
-  projects: [{ key: 'app', root: '/work/app' }],
-  worktrees: [{ path: '/work/app-feature', branch: 'feature', isMain: false }],
-  currentWorktreePath: '/work/app-feature'
+  projects: [{ key: 'app', root: '/work/app' }]
 };
 function render(value = context, mobile = false) {
   return renderToStaticMarkup(

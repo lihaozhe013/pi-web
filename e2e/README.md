@@ -12,13 +12,19 @@ The runner starts its own Turbopack server on an available loopback port. Use a 
 active development server: Next.js shares `.next/dev/lock` within a checkout.
 
 Fixtures use a temporary `PI_CODING_AGENT_DIR` and are removed afterward. The suite does not require
-model credentials or existing personal sessions. Git is required for directory/worktree fixtures.
+model credentials or existing personal sessions. Project navigation fixtures use ordinary
+directories.
 
 Tests cover areas such as session pagination, branching, navigation, transcript rendering,
 appearance, model selection, and extension dialogs. Appearance coverage includes separate
 UI/chat/mono sizes, live preview, reset isolation, multilingual settings search and keyboard result
 navigation. Some scripts still reflect removed UI; audit and update those assertions as cleanup
 proceeds. Test code is not a commitment to restore obsolete product features.
+
+Run `node e2e/conversation-scope.mjs` for isolated conversation-boundary checks without an app
+server. It bundles the current settings and new-conversation components and checks that agent
+management is absent, Global AGENTS.md remains editable, and Escape restores focus without losing a
+draft on desktop and phone widths. Requests use fixtures, not personal configuration.
 
 Run `node e2e/ask-user.mjs` for isolated question-panel browser coverage without starting a server
 or accessing personal sessions. It bundles the real React component with Bun in a temporary

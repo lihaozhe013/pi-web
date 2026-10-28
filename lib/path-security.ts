@@ -28,9 +28,7 @@ export function resolveRealRoots(roots: Set<string>): Set<string> {
   for (const root of roots) {
     try {
       realRoots.add(realpathSync(root));
-    } catch {
-      // Ignore stale roots derived from removed sessions or worktrees.
-    }
+    } catch {}
   }
   return realRoots;
 }

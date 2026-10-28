@@ -7,8 +7,8 @@ Keep frequent actions nearby and reveal secondary information on demand.
 
 The current layout uses a session sidebar, a central conversation and composer, and an optional
 information sidebar opened from the toolbar. Project groups help locate conversations; they are not
-project management. A new session chooses a directory, and an existing worktree is simply another
-directory.
+project management. A new session chooses a working directory; Git repository relationships do not
+change its identity.
 
 The information sidebar is currently 400px wide. It overlays the conversation when space is limited
 and fills phone widths. Close and Escape restore focus to the trigger; modal overlays contain
@@ -116,10 +116,10 @@ card on screen for its fade.
 
 ## Copying a turn
 
-A turn carries one copy entry under its last message, always visible, never a hover-only
-fragment. Per-message copy buttons are gone; a message keeps its own actions (edit, fork), and the
-space they and the removed buttons used no longer separates the messages of one turn: they sit 10px
-apart, while a turn keeps its own separation from the next.
+A turn carries one copy entry under its last message, always visible, never a hover-only fragment.
+Per-message copy buttons are gone; a message keeps its own actions (edit, fork), and the space they
+and the removed buttons used no longer separates the messages of one turn: they sit 10px apart,
+while a turn keeps its own separation from the next.
 
 The entry opens the sidebar's "New" dialog language with three scopes:
 
@@ -134,22 +134,21 @@ the agent looked something up, not what it did. Tool arguments travel as JSON an
 so a reader can reopen the work in a new session or keep it in a document. No scope guesses which
 failure was a typo; the conversation scope is how a reader leaves execution noise behind.
 
-A scope copies immediately and closes; a clipboard failure stays in the dialog with its reason and
-a retry. Escape, the backdrop and the close button leave the turn unchanged, and focus returns to
-the entry.
+A scope copies immediately and closes; a clipboard failure stays in the dialog with its reason and a
+retry. Escape, the backdrop and the close button leave the turn unchanged, and focus returns to the
+entry.
 
 ## Tool presets in the composer
 
 The composer's tool menu lists the built-in presets first, then the user's custom ones, each named
 with its tool count, and ends with a single entry that opens Settings at the Tools section. The
 control stays visible while a run is in progress — showing which preset the turn uses — but is
-disabled so the preset cannot be switched mid-run. The
-section lists the built-in presets read-only above the user's own, so the list doubles as a
-reference, and shows an editor for the selected custom one: a name, the built-in combinations to
-start from, and one checkbox per built-in coding tool. The draft stays local until Save replaces
-the whole list; Delete is a two-step button kept apart from Save. Deleting a preset keeps the
-sessions pinned to its tools and resolves their label to the configured defaults once the
-composer reloads its copy.
+disabled so the preset cannot be switched mid-run. The section lists the built-in presets read-only
+above the user's own, so the list doubles as a reference, and shows an editor for the selected
+custom one: a name, the built-in combinations to start from, and one checkbox per built-in coding
+tool. The draft stays local until Save replaces the whole list; Delete is a two-step button kept
+apart from Save. Deleting a preset keeps the sessions pinned to its tools and resolves their label
+to the configured defaults once the composer reloads its copy.
 
 ## Questions near the composer
 
@@ -190,8 +189,8 @@ for a conversation already open, worded as **Add a project…** and **Start with
 ## Navigation and accessibility
 
 The conversation directory uses a lightweight overlay entry point rather than a permanent column.
-Keep it available even when history fits without scrolling. Open subagent conversations centrally
-instead of adding workspace tabs.
+Keep it available even when history fits without scrolling. Do not add workspace tabs or agent
+management panels.
 
 Check desktop, narrow desktop, and phone layouts. Preserve predictable return, close, cancel, and
 focus behavior. Do not add modes when simpler interaction suffices.

@@ -8,23 +8,6 @@ import { invalidateModelsCache } from './models-cache';
 import { readRegularFileText } from './regular-file';
 import { serializeByKey } from './key-serializer';
 
-/**
- * The global context window limit, and the runtime wrapper that applies it.
- *
- * Pi compacts from the session model's `contextWindow`, which is the model's
- * full native window. This setting caps it: every model runs as if its window
- * were `min(native, limit)`, so compaction starts earlier and prompts stay
- * cheaper. A model whose native window is smaller keeps it, and an explicit
- * per-model `contextWindow` in `models.json` replaces the default entirely.
- *
- * The setting lives in `pi-web-model-settings.json` in the agent directory
- * (pi-web-owned, like `pi-web-tool-presets.json`) because pi has no such key.
- * The wrapper is a transparent `ModelRuntime` proxy — the same approach as
- * `withDeferredProviderModels()` — so everything that resolves a model through
- * the runtime (session startup, model switches, model listings, subagents)
- * sees the clamped windows without pi knowing about the setting.
- */
-
 /** Largest `pi-web-model-settings.json` that is parsed; a larger file is ignored. */
 const SETTINGS_MAX_BYTES = 1024 * 1024;
 

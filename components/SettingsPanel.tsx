@@ -12,7 +12,6 @@ import {
 } from '@/lib/settings-navigation';
 import { focusModalPanel, listenForPanelEscape } from '@/lib/stacked-dialog';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { AgentsConfig } from './AgentsConfig';
 import { AppearanceSettings } from './AppearanceSettings';
 import { GlobalAgentsConfig } from './GlobalAgentsConfig';
 import { SettingsSearch } from './SettingsSearch';
@@ -105,13 +104,6 @@ export function SettingsSectionIcon({
       <svg {...common}>
         <path d="m12 2-10 5 10 5 10-5-10-5Z" />
         <path d="m2 12 10 5 10-5M2 17l10 5 10-5" />
-      </svg>
-    );
-  if (section === 'agents')
-    return (
-      <svg {...common} className="settings-section-icon is-agent">
-        <rect x="5" y="7" width="14" height="11" rx="2" />
-        <path d="M9 11h.01M15 11h.01M9 15h6M12 7V4M10 4h4" />
       </svg>
     );
   if (section === 'mcp')
@@ -491,7 +483,6 @@ export function SettingsPanel({
       { id: 'models', label: t('common.models') },
       { id: 'tools', label: t('settings.tools') },
       { id: 'skills', label: t('common.skills') },
-      { id: 'agents', label: t('common.agents') },
       { id: 'plugins', label: t('common.plugins') },
       { id: 'mcp', label: t('settings.mcp') }
     ] as const
@@ -700,19 +691,6 @@ export function SettingsPanel({
               sectionHost(
                 'skills',
                 <SkillsConfig embedded key={cwd} cwd={cwd} trust={projectTrust} onClose={onClose} />
-              )}
-            {cwd &&
-              sectionHost(
-                'agents',
-                <AgentsConfig
-                  embedded
-                  key={cwd}
-                  cwd={cwd}
-                  sessionId={sessionId}
-                  trust={projectTrust}
-                  onClose={onClose}
-                  onReloaded={onSessionReloaded}
-                />
               )}
             {cwd &&
               sectionHost(

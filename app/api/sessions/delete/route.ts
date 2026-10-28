@@ -9,11 +9,6 @@ import { SESSION_ID_PATTERN } from '@/lib/session-ui-state-shared';
 
 export const dynamic = 'force-dynamic';
 
-// A project group's "Delete all sessions": the ids the sidebar showed in its
-// confirmation, each with the subagent sessions below it, in one pass over
-// the catalogue (lib/session-delete.ts). A session that started running since
-// is kept and reported, never stopped; an id already gone is reported too.
-
 const NO_STORE = { 'Cache-Control': 'no-store' };
 
 function refusal(status: number, error: string) {

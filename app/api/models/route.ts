@@ -1,4 +1,3 @@
-import { existsSync } from 'fs';
 import { stat } from 'fs/promises';
 import { resolve } from 'path';
 import {
@@ -21,7 +20,6 @@ import {
 import { getAllowedFileRoots, isExistingFilePathAllowed } from '@/lib/file-access';
 import { projectTrustReloadOptions } from '@/lib/project-trust';
 import { rememberProviderModels, withDeferredProviderModels } from '@/lib/deferred-provider-models';
-import { inferRemovedWorktree } from '@/lib/worktree';
 import { createGlobalModelSettings, getModelRuntimeWithExtensions } from '@/lib/model-runtime';
 import { withContextWindowLimit } from '@/lib/model-context-limit';
 
@@ -131,16 +129,7 @@ export async function GET(req: Request) {
       return Response.json(withSafeModelLoadFailure(EMPTY_MODELS));
     }
   }
-  const requestedCwd = resolve(rawCwd);
-  // A subagent run isolated in a worktree has that worktree removed when the run
-  // finishes, yet its session file still records the worktree as its cwd. Fall back
-  // to the main repo it branched from, so opening a finished subagent resolves the
-  // same models a non-isolated one would. The roots check below runs on the folder
-  // actually answered from, so the fallback reaches no project that was not allowed
-  // by name already.
-  const cwd = existsSync(requestedCwd)
-    ? requestedCwd
-    : (inferRemovedWorktree(requestedCwd)?.projectRoot ?? requestedCwd);
+  const cwd = resolve(rawCwd);
 
   let cwdStat;
   try {

@@ -1,4 +1,4 @@
-// The sidebar's own UI state for sessions and projects: which session families
+// The sidebar's own UI state for sessions and projects: which sessions
 // are pinned or archived, which projects are pinned, the order of the project
 // groups and the names the user gave projects. It is pi-web's state,
 // never written into a session's `.jsonl`, so the pi CLI does not see it. The
@@ -29,8 +29,8 @@ export const MAX_PROJECT_NAMES = 1000;
 /** Most UTF-8 bytes `projectNames` takes as JSON: its keys are projectKeys, as long as the order's. */
 export const PROJECT_NAMES_MAX_BYTES = 256 * 1024;
 
-/** Epoch ms, keyed by the FAMILY ROOT session id. */
-export interface SessionUiFamilyState {
+/** Epoch ms, keyed by the session id. */
+export interface SessionUiSessionState {
   pinnedAt?: number;
   archivedAt?: number;
 }
@@ -43,7 +43,7 @@ export interface SessionUiState {
   version: 1;
   /** Monotonic, bumped by the server on every changing write. */
   revision: number;
-  sessions: Record<string, SessionUiFamilyState>;
+  sessions: Record<string, SessionUiSessionState>;
   projects: Record<string, SessionUiProjectState>;
   /**
    * projectKeys of the sidebar's groups, top first, pinned and other projects
@@ -61,7 +61,7 @@ export interface SessionUiState {
 }
 /** Where a moved project goes, next to its anchor. */
 export type ProjectMovePosition = 'before' | 'after';
-/** One family's flags before a change, for undo; null = absent. */
+/** One conversation's flags before a change, for undo; null = absent. */
 export interface SessionUiFlagsSnapshot {
   id: string;
   pinnedAt: number | null;
@@ -206,12 +206,14 @@ export function emptySessionUiState(): SessionUiState {
   return { version: SESSION_UI_STATE_VERSION, revision: 0, sessions: {}, projects: {} };
 }
 
-function normalizeFamily(value: unknown): SessionUiFamilyState | null {
+function normalizeConversation(value: unknown): SessionUiSessionState | null {
   if (!isPlainObject(value)) return null;
-  const family: SessionUiFamilyState = {};
-  if (isTimestamp(value.pinnedAt)) family.pinnedAt = value.pinnedAt;
-  if (isTimestamp(value.archivedAt)) family.archivedAt = value.archivedAt;
-  return family.pinnedAt === undefined && family.archivedAt === undefined ? null : family;
+  const conversation: SessionUiSessionState = {};
+  if (isTimestamp(value.pinnedAt)) conversation.pinnedAt = value.pinnedAt;
+  if (isTimestamp(value.archivedAt)) conversation.archivedAt = value.archivedAt;
+  return conversation.pinnedAt === undefined && conversation.archivedAt === undefined
+    ? null
+    : conversation;
 }
 
 function normalizeProject(value: unknown): SessionUiProjectState | null {
@@ -233,8 +235,8 @@ export function normalizeSessionUiState(value: unknown): SessionUiState | null {
     state.revision = revision;
   for (const [id, entry] of Object.entries(value.sessions ?? {})) {
     if (!isSessionId(id)) continue;
-    const family = normalizeFamily(entry);
-    if (family) state.sessions[id] = family;
+    const conversation = normalizeConversation(entry);
+    if (conversation) state.sessions[id] = conversation;
   }
   for (const [key, entry] of Object.entries(value.projects ?? {})) {
     if (!isProjectString(key)) continue;
@@ -365,7 +367,7 @@ export function parseSessionUiStateRequest(body: unknown): ParseResult {
       for (const entry of raw) {
         if (!isPlainObject(entry) || !isSessionId(entry.id))
           return { ok: false, error: 'Each entry needs a session id' };
-        // Two prior values for one family would leave which one wins to chance.
+        // Two prior values for one conversation would leave which one wins to chance.
         if (seen.has(entry.id)) return { ok: false, error: 'entries must name each session once' };
         seen.add(entry.id);
         const pinnedAt = parseSnapshotValue(entry.pinnedAt);
@@ -453,15 +455,15 @@ export function parseSessionUiStateRequest(body: unknown): ParseResult {
   }
 }
 
-function sameFamily(a: SessionUiFamilyState | undefined, b: SessionUiFamilyState): boolean {
+function sameConversation(a: SessionUiSessionState | undefined, b: SessionUiSessionState): boolean {
   return a?.pinnedAt === b.pinnedAt && a?.archivedAt === b.archivedAt;
 }
 
 /** Stores `next` for `id` (an empty entry is removed) and says whether that changed anything. */
-function writeFamily(
-  sessions: Record<string, SessionUiFamilyState>,
+function writeConversation(
+  sessions: Record<string, SessionUiSessionState>,
   id: string,
-  next: SessionUiFamilyState
+  next: SessionUiSessionState
 ): boolean {
   const previous = hasOwn(sessions, id) ? sessions[id] : undefined;
   const empty = next.pinnedAt === undefined && next.archivedAt === undefined;
@@ -470,29 +472,29 @@ function writeFamily(
     delete sessions[id];
     return true;
   }
-  if (sameFamily(previous, next)) return false;
+  if (sameConversation(previous, next)) return false;
   sessions[id] = next;
   return true;
 }
 
-function nextFamily(
-  previous: SessionUiFamilyState | undefined,
+function nextConversation(
+  previous: SessionUiSessionState | undefined,
   request: Extract<SessionUiStateRequest, { action: 'set' }>,
   now: number
-): SessionUiFamilyState {
-  const next: SessionUiFamilyState = { ...previous };
+): SessionUiSessionState {
+  const next: SessionUiSessionState = { ...previous };
   if ('pinned' in request) {
     if (!request.pinned) {
       delete next.pinnedAt;
     } else if (next.pinnedAt === undefined || next.archivedAt !== undefined) {
-      // Pin and archive exclude each other: pinning an archived family restores it.
+      // Pin and archive exclude each other: pinning an archived conversation restores it.
       next.pinnedAt = now;
       delete next.archivedAt;
     }
     return next;
   }
   if (request.archived) {
-    // Archiving again refreshes the time, so a family that came back with new activity can be archived again.
+    // Archiving again refreshes the time, so a conversation that came back with new activity can be archived again.
     next.archivedAt = now;
     delete next.pinnedAt;
   } else {
@@ -502,7 +504,7 @@ function nextFamily(
 }
 
 function copyState(state: SessionUiState): SessionUiState {
-  const sessions: Record<string, SessionUiFamilyState> = {};
+  const sessions: Record<string, SessionUiSessionState> = {};
   for (const [id, entry] of Object.entries(state.sessions)) sessions[id] = { ...entry };
   const projects: Record<string, SessionUiProjectState> = {};
   for (const [key, entry] of Object.entries(state.projects)) projects[key] = { ...entry };
@@ -659,15 +661,16 @@ export function applySessionUiStateRequest(
     case 'set':
       for (const id of request.ids) {
         const previous = hasOwn(next.sessions, id) ? next.sessions[id] : undefined;
-        if (writeFamily(next.sessions, id, nextFamily(previous, request, now))) changed = true;
+        if (writeConversation(next.sessions, id, nextConversation(previous, request, now)))
+          changed = true;
       }
       break;
     case 'restore':
       for (const entry of request.entries) {
-        const family: SessionUiFamilyState = {};
-        if (entry.pinnedAt !== null) family.pinnedAt = entry.pinnedAt;
-        if (entry.archivedAt !== null) family.archivedAt = entry.archivedAt;
-        if (writeFamily(next.sessions, entry.id, family)) changed = true;
+        const conversation: SessionUiSessionState = {};
+        if (entry.pinnedAt !== null) conversation.pinnedAt = entry.pinnedAt;
+        if (entry.archivedAt !== null) conversation.archivedAt = entry.archivedAt;
+        if (writeConversation(next.sessions, entry.id, conversation)) changed = true;
       }
       break;
     case 'pin-project': {
@@ -728,7 +731,7 @@ export function applySessionUiStateRequest(
 
 /**
  * `items` in slices of at most `size` (a request's limit), in order. A change
- * to more families than one request may carry ("Archive sessions older than 7
+ * to more conversations than one request may carry ("Archive sessions older than 7
  * days" in a busy project, and its Undo) is sent as several requests.
  */
 export function chunkForSessionUiRequests<T>(

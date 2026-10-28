@@ -61,6 +61,22 @@ smaller. A smaller native window keeps itself, and an explicit per-model `contex
 to new resolutions without rebuilding a runtime; open sessions keep their model object until the
 model is selected again. Pi CLI sharing the agent directory does not apply the cap.
 
+## Product boundary
+
+Pi Web hosts ordinary Pi SDK sessions. It does not register subagent control tools, run
+child-session queues, maintain agent profiles, or create Git worktrees. There are no subagent HTTP
+routes or specialized transcript viewers. Installed extensions follow Pi's normal loading semantics
+and render through generic tool and extension UI paths.
+
+Session catalog entries are grouped by their recorded working directory. Directory validation and
+model lookup do not inspect Git or infer a replacement directory for a missing checkout. A missing
+directory is an error. Pins, archive status, search, and running indicators apply to individual
+sessions, not session families. Deletion shuts down only the requested sessions and preserves
+ordinary forks, reparenting their display metadata when necessary.
+
+Old Pi Web subagent metadata, resource snapshots, profiles, and settings have no compatibility or
+migration layer. Cleanup removes code, not user files.
+
 ## Session flow
 
 1. Session APIs enumerate and read saved Pi sessions. Browsing does not itself require starting an
@@ -101,9 +117,9 @@ to the configured defaults.
 `lib/plan-mode-extension.ts` reads that entry on every prompt and tool call:
 
 - The prompt gains the plan guidelines, so the model discusses and asks before proposing changes.
-- Write, shell, patch, and subagent tools are refused in `tool_call`. The tool selection alone is
-  not enough: a carried extension tool is outside the pinned list. MCP writes stay governed by the
-  existing `readOnlyHint` policy, and other installed extension tools keep their own semantics.
+- Write, shell, and patch tools are refused in `tool_call`. The tool selection alone is not enough:
+  a carried extension tool is outside the pinned list. MCP writes stay governed by the existing
+  `readOnlyHint` policy, and other installed extension tools keep their own semantics.
 - Leaving the mode needs no rebuild; the next message simply runs without the guidelines.
 
 `lib/ask-user-extension.ts` registers `ask_user` in every normal (non-Chat-only) session. The model
@@ -148,7 +164,7 @@ separate panel adds little value. Preserve the underlying agent capabilities and
 conversation controls.
 
 Before removing obsolete code, audit consumers and tests. In particular, shared file APIs still
-serve attachments and references; Git identity and worktree fallback affect session grouping and
-directory selection; and transcript filtering must not remove reasoning from history or exports.
+serve attachments and references; session grouping uses the recorded working directory rather than
+Git repository identity; and transcript filtering must not remove reasoning from history or exports.
 Check saved sessions, drafts, streaming, keyboard and narrow-screen behavior, and legacy browser
 preferences as relevant to each change.
