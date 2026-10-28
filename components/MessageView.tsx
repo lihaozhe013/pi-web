@@ -5,7 +5,6 @@ import { isQuietActivityBlock, isTransientToolBlock } from '@/lib/quiet-activity
 import { MarkdownBody } from './MarkdownBody';
 import { ImagePreview } from './ImagePreview';
 import { ThinkingIcon } from './ThinkingIcon';
-import { copyText } from '@/lib/clipboard';
 import { useI18n } from '@/hooks/useI18n';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import {
@@ -468,7 +467,6 @@ function UserMessageView({
 }) {
   const { t } = useI18n();
   const [hovered, setHovered] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
   // Session files can hold `\r\n` or lone `\r` line endings (#680). Chrome renders
@@ -500,7 +498,6 @@ function UserMessageView({
 
   const time = formatTime(message.timestamp);
   const canFork = !!entryId && !!onFork;
-  const copyTarget = commandText ?? content;
   const editTarget = commandText ? replaceUserMessageText(message, commandText) : message;
 
   const imageBlocksNode = imageBlocks.length > 0 && (
@@ -539,16 +536,9 @@ function UserMessageView({
   const canEdit = !!entryId && !!onEditContent;
   const canCancelEdit = !!isEditing && !!onCancelEdit;
 
-  const copyContent = () => {
-    copyText(copyTarget).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  };
-
   return (
     <div
-      style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}
+      style={{ marginBottom: 10, display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -669,9 +659,9 @@ function UserMessageView({
         </div>
       </div>
 
-      {/* Bottom row: action buttons + timestamp; the copy button is always
-          available, so the row renders unconditionally */}
-      {
+      {/* The turn's copy lives under the whole turn (components/TurnCopy);
+          here only the actions that belong to this message remain. */}
+      {(canFork || canEdit || canCancelEdit || time) && (
         <div
           style={{
             display: 'flex',
@@ -681,72 +671,6 @@ function UserMessageView({
             marginTop: 3
           }}
         >
-          <div
-            style={{
-              display: 'flex',
-              gap: 3,
-              opacity: hovered ? 1 : 0,
-              pointerEvents: hovered ? 'auto' : 'none',
-              transition: 'opacity 0.12s'
-            }}
-          >
-            <button
-              onClick={copyContent}
-              title={t('i18n.copyMessage')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-                padding: '3px 8px',
-                height: 22,
-                background: 'none',
-                border: 'none',
-                borderRadius: 5,
-                color: copied ? 'var(--accent)' : 'var(--text-dim)',
-                cursor: 'pointer',
-                fontSize: 11,
-                fontWeight: 400,
-                whiteSpace: 'nowrap',
-                transition: 'color 0.12s'
-              }}
-              onMouseEnter={(e) => {
-                if (!copied) e.currentTarget.style.color = 'var(--accent)';
-              }}
-              onMouseLeave={(e) => {
-                if (!copied) e.currentTarget.style.color = 'var(--text-dim)';
-              }}
-            >
-              {copied ? (
-                <svg
-                  width="11"
-                  height="11"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-              ) : (
-                <svg
-                  width="11"
-                  height="11"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                </svg>
-              )}
-              {copied ? t('i18n.copied') : t('i18n.copy')}
-            </button>
-          </div>
           {(canFork || canEdit || canCancelEdit) && (
             <div
               style={{
@@ -889,7 +813,7 @@ function UserMessageView({
           )}
           {time && <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{time}</span>}
         </div>
-      }
+      )}
     </div>
   );
 }
@@ -956,8 +880,6 @@ function AssistantMessageView({
   const providerError = getAssistantErrorMessage(message, { isStreaming });
   const truncated = isAssistantTruncated(message, { isStreaming });
   const unansweredTruncation = truncated && !hasAssistantAnswer(message);
-  const [hovered, setHovered] = useState(false);
-  const [copied, setCopied] = useState(false);
   const streamStartRef = useRef<StreamRateStart | null>(null);
   const rateKey = streamRateKey(message);
   const streamRateKeyRef = useRef(rateKey);
@@ -1019,18 +941,6 @@ function AssistantMessageView({
     return map;
   }, [toolResults, message.timestamp]);
 
-  const textContent = blocks
-    .filter((b): b is TextContent => b.type === 'text')
-    .map((b) => b.text)
-    .join('\n');
-
-  const copyContent = () => {
-    copyText(textContent).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  };
-
   useEffect(() => {
     if (!isStreaming) {
       // Finalise any un-finished thinking block durations on stream end
@@ -1086,13 +996,7 @@ function AssistantMessageView({
   if (blocks.length === 0 && heldItems.length === 0 && !providerError && !truncated) return null;
 
   return (
-    <div
-      data-message-role="assistant"
-      data-entry-id={entryId}
-      style={{ marginBottom: 18 }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
+    <div data-message-role="assistant" data-entry-id={entryId} style={{ marginBottom: 10 }}>
       {/* Streaming stats: estimated tokens and rate; gone once the turn settles. */}
       {isStreaming && Math.round(estimatedTokens) > 0 && (
         <div
@@ -1160,7 +1064,7 @@ function AssistantMessageView({
       )}
 
       {/* Keep activity steps visually distinct from the message body. */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {/* Not keyed by the entry id: a message of this run gets one when the file is
             read again, and its blocks keep their state across that read (#1184). */}
         {heldItems.map(({ item: { block, originalIndex }, exiting, fading }) => (
@@ -1282,66 +1186,6 @@ function AssistantMessageView({
               .filter(Boolean)
               .join(' \u00b7 ')}
           </div>
-        )}
-        {textContent && !isStreaming && (
-          <button
-            onClick={copyContent}
-            title={t('i18n.copyMessage')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-              padding: '3px 8px',
-              height: 22,
-              background: 'none',
-              border: 'none',
-              borderRadius: 5,
-              color: copied ? 'var(--accent)' : 'var(--text-dim)',
-              cursor: 'pointer',
-              fontSize: 11,
-              fontWeight: 400,
-              whiteSpace: 'nowrap',
-              opacity: hovered ? 1 : 0,
-              pointerEvents: hovered ? 'auto' : 'none',
-              transition: 'opacity 0.12s, color 0.12s'
-            }}
-            onMouseEnter={(e) => {
-              if (!copied) e.currentTarget.style.color = 'var(--accent)';
-            }}
-            onMouseLeave={(e) => {
-              if (!copied) e.currentTarget.style.color = 'var(--text-dim)';
-            }}
-          >
-            {copied ? (
-              <svg
-                width="11"
-                height="11"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-            ) : (
-              <svg
-                width="11"
-                height="11"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-              </svg>
-            )}
-            {copied ? t('i18n.copied') : t('i18n.copy')}
-          </button>
         )}
         {time && !isStreaming && (
           <span style={{ fontSize: 10, color: 'var(--text-dim)', marginLeft: 'auto' }}>{time}</span>
@@ -2824,7 +2668,6 @@ function CustomMessageView({
   // Expanded by default: pi's TUI always draws a displayed custom message in full.
   const [contentExpanded, setContentExpanded] = useState(true);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
-  const [copied, setCopied] = useState(false);
   const text = getMessageText(message.content);
   const images = getMessageImages(message.content);
   const hasDetails = message.details !== undefined;
@@ -2832,15 +2675,8 @@ function CustomMessageView({
   const title = formatCustomType(message.customType);
   const time = formatTime(message.timestamp);
 
-  const copyContent = () => {
-    copyText(text || detailsText).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  };
-
   return (
-    <div style={{ marginBottom: 16 }}>
+    <div style={{ marginBottom: 10 }}>
       <div
         style={{
           borderRadius: 8,
@@ -2978,31 +2814,16 @@ function CustomMessageView({
               )}
             </div>
 
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '4px 9px',
-                borderTop: CARD_RULE
-              }}
-            >
-              {text || detailsText ? (
-                <button
-                  onClick={copyContent}
-                  style={{
-                    padding: '3px 7px',
-                    border: 'none',
-                    background: 'none',
-                    color: copied ? 'var(--accent)' : 'var(--text-dim)',
-                    cursor: 'pointer',
-                    fontSize: 11
-                  }}
-                >
-                  {copied ? t('i18n.copied') : t('i18n.copy')}
-                </button>
-              ) : null}
-              {hasDetails && (
+            {hasDetails && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '4px 9px',
+                  borderTop: CARD_RULE
+                }}
+              >
                 <button
                   onClick={() => setDetailsExpanded((v) => !v)}
                   style={{
@@ -3017,8 +2838,8 @@ function CustomMessageView({
                 >
                   {detailsExpanded ? t('i18n.hideDetails') : t('i18n.showDetails')}
                 </button>
-              )}
-            </div>
+              </div>
+            )}
 
             {hasDetails && detailsExpanded && (
               <pre

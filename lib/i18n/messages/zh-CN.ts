@@ -577,6 +577,22 @@ export const zhCNLocale: LocalePlugin = {
     'chat.turnTokens': '共 {count} Token',
     'chat.collapseProcess': '收起处理详情',
     'chat.expandProcess': '展开处理详情',
+    'chat.copyTurn': '复制本轮…',
+    'chat.copyTurnDone': '已复制',
+    'chat.copyTurnTitle': '复制本轮对话',
+    'chat.copyTurnDescription':
+      '把一次提问和模型为其所做的工作复制为 Markdown。思考过程和文件探索不会出现在任何选项中。',
+    'chat.copyTurnAnswers': '问答正文',
+    'chat.copyTurnAnswersDescription':
+      '只包含提问和模型回复，不含工具调用。适合保存到文档或发起新对话。',
+    'chat.copyTurnRecord': '界面记录',
+    'chat.copyTurnRecordDescription':
+      '回复，以及记录中仍显示的全部步骤：写入、补丁、提问和失败的命令，含参数与返回值。',
+    'chat.copyTurnExecution': '执行记录',
+    'chat.copyTurnExecutionDescription':
+      '在界面记录基础上，加入已从界面收起的成功 shell 与 codemode 调用，并保留结构化详情。',
+    'chat.copyTurnEmpty': '这一轮还没有可复制的内容。',
+    'chat.copyTurnFailed': '复制失败。请检查剪贴板权限后重试。',
     'transcriptNotice.costSuffix': '（约 {cost}）',
     'transcriptNotice.cacheMiss': '缓存未命中：{tokens} Token 重新计费{cost}',
     'transcriptNotice.cacheMissIdle':
@@ -1770,7 +1786,6 @@ export const zhCNLocale: LocalePlugin = {
     'i18n.largeMessageReveal':
       '消息内容过大（{size}）。点击以纯文本查看 — 已禁用 markdown 渲染以避免页面卡顿。',
     'i18n.loadingThinking': '正在加载思考内容...',
-    'i18n.copyMessage': '复制消息',
     'i18n.editFromHere': '从此处编辑',
     'i18n.editFromHereTitle': '从此处编辑，此会话内创建分支',
     'i18n.newSession': '新会话',

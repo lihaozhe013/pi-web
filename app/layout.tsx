@@ -8,6 +8,7 @@ import './settings.css';
 import './sidebar.css';
 import './sidebar-menu.css';
 import './new-session-chooser.css';
+import './turn-copy.css';
 import './workspace.css';
 import './tool-cards.css';
 import './catppuccin.css';

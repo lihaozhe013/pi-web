@@ -578,6 +578,22 @@ export const zhTWLocale: LocalePlugin = {
     'chat.turnTokens': '共 {count} Token',
     'chat.collapseProcess': '收起處理詳細資料',
     'chat.expandProcess': '展開處理詳細資料',
+    'chat.copyTurn': '複製本輪…',
+    'chat.copyTurnDone': '已複製',
+    'chat.copyTurnTitle': '複製本輪對話',
+    'chat.copyTurnDescription':
+      '把一次提問和模型為此所做的工作複製為 Markdown。思考過程與檔案探索不會出現在任何選項中。',
+    'chat.copyTurnAnswers': '問答正文',
+    'chat.copyTurnAnswersDescription':
+      '只包含提問和模型回覆，不含工具呼叫。適合儲存到文件或發起新對話。',
+    'chat.copyTurnRecord': '介面記錄',
+    'chat.copyTurnRecordDescription':
+      '回覆，以及記錄中仍顯示的全部步驟：寫入、修補、提問和失敗的命令，含參數與傳回值。',
+    'chat.copyTurnExecution': '執行記錄',
+    'chat.copyTurnExecutionDescription':
+      '在介面記錄基礎上，加入已從介面收起的成功 shell 與 codemode 呼叫，並保留結構化詳細資料。',
+    'chat.copyTurnEmpty': '這一輪還沒有可複製的內容。',
+    'chat.copyTurnFailed': '複製失敗。請檢查剪貼簿權限後重試。',
     'transcriptNotice.costSuffix': '（約 {cost}）',
     'transcriptNotice.cacheMiss': '快取未命中：{tokens} Token 重新計費{cost}',
     'transcriptNotice.cacheMissIdle':
@@ -1775,7 +1791,6 @@ export const zhTWLocale: LocalePlugin = {
     'i18n.largeMessageReveal':
       '訊息內容過大（{size}）。點選即可用純文字查看；為保持頁面流暢，已停用 Markdown 轉譯。',
     'i18n.loadingThinking': '正在載入思考內容...',
-    'i18n.copyMessage': '複製訊息',
     'i18n.editFromHere': '從此處編輯',
     'i18n.editFromHereTitle': '從此處編輯，並在這個工作階段中建立分支',
     'i18n.newSession': '新增工作階段',

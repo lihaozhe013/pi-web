@@ -114,6 +114,30 @@ the composer never jumps under the user's cursor. All of this is opacity, transf
 `prefers-reduced-motion` makes every change instant, including the short hold that keeps a leaving
 card on screen for its fade.
 
+## Copying a turn
+
+A turn carries one copy entry under its last message, always visible, never a hover-only
+fragment. Per-message copy buttons are gone; a message keeps its own actions (edit, fork), and the
+space they and the removed buttons used no longer separates the messages of one turn: they sit 10px
+apart, while a turn keeps its own separation from the next.
+
+The entry opens the sidebar's "New" dialog language with three scopes:
+
+- **Conversation**: the prompt and the agent's replies, without tool calls.
+- **Kept record**: the replies plus every step the transcript still shows, so edits, patches,
+  questions and failed commands arrive with their arguments and stored results.
+- **Execution log**: the kept record plus the successful shell and codemode calls the transcript
+  folds away, with the structured details a tool recorded.
+
+Every scope leaves out thinking and exploration calls (`read`, `grep`, `find`, `ls`): they are how
+the agent looked something up, not what it did. Tool arguments travel as JSON and results as stored,
+so a reader can reopen the work in a new session or keep it in a document. No scope guesses which
+failure was a typo; the conversation scope is how a reader leaves execution noise behind.
+
+A scope copies immediately and closes; a clipboard failure stays in the dialog with its reason and
+a retry. Escape, the backdrop and the close button leave the turn unchanged, and focus returns to
+the entry.
+
 ## Tool presets in the composer
 
 The composer's tool menu lists the built-in presets first, then the user's custom ones, each named

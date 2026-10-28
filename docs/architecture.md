@@ -16,6 +16,7 @@ sessions in process; Bun manages dependencies and script invocation.
 | Session list             | `components/SessionSidebar.tsx`                             |
 | Conversation and input   | `components/ChatWindow.tsx`, `components/ChatInput.tsx`     |
 | Transcript rendering     | `components/MessageView.tsx`, `components/MarkdownBody.tsx` |
+| Turn copy                | `lib/turn-copy.ts`, `components/TurnCopy.tsx`               |
 | Client session lifecycle | `hooks/useAgentSession.ts`                                  |
 | Agent runtime            | `lib/rpc-manager.ts`                                        |
 | Saved session reading    | `lib/session-reader.ts`                                     |

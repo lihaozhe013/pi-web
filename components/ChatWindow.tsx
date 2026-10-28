@@ -1,6 +1,7 @@
 'use client';
 import { AskUserPanel, isAskUserRequest } from './AskUserPanel';
 import { ComposerActivity } from './ComposerActivity';
+import { TurnCopy } from './TurnCopy';
 import { mainTranscriptBlocks } from '@/lib/quiet-activity';
 import { ToolActivityProvider, liveToolIds } from './ToolActivity'; // display-only execution status
 import { registerAbortHandler } from '@/hooks/useKeyboardShortcuts';
@@ -241,7 +242,7 @@ function ProcessDetailsGroup({
     cacheMisses && !(expanded || reveal) ? cacheMissSummaryText(t, cacheMisses) : undefined;
 
   return (
-    <div style={{ marginBottom: 14 }}>
+    <div style={{ marginBottom: 8 }}>
       <button
         type="button"
         aria-expanded={expanded || reveal}
@@ -1848,6 +1849,14 @@ export function ChatWindow({
                         ) {
                           rendered.push(renderMessage(renderIdx));
                         }
+                        // One copy entry per finished turn, below its last message.
+                        rendered.push(
+                          <TurnCopy
+                            key={`turn-copy-${messageKeys[groupStartIdx]}`}
+                            messages={messages.slice(groupStartIdx, endIdx)}
+                            toolResults={toolResultsMap}
+                          />
+                        );
                         idx = endIdx;
                       }
                       const { startIndex } = getVisibleRenderWindow(rendered.length, visibleCount);

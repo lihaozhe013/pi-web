@@ -589,6 +589,22 @@ export const enLocale: LocalePlugin = {
     'chat.turnTokens': '{count} tokens',
     'chat.collapseProcess': 'Collapse process details',
     'chat.expandProcess': 'Expand process details',
+    'chat.copyTurn': 'Copy turn…',
+    'chat.copyTurnDone': 'Copied',
+    'chat.copyTurnTitle': 'Copy this turn',
+    'chat.copyTurnDescription':
+      'One prompt and everything the agent did with it, as Markdown. Thinking and file exploration stay out of every choice.',
+    'chat.copyTurnAnswers': 'Conversation',
+    'chat.copyTurnAnswersDescription':
+      'The prompt and the agent’s replies, without tool calls. Best for a document or a fresh chat.',
+    'chat.copyTurnRecord': 'Kept record',
+    'chat.copyTurnRecordDescription':
+      'The replies plus every step the transcript still shows: edits, patches, questions, and failed commands, with their arguments and results.',
+    'chat.copyTurnExecution': 'Execution log',
+    'chat.copyTurnExecutionDescription':
+      'Everything the kept record has, including successful shell and codemode calls the transcript folds away, with structured details.',
+    'chat.copyTurnEmpty': 'This turn has nothing to copy yet.',
+    'chat.copyTurnFailed': 'Could not copy the turn. Check clipboard access and try again.',
     'transcriptNotice.costSuffix': ' (~{cost})',
     'transcriptNotice.cacheMiss': 'Cache miss: {tokens} tokens re-billed{cost}',
     'transcriptNotice.cacheMissIdle':
@@ -1885,7 +1901,6 @@ export const enLocale: LocalePlugin = {
     'i18n.largeMessageReveal':
       'Message content is very large ({size}). Click to view as plain text — markdown rendering is disabled to keep the page responsive.',
     'i18n.loadingThinking': 'Loading thinking...',
-    'i18n.copyMessage': 'Copy message',
     'i18n.editFromHere': 'Edit from here',
     'i18n.editFromHereTitle': 'Edit from here — branches within this session',
     'i18n.newSession': 'New session',

@@ -1377,6 +1377,20 @@ test('one column numbers a removed line by the old file and every other line by 
   assert.equal(countIn(stacked, '⋯ 17 unchanged lines'), 1);
 });
 
+test('a message carries no copy button of its own; the turn does', () => {
+  const userHtml = renderMessage({ role: 'user', content: 'hi' }, { entryId: 'e1' });
+  const assistantHtml = renderMessage({
+    role: 'assistant',
+    content: [{ type: 'text', text: 'done' }],
+    model: 'm',
+    provider: 'p'
+  });
+  for (const html of [userHtml, assistantHtml]) {
+    assert.doesNotMatch(html, /Copy message|>Copy</);
+  }
+  assert.match(assistantHtml, /data-message-role="assistant"/);
+});
+
 test("one column names a deleted file's section by its old path", () => {
   const html = renderPatchFiles(
     parseUnifiedPatch(`--- a/gone.ts
