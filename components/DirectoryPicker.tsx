@@ -10,7 +10,7 @@ interface DirectoryEntry {
   path: string;
 }
 interface BrowseResponse {
-  path?: string;
+  path?: string | null;
   parentPath?: string | null;
   directories?: DirectoryEntry[];
   drives?: DirectoryEntry[];
@@ -56,6 +56,9 @@ export function DirectoryPicker({
   const panelRef = useRef<HTMLDivElement>(null);
   const createButtonRef = useRef<HTMLButtonElement>(null);
   const requestRef = useRef(0);
+  const completionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [verifiedInput, setVerifiedInput] = useState('');
+  const [activeEntry, setActiveEntry] = useState(-1);
   const [currentPath, setCurrentPath] = useState('');
   const [parentDirectory, setParentDirectory] = useState<string | null>(null);
   const [pathInput, setPathInput] = useState(initialPath ?? '');
@@ -71,6 +74,7 @@ export function DirectoryPicker({
   const locked = busy || creating;
 
   const navigateTo = useCallback(async (directory?: string) => {
+    if (completionTimer.current) clearTimeout(completionTimer.current);
     const request = ++requestRef.current;
     setLoading(true);
     setLoadError(null);
@@ -84,6 +88,8 @@ export function DirectoryPicker({
       setCurrentPath(nextPath);
       setParentDirectory(data.parentPath ?? null);
       setPathInput(nextPath);
+      setVerifiedInput(nextPath);
+      setActiveEntry(-1);
       setDirectories(data.directories ?? []);
       setDrives(data.drives ?? null);
       setFilter('');
@@ -95,6 +101,44 @@ export function DirectoryPicker({
     }
   }, []);
 
+  const completePath = useCallback((value: string) => {
+    if (completionTimer.current) clearTimeout(completionTimer.current);
+    const request = ++requestRef.current;
+    setPathInput(value);
+    setVerifiedInput('');
+    setActiveEntry(-1);
+    setLoadError(null);
+    setFilter('');
+    setLoading(Boolean(value.trim()));
+    if (!value.trim()) {
+      setDirectories([]);
+      setDrives(null);
+      return;
+    }
+    completionTimer.current = setTimeout(async () => {
+      try {
+        const response = await fetch(
+          `/api/cwd/browse?complete=1&path=${encodeURIComponent(value.trim())}`
+        );
+        const data = (await response.json()) as BrowseResponse;
+        if (!response.ok || data.error) throw new Error(data.error ?? `HTTP ${response.status}`);
+        if (request !== requestRef.current) return;
+        if (data.path) {
+          setCurrentPath(data.path);
+          setVerifiedInput(value.trim());
+        }
+        setParentDirectory(data.parentPath ?? null);
+        setDirectories(data.directories ?? []);
+        setDrives(null);
+      } catch (cause) {
+        if (request === requestRef.current)
+          setLoadError(cause instanceof Error ? cause.message : String(cause));
+      } finally {
+        if (request === requestRef.current) setLoading(false);
+      }
+    }, 200);
+  }, []);
+
   useEffect(() => {
     setPortalTarget(document.body);
     void navigateTo(initialPath || undefined);
@@ -102,6 +146,7 @@ export function DirectoryPicker({
     const sequence = requestRef;
     return () => {
       sequence.current++;
+      if (completionTimer.current) clearTimeout(completionTimer.current);
     };
   }, [initialPath, navigateTo]);
 
@@ -131,7 +176,7 @@ export function DirectoryPicker({
   const handleCreateDirectory = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const name = directoryName.trim();
-    if (!currentPath || !name || locked) return;
+    if (!currentPath || !name || !canSelect) return;
     setCreating(true);
     setCreateError(null);
     try {
@@ -154,13 +199,20 @@ export function DirectoryPicker({
     }
   };
 
-  const hasUncommittedPath = pathInput.trim() !== currentPath;
+  const hasUncommittedPath = !verifiedInput || pathInput.trim() !== verifiedInput;
   const canSelect =
     Boolean(currentPath) && !hasUncommittedPath && !locked && !loading && !loadError;
   const canNavigateUp = Boolean(parentDirectory) || /^[a-zA-Z]:[\\/]?$/.test(currentPath);
   const entries = (drives ?? directories).filter((entry) =>
     entry.name.toLocaleLowerCase().includes(filter.toLocaleLowerCase())
   );
+
+  useEffect(() => {
+    if (activeEntry >= 0)
+      document
+        .getElementById(`directory-suggestion-${activeEntry}`)
+        ?.scrollIntoView({ block: 'nearest' });
+  }, [activeEntry]);
 
   if (!portalTarget) return null;
   return createPortal(
@@ -249,7 +301,9 @@ export function DirectoryPicker({
             className="directory-picker-location"
             onSubmit={(event) => {
               event.preventDefault();
-              if (pathInput.trim() && !locked && !loading) void navigateTo(pathInput.trim());
+              if (activeEntry >= 0 && entries[activeEntry])
+                void navigateTo(entries[activeEntry].path);
+              else if (pathInput.trim() && !locked) void navigateTo(pathInput.trim());
             }}
           >
             <button
@@ -262,6 +316,9 @@ export function DirectoryPicker({
             >
               ↑
             </button>
+            <button type="button" onClick={() => void navigateTo('~')} disabled={locked || loading}>
+              {t('directoryPicker.home')}
+            </button>
             <label className="sr-only" htmlFor="directory-path">
               {t('directoryPicker.directoryPath')}
             </label>
@@ -273,9 +330,35 @@ export function DirectoryPicker({
               autoComplete="off"
               spellCheck={false}
               disabled={locked}
-              onChange={(event) => setPathInput(event.target.value)}
+              role="combobox"
+              aria-expanded={entries.length > 0}
+              aria-controls="directory-suggestions"
+              aria-activedescendant={
+                activeEntry >= 0 && entries[activeEntry]
+                  ? `directory-suggestion-${activeEntry}`
+                  : undefined
+              }
+              aria-autocomplete="list"
+              onChange={(event) => completePath(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'ArrowDown' && entries.length) {
+                  event.preventDefault();
+                  setActiveEntry((index) => (index + 1) % entries.length);
+                } else if (event.key === 'ArrowUp' && entries.length) {
+                  event.preventDefault();
+                  setActiveEntry((index) => (index <= 0 ? entries.length - 1 : index - 1));
+                } else if (
+                  event.key === 'Tab' &&
+                  !event.shiftKey &&
+                  activeEntry >= 0 &&
+                  entries[activeEntry]
+                ) {
+                  event.preventDefault();
+                  void navigateTo(entries[activeEntry].path);
+                }
+              }}
             />
-            <button type="submit" disabled={locked || loading || !pathInput.trim()}>
+            <button type="submit" disabled={locked || !pathInput.trim()}>
               {t('directoryPicker.go')}
             </button>
           </form>
@@ -315,7 +398,7 @@ export function DirectoryPicker({
                     setCreateError(null);
                   }}
                 />
-                <button type="submit" disabled={creating || !directoryName.trim()}>
+                <button type="submit" disabled={!canSelect || !directoryName.trim()}>
                   {creating ? t('directoryPicker.creating') : t('directoryPicker.create')}
                 </button>
                 <button type="button" disabled={creating} onClick={closeCreate}>
@@ -329,7 +412,13 @@ export function DirectoryPicker({
               )}
             </form>
           )}
-          <div className="directory-picker-list" aria-busy={loading}>
+          <div
+            className="directory-picker-list"
+            id="directory-suggestions"
+            role="listbox"
+            aria-label={t('directoryPicker.browseOther')}
+            aria-busy={loading}
+          >
             {loading ? (
               <p className="directory-picker-empty" role="status">
                 {t('directoryPicker.loadingDirectories')}
@@ -348,9 +437,12 @@ export function DirectoryPicker({
                 </button>
               </div>
             ) : entries.length ? (
-              entries.map((entry) => (
+              entries.map((entry, index) => (
                 <button
                   key={entry.path}
+                  id={`directory-suggestion-${index}`}
+                  role="option"
+                  aria-selected={activeEntry === index}
                   className="directory-picker-entry"
                   type="button"
                   disabled={locked}
@@ -366,7 +458,7 @@ export function DirectoryPicker({
               ))
             ) : (
               <p className="directory-picker-empty" role="status">
-                {filter
+                {filter || hasUncommittedPath
                   ? t('directoryPicker.noMatches')
                   : drives !== null
                     ? t('directoryPicker.noDrives')
@@ -384,10 +476,12 @@ export function DirectoryPicker({
           <div className="directory-picker-selection">
             <span>
               {hasUncommittedPath
-                ? t('directoryPicker.openBeforeSelecting')
+                ? t('directoryPicker.enterValidFolder')
                 : t('directoryPicker.selectedLocation')}
             </span>
-            <strong title={currentPath}>{currentPath || '—'}</strong>
+            <strong title={hasUncommittedPath ? pathInput : currentPath}>
+              {(hasUncommittedPath ? pathInput : currentPath) || '—'}
+            </strong>
           </div>
           <div className="directory-picker-footer-actions">
             <button type="button" onClick={onCancel} disabled={locked}>

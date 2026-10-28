@@ -13,6 +13,25 @@ const artifacts = join(root, 'test-results/e2e');
 mkdirSync(artifacts, { recursive: true });
 let browser;
 try {
+  const { completeDirectory, normalizeDirectory } = await import('../lib/directory-browser.ts');
+  mkdirSync(join(temporary, 'alpha'));
+  mkdirSync(join(temporary, 'beta'));
+  const complete = await completeDirectory(temporary);
+  assert.equal(complete.path, await (await import('node:fs/promises')).realpath(temporary));
+  assert.deepEqual(
+    complete.directories.map((item) => item.name),
+    ['alpha', 'beta']
+  );
+  const partial = await completeDirectory(join(temporary, 'al'));
+  assert.equal(partial.path, null);
+  assert.deepEqual(
+    partial.directories.map((item) => item.name),
+    ['alpha']
+  );
+  assert.ok(normalizeDirectory('~'));
+  if (process.platform === 'win32')
+    assert.equal(normalizeDirectory('~\\alpha'), join(normalizeDirectory('~'), 'alpha'));
+
   const entry = join(temporary, 'entry.tsx');
   const bundle = join(temporary, 'directory.js');
   writeFileSync(
@@ -77,6 +96,13 @@ try {
     browseCount++;
     const path = url.searchParams.get('path') || '/';
     if (path === '/missing') return reply({ error: 'Directory does not exist' }, 404);
+    if (url.searchParams.has('complete') && path === '/projects/al')
+      return reply({
+        path: null,
+        parentPath: '/projects',
+        directories: [{ name: 'alpha', path: '/projects/alpha' }]
+      });
+    if (path === '~') return reply({ path: '/home/user', parentPath: '/home', directories: [] });
     if (path === '/slow') await new Promise((resolve) => setTimeout(resolve, 250));
     if (path === '/projects')
       return reply({
@@ -113,7 +139,7 @@ try {
   const dialog = page.getByRole('dialog');
   const open = async () => {
     await opener.click();
-    await dialog.getByRole('button', { name: 'alpha', exact: true }).waitFor();
+    await dialog.getByRole('option', { name: 'alpha', exact: true }).waitFor();
   };
   const commit = dialog.getByRole('button', { name: 'Open this folder', exact: true });
   await open();
@@ -136,7 +162,7 @@ try {
   await filter.fill('no-match');
   await dialog.getByText('No matching folders', { exact: true }).waitFor();
   await filter.fill('');
-  await dialog.getByRole('button', { name: 'alpha', exact: true }).click();
+  await dialog.getByRole('option', { name: 'alpha', exact: true }).click();
   await dialog.getByText('No subdirectories', { exact: true }).waitFor();
   assert.deepEqual(await page.evaluate(() => window.picks), [], 'navigation must not select');
   await commit.click();
@@ -145,7 +171,27 @@ try {
   assert.equal(await opener.evaluate((el) => el === document.activeElement), true);
 
   await open();
-  const path = dialog.getByRole('textbox', { name: 'Directory path', exact: true });
+  const path = dialog.getByRole('combobox', { name: 'Directory path', exact: true });
+  await path.fill('/projects/al');
+  await dialog.getByRole('option', { name: 'alpha', exact: true }).waitFor();
+  assert.equal(await commit.isDisabled(), true);
+  await path.press('ArrowDown');
+  await path.press('Tab');
+  await page.waitForFunction(
+    () => document.querySelector('#directory-path').value === '/projects/alpha'
+  );
+  assert.equal(await commit.isEnabled(), true);
+  await dialog.getByRole('button', { name: 'Home', exact: true }).click();
+  await page.waitForFunction(
+    () => document.querySelector('#directory-path').value === '/home/user'
+  );
+  await path.fill('/slow');
+  await page.waitForTimeout(220);
+  await path.fill('/projects');
+  await dialog.getByRole('option', { name: 'beta', exact: true }).waitFor();
+  await page.waitForTimeout(300);
+  assert.equal(await path.inputValue(), '/projects', 'stale completion cannot replace newer input');
+  assert.equal(await commit.isEnabled(), true, 'existing typed path is verified automatically');
   await path.fill('/missing');
   assert.equal(await commit.isDisabled(), true);
   await path.press('Enter');
@@ -217,7 +263,7 @@ try {
           bounds.y + bounds.height <= height
       );
       const firstEntry = await dialog
-        .getByRole('button', { name: 'alpha', exact: true })
+        .getByRole('option', { name: 'alpha', exact: true })
         .boundingBox();
       const listBounds = await dialog.locator('.directory-picker-list').boundingBox();
       assert.ok(

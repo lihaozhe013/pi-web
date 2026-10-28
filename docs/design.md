@@ -173,13 +173,14 @@ the footer offers no second "open another project" link.
 **Add a project** turns the same dialog into its folder step: the directory browser, with a **Back**
 link to the two choices and no "default location" shortcut of its own. Folder rows navigate, while
 **Open this folder** commits the location displayed in the footer. The chosen folder starts the
-conversation and stays the remembered custom path. Editing a path requires Go before committing.
-Loading and failed navigation disable that commit. A local name filter narrows only the current
-folder's children. New folders are created inline and browsed before selection, without a second
-modal. The dialog contains keyboard focus, restores its opener, and handles Escape locally (closing
-an unfinished new-folder form first). Errors stay visible and failed navigation offers Retry. The
-layout keeps the destination and action buttons outside the scrolling directory list, including on
-phones.
+conversation and stays the remembered custom path. Path input suggests matching folders and
+automatically displays an existing directory's children; arrow keys and Tab accept a suggestion.
+Home navigates to the server user's home directory, and `~` paths are supported. Loading, incomplete
+paths and failed navigation disable the commit. A local name filter narrows the displayed folders.
+New folders are created inline and browsed before selection, without a second modal. The dialog
+contains keyboard focus, restores its opener, and handles Escape locally (closing an unfinished
+new-folder form first). Errors stay visible and failed navigation offers Retry. The layout keeps the
+destination and action buttons outside the scrolling directory list, including on phones.
 
 **Start without a project** creates today's scratch folder (`~/pi-cwd/YYYYMMDD`) through the
 default-directory and validation APIs and starts the conversation there at once; a scratch pick does

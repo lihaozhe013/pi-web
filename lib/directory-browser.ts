@@ -42,7 +42,8 @@ export async function listWindowsDrives(): Promise<BrowsableDirectory[]> {
 
 export function normalizeDirectory(directory: string): string {
   if (directory === '~') return homedir();
-  if (directory.startsWith('~/')) return path.resolve(homedir(), directory.slice(2));
+  if (directory.startsWith('~/') || (process.platform === 'win32' && directory.startsWith('~\\')))
+    return path.resolve(homedir(), directory.slice(2));
   return path.resolve(directory);
 }
 
@@ -75,6 +76,34 @@ export async function createDirectory(parentDirectory: string, name: string): Pr
   const createdPath = path.join(resolvedParent, directoryName);
   await mkdir(createdPath);
   return realpath(createdPath);
+}
+
+export async function completeDirectory(input: string): Promise<{
+  path: string | null;
+  parentPath: string | null;
+  directories: BrowsableDirectory[];
+}> {
+  const normalized = normalizeDirectory(input);
+  let resolved: string | undefined;
+  try {
+    resolved = await realpath(normalized);
+  } catch (error) {
+    const code = error && typeof error === 'object' && 'code' in error ? String(error.code) : '';
+    if (code !== 'ENOENT' && code !== 'ENOTDIR') throw error;
+  }
+  if (resolved && (await stat(resolved)).isDirectory()) {
+    return {
+      path: resolved,
+      parentPath: getParentDirectory(resolved),
+      directories: await listDirectories(resolved)
+    };
+  }
+  const parent = await realpath(path.dirname(normalized));
+  const prefix = path.basename(normalized).toLocaleLowerCase();
+  const directories = (await listDirectories(parent)).filter((entry) =>
+    entry.name.toLocaleLowerCase().startsWith(prefix)
+  );
+  return { path: null, parentPath: parent, directories };
 }
 
 export async function listDirectories(directory: string): Promise<BrowsableDirectory[]> {

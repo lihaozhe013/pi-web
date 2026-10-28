@@ -3,6 +3,7 @@ import { stat } from 'fs/promises';
 import { hasJsonContentType, isApiRequestAllowed } from '@/lib/request-security';
 import {
   createDirectory,
+  completeDirectory,
   getBrowseStartDirectory,
   getParentDirectory,
   listDirectories,
@@ -15,6 +16,23 @@ import {
 export async function GET(request: NextRequest) {
   try {
     const requested = request.nextUrl.searchParams.get('path')?.trim();
+
+    if (request.nextUrl.searchParams.get('complete') === '1' && requested) {
+      try {
+        return NextResponse.json(await completeDirectory(requested));
+      } catch (error) {
+        const code =
+          error && typeof error === 'object' && 'code' in error ? String(error.code) : '';
+        const message =
+          code === 'EACCES' || code === 'EPERM'
+            ? 'Permission denied'
+            : 'Directory does not exist or cannot be read';
+        return NextResponse.json(
+          { error: message },
+          { status: code === 'EACCES' || code === 'EPERM' ? 403 : 404 }
+        );
+      }
+    }
 
     if (shouldShowWindowsDrivePicker(requested)) {
       return NextResponse.json({
