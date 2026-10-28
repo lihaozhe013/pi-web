@@ -157,7 +157,7 @@ test('the pinned header toggles the section and shows activity dots only while c
   // A group header's height: both are section headers.
   assert.match(
     collapsed,
-    /^<div class="session-tree-row session-tree-pinned-header" style="top:0;height:28px" data-row-key="pinned-header">/
+    /^<div class="session-tree-row session-tree-pinned-header" style="top:0;height:30px" data-row-key="pinned-header">/
   );
   assert.match(
     collapsed,
@@ -206,7 +206,7 @@ test('a collapsed group shows its running and unread counts and labelled actions
     }),
     'group:/work/app'
   );
-  assert.match(html, /^<div class="session-tree-row session-tree-group" style="top:0;height:28px"/);
+  assert.match(html, /^<div class="session-tree-row session-tree-group" style="top:0;height:30px"/);
   assert.match(
     html,
     /<button type="button" class="session-tree-group-toggle" aria-expanded="false" title="\/work\/app">/
@@ -462,9 +462,9 @@ test('pinned rows name their project and archived rows offer restore with the ar
 test('the phone layout uses tall rows, keeps ⋯ and drops the archive quick button', () => {
   const html = render({ layout: 'mobile', rows: [groupRow(), sessionRow(session('m'))] });
   assert.match(html, /^<div class="session-tree is-mobile">/);
-  assert.match(rowMarkup(html, 'group:/work/app'), /style="top:0;height:44px"/);
+  assert.match(rowMarkup(html, 'group:/work/app'), /style="top:0;height:46px"/);
   const row = rowMarkup(html, 'session:group:m');
-  assert.match(row, /style="top:44px;height:44px"/);
+  assert.match(row, /style="top:46px;height:46px"/);
   assert.match(row, /aria-label="More actions"/);
   assert.doesNotMatch(row, /aria-label="Archive"/);
 });
@@ -511,7 +511,7 @@ test("a project's rename swaps its header for a name field seeded with the name 
   );
   assert.match(
     html,
-    /^<div class="session-tree-row session-tree-group is-current is-renaming" style="top:0;height:28px" data-row-key="group:\/work\/app">/
+    /^<div class="session-tree-row session-tree-group is-current is-renaming" style="top:0;height:30px" data-row-key="group:\/work\/app">/
   );
   assert.match(
     html,
@@ -593,7 +593,7 @@ test('show more, empty groups, footer links and archive groups', () => {
   );
   assert.match(
     rowMarkup(html, 'empty:/work/app'),
-    /style="top:78px;height:28px" data-row-key="empty:\/work\/app">No sessions yet<\/div>/
+    /style="top:84px;height:30px" data-row-key="empty:\/work\/app">No sessions yet<\/div>/
   );
   assert.doesNotMatch(html, /footer-spacer/);
   // The archive's project header is a group header that folds its rows: the
@@ -653,10 +653,10 @@ test('loading replaces the rows; the empty label shows only without session or g
 test('only rows near the viewport are mounted, plus the ones that must stay', () => {
   const rows = Array.from({ length: 200 }, (_, index) => sessionRow(session(`s${index}`)));
   const plain = render({ rows });
-  assert.match(plain, /<div class="session-tree-inner" style="height:5600px">/);
+  assert.match(plain, /<div class="session-tree-inner" style="height:6000px">/);
   const keys = renderedKeys(plain);
   // An unmeasured viewport counts as 600px, plus 240px of overscan below.
-  assert.equal(keys.length, Math.ceil((600 + 240) / 28));
+  assert.equal(keys.length, Math.ceil((600 + 240) / 30));
   assert.equal(keys[0], 'session:group:s0');
 
   const kept = renderedKeys(
@@ -674,7 +674,7 @@ test('only rows near the viewport are mounted, plus the ones that must stay', ()
   ]);
   assert.match(
     render({ rows, renamingRootId: 's120' }),
-    /style="top:3360px;height:28px" data-row-key="session:group:s120"/
+    /style="top:3600px;height:30px" data-row-key="session:group:s120"/
   );
 });
 
@@ -875,7 +875,7 @@ test('group headers draw nothing for a drag while idle', () => {
   // Headers keep their markup: the drag adds listeners, no attributes (and never draggable="true").
   assert.match(
     rowMarkup(html, 'group:/work/b'),
-    /^<div class="session-tree-row session-tree-group is-current" style="top:28px;height:28px" data-row-key="group:\/work\/b">/
+    /^<div class="session-tree-row session-tree-group is-current" style="top:30px;height:30px" data-row-key="group:\/work\/b">/
   );
   assert.doesNotMatch(html, /draggable/);
 });

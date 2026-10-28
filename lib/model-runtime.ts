@@ -38,6 +38,7 @@ export async function createModelRuntimeWithExtensions(): Promise<ModelRuntime> 
 interface SharedModelRuntime {
   agentDir: string;
   runtime: Promise<ModelRuntime>;
+  windowedRuntime?: ModelRuntime;
   /** This entry's refresh queue, so a refresh stuck in an extension holds no later entry. */
   queueKey: string;
   /** Infinity while the runtime is being built, so every caller joins that build. */
@@ -91,7 +92,7 @@ export async function getModelRuntimeWithExtensions(): Promise<ModelRuntime> {
     // Every model the shared runtime serves is capped by the global context
     // window limit, so the listings, switches and auth lookups see what a
     // session started on it would see.
-    return withContextWindowLimit(shared);
+    return (entry.windowedRuntime ??= withContextWindowLimit(shared));
   });
 }
 

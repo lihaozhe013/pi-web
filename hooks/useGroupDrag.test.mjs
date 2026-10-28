@@ -97,8 +97,17 @@ function session(id, project, modified) {
 
 function model(projects) {
   return buildSessionTree({
-    sessions: projects.map((project, index) => session(`s${index}`, project, BASE - index)),
-    uiState: { version: 1, revision: 0, sessions: {}, projects: {}, projectOrder: projects },
+    sessions: [
+      ...projects.map((project, index) => session(`s${index}`, project, BASE - index)),
+      session('archived', projects[0] ?? '/archive', BASE)
+    ],
+    uiState: {
+      version: 1,
+      revision: 0,
+      sessions: { archived: { archivedAt: BASE + 1 } },
+      projects: {},
+      projectOrder: projects
+    },
     runningIds: new Set(),
     unreadIds: new Set(),
     selectedSessionId: null,
