@@ -81,16 +81,21 @@ test('a phone shows the icon alone, with the state in its accessible name', () =
   assert.match(withoutGoal, /aria-label="Goal and context"/);
 });
 
-test('one dialog holds the goal and the context, each with its own heading', () => {
+test('the dialog opens on two choices, and the goal is a second step', () => {
   // The dialog is portaled, so its structure is asserted on the source; the
   // sections themselves render under GoalSection and the browser tests.
   assert.match(source, /role="dialog"/);
   assert.match(source, /aria-modal="true"/);
-  assert.match(source, /<h3 id=\{goalId\}>\{t\('chat\.goal'\)\}<\/h3>/);
-  assert.match(source, /<h3 id=\{contextId\}>\{t\('chat\.hubContext'\)\}<\/h3>/);
+  // The choices come first: compaction is one action, the goal is a page.
+  assert.match(source, /<div className="composer-hub-options">/);
+  assert.match(source, /onClick=\{\(\) => setView\('goal'\)\}/);
+  assert.match(source, /\{view === 'goal' \? \(/);
+  // The goal's page keeps its own heading and a way back to the choices.
+  assert.match(source, /<h2 id=\{titleId\}>\{t\('chat\.goal'\)\}<\/h2>/);
+  assert.match(source, /t\('chat\.hubBack'\)/);
   // Escape and the backdrop both close it, and focus returns to the entry.
-  assert.match(source, /event\.key === 'Escape'/);
   assert.match(source, /event\.target === event\.currentTarget/);
+  assert.match(source, /if \(view === 'goal' && !goalOnly\) \{/);
   assert.match(source, /triggerRef\.current\?\.focus\(\)/);
   // The trap covers the goal's own fields, not only the hub's buttons.
   assert.match(
@@ -99,17 +104,18 @@ test('one dialog holds the goal and the context, each with its own heading', () 
   );
 });
 
-test('compaction starts from the hub and reports in the run status row', () => {
+test('compaction starts from its card and reports in the run status row', () => {
   assert.match(source, /onCompact\(\);\s*close\(\);/);
   // No compact button survives in the composer footer: the row above it owns
   // that state now, and nothing there morphs into a second progress pill.
   assert.doesNotMatch(chatInput, /t\('chat\.compacting'\)/);
   assert.doesNotMatch(chatInput, /t\('chat\.compact'\)/);
   assert.match(chatInput, /isCompacting && onAbortCompaction/);
-  // The dialog renders the compact action, and offers Stop while it runs.
+  // The card carries the context's size, the action and, while one runs, Stop.
   assert.match(source, /t\('chat\.compactContext'\)/);
   assert.match(source, /t\('chat\.stopCompaction'\)/);
   assert.match(source, /t\('chat\.hubCompactBusy'\)/);
+  assert.match(source, /t\('chat\.hubContextUsage'/);
 });
 
 test('the entry and the dialog read as one surface', () => {
@@ -118,11 +124,18 @@ test('the entry and the dialog read as one surface', () => {
     '.composer-hub-trigger-state',
     '.composer-hub-backdrop',
     '.composer-hub-dialog',
+    '.composer-hub-choice',
+    '.composer-hub-choice-title',
     '.composer-hub-section',
     '.composer-hub-actions'
   ]) {
     assert.ok(sheet.includes(`${selector} {`) || sheet.includes(`${selector}[`), selector);
   }
+  // The choices stack on a narrow screen rather than shrinking to a column of text.
+  assert.match(
+    sheet,
+    /@media \(max-width: 560px\) \{[\s\S]{0,120}\.composer-hub-options \{[\s\S]{0,80}grid-template-columns: 1fr/
+  );
   // Focus stays visible, and motion explains the opening only.
   assert.match(
     sheet,

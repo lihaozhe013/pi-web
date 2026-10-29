@@ -757,7 +757,9 @@ export const enLocale: LocalePlugin = {
     'chat.controls': 'Controls',
     'chat.more': 'More',
     'chat.hubTitle': 'Goal and context',
-    'chat.hubContext': 'Context',
+    'chat.hubChooserDescription':
+      'These act on the whole session instead of this one prompt.',
+    'chat.hubBack': 'Back',
     'chat.hubContextDescription':
       'Compacting replaces older turns with a summary, freeing room for the rest of the conversation.',
     'chat.hubContextUsage': '{percent}% of {window}',

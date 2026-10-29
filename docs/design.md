@@ -210,18 +210,22 @@ agent keeps working toward, and compaction of the context — and they share one
 per-turn knob, so neither earns a permanent slot beside the knobs; the mobile footer already hid
 compaction behind an overflow while the desktop footer showed it always.
 
-The entry reads **More** and opens one small dialog with two sections, **Goal** and **Context**.
-When a goal exists the same entry reads **Goal** and carries the goal's state word, because a goal
-that keeps working without the user is the one state that must be readable without opening anything.
-On phones the entry is its icon alone, with that state in its accessible name, and the footer's own
-expander is named **Controls** so the two never read as one. The dialog names each section rather
-than inventing a collective noun, so nothing here competes with the agent's tools, the tool presets,
-or the toolbar's Tools panel.
+The entry reads **More** and opens one small dialog with two cards, **Compact** and **Goal**, in
+the shape the sidebar's **New** dialog uses: cards are the only strong element, and the chrome around
+them stays flat. When a goal exists the same entry reads **Goal** and carries the goal's state word,
+because a goal that keeps working without the user is the one state that must be readable without
+opening anything. On phones the entry is its icon alone, with that state in its accessible name, and
+the footer's own expander is named **Controls** so the two never read as one. The dialog's title and
+its two cards name the subjects rather than inventing a collective noun, so nothing here competes
+with the agent's tools, the tool presets, or the toolbar's Tools panel.
 
-**Context** states the session's context size (`64% of 200k`), the last compaction's result, and the
-compact action; the action closes the dialog and reports in the run status row above the composer.
-The section is disabled while a run holds the session, and offers **Stop compaction** while one is
-running.
+Compaction is one action, so its card acts at once and closes the dialog: it states the session's
+context size (`64% of 200k`) and the last compaction's result, then reports in the run status row
+above the composer. The card is disabled while a run holds the session, and reads **Stop
+compaction** while a compaction is running. A goal is written rather than toggled, so its card opens
+a second step holding the whole goal; a **Back** button returns to the choices, and Escape leaves one
+level at a time — the goal first, the dialog second. With nothing to compact, the entry opens the
+goal directly, because a single card would only repeat the entry.
 
 ## Autonomous goals
 
@@ -230,20 +234,19 @@ its state word (**Running**, **Paused**, **Done**, **Blocked**), so the state ne
 alone. Only a running goal takes the accent, which marks the one case where the agent keeps working
 without the user. There is no separate goal panel or dashboard.
 
-The entry opens the composer hub, whose Goal section holds the whole goal: what should be achieved,
-the status, the depth, and the continuations used so far. A new goal starts from an empty objective
-at the stored default depth; an existing one shows its state, its stop reason, and the depth it runs
-at. Depth is three numbers (automatic turns, tokens, minutes) with **Light**, **Standard**, and
+The entry opens the composer hub; its **Goal** card opens the step that holds the whole goal: what
+should be achieved, the status, the depth, and the continuations used so far. A new goal starts from
+an empty objective at the stored default depth; an existing one shows its state, its stop reason,
+and the depth it runs at. Depth is three numbers (automatic turns, tokens, minutes) with **Light**, **Standard**, and
 **Deep** shortcuts above them; typing numbers is the custom case, and the line under the fields
 states what the run will actually be allowed, including that limits are checked between runs. The
 primary action names the change it will make (**Start goal**, **Resume goal**, **Pause goal**,
 **Mark finished**, **Save objective**, **Save depth**) and stays disabled when nothing would change.
 A depth-only edit never starts a run. A running goal keeps its objective and depth: the field
 explains that the goal must be paused, and the dialog offers **Stop run** instead of editing. While
-a run is active the status choices are disabled and the dialog says so. The hub traps focus, closes
-on Escape or the backdrop, and returns focus to the entry; the objective field validates on blur
-with its error beside the field. Goal completion is the agent's report, not an independent
-guarantee.
+a run is active the status choices are disabled and the dialog says so. The hub traps focus, and the
+backdrop or the close button leaves it; the objective field validates on blur with its error beside
+the field. Goal completion is the agent's report, not an independent guarantee.
 
 Settings › Goal holds the default depth a new goal starts at, in the same three fields, with
 **Restore defaults** beside **Save**. It is one global answer to how far an unattended run may go,
