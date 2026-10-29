@@ -138,12 +138,15 @@ configuration.
 
 ## Autonomous goals
 
-`lib/goal-extension.ts` adds a session-scoped goal to normal Pi Web sessions. The composer offers an
-opt-in goal form; `/goal start <objective>`, `/goal resume`, `/goal status`, and `/goal clear` are
-also available. The extension stores snapshots as branch-relative Pi custom entries, injects
-continuation messages at `agent_before_settle`, and lets the model report completion or a blocker
-with evidence. A report is the model's claim, not independent proof. The current tool selection and
-permission checks still apply.
+`lib/goal-extension.ts` adds a session-scoped goal to normal Pi Web sessions. The composer's Goal
+button opens the dialog that writes it; `/goal start <objective>`, `/goal resume`, `/goal pause`,
+`/goal complete`, and `/goal clear` remain available as commands. `lib/goal-state.ts` owns the
+snapshot shape and the command the dialog sends, and the extension publishes the same snapshot as
+its status text, so the button and the saved session agree without a separate route. The extension
+stores snapshots as branch-relative Pi custom entries, starts and continues runs from hidden
+messages at `agent_before_settle`, and lets the model report completion or a blocker with evidence.
+A report is the model's claim, not independent proof. The current tool selection and permission
+checks still apply.
 
 Each start or resume permits at most five automatic continuations, 200,000 reported tokens, or 30
 minutes. These limits are checked between runs, so one long run can exceed them. Stop interrupts the

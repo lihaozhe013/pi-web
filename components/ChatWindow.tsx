@@ -1,10 +1,10 @@
 'use client';
 import { AskUserPanel, isAskUserRequest } from './AskUserPanel';
 import { ComposerActivity } from './ComposerActivity';
-import { GoalControl } from './GoalControl';
 import { TurnCopy } from './TurnCopy';
 import { mainTranscriptBlocks } from '@/lib/quiet-activity';
 import { ToolActivityProvider, liveToolIds } from './ToolActivity'; // display-only execution status
+import { GOAL_STATUS_KEY } from '@/lib/goal-state';
 import { registerAbortHandler } from '@/hooks/useKeyboardShortcuts';
 import Image from 'next/image';
 import {
@@ -420,6 +420,7 @@ export function ChatWindow({
     waitingExtensionCustomUiCount,
     extensionStatuses,
     extensionWidgets,
+    goal,
     respondToExtensionUi,
     sendExtensionCustomInput,
     setNoticePaused,
@@ -1343,6 +1344,9 @@ export function ChatWindow({
       draftKey={session?.id ?? newSessionDraftKey ?? undefined}
       cwd={session?.cwd ?? newSessionCwd}
       onAttachFiles={onAttachFiles}
+      goal={goal}
+      onGoalCommand={toolPreset === 'none' ? undefined : handleSend}
+      onGoalStop={handleAbort}
     />
   );
 
@@ -2159,9 +2163,6 @@ export function ChatWindow({
             width, so it stays in place while the transcript grows below the
             user's viewport. It is always mounted and folds itself open, so the
             composer does not move when a run starts or ends. */}
-          {(session || isNew) && toolPreset !== 'none' && (
-            <GoalControl onSend={handleSend} disabled={sessionBusy} />
-          )}
           <ComposerActivity
             store={streamingStore}
             phase={agentPhase}
@@ -2171,7 +2172,7 @@ export function ChatWindow({
           />
           {chatInputElement}
           <ExtensionStatusBar
-            statuses={extensionStatuses}
+            statuses={extensionStatuses.filter((status) => status.key !== GOAL_STATUS_KEY)}
             widgets={extensionWidgets}
             onCommand={handleSend}
             commandsDisabled={sessionBusy}

@@ -5,6 +5,13 @@ export interface GoalLimits {
   maxElapsedMs: number;
 }
 
+/** The limits every goal runs under; the composer dialog states them before starting. */
+export const GOAL_LIMITS: GoalLimits = {
+  maxContinuations: 5,
+  maxTokens: 200_000,
+  maxElapsedMs: 30 * 60_000
+};
+
 export interface GoalProgress {
   continuations: number;
   tokens: number;

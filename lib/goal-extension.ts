@@ -4,38 +4,23 @@ import {
   type ExtensionContext,
   type InlineExtension
 } from '@earendil-works/pi-coding-agent';
-import { goalStopReason, type GoalLimits } from './goal-policy';
+import { GOAL_LIMITS, goalStopReason } from './goal-policy';
+import {
+  formatGoalStatus,
+  GOAL_ENTRY_TYPE,
+  GOAL_STATUS_KEY,
+  readGoalFromEntries,
+  type GoalSnapshot
+} from './goal-state';
 
-const ENTRY = 'pi-web:goal';
-const LIMITS: GoalLimits = { maxContinuations: 5, maxTokens: 200_000, maxElapsedMs: 30 * 60_000 };
 const START_PENDING = 'Waiting for the goal run to start.';
-
-type Status = 'active' | 'paused' | 'completed' | 'blocked';
-interface Goal {
-  version: 1;
-  objective: string;
-  status: Status;
-  continuations: number;
-  startedAt: number;
-  baselineTokens: number;
-  reason?: string;
-}
 
 type Branch = ReturnType<ExtensionContext['sessionManager']['getBranch']>;
 
-function readGoal(branch: Branch): Goal | undefined {
-  for (const entry of [...branch].reverse()) {
-    if (entry.type !== 'custom' || entry.customType !== ENTRY) continue;
-    const goal = entry.data as Goal | undefined;
-    if (
-      !goal ||
-      goal.version !== 1 ||
-      typeof goal.objective !== 'string' ||
-      !['active', 'paused', 'completed', 'blocked'].includes(goal.status)
-    )
-      return undefined;
-    return goal;
-  }
+function readGoal(branch: Branch): GoalSnapshot | undefined {
+  return readGoalFromEntries(
+    branch as unknown as { type: string; customType?: string; data?: unknown }[]
+  );
 }
 
 function tokenCount(branch: Branch): number {
@@ -53,7 +38,7 @@ function tokenCount(branch: Branch): number {
   return total;
 }
 
-function reminder(goal: Goal): string {
+function reminder(goal: GoalSnapshot): string {
   return `Continue working toward this user-approved goal:\n${goal.objective}\nVerify the result against the goal. Call report_goal with completed and concrete evidence only when it is achieved, or blocked and a reason if you need user input. Do not invent approvals or credentials. Follow the current tool and permission restrictions.`;
 }
 
@@ -62,17 +47,20 @@ export function createGoalExtension(): InlineExtension {
     name: 'pi-web-goal',
     hidden: true,
     factory: (pi) => {
-      const show = (ctx: ExtensionContext, goal: Goal | undefined) => {
-        ctx.ui.setStatus(
-          'pi-web-goal',
-          goal
-            ? `Goal: ${goal.status} · ${goal.continuations}/${LIMITS.maxContinuations} · ${goal.objective}`
-            : undefined
-        );
+      // The composer's Goal control reads this structured status; it is not shown as a
+      // sentence in the composer, and no other host loads this extension.
+      const show = (ctx: ExtensionContext, goal: GoalSnapshot | undefined) => {
+        ctx.ui.setStatus(GOAL_STATUS_KEY, formatGoalStatus(goal));
       };
-      const save = (ctx: ExtensionContext, goal: Goal) => {
-        pi.appendEntry(ENTRY, goal);
+      const save = (ctx: ExtensionContext, goal: GoalSnapshot) => {
+        pi.appendEntry(GOAL_ENTRY_TYPE, goal);
         show(ctx, goal);
+      };
+      const startRun = (goal: GoalSnapshot) => {
+        pi.sendMessage(
+          { customType: GOAL_ENTRY_TYPE, content: reminder(goal), display: false },
+          { triggerTurn: true }
+        );
       };
       const restore = (ctx: ExtensionContext) => {
         const goal = readGoal(ctx.sessionManager.getBranch());
@@ -89,7 +77,7 @@ export function createGoalExtension(): InlineExtension {
       });
       pi.registerCommand('goal', {
         description:
-          'Start or manage a goal: /goal start <objective>, /goal resume, /goal pause, /goal clear',
+          'Start or manage a goal: /goal start <objective>, /goal resume, /goal pause, /goal complete, /goal clear',
         handler: async (args, ctx) => {
           const current = readGoal(ctx.sessionManager.getBranch());
           const text = args.trim();
@@ -102,7 +90,7 @@ export function createGoalExtension(): InlineExtension {
               );
               return;
             }
-            const goal: Goal = {
+            const goal: GoalSnapshot = {
               version: 1,
               objective,
               status: 'paused',
@@ -112,20 +100,18 @@ export function createGoalExtension(): InlineExtension {
               reason: START_PENDING
             };
             save(ctx, goal);
-            pi.sendUserMessage(reminder(goal));
+            startRun(goal);
           } else if (text === 'pause' && current?.status === 'active') {
             save(ctx, { ...current, status: 'paused', reason: 'Paused by user.' });
             if (!ctx.isIdle()) ctx.abort();
+          } else if (text === 'complete' && current && current.status !== 'completed') {
+            save(ctx, { ...current, status: 'completed', reason: 'Marked complete by the user.' });
           } else if (text === 'clear' && current && current.status !== 'active') {
-            pi.appendEntry(ENTRY, null);
+            pi.appendEntry(GOAL_ENTRY_TYPE, null);
             show(ctx, undefined);
             ctx.ui.notify('Goal cleared.', 'info');
-          } else if (
-            text === 'resume' &&
-            current &&
-            ['paused', 'blocked'].includes(current.status)
-          ) {
-            const goal: Goal = {
+          } else if (text === 'resume' && current && current.status !== 'active') {
+            const goal: GoalSnapshot = {
               ...current,
               status: 'paused',
               continuations: 0,
@@ -134,7 +120,7 @@ export function createGoalExtension(): InlineExtension {
               reason: START_PENDING
             };
             save(ctx, goal);
-            pi.sendUserMessage(reminder(goal));
+            startRun(goal);
           } else {
             ctx.ui.notify(
               current
@@ -145,10 +131,12 @@ export function createGoalExtension(): InlineExtension {
           }
         }
       });
+      // The goal's own message starts the run, so it never appears as something the
+      // person typed. Reaching this hook is what confirms the run actually began.
       pi.on('before_agent_start', (event, ctx) => {
         const goal = readGoal(ctx.sessionManager.getBranch());
         if (goal?.status !== 'paused' || goal.reason !== START_PENDING) return;
-        if (event.messageType !== 'user' || event.prompt !== reminder(goal)) return;
+        if (event.messageType !== 'custom' || event.message.customType !== GOAL_ENTRY_TYPE) return;
         save(ctx, { ...goal, status: 'active', reason: undefined });
       });
       pi.registerTool(
@@ -199,7 +187,7 @@ export function createGoalExtension(): InlineExtension {
         if (!goal || goal.status !== 'active') return;
         if (event.continue || ctx.hasPendingMessages()) return;
         const reason = goalStopReason(
-          LIMITS,
+          GOAL_LIMITS,
           {
             continuations: goal.continuations,
             tokens: Math.max(0, tokenCount(branch) - goal.baselineTokens),
@@ -208,16 +196,21 @@ export function createGoalExtension(): InlineExtension {
           event.outcome
         );
         if (reason) {
-          const paused: Goal = { ...goal, status: 'paused', reason };
+          const paused: GoalSnapshot = { ...goal, status: 'paused', reason };
           show(ctx, paused);
-          return { entries: [{ type: 'custom', customType: ENTRY, data: paused }] };
+          return { entries: [{ type: 'custom', customType: GOAL_ENTRY_TYPE, data: paused }] };
         }
-        const next: Goal = { ...goal, continuations: goal.continuations + 1 };
+        const next: GoalSnapshot = { ...goal, continuations: goal.continuations + 1 };
         show(ctx, next);
         return {
           entries: [
-            { type: 'custom', customType: ENTRY, data: next },
-            { type: 'custom_message', customType: ENTRY, content: reminder(next), display: false }
+            { type: 'custom', customType: GOAL_ENTRY_TYPE, data: next },
+            {
+              type: 'custom_message',
+              customType: GOAL_ENTRY_TYPE,
+              content: reminder(next),
+              display: false
+            }
           ],
           continue: true
         };

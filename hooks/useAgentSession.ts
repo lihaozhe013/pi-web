@@ -41,6 +41,7 @@ import {
 } from '@/lib/tool-presets';
 import type { CustomToolPreset } from '@/lib/custom-tool-presets-shared';
 import type { WorkMode } from '@/lib/work-mode';
+import { readGoalStatus, type GoalSnapshot } from '@/lib/goal-state';
 import type { SessionStatsInfo } from '@/lib/pi-types';
 import { mergeSessionStats, type SessionFileStats } from '@/lib/session-stats';
 import { userMessageKey } from '@/lib/prompt-recovery';
@@ -87,6 +88,8 @@ export interface SessionData {
   toolNames?: string[];
   /** The stored work mode. Plan pins the same tools as Read-only, so it travels separately. */
   mode?: WorkMode;
+  /** The goal on the session's current branch, as saved; live statuses supersede it. */
+  goal?: GoalSnapshot;
   /** Opaque freshness token for the session view cache (summary tree reads). */
   snapshotRevision?: string | null;
   /** "summary" when `tree` carries the body-free navigation format. */
@@ -522,6 +525,9 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   const [extensionDialogs, setExtensionDialogs] = useState<ExtensionUiDialogRequest[]>([]);
   const [extensionCustomUis, setExtensionCustomUis] = useState<ExtensionUiCustomRequest[]>([]);
   const [extensionStatuses, setExtensionStatuses] = useState<ExtensionStatusItem[]>([]);
+  // The saved goal is what a session shows before its runtime starts. Once a status
+  // arrives, the live goal (or its absence) is authoritative.
+  const [savedGoal, setSavedGoal] = useState<GoalSnapshot | undefined>(undefined);
   const [extensionWidgets, setExtensionWidgets] = useState<ExtensionWidgetItem[]>([]);
   const [queuedMessages, setQueuedMessages] = useState<QueuedMessages>({
     steering: [],
@@ -937,6 +943,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
           }
           // Tool-preset state is independent of the view cache: it must be applied
           // on every read, cached window or not (#700).
+          setSavedGoal(d.goal);
           sessionToolsPinnedRef.current = d.toolNames !== undefined;
           setToolPresetState(
             getPresetForSession(d.toolNames, d.mode, customToolPresetsRef.current)
@@ -3039,6 +3046,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         clearSlashCommands();
         setExtensionStatuses([]);
         setExtensionWidgets([]);
+        setSavedGoal(undefined);
         const [state] = await Promise.all([
           sendAgentCommand<AgentStateResponse>(activeSessionId, { type: 'get_state' }),
           loadTools(activeSessionId)
@@ -3443,6 +3451,8 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
 
   const thinkingLevel: ThinkingLevelOption = displayThinkingLevel ?? 'auto';
   // The head of each queue is on screen; the rest wait behind it.
+  const goalStatus = readGoalStatus(extensionStatuses);
+  const goal = goalStatus.known ? goalStatus.goal : savedGoal;
   const extensionDialog = extensionDialogs[0] ?? null;
   const waitingExtensionDialogCount = Math.max(0, extensionDialogs.length - 1);
   const extensionCustomUi = extensionCustomUis[0] ?? null;
@@ -3499,6 +3509,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     waitingExtensionCustomUiCount,
     extensionStatuses,
     extensionWidgets,
+    goal,
     respondToExtensionUi,
     sendExtensionCustomInput,
     isAutoModelSelection: isNew && newSessionModel === null,

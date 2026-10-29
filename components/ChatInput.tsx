@@ -59,6 +59,8 @@ import {
 import type { CustomToolPreset } from '@/lib/custom-tool-presets-shared';
 import { SelectorRow } from './SelectorRow';
 import { ModelSelector, type ModelSelectorOption } from './ModelSelector';
+import { GoalControl } from './GoalControl';
+import type { GoalSnapshot } from '@/lib/goal-state';
 
 export { filterModelOptions } from './ModelSelector';
 
@@ -136,6 +138,12 @@ interface Props {
   cwd?: string | null;
   /** Files picked with the attach button, handled like files dropped onto the chat. Without it the button takes images only. */
   onAttachFiles?: (files: File[]) => void;
+  /** The goal on this session's branch, shown beside the model picker. */
+  goal?: GoalSnapshot;
+  /** Sends a `/goal …` command; without it the goal control is not offered. */
+  onGoalCommand?: (command: string) => void;
+  /** Stops the running agent, which also pauses an active goal. */
+  onGoalStop?: () => void;
 }
 
 export interface ChatInputHandle {
@@ -896,6 +904,9 @@ export const ChatInput = memo(
       draftKey,
       cwd,
       onAttachFiles,
+      goal,
+      onGoalCommand,
+      onGoalStop,
       compact = false
     }: Props,
     ref
@@ -3095,6 +3106,15 @@ export const ChatInput = memo(
                     isAutoSelection={isAutoModelSelection}
                     defaultValue={defaultModel}
                     onSetDefault={onSetDefaultModel}
+                  />
+                )}
+                {onGoalCommand && (
+                  <GoalControl
+                    goal={goal}
+                    running={isStreaming}
+                    busy={isStreaming}
+                    onCommand={onGoalCommand}
+                    onStop={() => onGoalStop?.()}
                   />
                 )}
               </div>
