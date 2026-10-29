@@ -1,6 +1,7 @@
 'use client';
 import { AskUserPanel, isAskUserRequest } from './AskUserPanel';
 import { ComposerActivity } from './ComposerActivity';
+import { GoalControl } from './GoalControl';
 import { TurnCopy } from './TurnCopy';
 import { mainTranscriptBlocks } from '@/lib/quiet-activity';
 import { ToolActivityProvider, liveToolIds } from './ToolActivity'; // display-only execution status
@@ -2158,6 +2159,9 @@ export function ChatWindow({
             width, so it stays in place while the transcript grows below the
             user's viewport. It is always mounted and folds itself open, so the
             composer does not move when a run starts or ends. */}
+          {(session || isNew) && toolPreset !== 'none' && (
+            <GoalControl onSend={handleSend} disabled={sessionBusy} />
+          )}
           <ComposerActivity
             store={streamingStore}
             phase={agentPhase}

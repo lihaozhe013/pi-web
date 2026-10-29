@@ -136,6 +136,22 @@ Pi sessions normally live under `~/.pi/agent/sessions/`. The app also maintains 
 session pins and archive choices. Avoid unnecessary changes to Pi's data format or duplicate agent
 configuration.
 
+## Autonomous goals
+
+`lib/goal-extension.ts` adds a session-scoped goal to normal Pi Web sessions. The composer offers an
+opt-in goal form; `/goal start <objective>`, `/goal resume`, `/goal status`, and `/goal clear` are
+also available. The extension stores snapshots as branch-relative Pi custom entries, injects
+continuation messages at `agent_before_settle`, and lets the model report completion or a blocker
+with evidence. A report is the model's claim, not independent proof. The current tool selection and
+permission checks still apply.
+
+Each start or resume permits at most five automatic continuations, 200,000 reported tokens, or 30
+minutes. These limits are checked between runs, so one long run can exceed them. Stop interrupts the
+run and pauses the goal; session restoration or branch navigation pauses an active goal as well. A
+start that fails before the agent begins stays paused. Resuming starts a new budget. The browser
+does not run the loop, and closing it does not stop the server. Do not use this feature with
+untrusted workspaces or permissions you would not grant to an unattended agent.
+
 ## Math rendering dependencies
 
 Markdown and the chat minimap use `rehype-katex` with the KaTeX stylesheet imported by

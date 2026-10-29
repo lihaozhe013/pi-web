@@ -16,6 +16,7 @@ import {
 import { McpHost, type McpHostOptions } from './mcp-host';
 import { createAskUserExtension } from './ask-user-extension';
 import { createPlanModeExtension } from './plan-mode-extension';
+import { createGoalExtension } from './goal-extension';
 import { createPiWebMcpTransportFactory } from './mcp-transport';
 import {
   loadPiSdkInternals,
@@ -450,6 +451,7 @@ export async function createPiWebBuiltinExtensions(
     extensions: [
       createAskUserExtension(),
       createPlanModeExtension(),
+      createGoalExtension(),
       builtin('codemode', sandbox.available ? createCodemodeExtension() : unavailableExtension),
       ...extensions
     ],

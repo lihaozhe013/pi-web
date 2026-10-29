@@ -164,6 +164,14 @@ pending question does not also show a raw tool card in the main transcript; comp
 inspectable and raw history is unchanged. Other extensions continue using their existing dialogs and
 custom panels.
 
+## Autonomous goals
+
+A compact disclosure above the composer starts a goal without turning the conversation into a
+separate dashboard. It states the automatic continuation limits and makes clear that they are checked
+between runs. The extension status reports the goal and its state; the composer's Stop control
+interrupts the running goal. Resume and status remain available when the session is idle. Goal
+completion is the agent's report, not an independent guarantee.
+
 ## Starting a conversation
 
 The sidebar has one entry point for beginning a conversation, the **New** button in its header:
