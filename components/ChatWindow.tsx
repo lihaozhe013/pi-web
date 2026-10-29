@@ -1927,7 +1927,7 @@ export function ChatWindow({
                   </div>
                 </div>
               </div>
-              {isMobile || pendingScrollRestore ? null : (
+              {isMobile ? null : (
                 <ChatMinimap
                   messages={messages}
                   getStreamingMessage={getStreamingMessage}
@@ -1935,6 +1935,7 @@ export function ChatWindow({
                   messageRefs={messageRefs}
                   onRevealHistory={revealHistoryForMinimap}
                   turnsBefore={earlierTurnCount}
+                  renderCount={visibleCount}
                 />
               )}
             </>

@@ -33,10 +33,13 @@ interface Props {
   onRevealHistory: () => void;
   /** Turns of the branch the server has not sent yet: numbers continue from it (#791). */
   turnsBefore: number;
+  /** Transcript window size: it mounts and unmounts rows, so measured positions go stale. */
+  renderCount: number;
 }
 
 const MAX_RAIL_MARKERS = 18;
 const PREVIEW_HIDE_DELAY = 160;
+const MEASURE_THROTTLE_MS = 150;
 const NAVIGATION_ACTIVE_LOCK_MS = 1600;
 
 function preferredScrollBehavior(behavior: ScrollBehavior = 'smooth'): ScrollBehavior {
@@ -76,6 +79,43 @@ function getAssistantAnswerMarkdown(message: AgentMessage | Partial<AgentMessage
     .map((block) => block.text)
     .join('\n\n')
     .trim();
+}
+
+/** Splitting the answer is not free and repeats on every transcript change. */
+const answerMarkdownCache = new WeakMap<AgentMessage, string>();
+
+function getCachedAnswerMarkdown(message: AgentMessage): string {
+  const cached = answerMarkdownCache.get(message);
+  if (cached !== undefined) return cached;
+  const markdown = getAssistantAnswerMarkdown(message);
+  answerMarkdownCache.set(message, markdown);
+  return markdown;
+}
+
+/**
+ * Turns read from the transcript alone, without touching the DOM. The directory entry point
+ * uses them so its presence never depends on a layout measurement having happened.
+ */
+function collectTurns(messages: readonly AgentMessage[]): TurnInfo[] {
+  const turns: TurnInfo[] = [];
+  let currentTurn: TurnInfo | null = null;
+  for (const message of messages) {
+    if (isMessageGroupAnchor(message)) {
+      currentTurn = {
+        userMessage: message as UserMessage | CustomMessage,
+        assistantPreviews: [],
+        scrollTop: null
+      };
+      turns.push(currentTurn);
+      continue;
+    }
+    if (message.role !== 'assistant' || !currentTurn) continue;
+    const answerMarkdown = getCachedAnswerMarkdown(message);
+    if (answerMarkdown) {
+      currentTurn.assistantPreviews.push({ markdown: answerMarkdown, element: null });
+    }
+  }
+  return turns;
 }
 
 function PreviewHeading({
@@ -243,14 +283,16 @@ export const ChatMinimap = memo(function ChatMinimap({
   scrollContainer,
   messageRefs,
   onRevealHistory,
-  turnsBefore
+  turnsBefore,
+  renderCount
 }: Props) {
   const { t } = useI18n();
-  const [allNodes, setAllNodes] = useState<NodeInfo[]>([]);
+  const [measuredNodes, setMeasuredNodes] = useState<NodeInfo[]>([]);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [outlineOpen, setOutlineOpen] = useState(false);
   const containerRef = useRef<HTMLElement>(null);
-  const allNodesRef = useRef<NodeInfo[]>([]);
+  // Which transcript the measurement belongs to: a stale one never stands in for the current.
+  const measuredForRef = useRef<AgentMessage[] | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const directoryId = useId();
   const activeIndexRef = useRef(activeIndex);
@@ -268,17 +310,24 @@ export const ChatMinimap = memo(function ChatMinimap({
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
 
+  // Derived from the transcript: the entry point exists before, and without, any layout
+  // measurement. Measurement only adds the positions the directory navigates to.
+  const dataNodes = useMemo(() => createTurnNodes(collectTurns(messages)), [messages]);
+  const nodes = measuredForRef.current === messages ? measuredNodes : dataNodes;
+  const nodesRef = useRef(nodes);
+  nodesRef.current = nodes;
+
   const railNodes = useMemo(() => {
-    if (allNodes.length <= MAX_RAIL_MARKERS) return allNodes;
+    if (nodes.length <= MAX_RAIL_MARKERS) return nodes;
     return Array.from(
       { length: MAX_RAIL_MARKERS },
-      (_, index) => allNodes[Math.round((index * (allNodes.length - 1)) / (MAX_RAIL_MARKERS - 1))]
+      (_, index) => nodes[Math.round((index * (nodes.length - 1)) / (MAX_RAIL_MARKERS - 1))]
     );
-  }, [allNodes]);
+  }, [nodes]);
   const activeRailIndex =
-    activeIndex === null || allNodes.length < 2
+    activeIndex === null || nodes.length < 2
       ? 0
-      : Math.round((activeIndex * (railNodes.length - 1)) / (allNodes.length - 1));
+      : Math.round((activeIndex * (railNodes.length - 1)) / (nodes.length - 1));
 
   const lockActiveNode = useCallback((index: number) => {
     activeNodeLockRef.current = {
@@ -296,19 +345,19 @@ export const ChatMinimap = memo(function ChatMinimap({
     }
     activeNodeLockRef.current = null;
 
-    const measuredNodes = nextNodes.filter((node) => node.targetTurn.scrollTop !== null);
-    if (measuredNodes.length === 0) {
+    const positionedNodes = nextNodes.filter((node) => node.targetTurn.scrollTop !== null);
+    if (positionedNodes.length === 0) {
       setActiveIndex(null);
       return;
     }
     const focusTop = scrollEl.scrollTop + scrollEl.clientHeight * 0.3;
-    const nextActiveNode = measuredNodes.reduce(
+    const nextActiveNode = positionedNodes.reduce(
       (bestNode, node) =>
         Math.abs((node.targetTurn.scrollTop ?? 0) - focusTop) <
         Math.abs((bestNode.targetTurn.scrollTop ?? 0) - focusTop)
           ? node
           : bestNode,
-      measuredNodes[0]
+      positionedNodes[0]
     );
     setActiveIndex(nextActiveNode.index);
   }, []);
@@ -316,95 +365,103 @@ export const ChatMinimap = memo(function ChatMinimap({
   const updateScroll = useCallback(() => {
     const scrollEl = scrollContainer.current;
     if (!scrollEl) return;
-    const currentNodes = allNodesRef.current;
-    syncActiveNode(scrollEl, currentNodes);
+    syncActiveNode(scrollEl, nodesRef.current);
   }, [scrollContainer, syncActiveNode]);
 
-  const measureThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const measureNodes = useCallback(() => {
-    if (measureThrottleRef.current) return;
-    measureThrottleRef.current = setTimeout(() => {
-      measureThrottleRef.current = null;
-      const scrollEl = scrollContainer.current;
-      if (!scrollEl) return;
+  const measureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-      const refs = messageRefs.current;
-      const containerRect = scrollEl.getBoundingClientRect();
-      const turns: TurnInfo[] = [];
-      let refIndex = 0;
-      let currentTurn: TurnInfo | null = null;
+  const measure = useCallback(() => {
+    const scrollEl = scrollContainer.current;
+    if (!scrollEl) return;
 
-      const streamingMessage = getStreamingMessage();
-      const allMessages: (AgentMessage | Partial<AgentMessage>)[] = streamingMessage
-        ? [...messagesRef.current, streamingMessage]
-        : messagesRef.current;
-      for (const message of allMessages) {
-        const isAnchor = isMessageGroupAnchor(message);
-        if (!isAnchor && message.role !== 'assistant') continue;
-        const element = refs?.[refIndex];
-        refIndex++;
+    const refs = messageRefs.current;
+    const containerRect = scrollEl.getBoundingClientRect();
+    const turns: TurnInfo[] = [];
+    let refIndex = 0;
+    let currentTurn: TurnInfo | null = null;
 
-        if (isAnchor) {
-          currentTurn = null;
-          const elementRect = element?.getBoundingClientRect();
-          currentTurn = {
-            userMessage: message as UserMessage | CustomMessage,
-            assistantPreviews: [],
-            scrollTop: elementRect ? elementRect.top - containerRect.top + scrollEl.scrollTop : null
-          };
-          turns.push(currentTurn);
-          continue;
-        }
+    const streamingMessage = getStreamingMessage();
+    const allMessages: (AgentMessage | Partial<AgentMessage>)[] = streamingMessage
+      ? [...messagesRef.current, streamingMessage]
+      : messagesRef.current;
+    for (const message of allMessages) {
+      const isAnchor = isMessageGroupAnchor(message);
+      if (!isAnchor && message.role !== 'assistant') continue;
+      const element = refs?.[refIndex];
+      refIndex++;
 
-        if (!currentTurn) continue;
-        const answerMarkdown = getAssistantAnswerMarkdown(message);
-        if (answerMarkdown) {
-          currentTurn.assistantPreviews.push({
-            markdown: answerMarkdown,
-            element
-          });
-        }
+      if (isAnchor) {
+        const elementRect = element?.getBoundingClientRect();
+        currentTurn = {
+          userMessage: message as UserMessage | CustomMessage,
+          assistantPreviews: [],
+          scrollTop: elementRect ? elementRect.top - containerRect.top + scrollEl.scrollTop : null
+        };
+        turns.push(currentTurn);
+        continue;
       }
 
-      const nextNodes = createTurnNodes(turns);
-      allNodesRef.current = nextNodes;
-      setAllNodes(nextNodes);
-      syncActiveNode(scrollEl, nextNodes);
-
-      const pendingNavigation = pendingNavigationRef.current;
-      const pendingNode = pendingNavigation ? nextNodes[pendingNavigation.nodeIndex] : null;
-      if (pendingNavigation && pendingNode) {
-        const assistant =
-          pendingNavigation.assistantIndex === undefined
-            ? null
-            : pendingNode.targetTurn.assistantPreviews[pendingNavigation.assistantIndex];
-        let targetTop: number | null = pendingNode.targetTurn.scrollTop;
-        if (pendingNavigation.target === 'assistant') {
-          const assistantRect = assistant?.element?.getBoundingClientRect();
-          targetTop = assistantRect
-            ? assistantRect.top - containerRect.top + scrollEl.scrollTop
-            : null;
-        } else if (pendingNavigation.target === 'heading') {
-          const heading =
-            pendingNavigation.headingIndex === undefined
-              ? null
-              : assistant?.element
-                  ?.querySelectorAll<HTMLElement>('h1, h2, h3')
-                  .item(pendingNavigation.headingIndex);
-          const headingRect = heading?.getBoundingClientRect();
-          targetTop = headingRect ? headingRect.top - containerRect.top + scrollEl.scrollTop : null;
-        }
-        if (targetTop === null) return;
-        pendingNavigationRef.current = null;
-        lockActiveNode(pendingNode.index);
-        const targetOffset = scrollEl.clientHeight * 0.3;
-        scrollEl.scrollTo({
-          top: Math.max(0, targetTop - targetOffset),
-          behavior: preferredScrollBehavior()
+      if (!currentTurn) continue;
+      // The streamed partial is read here and never cached: it can change between measurements.
+      const answerMarkdown =
+        message === streamingMessage
+          ? getAssistantAnswerMarkdown(message)
+          : getCachedAnswerMarkdown(message as AgentMessage);
+      if (answerMarkdown) {
+        currentTurn.assistantPreviews.push({
+          markdown: answerMarkdown,
+          element
         });
       }
-    }, 150);
+    }
+
+    const nextNodes = createTurnNodes(turns);
+    measuredForRef.current = messagesRef.current;
+    nodesRef.current = nextNodes;
+    setMeasuredNodes(nextNodes);
+    syncActiveNode(scrollEl, nextNodes);
+
+    const pendingNavigation = pendingNavigationRef.current;
+    const pendingNode = pendingNavigation ? nextNodes[pendingNavigation.nodeIndex] : null;
+    if (pendingNavigation && pendingNode) {
+      const assistant =
+        pendingNavigation.assistantIndex === undefined
+          ? null
+          : pendingNode.targetTurn.assistantPreviews[pendingNavigation.assistantIndex];
+      let targetTop: number | null = pendingNode.targetTurn.scrollTop;
+      if (pendingNavigation.target === 'assistant') {
+        const assistantRect = assistant?.element?.getBoundingClientRect();
+        targetTop = assistantRect ? assistantRect.top - containerRect.top + scrollEl.scrollTop : null;
+      } else if (pendingNavigation.target === 'heading') {
+        const heading =
+          pendingNavigation.headingIndex === undefined
+            ? null
+            : assistant?.element
+                ?.querySelectorAll<HTMLElement>('h1, h2, h3')
+                .item(pendingNavigation.headingIndex);
+        const headingRect = heading?.getBoundingClientRect();
+        targetTop = headingRect ? headingRect.top - containerRect.top + scrollEl.scrollTop : null;
+      }
+      if (targetTop === null) return;
+      pendingNavigationRef.current = null;
+      lockActiveNode(pendingNode.index);
+      const targetOffset = scrollEl.clientHeight * 0.3;
+      scrollEl.scrollTo({
+        top: Math.max(0, targetTop - targetOffset),
+        behavior: preferredScrollBehavior()
+      });
+    }
   }, [getStreamingMessage, lockActiveNode, messageRefs, scrollContainer, syncActiveNode]);
+
+  // Coalesced: a request that arrives while a run is pending is covered by that run, which
+  // measures the DOM as it is when the timer fires.
+  const scheduleMeasure = useCallback(() => {
+    if (measureTimerRef.current) return;
+    measureTimerRef.current = setTimeout(() => {
+      measureTimerRef.current = null;
+      measure();
+    }, MEASURE_THROTTLE_MS);
+  }, [measure]);
 
   useEffect(() => {
     const el = scrollContainer.current;
@@ -417,7 +474,7 @@ export const ChatMinimap = memo(function ChatMinimap({
     const el = scrollContainer.current;
     if (!el) return;
     const syncLayout = () => {
-      measureNodes();
+      scheduleMeasure();
       updateScroll();
     };
     const ro = new ResizeObserver(syncLayout);
@@ -426,22 +483,21 @@ export const ChatMinimap = memo(function ChatMinimap({
     syncLayout();
     return () => {
       ro.disconnect();
-      if (measureThrottleRef.current) {
-        clearTimeout(measureThrottleRef.current);
-        measureThrottleRef.current = null;
+      if (measureTimerRef.current) {
+        clearTimeout(measureTimerRef.current);
+        measureTimerRef.current = null;
       }
     };
-  }, [measureNodes, scrollContainer, updateScroll]);
+  }, [scheduleMeasure, scrollContainer, updateScroll]);
 
-  const messageCount = messages.length;
+  // Transcript and render-window changes re-measure right away: the data decides when
+  // measured positions go stale, not a resize that may never happen.
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (messagesRef.current.length !== messageCount) return;
-      measureNodes();
-      updateScroll();
-    }, 50);
-    return () => clearTimeout(timeout);
-  }, [messageCount, measureNodes, updateScroll]);
+    measure();
+    updateScroll();
+    // The commit triggers are the point: measure() reads both through refs.
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- the commit triggers are the point.
+  }, [measure, messages, renderCount, updateScroll]);
 
   const scrollToNode = useCallback(
     (node: NodeInfo, behavior: ScrollBehavior) => {
@@ -582,7 +638,7 @@ export const ChatMinimap = memo(function ChatMinimap({
       ref={containerRef}
       className={styles.navigator}
       aria-label={t('chatMinimap.contents')}
-      hidden={allNodes.length === 0}
+      hidden={nodes.length === 0}
       onMouseEnter={showPreview}
       onMouseLeave={schedulePreviewHide}
       onFocusCapture={cancelPreviewHide}
@@ -596,6 +652,7 @@ export const ChatMinimap = memo(function ChatMinimap({
         className={styles.rail}
         data-chat-outline-trigger=""
         aria-label={t('chatMinimap.contents')}
+        title={t('chatMinimap.contents')}
         aria-expanded={outlineOpen}
         aria-controls={directoryId}
         onClick={showPreview}
@@ -612,6 +669,7 @@ export const ChatMinimap = memo(function ChatMinimap({
           <span
             key={node.index}
             className={styles.marker}
+            data-minimap-marker=""
             data-active={activeIndex !== null && index === activeRailIndex ? 'true' : undefined}
             aria-hidden="true"
           />
@@ -642,7 +700,7 @@ export const ChatMinimap = memo(function ChatMinimap({
                 {t('chatMinimap.earlierTurns', { count: turnsBefore })}
               </button>
             )}
-            {allNodes.map((node) => (
+            {nodes.map((node) => (
               <div
                 key={node.index}
                 className={styles.turn}

@@ -240,8 +240,10 @@ for a conversation already open, worded as **Add a project…** and **Start with
 ## Navigation and accessibility
 
 The conversation directory uses a lightweight overlay entry point rather than a permanent column.
-Keep it available even when history fits without scrolling. Do not add workspace tabs or agent
-management panels.
+Keep it available even when history fits without scrolling. Its entry point is derived from the
+transcript, so it stays visible on desktop widths whenever the conversation has a turn; never let a
+layout measurement or a transient mount gate decide whether it exists. Phones keep the chat at full
+width and hide the rail. Do not add workspace tabs or agent management panels.
 
 Check desktop, narrow desktop, and phone layouts. Preserve predictable return, close, cancel, and
 focus behavior. Do not add modes when simpler interaction suffices.
