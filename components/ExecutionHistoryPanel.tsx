@@ -118,15 +118,17 @@ function RunOutput({ entry, sessionId }: { entry: ExecutionHistoryEntry; session
 
 function RunEntry({ entry, sessionId }: { entry: ExecutionHistoryEntry; sessionId?: string }) {
   const { t } = useI18n();
-  // Running and failed runs open themselves; a finished success stays a row
-  // until the user asks for its output. Once open, a run keeps its state when
-  // it finishes instead of folding under the reader.
-  const [expanded, setExpanded] = useState(() => entry.status !== 'success');
+  // The section owns the default: live runs open, historical runs fold.
+  const [expanded, setExpanded] = useState(() => entry.active ?? entry.status === 'running');
   const duration = formatExecutionDuration(entry.durationMs);
   const callCount = entry.calls ? entry.calls.length + (entry.omittedCalls ?? 0) : 0;
 
   return (
-    <li className="run-history-entry" data-status={entry.status}>
+    <li
+      className="run-history-entry tool-card"
+      data-state={entry.status}
+      data-status={entry.status}
+    >
       <button
         type="button"
         className="run-history-entry-header"
@@ -208,42 +210,51 @@ export function ExecutionHistoryPanel({
 }) {
   const { t } = useI18n();
   const ordered = useMemo(() => [...entries].reverse(), [entries]);
-  const running = entries.filter((entry) => entry.status === 'running').length;
-
-  if (entries.length === 0) {
-    return (
-      <div className="run-history-empty">
-        <span className="run-history-empty-mark" aria-hidden="true">
-          &gt;_
-        </span>
-        <p className="run-history-empty-title">{t('runs.empty')}</p>
-        <p className="run-history-empty-hint">{t('runs.emptyHint')}</p>
-      </div>
-    );
-  }
+  const active = ordered.filter((entry) => entry.active ?? entry.status === 'running');
+  const history = ordered.filter((entry) => !(entry.active ?? entry.status === 'running'));
 
   return (
     <div className="run-history">
-      <div className="run-history-summary">
-        <span>
-          {entries.length === 1
-            ? t('runs.summaryOne')
-            : t('runs.summary', { count: entries.length })}
-        </span>
-        {running > 0 && (
-          <span className="run-history-running">
-            <span className="run-history-running-mark" aria-hidden="true">
-              ▍
-            </span>
-            {running === 1 ? t('runs.runningOne') : t('runs.running', { count: running })}
-          </span>
-        )}
-      </div>
-      <ol className="run-history-list">
-        {ordered.map((entry) => (
-          <RunEntry key={entry.id} entry={entry} sessionId={sessionId} />
-        ))}
-      </ol>
+      <section
+        className="run-history-section run-history-active"
+        aria-labelledby="runs-active-title"
+      >
+        <h3 className="run-history-section-title" id="runs-active-title">
+          <span>{t('runs.active')}</span>
+          <span className="run-history-count">{active.length}</span>
+        </h3>
+        <div className="run-history-scroll" tabIndex={0} aria-label={t('runs.active')}>
+          {active.length ? (
+            <ol className="run-history-list">
+              {active.map((entry) => (
+                <RunEntry key={entry.id} entry={entry} sessionId={sessionId} />
+              ))}
+            </ol>
+          ) : (
+            <p className="run-history-placeholder">{t('runs.noActive')}</p>
+          )}
+        </div>
+      </section>
+      <section
+        className="run-history-section run-history-past"
+        aria-labelledby="runs-history-title"
+      >
+        <h3 className="run-history-section-title" id="runs-history-title">
+          <span>{t('runs.history')}</span>
+          <span className="run-history-count">{history.length}</span>
+        </h3>
+        <div className="run-history-scroll" tabIndex={0} aria-label={t('runs.history')}>
+          {history.length ? (
+            <ol className="run-history-list">
+              {history.map((entry) => (
+                <RunEntry key={entry.id} entry={entry} sessionId={sessionId} />
+              ))}
+            </ol>
+          ) : (
+            <p className="run-history-placeholder">{t('runs.noHistory')}</p>
+          )}
+        </div>
+      </section>
     </div>
   );
 }

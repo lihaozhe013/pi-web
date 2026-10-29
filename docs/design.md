@@ -83,10 +83,11 @@ Current main-transcript behavior:
 - Shell and codemode calls draw no card in the transcript, running, successful or failed. The
   composer status row names them while they run, and the Runs panel keeps their history: the toggle
   sits beside Tools in the toolbar, is closed by default, and stays open until the user closes it.
-  The panel lists the conversation's loaded runs newest first, with each command or script, its
-  output and its state. Running and failed runs open themselves; a success stays a row until asked
-  for. Codemode lists its nested calls as compact subcards ahead of a script disclosure. Closing the
-  panel does not discard anything.
+  The panel separates active runs from history, with independent scrolling and newest first in each.
+  Active cards default open; completed cards remain in the active section for two seconds, showing
+  their final status, then move to history and default closed. Multiple runs can remain active at
+  once. Codemode lists its nested calls as compact subcards ahead of a script disclosure. Closing
+  the panel does not discard anything.
 - Write/edit cards default to expanded. Patch cards fold after completion.
 - A command the user ran themselves (`!`) keeps its live card in the transcript, because its
   progress is the answer they asked for. It also appears in the Runs panel so the history is
@@ -103,8 +104,7 @@ grows, and it is never shown as a finished result.
 Load syntax highlighting on demand. Unknown languages and streaming input must remain readable
 without it. Draw tool cards as borderless panes: a surface tint lifts the card off the transcript
 and the code, diff or output inside it sits a shade deeper, so color rather than a frame separates
-the body from the page. The Runs panel is one ledger rather than a stack of cards: rows share a
-hairline rule and a status gutter, and only an opened output becomes a pane.
+the body from the page. The Runs panel uses the same tinted card surfaces and inset output panes.
 
 Motion explains a change; it never decorates one. A card fades in when its call starts, its status
 mark fades when it changes, and its body folds open and shut. A user-run command that leaves after
@@ -113,10 +113,9 @@ moves: the card remembers whether the call was still running at mount, so restor
 re-reading the same message, scrolling history or re-grouping a turn replays none of it. The run
 status row above the composer is always in the stack: it folds open with the run, folds away when
 the run ends, and only its words change in between, so the composer never jumps under the user's
-cursor. The Runs panel is a quiet ledger: rows do not animate in or out while commands start and
-finish; only a running mark blinks. All motion is opacity, transform or a box size;
-`prefers-reduced-motion` makes every change instant, including the short hold that keeps a leaving
-command on screen.
+cursor. Runs panel cards do not animate between sections; only a running mark blinks. All motion is
+opacity, transform or a box size; `prefers-reduced-motion` makes every change instant, including the
+short hold that keeps a leaving command on screen.
 
 ## Copying a turn
 

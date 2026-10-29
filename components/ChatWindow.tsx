@@ -5,6 +5,7 @@ import { TurnCopy } from './TurnCopy';
 import { mainTranscriptBlocks } from '@/lib/quiet-activity';
 import { buildExecutionHistory, type ExecutionHistoryEntry } from '@/lib/execution-history';
 import { useRetainedExecutionHistory } from '@/hooks/useRetainedExecutionHistory';
+import { useActiveExecutionHistory } from '@/hooks/useActiveExecutionHistory';
 import { ToolActivityProvider, liveToolIds } from './ToolActivity'; // display-only execution status
 import { GOAL_STATUS_KEY } from '@/lib/goal-state';
 import { registerAbortHandler } from '@/hooks/useKeyboardShortcuts';
@@ -1165,12 +1166,13 @@ export function ChatWindow({
     () => liveToolIds(agentPhase, activeToolResults),
     [agentPhase, activeToolResults]
   );
-  const executionHistory = useRetainedExecutionHistory(
+  const retainedExecutionHistory = useRetainedExecutionHistory(
     useMemo(
       () => buildExecutionHistory(messages, toolResultsMap, liveIds, { pendingBash }),
       [messages, toolResultsMap, liveIds, pendingBash]
     )
   );
+  const executionHistory = useActiveExecutionHistory(retainedExecutionHistory);
   useEffect(() => {
     onExecutionHistoryChange?.(executionHistory);
   }, [executionHistory, onExecutionHistoryChange]);

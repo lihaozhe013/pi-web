@@ -35,6 +35,8 @@ export interface ExecutionHistoryEntry {
   /** One line for the collapsed row. */
   preview: string;
   status: ExecutionHistoryStatus;
+  /** Still displayed in the active section after completion. */
+  active?: boolean;
   /** Text output; empty while a run has not printed anything yet. */
   output: string;
   /** The script of a codemode call, when it has one. */
@@ -278,6 +280,31 @@ export function retainExecutionHistory(
     merged.push(entry);
   }
   return merged;
+}
+
+/** Track independently completed live runs without treating restored history as live. */
+export function updateActiveRunHolds(
+  previous: readonly ExecutionHistoryEntry[],
+  current: readonly ExecutionHistoryEntry[],
+  holds: ReadonlyMap<string, number>,
+  now: number,
+  holdMs: number
+): Map<string, number> {
+  const next = new Map([...holds].filter(([, until]) => until > now));
+  const prior = new Map(previous.map((entry) => [entry.id, entry]));
+  const pending = prior.get(PENDING_BASH_ID);
+  for (const entry of current) {
+    const before =
+      prior.get(entry.id) ??
+      (entry.userInitiated && pending?.command === entry.command ? pending : undefined);
+    if (entry.status === 'running') next.delete(entry.id);
+    else if (before?.status === 'running' && !next.has(entry.id)) {
+      next.set(entry.id, now + holdMs);
+    }
+  }
+  const present = new Set(current.map((entry) => entry.id));
+  for (const id of next.keys()) if (!present.has(id)) next.delete(id);
+  return next;
 }
 
 /** The last lines of a run's output, with the number left above them. */

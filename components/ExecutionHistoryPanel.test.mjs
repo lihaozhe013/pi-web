@@ -40,8 +40,8 @@ const base = {
 
 test('an empty run history points at what will fill it', () => {
   const text = textOf(render([]));
-  assert.match(text, /No commands yet/);
-  assert.match(text, /Bash and codemode runs stay here/);
+  assert.match(text, /No active runs/);
+  assert.match(text, /No completed runs yet/);
 });
 
 test('newest runs lead, a running one opens itself, a success waits folded', () => {
@@ -61,12 +61,18 @@ test('newest runs lead, a running one opens itself, a success waits folded', () 
   assert.ok(html.indexOf('sleep 5') < html.indexOf('bun test'));
   assert.ok(html.indexOf('tick') > html.indexOf('sleep 5'), 'the running output is open');
   assert.doesNotMatch(text, /old output/);
-  assert.match(text, /2 runs/);
-  assert.match(text, /1 running/);
+  assert.match(text, /Active1/);
+  assert.match(text, /History1/);
   assert.match(html, /aria-expanded="true"/);
 });
 
-test('a failed codemode run opens its calls, script and error output', () => {
+test('a historical failure stays folded', () => {
+  const html = render([{ ...base, id: 'failed', status: 'error', output: 'failure detail' }]);
+  assert.match(html, /aria-expanded="false"/);
+  assert.doesNotMatch(html, /failure detail/);
+});
+
+test('a recently failed codemode run opens its calls, script and error output', () => {
   const calls = Array.from({ length: 23 }, (_, index) => ({
     id: `c/${index + 1}`,
     name: index === 22 ? 'bash' : 'read',
@@ -88,6 +94,7 @@ test('a failed codemode run opens its calls, script and error output', () => {
       command: 'const files = await tools.ls({ path: "." });',
       preview: 'const files = await tools.ls({ path: "." });',
       status: 'error',
+      active: true,
       script: 'const files = await tools.ls({ path: "." });',
       calls,
       omittedCalls: 0,
@@ -120,6 +127,7 @@ test('the output keeps its tail behind a button, and a user run is named', () =>
         output,
         userInitiated: true,
         status: 'error',
+        active: true,
         truncated: true,
         fullOutputPath: '/tmp/pi-bash-abc.log'
       }
