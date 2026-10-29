@@ -41,11 +41,7 @@ import {
   type AtQueryMatch,
   type FileIndexEntry
 } from '@/lib/file-fuzzy';
-import {
-  addAttachedFiles,
-  composeMessageWithFiles,
-  type AttachedFile
-} from '@/lib/attached-files';
+import { addAttachedFiles, composeMessageWithFiles, type AttachedFile } from '@/lib/attached-files';
 import { getMarkdownListContinuation } from '@/lib/markdown-list-continuation';
 import { isBareMcpCommand, isBuiltinMcpCommand } from '@/lib/mcp-command';
 import { FolderIcon, getFileIcon } from './FileIcons';
@@ -64,7 +60,7 @@ import {
 import type { CustomToolPreset } from '@/lib/custom-tool-presets-shared';
 import { SelectorRow } from './SelectorRow';
 import { ModelSelector, type ModelSelectorOption } from './ModelSelector';
-import { GoalControl } from './GoalControl';
+import { ComposerHub } from './ComposerHub';
 import type { GoalSnapshot } from '@/lib/goal-state';
 
 export { filterModelOptions } from './ModelSelector';
@@ -143,12 +139,14 @@ interface Props {
   cwd?: string | null;
   /** Files picked with the attach button, handled like files dropped onto the chat. Without it the button takes images only. */
   onAttachFiles?: (files: File[]) => void;
-  /** The goal on this session's branch, shown beside the model picker. */
+  /** The goal on this session's branch, shown in the composer hub. */
   goal?: GoalSnapshot;
-  /** Sends a `/goal …` command; without it the goal control is not offered. */
+  /** Sends a `/goal …` command; without it the composer hub is not offered. */
   onGoalCommand?: (command: string) => void;
   /** Stops the running agent, which also pauses an active goal. */
   onGoalStop?: () => void;
+  /** Context usage of this session, read beside the compact action. */
+  contextUsage?: { percent: number | null; contextWindow: number; tokens: number | null } | null;
 }
 
 export interface ChatInputHandle {
@@ -421,12 +419,6 @@ const THINKING_LEVEL_DESC_KEYS: Record<(typeof THINKING_LEVELS)[number], string>
   xhigh: 'chat.thinkingXhigh',
   max: 'chat.thinkingMax'
 };
-
-function formatTokenCount(tokens: number): string {
-  if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`;
-  if (tokens >= 1_000) return `${Math.round(tokens / 1_000)}k`;
-  return tokens.toLocaleString();
-}
 
 type BuiltinSlashCommand = {
   name: string;
@@ -888,6 +880,7 @@ export const ChatInput = memo(
       compactError,
       onDismissCompactError,
       compactResult,
+      contextUsage,
       toolPreset,
       onToolPresetChange,
       customToolPresets,
@@ -2089,12 +2082,6 @@ export const ChatInput = memo(
       }));
     })();
 
-    const compactSavedTokens = compactResult
-      ? Math.max(0, compactResult.tokensBefore - compactResult.estimatedTokensAfter)
-      : 0;
-    const compactResultText = compactResult
-      ? `${compactResult.reason && compactResult.reason !== 'manual' ? `${compactResult.reason[0].toUpperCase()}${compactResult.reason.slice(1)} ` : t('chat.compacted')} ${formatTokenCount(compactResult.tokensBefore)} -> ${formatTokenCount(compactResult.estimatedTokensAfter)} tokens (${t('chat.tokensSaved', { saved: formatTokenCount(compactSavedTokens) })})`
-      : null;
     const resolvedThinkingLevel = thinkingLevel && thinkingLevel !== 'auto' ? thinkingLevel : null;
     const thinkingDisplayLabel = (() => {
       const lvl = resolvedThinkingLevel ?? 'auto';
@@ -2150,7 +2137,7 @@ export const ChatInput = memo(
       setToolDropdownOpen(false);
     }, [isStreaming]);
 
-    // Set in the commit that swaps Stop for Compact, before any click can reach it.
+    // Set in the commit that swaps Stop for Send, before any click can reach it.
     const runEndedAtRef = useRef(Number.NEGATIVE_INFINITY);
     useLayoutEffect(() => {
       if (!isStreaming) return;
@@ -2336,37 +2323,6 @@ export const ChatInput = memo(
               )}
             </div>
           )}
-          {compactResultText && (
-            <div
-              style={{
-                marginBottom: 8,
-                padding: '5px 10px',
-                background: 'rgba(16,185,129,0.08)',
-                border: '1px solid rgba(16,185,129,0.24)',
-                borderRadius: 6,
-                fontSize: 12,
-                color: 'rgba(5,150,105,0.95)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6
-              }}
-            >
-              <svg
-                width="11"
-                height="11"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{ flexShrink: 0 }}
-              >
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-              {compactResultText}
-            </div>
-          )}
           {compactError && (
             <div
               role="alert"
@@ -2407,11 +2363,7 @@ export const ChatInput = memo(
           {/* Attached files: dropped or picked into the working directory, shown
               as chips. The prompt still receives their `@path` mentions. */}
           {attachedFiles.length > 0 && (
-            <div
-              className="chat-attachment-chips"
-              role="list"
-              aria-label={t('chat.attachedFiles')}
-            >
+            <div className="chat-attachment-chips" role="list" aria-label={t('chat.attachedFiles')}>
               {attachedFiles.map((file, i) => (
                 <div
                   key={file.path}
@@ -3079,6 +3031,44 @@ export const ChatInput = memo(
                     </button>
                   )}
                 </div>
+              ) : isCompacting && onAbortCompaction ? (
+                // Compaction holds the session the way a run does, so the button
+                // that sends becomes the button that stops it. One place to stop
+                // things, and no dead Send while the context is being rewritten.
+                <button
+                  onClick={onAbortCompaction}
+                  title={t('chat.stopCompaction')}
+                  aria-label={t('chat.stopCompaction')}
+                  style={{
+                    flexShrink: 0,
+                    alignSelf: 'flex-end',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                    ...(isMobile ? { width: 36, height: 36, padding: 0 } : { padding: '7px 14px' }),
+                    background: 'rgba(239,68,68,0.08)',
+                    border: '1px solid rgba(239,68,68,0.3)',
+                    borderRadius: 8,
+                    color: '#ef4444',
+                    cursor: 'pointer',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    letterSpacing: '-0.01em',
+                    transition: 'background 0.15s'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(239,68,68,0.16)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgba(239,68,68,0.08)';
+                  }}
+                >
+                  <svg width="11" height="11" viewBox="0 0 10 10" fill="none">
+                    <rect x="1.5" y="1.5" width="7" height="7" rx="1.5" fill="currentColor" />
+                  </svg>
+                  {!isMobile && t('chat.stop')}
+                </button>
               ) : (
                 <button
                   onClick={handleSend}
@@ -3099,9 +3089,7 @@ export const ChatInput = memo(
                     border: 'none',
                     borderRadius: 8,
                     color:
-                      value.trim() || hasAttachments
-                        ? 'var(--accent-contrast)'
-                        : 'var(--text-dim)',
+                      value.trim() || hasAttachments ? 'var(--accent-contrast)' : 'var(--text-dim)',
                     cursor: value.trim() || hasAttachments ? 'pointer' : 'not-allowed',
                     fontSize: 13,
                     fontWeight: 600,
@@ -3185,9 +3173,7 @@ export const ChatInput = memo(
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = 'var(--bg-hover)';
-                    e.currentTarget.style.color = hasAttachments
-                      ? 'var(--accent)'
-                      : 'var(--text)';
+                    e.currentTarget.style.color = hasAttachments ? 'var(--accent)' : 'var(--text)';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.background = 'none';
@@ -3225,13 +3211,19 @@ export const ChatInput = memo(
                     onSetDefault={onSetDefaultModel}
                   />
                 )}
-                {onGoalCommand && (
-                  <GoalControl
+                {(onGoalCommand || onCompact) && (
+                  <ComposerHub
                     goal={goal}
                     running={isStreaming}
                     busy={isStreaming}
-                    onCommand={onGoalCommand}
-                    onStop={() => onGoalStop?.()}
+                    iconOnly={isMobile}
+                    onGoalCommand={onGoalCommand}
+                    onGoalStop={onGoalStop}
+                    onCompact={onCompact}
+                    onAbortCompaction={onAbortCompaction}
+                    isCompacting={isCompacting}
+                    compactResult={compactResult}
+                    contextUsage={contextUsage}
                   />
                 )}
               </div>
@@ -3239,7 +3231,7 @@ export const ChatInput = memo(
               {/* spacer */}
               {!isMobile && <div style={{ flex: 1 }} />}
 
-              {/* RIGHT: thinking + tools preset + compact + sound (idle) | Stop + sound (streaming) */}
+              {/* RIGHT: thinking + tools preset + sound (idle) | Stop + sound (streaming) */}
               <div
                 ref={controlsMenuRef}
                 style={{
@@ -3254,8 +3246,8 @@ export const ChatInput = memo(
                 {isMobile && (
                   <button
                     type="button"
-                    title={controlsMenuOpen ? undefined : t('chat.moreControls')}
-                    aria-label={t('chat.moreControls')}
+                    title={controlsMenuOpen ? undefined : t('chat.controls')}
+                    aria-label={t('chat.controls')}
                     aria-expanded={controlsMenuOpen}
                     aria-hidden={controlsMenuOpen || undefined}
                     tabIndex={controlsMenuOpen ? -1 : undefined}
@@ -3291,7 +3283,7 @@ export const ChatInput = memo(
                       e.currentTarget.style.color = 'var(--text-muted)';
                     }}
                   >
-                    {t('chat.moreControls')}
+                    {t('chat.controls')}
                   </button>
                 )}
                 <div
@@ -3598,86 +3590,6 @@ export const ChatInput = memo(
                           )}
                         </div>
                       )}
-                    </div>
-                  )}
-
-                  {(!isStreaming || isCompacting) && onCompact && (
-                    <div>
-                      <button
-                        onClick={
-                          isCompacting
-                            ? onAbortCompaction
-                            : (e) => {
-                                if (!isStrayClick(e)) onCompact();
-                              }
-                        }
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: 5,
-                          padding: isMobile ? '0 6px' : '8px 12px',
-                          width: isMobile ? 'auto' : undefined,
-                          height: 32,
-                          background: isCompacting ? 'rgba(239,68,68,0.08)' : 'none',
-                          border: 'none',
-                          borderRadius: 9,
-                          color: isCompacting ? '#ef4444' : 'var(--text-muted)',
-                          cursor: 'pointer',
-                          fontSize: 12,
-                          transition: 'background 0.12s, color 0.12s'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = isCompacting
-                            ? 'rgba(239,68,68,0.16)'
-                            : 'var(--bg-hover)';
-                          e.currentTarget.style.color = isCompacting ? '#ef4444' : 'var(--text)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = isCompacting
-                            ? 'rgba(239,68,68,0.08)'
-                            : 'none';
-                          e.currentTarget.style.color = isCompacting
-                            ? '#ef4444'
-                            : 'var(--text-muted)';
-                        }}
-                        title={isCompacting ? t('chat.stopCompaction') : t('chat.compactContext')}
-                        aria-label={
-                          isCompacting ? t('chat.stopCompaction') : t('chat.compactContext')
-                        }
-                      >
-                        {isCompacting ? (
-                          <>
-                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                              <rect x="2" y="2" width="6" height="6" rx="1" fill="currentColor" />
-                            </svg>
-                            {(!isMobile || controlsMenuOpen) && (
-                              <span style={{ whiteSpace: 'nowrap' }}>{t('chat.compacting')}</span>
-                            )}
-                          </>
-                        ) : (
-                          <>
-                            <svg
-                              width="11"
-                              height="11"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <polyline points="4 14 10 14 10 20" />
-                              <polyline points="20 10 14 10 14 4" />
-                              <line x1="10" y1="14" x2="3" y2="21" />
-                              <line x1="21" y1="3" x2="14" y2="10" />
-                            </svg>
-                            {(!isMobile || controlsMenuOpen) && (
-                              <span style={{ whiteSpace: 'nowrap' }}>{t('chat.compact')}</span>
-                            )}
-                          </>
-                        )}
-                      </button>
                     </div>
                   )}
 

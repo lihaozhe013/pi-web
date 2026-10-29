@@ -1,4 +1,5 @@
 import type { AgentPhase } from '@/hooks/useAgentSession';
+import { compactSummaryText, type CompactSummary } from './compact-summary';
 import {
   isExplorationToolName,
   isListToolName,
@@ -60,6 +61,25 @@ export function composerActivityLabel(
   if (phase?.kind === 'running_command') return t('chat.runningCommand');
   if (streaming?.content.at(-1)?.type === 'thinking') return t('activity.thinking');
   return null;
+}
+
+/**
+ * The words the row keeps for its fade-out, which is the only place a finished
+ * compaction can report itself now that it has no button of its own: what it
+ * saved replaces the last label while the row leaves. A new run clears it, so
+ * the next exit speaks for itself.
+ */
+export function nextCompactHold(
+  hold: string | null,
+  running: boolean,
+  compacting: boolean,
+  wasCompacting: boolean,
+  result: CompactSummary | null | undefined,
+  t: Translate
+): string | null {
+  if (running) return null;
+  if (wasCompacting && !compacting && result) return compactSummaryText(result, t);
+  return hold;
 }
 
 /** The tool whose arguments the streaming reply is still writing, if any. */

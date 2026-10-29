@@ -1,0 +1,263 @@
+/* The composer hub: one footer entry for the controls that act on the whole
+   session instead of one prompt — the goal, and compaction of the context.
+   The entry stays quiet until a goal exists; a running goal carries the accent,
+   and the same state is written beside it, so color is never the only signal.
+   Compaction has no state here: while it runs the row above the composer
+   reports it with everything else the agent is doing. */
+
+.composer-hub-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 0.12s,
+    color 0.12s,
+    border-color 0.12s;
+}
+
+.composer-hub-trigger:hover,
+.composer-hub-trigger[aria-expanded='true'] {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.composer-hub-trigger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.composer-hub-trigger[data-state='active'] {
+  border-color: color-mix(in srgb, var(--accent) 38%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
+}
+
+.composer-hub-trigger[data-state='active']:hover,
+.composer-hub-trigger[data-state='active'][aria-expanded='true'] {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+}
+
+.composer-hub-trigger-label {
+  white-space: nowrap;
+}
+
+.composer-hub-trigger-state {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+  font-size: 10px;
+  letter-spacing: 0.01em;
+}
+
+.composer-hub-trigger[data-state='active'] .composer-hub-trigger-state {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--accent);
+}
+
+.composer-hub-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: color-mix(in srgb, var(--text) 28%, transparent);
+}
+
+.composer-hub-dialog {
+  width: min(520px, 100%);
+  max-height: calc(100dvh - 32px);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: 0 24px 80px color-mix(in srgb, var(--text) 16%, transparent);
+  outline: none;
+  font-size: calc(13px + var(--ui-font-size-offset, 0px));
+  animation: composer-hub-in 0.14s ease-out;
+}
+
+@keyframes composer-hub-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .composer-hub-dialog {
+    animation: none;
+  }
+}
+
+.composer-hub-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 22px 22px 0;
+}
+
+/* The middle scrolls, so each section's actions stay reachable on a short screen. */
+.composer-hub-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 18px 22px 22px;
+  overflow-y: auto;
+}
+
+.composer-hub-header h2 {
+  margin: 0;
+  font-size: 1.35em;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.composer-hub-dialog button {
+  font: inherit;
+  cursor: pointer;
+}
+
+.composer-hub-dialog button:disabled {
+  cursor: default;
+}
+
+.composer-hub-dialog button:focus-visible,
+.composer-hub-dialog textarea:focus-visible,
+.composer-hub-dialog input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.composer-hub-close {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 22px !important;
+  line-height: 1;
+}
+
+.composer-hub-close:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+/* Two subjects in one dialog, split by a rule rather than a second surface. */
+.composer-hub-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.composer-hub-section + .composer-hub-section {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.composer-hub-section-head h3 {
+  margin: 0;
+  font-size: 1em;
+  font-weight: 650;
+}
+
+.composer-hub-section-head p {
+  margin: 5px 0 0;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.composer-hub-usage {
+  margin: 0;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.composer-hub-result {
+  margin: 0;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.composer-hub-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.composer-hub-actions-spacer {
+  flex: 1;
+}
+
+.composer-hub-actions .goal-hint {
+  flex-basis: 100%;
+}
+
+.hub-button {
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: none;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.hub-button:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.hub-button:disabled {
+  color: var(--text-dim);
+  opacity: 0.65;
+}
+
+.hub-button-primary {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-weight: 600;
+}
+
+.hub-button-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.hub-button-primary:disabled {
+  background: var(--bg-hover);
+  color: var(--text-dim);
+  opacity: 1;
+}
+
+.hub-button-quiet {
+  border-color: transparent;
+  color: var(--text-muted);
+}

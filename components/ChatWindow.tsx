@@ -1372,6 +1372,7 @@ export function ChatWindow({
       goal={goal}
       onGoalCommand={toolPreset === 'none' ? undefined : handleSend}
       onGoalStop={handleAbort}
+      contextUsage={contextUsage}
     />
   );
 
@@ -2194,7 +2195,8 @@ export function ChatWindow({
             phase={agentPhase}
             messages={messages}
             compacting={isCompacting}
-            running={agentRunning}
+            compactResult={compactResult}
+            running={agentRunning || isCompacting}
           />
           {chatInputElement}
           <ExtensionStatusBar

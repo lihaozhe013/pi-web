@@ -15,6 +15,7 @@ sessions in process; Bun manages dependencies and script invocation.
 | Layout and navigation    | `components/AppShell.tsx`                                          |
 | Session list             | `components/SessionSidebar.tsx`                                    |
 | Conversation and input   | `components/ChatWindow.tsx`, `components/ChatInput.tsx`            |
+| Composer hub             | `components/ComposerHub.tsx`, `components/GoalSection.tsx`         |
 | Transcript rendering     | `components/MessageView.tsx`, `components/MarkdownBody.tsx`        |
 | Shell and codemode runs  | `components/ExecutionHistoryPanel.tsx`, `lib/execution-history.ts` |
 | Turn copy                | `lib/turn-copy.ts`, `components/TurnCopy.tsx`                      |
@@ -144,12 +145,13 @@ configuration.
 
 ## Autonomous goals
 
-`lib/goal-extension.ts` adds a session-scoped goal to normal Pi Web sessions. The composer's Goal
-button opens the dialog that writes it;
+`lib/goal-extension.ts` adds a session-scoped goal to normal Pi Web sessions.
+`components/ComposerHub.tsx` is the composer's one entry for it, and for compaction:
+`components/GoalSection.tsx` writes the goal inside that dialog;
 `/goal start [--turns N --tokens N --minutes N] <objective>`, `/goal resume`, `/goal pause`,
 `/goal complete`, `/goal limits`, and `/goal clear` remain available as commands.
-`lib/goal-state.ts` owns the snapshot shape, the depth flags, and the command the dialog sends, and
-the extension publishes the same snapshot as its status text, so the button and the saved session
+`lib/goal-state.ts` owns the snapshot shape, the depth flags, and the command the section sends, and
+the extension publishes the same snapshot as its status text, so the entry and the saved session
 agree without a separate route. The extension stores snapshots as branch-relative Pi custom entries,
 starts and continues runs from hidden messages at `agent_before_settle`, and lets the model report
 completion or a blocker with evidence. A report is the model's claim, not independent proof. The

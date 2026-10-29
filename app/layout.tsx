@@ -10,6 +10,7 @@ import './sidebar-menu.css';
 import './new-session-chooser.css';
 import './turn-copy.css';
 import './goal.css';
+import './composer-hub.css';
 import './workspace.css';
 import './tool-cards.css';
 import './execution-history.css';

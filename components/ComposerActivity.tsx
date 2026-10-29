@@ -9,6 +9,7 @@ import {
   composerActivityLabel,
   composerActivityTokens,
   createReplyRateEstimator,
+  nextCompactHold,
   runStartHint,
   type ReplyRateEstimator
 } from '@/lib/composer-activity';
@@ -32,13 +33,21 @@ export function ComposerActivity({
   phase,
   messages,
   compacting,
+  compactResult,
   running
 }: {
   store: StreamingStore;
   phase: AgentPhase;
   messages: AgentMessage[];
+  /** The context is being compacted right now. */
   compacting: boolean;
-  /** The agent is working: the row is open and says what it is doing. */
+  /** The last finished compaction, so the row can leave saying what it achieved. */
+  compactResult?: { reason: string; tokensBefore: number; estimatedTokensAfter: number } | null;
+  /**
+   * The agent is working: compaction included, because a manual compaction runs
+   * without a prompt and would otherwise report nowhere. The row is open and
+   * says what it is doing.
+   */
   running: boolean;
 }) {
   const { t } = useI18n();
@@ -106,10 +115,24 @@ export function ComposerActivity({
   // The run's last words, so the row can fade out saying them.
   const lastLabel = useRef('');
   if (label) lastLabel.current = label;
+  // A finished compaction replaces the last words with its own result, in the
+  // same place the composer used to print a banner. It is only read while the
+  // row leaves, so the next run starts from its own label again.
+  const wasCompacting = useRef(false);
+  const compactHold = useRef<string | null>(null);
+  compactHold.current = nextCompactHold(
+    compactHold.current,
+    running,
+    compacting,
+    wasCompacting.current,
+    compactResult,
+    t
+  );
+  wasCompacting.current = compacting;
   const { open, exiting } = useExitHold(running);
   // A visible answer drops the text but keeps the row's height, as before; once
   // the run is over only the row on its way out still says the last thing.
-  const text = running ? label : open ? lastLabel.current : '';
+  const text = running ? label : open ? (compactHold.current ?? lastLabel.current) : '';
   // The clock runs for the whole run and keeps its last reading through the fade.
   const elapsed = running || open ? elapsedMs : null;
   return (

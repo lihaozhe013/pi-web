@@ -73,6 +73,14 @@ out), or in the process group's header when the turn has one. The row keeps its 
 run, dropping only the text while a visible answer streams, so the composer never moves mid-run. It
 disappears when the run ends.
 
+Compaction reports the same way. A manual compaction runs without a prompt, so the row opens for it
+too and says `Compacting context…` with the elapsed clock running; the result replaces the row's
+words as it fades — `Compacted 128k → 41k tokens (87k saved)` — instead of a banner above the
+composer. The composer carries no compact button that morphs into a second progress pill: while a
+compaction runs the send button becomes **Stop**, the same place a run is stopped, because a
+compaction holds the session the way a run does. A compaction error stays a dismissible alert above
+the composer, where an error cannot be missed by not opening anything.
+
 Current main-transcript behavior:
 
 - Thinking and exploration calls (`read`, `grep`, `find`, `ls`) draw no card: the composer status
@@ -194,26 +202,48 @@ pending question does not also show a raw tool card in the main transcript; comp
 inspectable and raw history is unchanged. Other extensions continue using their existing dialogs and
 custom panels.
 
+## The composer hub
+
+The composer footer keeps the controls that shape the next message: attach, the model, the reasoning
+level and the tool preset. Two controls act on the session instead of one prompt — the goal the
+agent keeps working toward, and compaction of the context — and they share one entry. Neither is a
+per-turn knob, so neither earns a permanent slot beside the knobs; the mobile footer already hid
+compaction behind an overflow while the desktop footer showed it always.
+
+The entry reads **More** and opens one small dialog with two sections, **Goal** and **Context**.
+When a goal exists the same entry reads **Goal** and carries the goal's state word, because a goal
+that keeps working without the user is the one state that must be readable without opening anything.
+On phones the entry is its icon alone, with that state in its accessible name, and the footer's own
+expander is named **Controls** so the two never read as one. The dialog names each section rather
+than inventing a collective noun, so nothing here competes with the agent's tools, the tool presets,
+or the toolbar's Tools panel.
+
+**Context** states the session's context size (`64% of 200k`), the last compaction's result, and the
+compact action; the action closes the dialog and reports in the run status row above the composer.
+The section is disabled while a run holds the session, and offers **Stop compaction** while one is
+running.
+
 ## Autonomous goals
 
-A goal is one button in the composer footer, directly right of the model picker: it reads **Goal**
-and carries its state word (**Running**, **Paused**, **Done**, **Blocked**), so the state never
-rests on color alone. Only a running goal takes the accent, which marks the one case where the agent
-keeps working without the user. There is no separate goal panel or dashboard.
+A goal is one entry in the composer footer, beside the model picker: it reads **Goal** and carries
+its state word (**Running**, **Paused**, **Done**, **Blocked**), so the state never rests on color
+alone. Only a running goal takes the accent, which marks the one case where the agent keeps working
+without the user. There is no separate goal panel or dashboard.
 
-The button opens a small dialog that holds the whole goal: what should be achieved, the status, the
-depth, and the continuations used so far. A new goal starts from an empty objective at the stored
-default depth; an existing one shows its state, its stop reason, and the depth it runs at. Depth is
-three numbers (automatic turns, tokens, minutes) with **Light**, **Standard**, and **Deep**
-shortcuts above them; typing numbers is the custom case, and the line under the fields states what
-the run will actually be allowed, including that limits are checked between runs. The primary action
-names the change it will make (**Start goal**, **Resume goal**, **Pause goal**, **Mark finished**,
-**Save objective**, **Save depth**) and stays disabled when nothing would change. A depth-only edit
-never starts a run. A running goal keeps its objective and depth: the field explains that the goal
-must be paused, and the dialog offers **Stop run** instead of editing. While a run is active the
-status choices are disabled and the dialog says so. The dialog traps focus, closes on Escape or the
-backdrop, and returns focus to the button; the objective field validates on blur with its error
-beside the field. Goal completion is the agent's report, not an independent guarantee.
+The entry opens the composer hub, whose Goal section holds the whole goal: what should be achieved,
+the status, the depth, and the continuations used so far. A new goal starts from an empty objective
+at the stored default depth; an existing one shows its state, its stop reason, and the depth it runs
+at. Depth is three numbers (automatic turns, tokens, minutes) with **Light**, **Standard**, and
+**Deep** shortcuts above them; typing numbers is the custom case, and the line under the fields
+states what the run will actually be allowed, including that limits are checked between runs. The
+primary action names the change it will make (**Start goal**, **Resume goal**, **Pause goal**,
+**Mark finished**, **Save objective**, **Save depth**) and stays disabled when nothing would change.
+A depth-only edit never starts a run. A running goal keeps its objective and depth: the field
+explains that the goal must be paused, and the dialog offers **Stop run** instead of editing. While
+a run is active the status choices are disabled and the dialog says so. The hub traps focus, closes
+on Escape or the backdrop, and returns focus to the entry; the objective field validates on blur
+with its error beside the field. Goal completion is the agent's report, not an independent
+guarantee.
 
 Settings › Goal holds the default depth a new goal starts at, in the same three fields, with
 **Restore defaults** beside **Save**. It is one global answer to how far an unattended run may go,

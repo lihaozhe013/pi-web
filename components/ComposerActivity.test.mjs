@@ -12,6 +12,11 @@ const { ComposerActivity } = await jiti.import('./ComposerActivity.tsx');
 
 const source = await readFile(new URL('./ComposerActivity.tsx', import.meta.url), 'utf8');
 const chatWindow = await readFile(new URL('./ChatWindow.tsx', import.meta.url), 'utf8');
+const chatInput = await readFile(new URL('./ChatInput.tsx', import.meta.url), 'utf8');
+const { nextCompactHold } = await jiti.import('@/lib/composer-activity');
+const { enLocale } = await jiti.import('@/lib/i18n/messages/en.ts');
+const { interpolateMessage } = await jiti.import('@/lib/i18n/format.ts');
+const t = (key, params) => interpolateMessage(enLocale.messages[key] ?? key, params);
 const globals = await readFile(new URL('../app/globals.css', import.meta.url), 'utf8');
 
 const assistant = (...content) => ({ role: 'assistant', content });
@@ -20,6 +25,7 @@ function render({
   running = true,
   phase = null,
   compacting = false,
+  compactResult = null,
   messages = [],
   snapshot
 } = {}) {
@@ -34,6 +40,7 @@ function render({
         phase,
         messages,
         compacting,
+        compactResult,
         running
       })
     )
@@ -44,7 +51,12 @@ test('the row is mounted whether a run is on or not', () => {
   // Always in the composer stack: gating it in ChatWindow would move the input
   // when a run starts or ends.
   assert.doesNotMatch(chatWindow, /agentRunning && \(\s*<div className="composer-activity-slot"/);
-  assert.match(chatWindow, /<ComposerActivity[\s\S]{0,300}running=\{agentRunning\}/);
+  // A manual compaction runs without a prompt, so the row opens for it too.
+  assert.match(
+    chatWindow,
+    /<ComposerActivity[\s\S]{0,400}running=\{agentRunning \|\| isCompacting\}/
+  );
+  assert.match(chatWindow, /<ComposerActivity[\s\S]{0,400}compacting=\{isCompacting\}/);
 
   const idle = render({ running: false });
   assert.match(idle, /class="composer-activity-slot"/);
@@ -149,6 +161,38 @@ test('a running call without its arguments yet shows no count', () => {
   assert.match(html, /Running bash/);
   assert.match(html, /composer-activity-dot/);
   assert.doesNotMatch(html, /composer-activity-tokens/);
+});
+
+test('a compaction reports in the row, with no count and no rate', () => {
+  const html = render({ running: true, compacting: true });
+  assert.match(html, /data-open="true"/);
+  assert.match(html, /data-visible="true"/);
+  assert.match(html, /Compacting context…/);
+  assert.doesNotMatch(html, /composer-activity-tokens/, 'no block is streaming');
+  assert.doesNotMatch(html, /composer-activity-rate/, 'and nothing is being written');
+  // The composer no longer keeps a compact button that morphs on its own; the
+  // row is where every live activity is reported.
+  assert.doesNotMatch(chatInput, /chat\.compacting/);
+  assert.match(chatInput, /isCompacting && onAbortCompaction/);
+});
+
+test('a finished compaction leaves the row saying what it saved', () => {
+  const hold = nextCompactHold(
+    null,
+    false,
+    false,
+    true,
+    { reason: 'manual', tokensBefore: 120_000, estimatedTokensAfter: 40_000 },
+    t
+  );
+  assert.equal(hold, 'Compacted 120k → 40k tokens (80k saved)');
+  // A run that is still going keeps its own words; the next run clears the hold.
+  assert.equal(
+    nextCompactHold('Compacted 1k → 1k tokens (0 saved)', true, false, true, null, t),
+    null
+  );
+  // Nothing to report leaves the previous hold alone.
+  assert.equal(nextCompactHold('kept', false, false, true, null, t), 'kept');
 });
 
 test('the row carries the live speed once the reply has streamed for a moment', () => {
