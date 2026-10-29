@@ -7,7 +7,9 @@ import { createJiti } from 'jiti';
 import { astNodes, declarationName, nodeText, parseSource } from '../lib/source-testing.mjs';
 
 const jiti = createJiti(import.meta.url);
-const { dropMentionText, splitDroppedItems } = await jiti.import('../lib/file-upload-client.ts');
+const { dropMentionPaths, splitDroppedItems } = await jiti.import(
+  '../lib/file-upload-client.ts'
+);
 
 const sourceText = readFileSync(new URL('./ChatWindow.tsx', import.meta.url), 'utf8');
 const nodes = astNodes(parseSource(sourceText, 'ChatWindow.tsx'));
@@ -36,7 +38,7 @@ async function attach(files, { cwd = '/project', response } = {}) {
     chatInputRef: {
       current: {
         addImages: (images) => calls.images.push(...images),
-        insertText: (text) => calls.mentions.push(text)
+        addFileMentions: (paths) => calls.mentions.push(...paths)
       }
     },
     addNotice: (notice) => calls.notices.push([notice.type, notice.message]),
@@ -45,7 +47,7 @@ async function attach(files, { cwd = '/project', response } = {}) {
       calls.refreshed += 1;
     },
     splitDroppedItems,
-    dropMentionText,
+    dropMentionPaths,
     uploadFiles: async (target, uploads, strategy) => {
       calls.uploads.push([target, uploads.map((file) => file.name), strategy]);
       return response;
@@ -62,10 +64,11 @@ test('the attach button sends picked files down the chat drop path (#1101)', asy
   const mixed = await attach([photo, report, log], {
     response: { status: 207, data: { uploaded: ['report.pdf'], skipped: ['server.log'] } }
   });
-  // Images attach to the prompt; the rest are uploaded like a drop: never replacing a file, then mentioned.
+  // Images attach to the prompt; the rest are uploaded like a drop: never replacing a file,
+  // then attached as chips whose mentions the send spells out.
   assert.deepEqual(mixed.images, [photo]);
   assert.deepEqual(mixed.uploads, [['/project', ['report.pdf', 'server.log'], 'skip']]);
-  assert.deepEqual(mixed.mentions, ['@report.pdf @server.log ']);
+  assert.deepEqual(mixed.mentions, ['report.pdf', 'server.log']);
   assert.deepEqual(mixed.notices, [
     ['success', 'chat.dropUploaded {"count":1}'],
     ['warning', 'chat.dropAlreadyExists {"names":"server.log"}']

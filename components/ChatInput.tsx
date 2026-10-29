@@ -41,6 +41,11 @@ import {
   type AtQueryMatch,
   type FileIndexEntry
 } from '@/lib/file-fuzzy';
+import {
+  addAttachedFiles,
+  composeMessageWithFiles,
+  type AttachedFile
+} from '@/lib/attached-files';
 import { getMarkdownListContinuation } from '@/lib/markdown-list-continuation';
 import { isBareMcpCommand, isBuiltinMcpCommand } from '@/lib/mcp-command';
 import { FolderIcon, getFileIcon } from './FileIcons';
@@ -152,6 +157,8 @@ export interface ChatInputHandle {
   replaceMessage: (message: UserMessage) => void;
   prependText: (text: string) => void;
   addImages: (files: File[]) => void;
+  /** Files already written into the working directory, attached as chips. */
+  addFileMentions: (paths: string[]) => void;
   rekeyDraft: (previousKey: string, nextKey: string) => void;
   restoreSubmission: (text: string, images?: ChatDraftImage[], targetDraftKey?: string) => void;
   focus: () => void;
@@ -676,9 +683,12 @@ function draftImagesToAttachedImages(images: ChatDraftImage[] | undefined): Atta
 export function canRestoreUserMessage(
   value: string,
   attachedImageCount: number,
-  pendingImageCount: number
+  pendingImageCount: number,
+  attachedFileCount = 0
 ): boolean {
-  return !value.trim() && attachedImageCount === 0 && pendingImageCount === 0;
+  return (
+    !value.trim() && attachedImageCount === 0 && pendingImageCount === 0 && attachedFileCount === 0
+  );
 }
 
 export function getUserMessageText(message: UserMessage): string {
@@ -923,6 +933,11 @@ export const ChatInput = memo(
     const [attachedImages, setAttachedImages] = useState<AttachedImage[]>(() =>
       draftKey ? draftImagesToAttachedImages(getDraft(draftKey)?.images) : []
     );
+    // Files dropped or picked into the composer show as chips; their `@path`
+    // mentions join the prompt only when it is sent.
+    const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>(() =>
+      draftKey ? (getDraft(draftKey)?.files ?? []) : []
+    );
     const trimmedValue = value.trimStart();
     const bashMode = attachedImages.length === 0 && trimmedValue.startsWith('!');
     const bashExcluded = bashMode && trimmedValue.startsWith('!!');
@@ -974,9 +989,11 @@ export const ChatInput = memo(
     const draftKeyRef = useRef(draftKey);
     const valueRef = useRef(value);
     const attachedImagesRef = useRef(attachedImages);
+    const attachedFilesRef = useRef(attachedFiles);
     const pendingImageCountRef = useRef(0);
     valueRef.current = value;
     attachedImagesRef.current = attachedImages;
+    attachedFilesRef.current = attachedFiles;
 
     useImperativeHandle(ref, () => ({
       insertIfEmpty(text: string) {
@@ -1000,7 +1017,8 @@ export const ChatInput = memo(
           !canRestoreUserMessage(
             current,
             attachedImagesRef.current.length,
-            pendingImageCountRef.current
+            pendingImageCountRef.current,
+            attachedFilesRef.current.length
           )
         )
           return;
@@ -1162,6 +1180,14 @@ export const ChatInput = memo(
       },
       addImages(files: File[]) {
         processImageFiles(files);
+      },
+      addFileMentions(paths: string[]) {
+        // The compact quote composer takes no attachments.
+        if (compact || paths.length === 0) return;
+        const next = addAttachedFiles(attachedFilesRef.current, paths);
+        if (next === attachedFilesRef.current) return;
+        attachedFilesRef.current = next;
+        setAttachedFiles(next);
       }
     }));
 
@@ -1227,6 +1253,19 @@ export const ChatInput = memo(
       });
     }, []);
 
+    const removeFile = useCallback((index: number) => {
+      setAttachedFiles((prev) => {
+        const next = prev.filter((_, i) => i !== index);
+        attachedFilesRef.current = next;
+        return next;
+      });
+    }, []);
+
+    const clearFiles = useCallback(() => {
+      attachedFilesRef.current = [];
+      setAttachedFiles([]);
+    }, []);
+
     const clearInput = useCallback(() => {
       valueRef.current = '';
       setValue('');
@@ -1235,18 +1274,20 @@ export const ChatInput = memo(
       if (draftKey) clearDraft(draftKey);
       if (draftKeyRef.current && draftKeyRef.current !== draftKey) clearDraft(draftKeyRef.current);
       clearImages();
+      clearFiles();
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
       }
-    }, [clearImages, draftKey]);
+    }, [clearFiles, clearImages, draftKey]);
 
     useEffect(() => {
       if (!draftKey || draftKeyRef.current !== draftKey) return;
       setDraft(draftKey, {
         value,
-        images: attachedImages.map(imageToDraftImage)
+        images: attachedImages.map(imageToDraftImage),
+        files: attachedFiles
       });
-    }, [attachedImages, draftKey, value]);
+    }, [attachedFiles, attachedImages, draftKey, value]);
 
     useEffect(() => {
       const previousDraftKey = draftKeyRef.current;
@@ -1255,7 +1296,8 @@ export const ChatInput = memo(
       if (previousDraftKey) {
         setDraft(previousDraftKey, {
           value: valueRef.current,
-          images: attachedImagesRef.current.map(imageToDraftImage)
+          images: attachedImagesRef.current.map(imageToDraftImage),
+          files: attachedFilesRef.current
         });
       }
 
@@ -1263,8 +1305,10 @@ export const ChatInput = memo(
       draftKeyRef.current = draftKey;
       const nextValue = draft?.value ?? '';
       const nextImages = draftImagesToAttachedImages(draft?.images);
+      const nextFiles = draft?.files ?? [];
       valueRef.current = nextValue;
       attachedImagesRef.current = nextImages;
+      attachedFilesRef.current = nextFiles;
       setValue(nextValue);
       setAtQuery(null);
       setHistoryMenuOpen(false);
@@ -1272,6 +1316,7 @@ export const ChatInput = memo(
         prev.forEach(revokeImagePreview);
         return nextImages;
       });
+      setAttachedFiles(nextFiles);
     }, [draftKey]);
 
     const resizeTextarea = useCallback(() => {
@@ -1324,7 +1369,13 @@ export const ChatInput = memo(
 
     const runBuiltinCommand = useCallback(
       async (msg: string): Promise<boolean> => {
-        if (attachedImages.length || !msg.startsWith('/') || !onBuiltinCommand) return false;
+        if (
+          attachedImages.length ||
+          attachedFiles.length ||
+          !msg.startsWith('/') ||
+          !onBuiltinCommand
+        )
+          return false;
         if (builtinCommandPendingRef.current) return true;
         builtinCommandPendingRef.current = true;
         setBuiltinCommandPending(true);
@@ -1333,7 +1384,11 @@ export const ChatInput = memo(
           if (!result.handled) return false;
           if (
             !result.error &&
-            canClearBuiltinCommandInput(valueRef.current, attachedImagesRef.current.length, msg)
+            canClearBuiltinCommandInput(
+              valueRef.current,
+              attachedImagesRef.current.length + attachedFilesRef.current.length,
+              msg
+            )
           )
             clearInput();
           return true;
@@ -1342,11 +1397,16 @@ export const ChatInput = memo(
           setBuiltinCommandPending(false);
         }
       },
-      [attachedImages.length, clearInput, onBuiltinCommand]
+      [attachedFiles.length, attachedImages.length, clearInput, onBuiltinCommand]
     );
 
     const handleSend = useCallback(async () => {
-      const msg = value.trim();
+      // The chips become the `@path` mentions the prompt ends with, exactly as
+      // dropping a file used to type them into the textarea.
+      const msg = composeMessageWithFiles(
+        value,
+        attachedFiles.map((file) => file.path)
+      );
       if (!msg && !attachedImages.length) return;
       onAudioUnlock?.();
       const builtinAllowed = !isStreaming || offersBuiltinSlashCommandWhileStreaming(msg);
@@ -1354,7 +1414,16 @@ export const ChatInput = memo(
       if (isStreaming) return;
       clearInput();
       onSend(msg, attachedImages.length ? attachedImages : undefined);
-    }, [value, attachedImages, isStreaming, runBuiltinCommand, onSend, clearInput, onAudioUnlock]);
+    }, [
+      value,
+      attachedFiles,
+      attachedImages,
+      isStreaming,
+      runBuiltinCommand,
+      onSend,
+      clearInput,
+      onAudioUnlock
+    ]);
 
     const slashQuery =
       !compact && value.startsWith('/') && !/\s/.test(value.slice(1))
@@ -1391,7 +1460,8 @@ export const ChatInput = memo(
         ? t(slashQuery ? 'chat.match' : 'chat.command')
         : t(slashQuery ? 'chat.matches' : 'chat.commands', { count: filteredSlashCommands.length });
     const hasInputText = Boolean(value.trim());
-    const canQueueStreamingMessage = hasInputText || attachedImages.length > 0;
+    const hasAttachments = attachedImages.length > 0 || attachedFiles.length > 0;
+    const canQueueStreamingMessage = hasInputText || hasAttachments;
     const stackedComposer = stacksComposerLayout(compact, isMobile, isStreaming);
     // Warn when images are attached but the selected model is known not to accept
     // image input (#584), including a resolved default. Unknown models stay silent.
@@ -1590,10 +1660,14 @@ export const ChatInput = memo(
 
     const sendQueued = useCallback(
       (mode: 'steer' | 'followup') => {
-        const msg = value.trim();
+        const msg = composeMessageWithFiles(
+          value,
+          attachedFiles.map((file) => file.path)
+        );
         if (!msg && !attachedImages.length) return;
         onAudioUnlock?.();
         const images = attachedImages.length ? attachedImages : undefined;
+        const hasQueuedAttachments = attachedImages.length > 0 || attachedFiles.length > 0;
         const queue = () => {
           const streamingBehavior = mode === 'steer' ? 'steer' : 'followUp';
           if (msg.startsWith('/') && onPromptWithStreamingBehavior) {
@@ -1609,14 +1683,14 @@ export const ChatInput = memo(
           }
         };
         if (
-          !attachedImages.length &&
+          !hasQueuedAttachments &&
           onBuiltinCommand &&
           canRunBuiltinSlashCommandWhileStreaming(msg)
         ) {
           void runBuiltinCommand(msg);
           return;
         }
-        if (!attachedImages.length && onBuiltinCommand && isBareMcpCommand(msg)) {
+        if (!hasQueuedAttachments && onBuiltinCommand && isBareMcpCommand(msg)) {
           // Settings › MCP opens when pi's built-in MCP extension owns /mcp; another
           // extension's /mcp is queued as before. The composer is disabled meanwhile.
           void runBuiltinCommand(msg).then(
@@ -1631,6 +1705,7 @@ export const ChatInput = memo(
       },
       [
         value,
+        attachedFiles,
         attachedImages,
         onBuiltinCommand,
         onPromptWithStreamingBehavior,
@@ -2329,6 +2404,48 @@ export const ChatInput = memo(
               )}
             </div>
           )}
+          {/* Attached files: dropped or picked into the working directory, shown
+              as chips. The prompt still receives their `@path` mentions. */}
+          {attachedFiles.length > 0 && (
+            <div
+              className="chat-attachment-chips"
+              role="list"
+              aria-label={t('chat.attachedFiles')}
+            >
+              {attachedFiles.map((file, i) => (
+                <div
+                  key={file.path}
+                  className="chat-attachment-chip"
+                  role="listitem"
+                  title={file.path}
+                >
+                  {getFileIcon(file.name, 14)}
+                  <span className="chat-attachment-chip-name">{file.name}</span>
+                  <button
+                    type="button"
+                    className="chat-attachment-chip-remove"
+                    onClick={() => removeFile(i)}
+                    title={t('chat.removeAttachedFile', { name: file.name })}
+                    aria-label={t('chat.removeAttachedFile', { name: file.name })}
+                  >
+                    <svg
+                      width="8"
+                      height="8"
+                      viewBox="0 0 8 8"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      aria-hidden="true"
+                    >
+                      <line x1="1" y1="1" x2="7" y2="7" />
+                      <line x1="7" y1="1" x2="1" y2="7" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           {/* Image previews */}
           {attachedImages.length > 0 && (
             <div style={{ display: 'flex', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
@@ -2965,7 +3082,7 @@ export const ChatInput = memo(
               ) : (
                 <button
                   onClick={handleSend}
-                  disabled={!value.trim() && !attachedImages.length}
+                  disabled={!value.trim() && !hasAttachments}
                   title={t('chat.send')}
                   aria-label={t('chat.send')}
                   style={{
@@ -2978,19 +3095,19 @@ export const ChatInput = memo(
                     // Mobile: icon-only so the placeholder and draft keep the width.
                     ...(isMobile ? { width: 36, height: 36, padding: 0 } : { padding: '7px 14px' }),
                     background:
-                      value.trim() || attachedImages.length ? 'var(--accent)' : 'var(--bg-panel)',
+                      value.trim() || hasAttachments ? 'var(--accent)' : 'var(--bg-panel)',
                     border: 'none',
                     borderRadius: 8,
                     color:
-                      value.trim() || attachedImages.length
+                      value.trim() || hasAttachments
                         ? 'var(--accent-contrast)'
                         : 'var(--text-dim)',
-                    cursor: value.trim() || attachedImages.length ? 'pointer' : 'not-allowed',
+                    cursor: value.trim() || hasAttachments ? 'pointer' : 'not-allowed',
                     fontSize: 13,
                     fontWeight: 600,
                     letterSpacing: '-0.01em',
                     boxShadow:
-                      value.trim() || attachedImages.length
+                      value.trim() || hasAttachments
                         ? '0 1px 3px color-mix(in srgb, var(--accent) 25%, transparent)'
                         : 'none',
                     transition: 'background 0.15s, box-shadow 0.15s'
@@ -3061,20 +3178,20 @@ export const ChatInput = memo(
                     background: 'none',
                     border: 'none',
                     borderRadius: 9,
-                    color: attachedImages.length ? 'var(--accent)' : 'var(--text-muted)',
+                    color: hasAttachments ? 'var(--accent)' : 'var(--text-muted)',
                     cursor: 'pointer',
                     opacity: 1,
                     transition: 'background 0.12s, color 0.12s'
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = 'var(--bg-hover)';
-                    e.currentTarget.style.color = attachedImages.length
+                    e.currentTarget.style.color = hasAttachments
                       ? 'var(--accent)'
                       : 'var(--text)';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.background = 'none';
-                    e.currentTarget.style.color = attachedImages.length
+                    e.currentTarget.style.color = hasAttachments
                       ? 'var(--accent)'
                       : 'var(--text-muted)';
                   }}

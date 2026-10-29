@@ -48,6 +48,7 @@ const {
   rekeyDraft,
   setDraft
 } = await jiti.import('@/lib/draft-store');
+const { composeMessageWithFiles } = await jiti.import('@/lib/attached-files');
 const { I18nProvider } = await jiti.import('@/hooks/useI18n');
 
 const chatInputSource = readFileSync(new URL('./ChatInput.tsx', import.meta.url), 'utf8');
@@ -928,6 +929,8 @@ test('locks built-in command submission until it settles', async () => {
   ).runInNewContext({
     attachedImages: [],
     attachedImagesRef: { current: [] },
+    attachedFiles: [],
+    attachedFilesRef: { current: [] },
     builtinCommandPendingRef: { current: false },
     canClearBuiltinCommandInput,
     clearInput() {},
@@ -1001,6 +1004,8 @@ test('while a run streams, a bare /mcp opens Settings or is queued as before', a
     const sendQueued = chatInputCallback('sendQueued', {
       value,
       attachedImages: images,
+      attachedFiles: [],
+      composeMessageWithFiles,
       onAudioUnlock() {},
       clearInput() {
         calls.cleared += 1;
@@ -1060,6 +1065,8 @@ test('handleSend lets a handled /mcp through while streaming and sends an unowne
     const handleSend = chatInputCallback('handleSend', {
       value,
       attachedImages: [],
+      attachedFiles: [],
+      composeMessageWithFiles,
       onAudioUnlock() {},
       isStreaming,
       offersBuiltinSlashCommandWhileStreaming,
@@ -1114,10 +1121,11 @@ test('restores legacy flat image entries when editing a user message', () => {
   assert.deepEqual(getUserMessageDraftImages(message), [{ data: 'AQID', mimeType: 'image/jpeg' }]);
 });
 
-test('does not restore a historical message over a pending image attachment', () => {
+test('does not restore a historical message over a pending attachment', () => {
   assert.equal(canRestoreUserMessage('', 0, 0), true);
   assert.equal(canRestoreUserMessage('', 1, 0), false);
   assert.equal(canRestoreUserMessage('', 0, 1), false);
+  assert.equal(canRestoreUserMessage('', 0, 0, 1), false);
   assert.equal(canRestoreUserMessage('draft', 0, 0), false);
 });
 
@@ -1323,6 +1331,76 @@ test('renders image warnings for known text-only defaults without an explicit mo
     }
   } finally {
     clearDraft(draftKey);
+  }
+});
+
+test('renders attached files as chips instead of text in the composer', () => {
+  const draftKey = 'new:/tmp/attached-file-chips';
+  setDraft(draftKey, {
+    value: '',
+    images: [],
+    files: [
+      { path: 'report.pdf', name: 'report.pdf' },
+      { path: 'src/app.ts', name: 'app.ts' },
+      { path: 'data.xyz', name: 'data.xyz' }
+    ]
+  });
+
+  try {
+    const html = renderToStaticMarkup(
+      React.createElement(
+        I18nProvider,
+        null,
+        React.createElement(ChatInput, {
+          onSend() {},
+          onAbort() {},
+          isStreaming: false,
+          draftKey
+        })
+      )
+    );
+
+    assert.match(html, /role="list" aria-label="Attached files"/);
+    assert.equal(html.match(/class="chat-attachment-chip"/g)?.length, 3);
+    // The icon follows the extension: pdf, a code language, then the plain page.
+    assert.match(html, /pdf\.svg/);
+    assert.match(html, /typescript\.svg/);
+    assert.match(html, /_file\.svg/);
+    assert.match(html, /aria-label="Remove report.pdf"/);
+    // The mention text is only spelled out on send; the draft stays chip-only.
+    assert.doesNotMatch(html, /@report\.pdf/);
+    assert.ok(html.indexOf('chat-attachment-chips') < html.indexOf('<textarea'));
+  } finally {
+    clearDraft(draftKey);
+  }
+});
+
+test('a parked draft keeps its file chips without storing an empty list', () => {
+  const provisionalKey = 'new:/tmp/chip-rekey';
+  const sessionKey = 'session-chip-rekey';
+  clearDraft(provisionalKey);
+  clearDraft(sessionKey);
+  const files = [{ path: 'src/app.ts', name: 'app.ts' }];
+  setDraft(provisionalKey, { value: 'explain this', images: [], files });
+
+  try {
+    assert.deepEqual(rekeyDraft(provisionalKey, sessionKey), {
+      value: 'explain this',
+      images: [],
+      files
+    });
+    // A rejected submission brings its text back and leaves the chips attached.
+    assert.deepEqual(
+      mergeRestoredSubmissionDraft('failed text', [], '', [], files).files,
+      files
+    );
+    // A draft without files carries no `files` field at all.
+    assert.deepEqual(mergeRestoredSubmissionDraft('failed text', [], '', []), {
+      value: 'failed text',
+      images: []
+    });
+  } finally {
+    clearDraft(sessionKey);
   }
 });
 

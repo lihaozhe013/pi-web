@@ -1,4 +1,3 @@
-import { buildAtMentionText } from './file-fuzzy';
 import { encodeFilePathForApi } from './file-paths';
 
 /** Browser side of `POST /api/files/[...path]?type=upload`; mirrors `lib/file-upload.ts`. */
@@ -66,8 +65,8 @@ export type DroppedItem = { kind: 'file'; file: File } | { kind: 'folder'; name:
 
 /**
  * Sorts a chat drop: images are attached to the prompt as before, other files
- * are uploaded into the working directory and mentioned, and folders are left
- * out because the upload endpoint takes files only.
+ * are uploaded into the working directory and attached as chips, and folders are
+ * left out because the upload endpoint takes files only.
  * @param items The dropped items, in drop order
  * @returns The images, the files to upload, and the names of skipped folders
  */
@@ -88,15 +87,13 @@ export function splitDroppedItems(items: DroppedItem[]): {
 }
 
 /**
- * The `@` mentions for files now in the working directory, in drop order.
+ * The working-directory paths of the dropped files the upload reported, in drop
+ * order. They become the composer's attachment chips.
  * @param files The dropped files
  * @param present Names the upload reports as written or already there
- * @returns Mentions ready to insert, or an empty string
+ * @returns Relative paths, or an empty list
  */
-export function dropMentionText(files: File[], present: string[]): string {
+export function dropMentionPaths(files: File[], present: string[]): string[] {
   const names = new Set(present);
-  return files
-    .filter((file) => names.has(file.name))
-    .map((file) => buildAtMentionText(file.name, false))
-    .join('');
+  return files.filter((file) => names.has(file.name)).map((file) => file.name);
 }

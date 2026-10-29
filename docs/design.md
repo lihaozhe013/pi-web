@@ -142,6 +142,23 @@ A scope copies immediately and closes; a clipboard failure stays in the dialog w
 retry. Escape, the backdrop and the close button leave the turn unchanged, and focus returns to the
 entry.
 
+## Files attached to a prompt
+
+A file dropped onto the chat, or picked with the composer's attach button, is copied into the
+working directory without replacing anything already there, and then shown as a chip beside the
+composer — the same row images use. The chip carries an icon chosen by extension (a PDF, a Word
+document, the language of a code file, and a plain page for anything unrecognized), the file name,
+and a remove button; it is announced as an attached file and its tooltip keeps the relative path.
+Removing a chip only drops the reference: the copied file stays in the working directory. `@` typed
+in the draft, the file tree's reference button, and line references keep inserting text, because
+they belong to a sentence.
+
+The chips are not text, but the prompt is unchanged: a send appends the `@path` mentions the chips
+stand for, in chip order and quoted when the path contains spaces, so the agent sees exactly what
+dropping a file used to type. A file already attached is not attached twice. Chips belong to the
+draft, so parking or rekeying a session keeps them; a submission the agent rejects comes back
+as the text it was, its mentions written out again.
+
 ## Tool presets in the composer
 
 The composer's tool menu lists the built-in presets first, then the user's custom ones, each named

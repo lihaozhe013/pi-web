@@ -58,7 +58,7 @@ import {
 import { formatCompactCount } from '@/lib/session-stats-format';
 import { buildQuotedSelection } from '@/lib/quoted-selection';
 import {
-  dropMentionText,
+  dropMentionPaths,
   splitDroppedItems,
   uploadFiles,
   type DroppedItem
@@ -1069,8 +1069,9 @@ export function ChatWindow({
 
   // Images attach to the prompt. Other files go through the file explorer's
   // upload into the working directory, never replacing a file already there,
-  // and come back as @mentions. The composer's attach button takes the same
-  // path, for phones that cannot drop files.
+  // and come back as attachment chips whose `@` mentions the send spells out.
+  // The composer's attach button takes the same path, for phones that cannot
+  // drop files.
   const uploadDroppedFiles = useCallback(
     async (files: File[]) => {
       const cwd = session?.cwd ?? newSessionCwd;
@@ -1083,8 +1084,8 @@ export function ChatWindow({
         if (status !== 200 && status !== 207) throw new Error(data.error ?? `HTTP ${status}`);
         const uploaded = data.uploaded ?? [];
         const skipped = data.skipped ?? [];
-        const mentions = dropMentionText(files, [...uploaded, ...skipped]);
-        if (mentions) chatInputRef?.current?.insertText(mentions);
+        const paths = dropMentionPaths(files, [...uploaded, ...skipped]);
+        if (paths.length > 0) chatInputRef?.current?.addFileMentions(paths);
         if (uploaded.length > 0) {
           addNotice({
             type: 'success',

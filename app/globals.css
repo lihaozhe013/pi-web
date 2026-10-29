@@ -2800,6 +2800,67 @@ span.token.table {
   }
 }
 
+/* Files dropped or picked into the composer are chips, not text: the chip shows
+   the file's icon and name, and the prompt still receives its `@path` mention
+   when it is sent. */
+.chat-attachment-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.chat-attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: min(240px, 60vw);
+  height: 28px;
+  padding: 0 4px 0 8px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: calc(12px + var(--ui-font-size-offset, 0px));
+  line-height: 1;
+}
+.chat-attachment-chip-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-attachment-chip-remove {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 50%;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    background 0.12s,
+    color 0.12s;
+}
+.chat-attachment-chip-remove:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.chat-attachment-chip-remove:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat-attachment-chip-remove {
+    transition: none;
+  }
+}
+
 /* The live run status belongs to the composer stack: one fixed-height row above
    the input, outside the transcript, so a long run stays visible while history
    scrolls under it and the composer does not move as tools start and finish.

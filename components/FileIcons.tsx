@@ -91,6 +91,9 @@ const EXTENSION_ICONS: Record<string, CatppuccinIconName> = {
   tf: 'terraform',
   hcl: 'terraform',
   docx: 'ms-word',
+  doc: 'ms-word',
+  odt: 'ms-word',
+  rtf: 'ms-word',
   pdf: 'pdf',
   lock: 'lock'
 };

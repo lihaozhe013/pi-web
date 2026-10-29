@@ -612,6 +612,8 @@ export const zhTWLocale: LocalePlugin = {
     'chat.quoteQuestion': '我的問題是：',
     'chat.quoteForkFailed': '無法從這則訊息建立分支。',
     'chat.attachFiles': '附加檔案',
+    'chat.attachedFiles': '已附加的檔案',
+    'chat.removeAttachedFile': '移除 {name}',
     'chat.previewImage': '預覽圖片',
     'chat.filterModels': '篩選模型…',
     'chat.noMatchingModels': '找不到相符的模型',
