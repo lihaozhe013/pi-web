@@ -70,7 +70,7 @@ import { ExecutionHistoryPanel } from './ExecutionHistoryPanel';
 import { NewSessionContextBar, type NewSessionContextControl } from './NewSessionContextBar';
 import { ProjectTrustDialog, type ProjectTrustFailure } from './ProjectTrustDialog';
 import { mergeCatalogRow } from './session-catalog-helpers';
-import { SessionInfoSidebar } from './SessionInfoSidebar';
+import { SessionInfoSidebar, useInformationPanelOverlay } from './SessionInfoSidebar';
 import {
   SessionSidebar,
   type SelectSessionOptions,
@@ -309,6 +309,33 @@ export function AppShell() {
     setExecutionHistory(entries);
   }, []);
 
+  // A conversation that is working shows its commands without a click: the Runs
+  // panel opens with the first run of a turn, and again when the user switches to
+  // a conversation that is already running. Closing it during a turn keeps it
+  // closed until the next turn. An overlay would cover the conversation, so only
+  // the side-by-side panel opens itself.
+  const [sessionBusy, setSessionBusy] = useState(false);
+  const handleSessionBusyChange = useCallback((busy: boolean) => {
+    setSessionBusy(busy);
+  }, []);
+  const informationPanelOverlay = useInformationPanelOverlay(
+    sidebarOpen ? sidebarResizer.width : 0
+  );
+  const runInProgress = executionHistory.some((entry) => entry.status === 'running');
+  const runSessionKey = selectedSession?.id ?? 'new';
+  const autoOpenedRunsRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!sessionBusy) {
+      autoOpenedRunsRef.current = null;
+      return;
+    }
+    if (informationPanelOverlay || !runInProgress) return;
+    if (autoOpenedRunsRef.current === runSessionKey) return;
+    autoOpenedRunsRef.current = runSessionKey;
+    setActiveTopPanel('runs');
+    setTopPanelAutoOpened(true);
+  }, [informationPanelOverlay, runInProgress, runSessionKey, sessionBusy]);
+
   const handleSystemInfoLoaderChange = useCallback((loader: (() => Promise<void>) | null) => {
     systemInfoLoadIdRef.current += 1;
     systemInfoLoaderRef.current = loader;
@@ -358,6 +385,8 @@ export function AppShell() {
   const [activeTopPanel, setActiveTopPanel] = useState<
     'branches' | 'system' | 'tools' | 'runs' | 'session' | null
   >(null);
+  // Set while the Runs panel opened by itself, which must not take focus.
+  const [topPanelAutoOpened, setTopPanelAutoOpened] = useState(false);
 
   useEffect(() => {
     if (!sessionHasBranches) {
@@ -372,6 +401,7 @@ export function AppShell() {
   const toggleTopPanel = useCallback(
     (panel: 'branches' | 'system' | 'tools' | 'runs' | 'session') => {
       if (isMobile) setSidebarOpen(false);
+      setTopPanelAutoOpened(false);
       setActiveTopPanel((cur) => (cur === panel ? null : panel));
       setMobileToolbarMoreOpen(false);
     },
@@ -404,6 +434,7 @@ export function AppShell() {
   const openSessionStatsPanel = useCallback(() => {
     if (isMobile) setSidebarOpen(false);
     setMobileToolbarMoreOpen(false);
+    setTopPanelAutoOpened(false);
     setActiveTopPanel('session');
   }, [isMobile]);
 
@@ -2446,6 +2477,7 @@ export function AppShell() {
                 onSystemToolsChange={handleSystemToolsChange}
                 onSystemInfoLoaderChange={handleSystemInfoLoaderChange}
                 onExecutionHistoryChange={handleExecutionHistoryChange}
+                onBusyChange={handleSessionBusyChange}
                 onSessionStatsChange={handleSessionStatsChange}
                 onSessionStatsPanelOpen={openSessionStatsPanel}
                 onOpenSettings={openSettingsSection}
@@ -2604,6 +2636,7 @@ export function AppShell() {
             )}
             sidebarWidth={sidebarOpen ? sidebarResizer.width : 0}
             onClose={() => setActiveTopPanel(null)}
+            focusOnMount={!topPanelAutoOpened}
           >
             {activeTopPanel === 'branches' && (
               <BranchNavigator

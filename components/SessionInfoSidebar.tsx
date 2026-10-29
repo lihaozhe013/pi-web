@@ -7,23 +7,8 @@ export function informationPanelOverlays(viewportWidth: number, sidebarWidth: nu
   return viewportWidth - sidebarWidth < 820;
 }
 
-/** A single information surface; never restores the retired file workspace. */
-export function SessionInfoSidebar({
-  title,
-  sidebarWidth,
-  onClose,
-  children
-}: {
-  title: string;
-  sidebarWidth: number;
-  onClose: () => void;
-  children: ReactNode;
-}) {
-  const { t } = useI18n();
-  const panelRef = useRef<HTMLElement>(null);
-  const openerRef = useRef<HTMLElement | null>(null);
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
+/** Whether the information panel currently overlays the conversation. */
+export function useInformationPanelOverlay(sidebarWidth: number): boolean {
   const [overlay, setOverlay] = useState(false);
   useLayoutEffect(() => {
     const update = () => setOverlay(informationPanelOverlays(window.innerWidth, sidebarWidth));
@@ -31,10 +16,37 @@ export function SessionInfoSidebar({
     window.addEventListener('resize', update);
     return () => window.removeEventListener('resize', update);
   }, [sidebarWidth]);
+  return overlay;
+}
+
+/** A single information surface; never restores the retired file workspace. */
+export function SessionInfoSidebar({
+  title,
+  sidebarWidth,
+  onClose,
+  focusOnMount = true,
+  children
+}: {
+  title: string;
+  sidebarWidth: number;
+  onClose: () => void;
+  /** False for a surface opened on the user's behalf: it must not take focus. */
+  focusOnMount?: boolean;
+  children: ReactNode;
+}) {
+  const { t } = useI18n();
+  const panelRef = useRef<HTMLElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const overlay = useInformationPanelOverlay(sidebarWidth);
+  // Mount-only: a later prop change must not pull focus out of the conversation.
+  const focusOnMountRef = useRef(focusOnMount);
+  focusOnMountRef.current = focusOnMount;
   useEffect(() => {
     openerRef.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    panelRef.current?.focus();
+    if (focusOnMountRef.current) panelRef.current?.focus();
     const handleKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         const otherDialog = [

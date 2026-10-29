@@ -40,6 +40,12 @@ selection, the one-click default action and failures, local filtering, inline cr
 focus and Escape, draft preservation, and light/dark layouts at desktop, tablet, phone and landscape
 sizes. It does not exercise the live filesystem or the sidebar's validation API integration.
 
+Run `node e2e/runs-panel.mjs` for isolated information-panel focus coverage without a server or
+personal sessions. It mounts the real sidebar and checks that a panel opened on the user's behalf
+leaves focus in the composer, that a panel the user opened takes focus, that Escape restores the
+previous focus, and that the 820px overlay threshold is unchanged. The automatic Runs panel decision
+itself is covered by `components/AppShell.runs-panel.test.mjs`.
+
 Live provider prompts and real agent execution require separate validation. Native phone keyboards
 also need real-device testing.
 

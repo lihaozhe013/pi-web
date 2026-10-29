@@ -145,6 +145,8 @@ interface Props {
   onSystemInfoLoaderChange?: (loader: (() => Promise<void>) | null) => void;
   /** Every shell and codemode run for the Runs panel, oldest first. */
   onExecutionHistoryChange?: (entries: ExecutionHistoryEntry[]) => void;
+  /** Whether this conversation is working: a reply streaming or a command running. */
+  onBusyChange?: (busy: boolean) => void;
   onSessionStatsChange?: (stats: SessionStatsInfo | null) => void;
   onSessionStatsPanelOpen?: () => void;
   /** Opens Settings on a section: a bare `/mcp` that pi's built-in MCP extension owns opens Settings › MCP. */
@@ -335,6 +337,7 @@ export function ChatWindow({
   onSystemToolsChange,
   onSystemInfoLoaderChange,
   onExecutionHistoryChange,
+  onBusyChange,
   onSessionStatsChange,
   onSessionStatsPanelOpen,
   onOpenSettings,
@@ -499,6 +502,10 @@ export function ChatWindow({
     [streamingStore]
   );
   const sessionBusy = agentRunning || bashRunning;
+  useEffect(() => {
+    onBusyChange?.(sessionBusy);
+  }, [onBusyChange, sessionBusy]);
+  useEffect(() => () => onBusyChange?.(false), [onBusyChange]);
   // While this session's run is under way its chime may come with the phone
   // locked, where a suspended context cannot start again (#1157).
   useEffect(() => {

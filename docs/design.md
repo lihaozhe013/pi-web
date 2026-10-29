@@ -12,8 +12,9 @@ change its identity.
 
 The information sidebar is currently 400px wide. It overlays the conversation when space is limited
 and fills phone widths. Close and Escape restore focus to the trigger; modal overlays contain
-keyboard focus. The toolbar's Runs toggle opens the shell and codemode history in this surface,
-beside the System and Tools entries; it starts closed.
+keyboard focus. A surface opened on the user's behalf — the automatic Runs panel — never takes
+focus. The toolbar's Runs toggle opens the shell and codemode history in this surface, beside the
+System and Tools entries; it starts closed.
 
 ## Quiet, clear, polished
 
@@ -83,14 +84,18 @@ Current main-transcript behavior:
 - Shell and codemode calls draw no card in the transcript, running, successful or failed. The
   composer status row names them while they run, and the Runs panel keeps their history: the toggle
   sits beside Tools in the toolbar, is closed by default, and stays open until the user closes it.
-  The panel separates active runs from history, with independent scrolling and newest first in each.
-  History starts collapsed into a compact footer, leaving the active area more room; its heading
-  toggles the section, and the choice stays in effect when the panel is closed and reopened. Active
-  cards default open; completed cards remain in the active section for two seconds, showing their
-  final status, then move to history and default closed. Multiple runs can remain active at once.
-  Active and historical cards use blue for running, green for success, and red for errors, alongside
-  status words and marks; cancelled runs remain neutral. Codemode's nested calls use their own
-  status colors as compact subcards ahead of a script disclosure. Closing the panel does not discard
+  The panel also opens itself with the first running command of a turn, and when the user switches
+  to a conversation that is already running one, so a run is visible without a click. Closing it
+  during a turn keeps it closed until the next turn. Where the sidebar would overlay the
+  conversation it stays closed until the toggle or a phone action opens it. The panel separates
+  active runs from history, with independent scrolling and newest first in each. History starts
+  collapsed into a compact footer, leaving the active area more room; its heading toggles the
+  section, and the choice stays in effect when the panel is closed and reopened. Active cards
+  default open; completed cards remain in the active section for two seconds, showing their final
+  status, then move to history and default closed. Multiple runs can remain active at once. Active
+  and historical cards use blue for running, green for success, and red for errors, alongside status
+  words and marks; cancelled runs remain neutral. Codemode's nested calls use their own status
+  colors as compact subcards ahead of a script disclosure. Closing the panel does not discard
   anything.
 - Write/edit cards default to expanded. Patch cards fold after completion.
 - A command the user ran themselves (`!`) keeps its live card in the transcript, because its

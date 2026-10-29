@@ -90,7 +90,9 @@ migration layer. Cleanup removes code, not user files.
    persisted history and model context. Shell and codemode runs are filtered out of the transcript
    and collected by the Runs panel from the loaded messages plus live execution state;
    `hooks/useRetainedExecutionHistory.ts` keeps a finished call in place while its stored result
-   arrives.
+   arrives. `AppShell` opens that panel for the first running command of a turn and again when the
+   user switches to a conversation that is already running, skipping the overlay layout and focus in
+   `components/SessionInfoSidebar.tsx` so the panel never takes focus it was not asked for.
 
 ## Session output speed
 
