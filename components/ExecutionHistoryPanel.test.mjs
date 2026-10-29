@@ -64,11 +64,14 @@ test('newest runs lead, a running one opens itself, a success waits folded', () 
   assert.match(text, /Active1/);
   assert.match(text, /History1/);
   assert.match(html, /aria-expanded="true"/);
+  assert.match(html, /class="tool-card-body" data-open="true"/);
+  assert.doesNotMatch(html, /data-live="true"/, 'opening the panel does not replay old runs');
 });
 
 test('a historical failure stays folded', () => {
   const html = render([{ ...base, id: 'failed', status: 'error', output: 'failure detail' }]);
   assert.match(html, /aria-expanded="false"/);
+  assert.match(html, /class="tool-card-body" aria-hidden="true" inert=""/);
   assert.doesNotMatch(html, /failure detail/);
 });
 

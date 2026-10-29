@@ -70,6 +70,10 @@
   padding: 0;
 }
 
+.run-history-slot {
+  min-width: 0;
+}
+
 .run-history-entry {
   --tool-card-surface: color-mix(in srgb, var(--text) 5%, var(--bg-panel));
   min-width: 0;
@@ -166,6 +170,9 @@
   white-space: nowrap;
 }
 
+.run-history-entry[data-active='true'] .run-history-status {
+  animation: tool-status-in 160ms ease-out;
+}
 .run-history-status[data-status='running'] {
   color: var(--accent);
 }
@@ -320,7 +327,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .run-history-mark[data-status='running'] {
+  .run-history-mark[data-status='running'],
+  .run-history-entry[data-active='true'] .run-history-status {
     animation: none;
   }
   .run-history-entry-header,

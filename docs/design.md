@@ -113,9 +113,10 @@ moves: the card remembers whether the call was still running at mount, so restor
 re-reading the same message, scrolling history or re-grouping a turn replays none of it. The run
 status row above the composer is always in the stack: it folds open with the run, folds away when
 the run ends, and only its words change in between, so the composer never jumps under the user's
-cursor. Runs panel cards do not animate between sections; only a running mark blinks. All motion is
-opacity, transform or a box size; `prefers-reduced-motion` makes every change instant, including the
-short hold that keeps a leaving command on screen.
+cursor. In the Runs panel, new active cards fade in, their bodies fold when toggled, and completed
+cards fade and fold out of the active section as their collapsed history cards appear. Restored
+history does not replay entrance motion. All motion is opacity, transform or a box size;
+`prefers-reduced-motion` makes the transitions instant without changing the two-second reading hold.
 
 ## Copying a turn
 
@@ -155,8 +156,8 @@ they belong to a sentence.
 The chips are not text, but the prompt is unchanged: a send appends the `@path` mentions the chips
 stand for, in chip order and quoted when the path contains spaces, so the agent sees exactly what
 dropping a file used to type. A file already attached is not attached twice. Chips belong to the
-draft, so parking or rekeying a session keeps them; a submission the agent rejects comes back
-as the text it was, its mentions written out again.
+draft, so parking or rekeying a session keeps them; a submission the agent rejects comes back as the
+text it was, its mentions written out again.
 
 ## Tool presets in the composer
 

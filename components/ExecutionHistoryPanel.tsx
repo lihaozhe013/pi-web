@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useBodyContent, useExitingItems } from '@/hooks/useToolCardMotion';
 import { useI18n } from '@/hooks/useI18n';
 import {
   executionOutputTail,
@@ -116,89 +117,133 @@ function RunOutput({ entry, sessionId }: { entry: ExecutionHistoryEntry; session
   );
 }
 
-function RunEntry({ entry, sessionId }: { entry: ExecutionHistoryEntry; sessionId?: string }) {
+function RunEntry({
+  entry,
+  sessionId,
+  entering = false,
+  exiting = false,
+  fading = false
+}: {
+  entry: ExecutionHistoryEntry;
+  sessionId?: string;
+  entering?: boolean;
+  exiting?: boolean;
+  fading?: boolean;
+}) {
   const { t } = useI18n();
   // The section owns the default: live runs open, historical runs fold.
   const [expanded, setExpanded] = useState(() => entry.active ?? entry.status === 'running');
+  const [animateIn] = useState(entering);
+  const showBody = useBodyContent(expanded);
+  const slotRef = useRef<HTMLLIElement>(null);
+  useLayoutEffect(() => {
+    if (!exiting || !slotRef.current?.contains(document.activeElement)) return;
+    const panel = slotRef.current.closest('.run-history');
+    const replacement = [
+      ...(panel?.querySelectorAll<HTMLElement>('.run-history-past [data-run-id]') ?? [])
+    ].find((node) => node.dataset.runId === entry.id);
+    replacement?.querySelector<HTMLButtonElement>('.run-history-entry-header')?.focus();
+  }, [entry.id, exiting]);
   const duration = formatExecutionDuration(entry.durationMs);
   const callCount = entry.calls ? entry.calls.length + (entry.omittedCalls ?? 0) : 0;
 
   return (
     <li
-      className="run-history-entry tool-card"
-      data-state={entry.status}
-      data-status={entry.status}
+      ref={slotRef}
+      className={`run-history-slot${fading ? ' tool-card-exit' : ''}`}
+      aria-hidden={exiting || undefined}
+      inert={exiting || undefined}
+      data-run-id={entry.id}
     >
-      <button
-        type="button"
-        className="run-history-entry-header"
-        aria-expanded={expanded}
-        onClick={() => setExpanded((value) => !value)}
+      <div
+        className="run-history-entry tool-card"
+        data-state={entry.status}
+        data-status={entry.status}
+        data-active={entry.active || entry.status === 'running' ? 'true' : undefined}
+        data-live={animateIn ? 'true' : undefined}
       >
-        <span className="run-history-mark" data-status={entry.status} aria-hidden="true">
-          {STATUS_MARK[entry.status]}
-        </span>
-        <span className="run-history-content">
-          <span className="run-history-title-row">
-            <span className="run-history-tool">{entry.toolName}</span>
-            {entry.userInitiated && <span className="run-history-tag">{t('runs.you')}</span>}
-            <span className="run-history-meta">
-              <span className="run-history-status" data-status={entry.status}>
-                {t(STATUS_KEY[entry.status])}
-              </span>
-              {callCount > 0 && (
-                <span>
-                  {callCount === 1
-                    ? t('codemode.callCountOne')
-                    : t('codemode.callCount', { count: callCount })}
-                </span>
-              )}
-              {duration && <span>{duration}</span>}
-              <svg
-                className="run-history-chevron"
-                data-open={expanded ? 'true' : undefined}
-                width="10"
-                height="10"
-                viewBox="0 0 10 10"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <polyline points="2 3.5 5 6.5 8 3.5" />
-              </svg>
-            </span>
+        <button
+          type="button"
+          className="run-history-entry-header"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((value) => !value)}
+        >
+          <span className="run-history-mark" data-status={entry.status} aria-hidden="true">
+            {STATUS_MARK[entry.status]}
           </span>
-          <span className="run-history-preview">{entry.preview || t('runs.noCommand')}</span>
-        </span>
-      </button>
+          <span className="run-history-content">
+            <span className="run-history-title-row">
+              <span className="run-history-tool">{entry.toolName}</span>
+              {entry.userInitiated && <span className="run-history-tag">{t('runs.you')}</span>}
+              <span className="run-history-meta">
+                <span key={entry.status} className="run-history-status" data-status={entry.status}>
+                  {t(STATUS_KEY[entry.status])}
+                </span>
+                {callCount > 0 && (
+                  <span>
+                    {callCount === 1
+                      ? t('codemode.callCountOne')
+                      : t('codemode.callCount', { count: callCount })}
+                  </span>
+                )}
+                {duration && <span>{duration}</span>}
+                <svg
+                  className="run-history-chevron"
+                  data-open={expanded ? 'true' : undefined}
+                  width="10"
+                  height="10"
+                  viewBox="0 0 10 10"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <polyline points="2 3.5 5 6.5 8 3.5" />
+                </svg>
+              </span>
+            </span>
+            <span className="run-history-preview">{entry.preview || t('runs.noCommand')}</span>
+          </span>
+        </button>
 
-      {expanded && (
-        <div className="run-history-body">
-          {entry.kind === 'codemode' && callCount > 0 && (
-            <CodemodeCallList calls={entry.calls ?? []} omitted={entry.omittedCalls ?? 0} />
-          )}
-          {entry.kind === 'codemode' && entry.script && (
-            <details className="run-history-script">
-              <summary>{t('codemode.script')}</summary>
-              <pre>
-                <ToolCodeLanguageProvider lang="javascript">
-                  <ToolCodeTokens text={entry.script.replace(/\r/g, '').trimEnd()} />
-                </ToolCodeLanguageProvider>
-              </pre>
-            </details>
-          )}
-          {entry.command && !(entry.kind === 'codemode' && entry.script) && (
-            <pre className="run-history-command">{entry.command}</pre>
-          )}
-          <RunOutput entry={entry} sessionId={sessionId} />
+        <div
+          className="tool-card-body"
+          data-open={expanded ? 'true' : undefined}
+          aria-hidden={!expanded || undefined}
+          inert={!expanded || undefined}
+        >
+          <div className="tool-card-body-inner">
+            {showBody && (
+              <div className="run-history-body">
+                {entry.kind === 'codemode' && callCount > 0 && (
+                  <CodemodeCallList calls={entry.calls ?? []} omitted={entry.omittedCalls ?? 0} />
+                )}
+                {entry.kind === 'codemode' && entry.script && (
+                  <details className="run-history-script">
+                    <summary>{t('codemode.script')}</summary>
+                    <pre>
+                      <ToolCodeLanguageProvider lang="javascript">
+                        <ToolCodeTokens text={entry.script.replace(/\r/g, '').trimEnd()} />
+                      </ToolCodeLanguageProvider>
+                    </pre>
+                  </details>
+                )}
+                {entry.command && !(entry.kind === 'codemode' && entry.script) && (
+                  <pre className="run-history-command">{entry.command}</pre>
+                )}
+                <RunOutput entry={entry} sessionId={sessionId} />
+              </div>
+            )}
+          </div>
         </div>
-      )}
+      </div>
     </li>
   );
 }
+
+const runId = (entry: ExecutionHistoryEntry) => entry.id;
 
 /** The permanent shell and codemode history, newest first. */
 export function ExecutionHistoryPanel({
@@ -212,6 +257,16 @@ export function ExecutionHistoryPanel({
   const ordered = useMemo(() => [...entries].reverse(), [entries]);
   const active = ordered.filter((entry) => entry.active ?? entry.status === 'running');
   const history = ordered.filter((entry) => !(entry.active ?? entry.status === 'running'));
+  const initialIds = useRef(new Set(entries.map(runId)));
+  const previousActive = useRef(new Set(active.map(runId)));
+  const heldActive = useExitingItems(active, runId);
+  const positions = new Map(ordered.map((entry, index) => [entry.id, index]));
+  const visibleActive = [...heldActive].sort(
+    (a, b) => (positions.get(a.item.id) ?? Infinity) - (positions.get(b.item.id) ?? Infinity)
+  );
+  useLayoutEffect(() => {
+    previousActive.current = new Set(active.map(runId));
+  });
 
   return (
     <div className="run-history">
@@ -224,10 +279,17 @@ export function ExecutionHistoryPanel({
           <span className="run-history-count">{active.length}</span>
         </h3>
         <div className="run-history-scroll" tabIndex={0} aria-label={t('runs.active')}>
-          {active.length ? (
+          {visibleActive.length ? (
             <ol className="run-history-list">
-              {active.map((entry) => (
-                <RunEntry key={entry.id} entry={entry} sessionId={sessionId} />
+              {visibleActive.map(({ item, exiting, fading }) => (
+                <RunEntry
+                  key={item.id}
+                  entry={item}
+                  sessionId={sessionId}
+                  entering={!initialIds.current.has(item.id)}
+                  exiting={exiting}
+                  fading={fading}
+                />
               ))}
             </ol>
           ) : (
@@ -247,7 +309,12 @@ export function ExecutionHistoryPanel({
           {history.length ? (
             <ol className="run-history-list">
               {history.map((entry) => (
-                <RunEntry key={entry.id} entry={entry} sessionId={sessionId} />
+                <RunEntry
+                  key={entry.id}
+                  entry={entry}
+                  sessionId={sessionId}
+                  entering={previousActive.current.has(entry.id)}
+                />
               ))}
             </ol>
           ) : (
