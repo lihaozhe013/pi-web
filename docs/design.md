@@ -88,8 +88,10 @@ Current main-transcript behavior:
   toggles the section, and the choice stays in effect when the panel is closed and reopened. Active
   cards default open; completed cards remain in the active section for two seconds, showing their
   final status, then move to history and default closed. Multiple runs can remain active at once.
-  Codemode lists its nested calls as compact subcards ahead of a script disclosure. Closing the
-  panel does not discard anything.
+  Active and historical cards use blue for running, green for success, and red for errors, alongside
+  status words and marks; cancelled runs remain neutral. Codemode's nested calls use their own
+  status colors as compact subcards ahead of a script disclosure. Closing the panel does not discard
+  anything.
 - Write/edit cards default to expanded. Patch cards fold after completion.
 - A command the user ran themselves (`!`) keeps its live card in the transcript, because its
   progress is the answer they asked for. It also appears in the Runs panel so the history is

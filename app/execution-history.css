@@ -4,6 +4,10 @@
 }
 
 .run-history {
+  /* Status colors are independent of the theme accent, which is not always blue. */
+  --run-status-running: light-dark(#1752a0, #9fc6ff);
+  --run-status-success: light-dark(#17633b, #96ddb0);
+  --run-status-error: light-dark(#a92732, #ffadb3);
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -126,9 +130,43 @@
 
 .run-history-entry {
   --tool-card-surface: color-mix(in srgb, var(--text) 5%, var(--bg-panel));
+  --run-state-color: var(--text-muted);
   min-width: 0;
   overflow: hidden;
   border-radius: var(--ui-radius-md, 7px);
+}
+
+.run-history-entry[data-status='running'],
+.run-history-entry[data-status='success'],
+.run-history-entry[data-status='error'] {
+  background: color-mix(in srgb, var(--run-state-color) 10%, var(--bg-panel));
+  box-shadow: inset 3px 0 var(--run-state-color);
+}
+.run-history-entry[data-status='running'] {
+  --run-state-color: var(--run-status-running);
+}
+.run-history-entry[data-status='success'] {
+  --run-state-color: var(--run-status-success);
+}
+.run-history-entry[data-status='error'] {
+  --run-state-color: var(--run-status-error);
+}
+
+/* Nested codemode calls use their own result, not the enclosing run's state. */
+.run-history .codemode-call[data-status='running'],
+.run-history .codemode-call[data-status='ok'],
+.run-history .codemode-call[data-status='error'] {
+  --codemode-call-surface: color-mix(in srgb, var(--call-state-color) 9%, var(--bg-panel));
+  box-shadow: inset 2px 0 var(--call-state-color);
+}
+.run-history .codemode-call[data-status='running'] {
+  --call-state-color: var(--run-status-running);
+}
+.run-history .codemode-call[data-status='ok'] {
+  --call-state-color: var(--run-status-success);
+}
+.run-history .codemode-call[data-status='error'] {
+  --call-state-color: var(--run-status-error);
 }
 
 .run-history-entry-header {
@@ -166,11 +204,12 @@
   text-align: center;
 }
 .run-history-mark[data-status='running'] {
-  color: var(--accent);
   animation: run-history-cursor 1.1s steps(2, jump-none) infinite;
 }
+.run-history-mark[data-status='running'],
+.run-history-mark[data-status='success'],
 .run-history-mark[data-status='error'] {
-  color: var(--error, #f87171);
+  color: var(--run-state-color);
 }
 
 .run-history-content {
@@ -223,11 +262,10 @@
 .run-history-entry[data-active='true'] .run-history-status {
   animation: tool-status-in 160ms ease-out;
 }
-.run-history-status[data-status='running'] {
-  color: var(--accent);
-}
+.run-history-status[data-status='running'],
+.run-history-status[data-status='success'],
 .run-history-status[data-status='error'] {
-  color: var(--error, #f87171);
+  color: var(--run-state-color);
 }
 
 .run-history-chevron {
@@ -284,7 +322,7 @@
   color: var(--text);
 }
 .run-history-output[data-error='true'] {
-  color: var(--error, #f87171);
+  color: var(--run-status-error);
 }
 
 .run-history-output-block {
@@ -340,7 +378,7 @@
 }
 
 .run-history-note-error {
-  color: var(--error, #f87171);
+  color: var(--run-status-error);
 }
 
 .run-history-text-button:disabled {

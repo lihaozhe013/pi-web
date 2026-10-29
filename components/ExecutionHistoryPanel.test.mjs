@@ -91,6 +91,43 @@ test('a historical failure stays folded', () => {
   assert.doesNotMatch(html, /failure detail/);
 });
 
+test('run and nested call statuses remain identifiable without color', () => {
+  const entries = [
+    { ...base, id: 'running', status: 'running' },
+    { ...base, id: 'success', status: 'success', active: true },
+    {
+      ...base,
+      id: 'codemode',
+      kind: 'codemode',
+      toolName: 'codemode',
+      status: 'error',
+      active: true,
+      calls: [
+        { id: 'one', name: 'bash', status: 'running' },
+        { id: 'two', name: 'read', status: 'ok' },
+        { id: 'three', name: 'write', status: 'error' },
+        { id: 'four', name: 'grep', status: 'cancelled' }
+      ]
+    }
+  ];
+  const html = render(entries);
+  for (const status of ['running', 'success', 'error']) {
+    assert.match(
+      html,
+      new RegExp(
+        `class="run-history-entry tool-card" data-state="${status}" data-status="${status}"`
+      )
+    );
+  }
+  for (const status of ['running', 'ok', 'error', 'cancelled']) {
+    assert.match(html, new RegExp(`class="codemode-call" data-status="${status}"`));
+  }
+  assert.match(html, /aria-label="Running"/);
+  assert.match(html, /aria-label="Succeeded"/);
+  assert.match(html, /aria-label="Failed"/);
+  assert.match(html, /aria-label="Cancelled"/);
+});
+
 test('a recently failed codemode run opens its calls, script and error output', () => {
   const calls = Array.from({ length: 23 }, (_, index) => ({
     id: `c/${index + 1}`,

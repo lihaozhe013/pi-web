@@ -18,9 +18,9 @@ import {
 export const CODEMODE_VISIBLE_CALLS = 20;
 
 const STATUS_STYLE: Record<CodemodeCallStatus, { icon: string; color: string }> = {
-  running: { icon: '…', color: 'var(--accent)' },
-  ok: { icon: '✓', color: 'var(--text-muted)' },
-  error: { icon: '✗', color: 'var(--error, #f87171)' },
+  running: { icon: '…', color: 'var(--run-status-running, var(--accent))' },
+  ok: { icon: '✓', color: 'var(--run-status-success, var(--text-muted))' },
+  error: { icon: '✗', color: 'var(--run-status-error, var(--error, #f87171))' },
   cancelled: { icon: '⊘', color: 'var(--text-muted)' }
 };
 
@@ -39,7 +39,7 @@ function CallRow({ call }: { call: CodemodeCallView }) {
         minWidth: 0,
         padding: '7px 9px',
         borderRadius: 6,
-        background: 'var(--tool-card-pane)'
+        background: 'var(--codemode-call-surface, var(--tool-card-pane))'
       }}
     >
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0 }}>
@@ -91,7 +91,7 @@ function CallRow({ call }: { call: CodemodeCallView }) {
       {call.error && (
         <div
           style={{
-            color: 'var(--error, #f87171)',
+            color: 'var(--run-status-error, var(--error, #f87171))',
             paddingLeft: 18,
             whiteSpace: 'pre-wrap',
             overflowWrap: 'anywhere'
