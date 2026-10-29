@@ -85,19 +85,12 @@ test('a call whose arguments are still streaming shows no card', () => {
   }
 });
 
-test('an executing call opens its card, with live output for a shell', () => {
+test('an executing write or edit opens its card; a shell belongs to Runs', () => {
   clearExpandedToolCalls();
-  for (const name of ['bash', 'powershell', 'exec_command']) {
-    const started = render(name, { running: true });
-    assert.match(started, /aria-expanded="true"/, name);
-    assert.match(started, /aria-busy="true"/, name);
-    assert.match(started, /class="shell-running" role="status"/, name);
-    // The command sits above the running status; the output follows it.
-    assert.ok(started.indexOf('file-body') < started.indexOf('class="shell-running"'), name);
-
-    const partial = render(name, { partial: true });
-    assert.match(partial, /data-state="running"/, name);
-    assert.ok(partial.indexOf('result-body') < partial.indexOf('class="shell-running"'), name);
+  // Shell and codemode cards never reach the transcript, running or finished.
+  for (const name of ['bash', 'powershell', 'exec_command', 'codemode']) {
+    assert.equal(render(name, { running: true }), '', name);
+    assert.equal(render(name, { partial: true }), '', name);
   }
   // A write/edit card is open too: its arguments are complete, only its result is missing.
   for (const name of ['write', 'edit']) {
@@ -108,7 +101,7 @@ test('an executing call opens its card, with live output for a shell', () => {
   assert.match(render('apply_patch', { running: true }), /aria-expanded="true"/);
   // A running call the user asked to fold stays folded.
   setToolCallExpanded('tool-test', false);
-  assert.match(render('bash', { running: true }), /aria-expanded="false"/);
+  assert.match(render('write', { running: true }), /aria-expanded="false"/);
   clearExpandedToolCalls();
 });
 
@@ -119,11 +112,9 @@ test('a finished card follows its lifecycle default', () => {
     assert.match(render(name, { complete: true, error: true }), /aria-expanded="true"/);
   }
   assert.match(render('apply_patch', { complete: true }), /aria-expanded="false"/);
-  // Only a failed shell keeps a card; a successful one leaves none.
+  // Shells keep no card in the transcript, successful or failed.
   assert.equal(render('bash', { complete: true }), '');
-  const failed = render('bash', { complete: true, error: true });
-  assert.match(failed, /aria-expanded="false"/);
-  assert.match(failed, /Failed/);
+  assert.equal(render('bash', { complete: true, error: true }), '');
   assert.equal(render('read', { complete: true }), '');
 });
 
@@ -131,10 +122,10 @@ test('an explicit choice still wins on a retained card', () => {
   clearExpandedToolCalls();
   setToolCallExpanded('tool-test', false);
   assert.match(render('write', { complete: true }), /aria-expanded="false"/);
-  assert.match(render('bash', { complete: true, error: true }), /aria-expanded="false"/);
+  assert.match(render('apply_patch', { complete: true, error: true }), /aria-expanded="false"/);
   clearExpandedToolCalls();
   setToolCallExpanded('tool-test', true);
-  assert.match(render('bash', { complete: true, error: true }), /aria-expanded="true"/);
+  assert.match(render('apply_patch', { complete: true, error: true }), /aria-expanded="true"/);
   clearExpandedToolCalls();
 });
 
@@ -162,7 +153,7 @@ test('a command the user ran keeps its live card', () => {
 test('a card that lived in this page moves; a restored one does not', () => {
   clearExpandedToolCalls();
   // The call is running now: this card arrived with the page, so it fades in.
-  const live = render('bash', { running: true });
+  const live = render('write', { running: true });
   assert.match(live, /class="tool-card" data-state="running" data-live="true"/);
   assert.match(live, /<div class="tool-card-body" data-open="true">/);
   // A card the session file brought back is drawn as it is, with nothing to replay.

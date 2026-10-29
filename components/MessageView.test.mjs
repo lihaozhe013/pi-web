@@ -25,7 +25,6 @@ const { splitFinalAssistantBlocks } = await jiti.import('@/lib/message-display')
 const { clearExpandedToolCalls, setToolCallExpanded } = await jiti.import(
   '@/lib/tool-call-expansion'
 );
-const { ToolActivityProvider } = await jiti.import('./ToolActivity');
 const { parseUnifiedPatch } = await jiti.import('@/lib/patch');
 
 function renderMessage(message, props = {}) {
@@ -448,14 +447,14 @@ test('code, diffs and output sit in the card pane, not the page background', () 
     toolName: 'write',
     input: { path: 'src/demo.ts', content: 'const value = 1;\n' }
   };
-  const bash = {
+  const fetch = {
     type: 'toolCall',
-    toolCallId: 'call-pane-bash',
-    toolName: 'bash',
-    input: { command: 'exit 1' }
+    toolCallId: 'call-pane-fetch',
+    toolName: 'web_fetch',
+    input: { url: 'https://example.com' }
   };
   setToolCallExpanded(write.toolCallId, true);
-  setToolCallExpanded(bash.toolCallId, true);
+  setToolCallExpanded(fetch.toolCallId, true);
   try {
     const written = renderMessage(
       {
@@ -469,18 +468,16 @@ test('code, diffs and output sit in the card pane, not the page background', () 
     assert.match(written, /const value = 1;/);
     assert.match(written, pane);
 
-    // A successful shell card leaves the transcript, so the retained failure
-    // keeps its output pane.
     const failed = renderMessage(
-      { role: 'assistant', provider: 'anthropic', model: 'claude-test', content: [bash] },
+      { role: 'assistant', provider: 'anthropic', model: 'claude-test', content: [fetch] },
       {
         toolResults: new Map([
           [
-            bash.toolCallId,
+            fetch.toolCallId,
             {
               role: 'toolResult',
-              toolCallId: bash.toolCallId,
-              toolName: 'bash',
+              toolCallId: fetch.toolCallId,
+              toolName: 'web_fetch',
               content: [{ type: 'text', text: 'boom' }],
               isError: true
             }
@@ -496,7 +493,7 @@ test('code, diffs and output sit in the card pane, not the page background', () 
 });
 
 test("a tool card shows the run time pi recorded, else the timestamps' difference, never a tiny one", () => {
-  // Successful shells and exploration calls leave no card at all (docs/design.md),
+  // Shell and exploration calls leave no card at all (docs/design.md),
   // so the header's time is asserted on a tool that keeps one.
   const block = {
     type: 'toolCall',
@@ -870,216 +867,45 @@ function textOf(html) {
     .replace(/&#x27;/g, "'");
 }
 
-function codemodeCall(toolCallId, code) {
-  return { type: 'toolCall', toolCallId, toolName: 'codemode', input: { code } };
-}
+const CODEMODE_SCRIPT =
+  '// @options: {"timeoutMs": 5000}\nconst files = await tools.ls({ path: "." });\nreturn files.length;';
 
-function renderCodemode(block, result, runningId) {
-  const view = React.createElement(MessageView, {
-    message: {
+test('shell and codemode runs keep no transcript card, whatever their result', () => {
+  const shell = {
+    type: 'toolCall',
+    toolCallId: 'call-runs-bash',
+    toolName: 'bash',
+    input: { command: 'bun test' }
+  };
+  const codemode = {
+    type: 'toolCall',
+    toolCallId: 'call-runs-codemode',
+    toolName: 'codemode',
+    input: { code: CODEMODE_SCRIPT }
+  };
+  for (const block of [shell, codemode]) {
+    const message = {
       role: 'assistant',
       provider: 'anthropic',
       model: 'claude-test',
       content: [block]
-    },
-    toolResults: new Map(result ? [[block.toolCallId, result]] : [])
-  });
-  // A running script keeps its card only while the run reports it as live
-  // (lib/quiet-activity.ts); the provider stands in for that report.
-  const tree =
-    runningId === undefined
-      ? view
-      : React.createElement(
-          ToolActivityProvider,
-          {
-            phase: { kind: 'running_tools', tools: [{ id: runningId }] },
-            partialResults: new Map()
-          },
-          view
-        );
-  return renderToStaticMarkup(React.createElement(I18nProvider, null, tree));
-}
-
-const CODEMODE_SCRIPT =
-  '// @options: {"timeoutMs": 5000}\nconst files = await tools.ls({ path: "." });\nreturn files.length;';
-
-test('collapses a codemode call to its first script line and call count', (t) => {
-  const block = codemodeCall('call-codemode-collapsed', CODEMODE_SCRIPT);
-  t.after(() => setToolCallExpanded(block.toolCallId, false));
-  // A succeeded script leaves the transcript like a shell, so the collapsed
-  // header is asserted on a failed one, which keeps its card.
-  const html = renderCodemode(block, {
-    role: 'toolResult',
-    toolCallId: block.toolCallId,
-    isError: true,
-    content: [
-      { type: 'text', text: 'Script completed\nWall time 0.1 seconds\nOutput:\n' },
-      { type: 'text', text: '3' }
-    ],
-    details: {
-      calls: [
-        {
-          id: 'call-codemode-collapsed/1',
-          name: 'ls',
-          args: '{"path":"."}',
-          status: 'ok',
-          durationMs: 4
-        },
-        {
-          id: 'call-codemode-collapsed/2',
-          name: 'read',
-          args: '{"path":"a"}',
-          status: 'ok',
-          durationMs: 2
-        }
-      ]
+    };
+    assert.equal(textOf(renderMessage(message)), '', `${block.toolName} running`);
+    for (const isError of [false, true]) {
+      const result = {
+        role: 'toolResult',
+        toolCallId: block.toolCallId,
+        toolName: block.toolName,
+        content: [{ type: 'text', text: isError ? 'boom' : 'done' }],
+        isError,
+        details: isError ? undefined : { calls: [] }
+      };
+      const html = renderMessage(message, {
+        toolResults: new Map([[block.toolCallId, result]])
+      });
+      assert.equal(textOf(html), '', `${block.toolName} isError=${isError}`);
     }
-  });
-  const text = textOf(html);
-  assert.match(text, /codemode/);
-  assert.match(text, /const files = await tools\.ls\(\{ path: "\." \}\);/);
-  assert.match(text, /2 calls/);
-  assert.doesNotMatch(text, /@options/);
-  assert.doesNotMatch(text, /"code"/);
-  assert.doesNotMatch(text, /Tool calls/);
-});
-
-test('shows codemode subcards before the script disclosure and output', (t) => {
-  const block = codemodeCall('call-codemode-expanded', CODEMODE_SCRIPT);
-  setToolCallExpanded(block.toolCallId, true);
-  t.after(() => setToolCallExpanded(block.toolCallId, false));
-  const calls = Array.from({ length: 23 }, (_, index) => ({
-    id: `call-codemode-expanded/${index + 1}`,
-    name: index === 22 ? 'bash' : 'read',
-    args: `{"path":"file-${index + 1}"}`,
-    status: index === 22 ? 'error' : 'ok',
-    durationMs: 1500,
-    ...(index === 22 ? { error: 'exit code 2' } : {})
-  }));
-  calls.push(
-    {
-      id: 'call-codemode-expanded/24',
-      name: 'models.classify',
-      args: '',
-      status: 'ok',
-      cost: 0.004
-    },
-    {
-      id: 'call-codemode-expanded/25',
-      name: 'models.classify',
-      args: '',
-      status: 'ok',
-      cost: 0.006
-    }
-  );
-  const html = renderCodemode(block, {
-    role: 'toolResult',
-    toolCallId: block.toolCallId,
-    isError: true,
-    content: [
-      { type: 'text', text: 'Script failed\nWall time 4.2 seconds\nOutput:\n' },
-      { type: 'text', text: 'Script error:\nError: exit code 2' }
-    ],
-    details: { calls }
-  });
-  const text = textOf(html);
-
-  // Steps lead; the original script is available in a closed native disclosure.
-  assert.doesNotMatch(html, /markdown-code-block/);
-  assert.match(html, /<details class="codemode-script"><summary>View script<\/summary>/);
-  assert.equal(textOf(html.match(/<pre[^>]*>([\s\S]*?)<\/pre>/)[1]), CODEMODE_SCRIPT);
-  assert.ok(html.indexOf('codemode-call"') < html.indexOf('codemode-script"'));
-  assert.match(text, /Tool calls/);
-  assert.match(text, /Show 5 earlier calls/);
-  // The newest 20 of 25 calls are listed; the 5 oldest are folded.
-  assert.doesNotMatch(text, /"file-5"/);
-  assert.match(text, /"file-6"/);
-  assert.match(text, /bash\{"path":"file-23"\}1\.5s/);
-  assert.match(text, /exit code 2/);
-  assert.match(html, /aria-label="Failed"/);
-  assert.match(text, /Model calls: \$0\.01/);
-  assert.match(text, /Script error:\nError: exit code 2/);
-  assert.doesNotMatch(text, /Wall time/);
-  assert.doesNotMatch(text, /"code":/);
-});
-
-test("shows a running script's calls without an empty output", (t) => {
-  const block = codemodeCall('call-codemode-running', 'await tools.read({ path: "a" })');
-  setToolCallExpanded(block.toolCallId, true);
-  t.after(() => setToolCallExpanded(block.toolCallId, false));
-  const html = renderCodemode(
-    block,
-    {
-      role: 'toolResult',
-      toolCallId: block.toolCallId,
-      content: [],
-      details: {
-        calls: [
-          {
-            id: 'call-codemode-running/201',
-            name: 'read',
-            args: '{"path":"a"}',
-            status: 'running'
-          },
-          {
-            id: 'call-codemode-running/202',
-            name: 'grep',
-            args: '{"pattern":"x"}',
-            status: 'running'
-          },
-          { id: 'call-codemode-running/203', name: 'ls', args: '{}', status: 'cancelled' }
-        ],
-        omittedCalls: 200
-      }
-    },
-    block.toolCallId
-  );
-  const text = textOf(html);
-  assert.match(text, /203 calls/);
-  assert.match(text, /200 earlier calls not shown/);
-  assert.equal((html.match(/data-status="running"/g) ?? []).length, 2);
-  assert.match(html, /data-status="cancelled"/);
-  assert.match(html, /aria-label="Cancelled"/);
-  assert.match(html, /aria-label="Running"/);
-  assert.doesNotMatch(text, /No output/i);
-});
-
-test('a codemode call that succeeded leaves no card, like a shell', () => {
-  const block = codemodeCall('call-codemode-done', CODEMODE_SCRIPT);
-  const html = renderCodemode(block, {
-    role: 'toolResult',
-    toolCallId: block.toolCallId,
-    content: [{ type: 'text', text: '3' }]
-  });
-  assert.equal(textOf(html), '');
-});
-
-test('a codemode call with no script falls back to a plain body', (t) => {
-  const streaming = {
-    ...codemodeCall('call-codemode-streaming', ''),
-    input: {},
-    rawInput: '{"code":"const secret'
-  };
-  setToolCallExpanded(streaming.toolCallId, true);
-  t.after(() => setToolCallExpanded(streaming.toolCallId, false));
-  // Still streaming its arguments: no card, so no half-written script either.
-  assert.equal(textOf(renderCodemode(streaming)), '');
-
-  const other = {
-    type: 'toolCall',
-    toolCallId: 'call-codemode-other',
-    toolName: 'codemode',
-    input: { script: 'x' }
-  };
-  setToolCallExpanded(other.toolCallId, true);
-  t.after(() => setToolCallExpanded(other.toolCallId, false));
-  // An argument this view does not understand is still an argument: no script box,
-  // but the flat row shows it. A failed call keeps its card, so the fallback body
-  // is asserted on one.
-  const otherHtml = renderCodemode(other, resultOf(other, { isError: true }));
-  assert.match(otherHtml, /<table/);
-  assert.match(otherHtml, />x<\/td>/);
-  assert.doesNotMatch(textOf(otherHtml), /"script": "x"/);
+  }
 });
 
 test('labels an MCP call server/tool and indents a JSON result', (t) => {
@@ -1118,7 +944,7 @@ test('labels an MCP call server/tool and indents a JSON result', (t) => {
   assert.match(text, /\{\n {2}"hits": \[\n {4}\{\n {6}"title": "Code mode"/);
 });
 
-test('keeps the registered name where no result names the server and tool', (t) => {
+test('keeps the registered name where no result names the server and tool', () => {
   // Sanitizing maps docs.v2/search.pages and docs_v2/search_pages to one name, so it is not split.
   const block = {
     type: 'toolCall',
@@ -1140,24 +966,6 @@ test('keeps the registered name where no result names the server and tool', (t) 
   );
   assert.match(unnamed, /mcp__docs_v2__search_pages/);
   assert.doesNotMatch(unnamed, /docs_v2\//);
-
-  // A codemode script's calls carry only that name, which is also what the script calls.
-  // The failed result keeps the card a success would have folded away.
-  const script = codemodeCall('call-codemode-mcp', 'await tools.mcp__docs_v2__search_pages({})');
-  setToolCallExpanded(script.toolCallId, true);
-  t.after(() => setToolCallExpanded(script.toolCallId, false));
-  const html = renderCodemode(script, {
-    role: 'toolResult',
-    toolCallId: script.toolCallId,
-    isError: true,
-    content: [{ type: 'text', text: 'Script completed\nWall time 0.1 seconds\nOutput:\n' }],
-    details: {
-      calls: [
-        { id: 'call-codemode-mcp/1', name: 'mcp__docs_v2__search_pages', args: '{}', status: 'ok' }
-      ]
-    }
-  });
-  assert.match(textOf(html), /mcp__docs_v2__search_pages\{\}/);
 });
 
 test("collapses the compaction summary to its title and token count, as pi's TUI does (#1026)", () => {

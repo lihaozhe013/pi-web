@@ -12,7 +12,8 @@ change its identity.
 
 The information sidebar is currently 400px wide. It overlays the conversation when space is limited
 and fills phone widths. Close and Escape restore focus to the trigger; modal overlays contain
-keyboard focus.
+keyboard focus. The toolbar's Runs toggle opens the shell and codemode history in this surface,
+beside the System and Tools entries; it starts closed.
 
 ## Quiet, clear, polished
 
@@ -78,41 +79,44 @@ Current main-transcript behavior:
   stays out of the transcript whether it succeeded or failed.
 - A tool card appears when the call actually starts executing, and not while the model is still
   writing its arguments: a half-streamed JSON blob would intrude, while a running call's card is the
-  progress the user asked for. A shell or codemode card therefore opens at execution with its live
-  output and, once it has succeeded, lingers open until the card has been visible for about two
-  seconds from its start — so a command that finished in a blink still reads as a step rather than a
-  flash, while a long one has already been on screen — and then folds out of the main transcript;
-  failures retain an inspectable error summary. Codemode groups its actual nested calls as compact
-  subcards ahead of a script disclosure, with separate status, arguments and errors for each call.
-  These are execution summaries, not independent transcript messages or complete tool results.
+  progress the user asked for.
+- Shell and codemode calls draw no card in the transcript, running, successful or failed. The
+  composer status row names them while they run, and the Runs panel keeps their history: the toggle
+  sits beside Tools in the toolbar, is closed by default, and stays open until the user closes it.
+  The panel lists the conversation's loaded runs newest first, with each command or script, its
+  output and its state. Running and failed runs open themselves; a success stays a row until asked
+  for. Codemode lists its nested calls as compact subcards ahead of a script disclosure. Closing the
+  panel does not discard anything.
 - Write/edit cards default to expanded. Patch cards fold after completion.
-- A command the user ran themselves (`!`) keeps its live card, because its progress is the answer
-  they asked for.
-- Long shell output initially shows its last 16 lines, with access to all output.
+- A command the user ran themselves (`!`) keeps its live card in the transcript, because its
+  progress is the answer they asked for. It also appears in the Runs panel so the history is
+  complete.
+- Long shell output in the Runs panel initially shows its last 40 lines, with access to all output.
 - Explicit expansion choices override defaults for retained cards.
 - Errors, truncation notices, and necessary warnings remain visible.
 
 Visual filtering must not remove full history, export content, persisted data, or agent context.
 Distinguish provider waiting, thinking, reading, execution, and compaction. Clear transient status
-when a run ends. Partial output is not success: it keeps a running card open and is never shown as a
-finished result.
+when a run ends. Partial output is not success: a running run stays running while its partial output
+grows, and it is never shown as a finished result.
 
 Load syntax highlighting on demand. Unknown languages and streaming input must remain readable
 without it. Draw tool cards as borderless panes: a surface tint lifts the card off the transcript
 and the code, diff or output inside it sits a shade deeper, so color rather than a frame separates
-the body from the page.
+the body from the page. The Runs panel is one ledger rather than a stack of cards: rows share a
+hairline rule and a status gutter, and only an opened output becomes a pane.
 
 Motion explains a change; it never decorates one. A card fades in when its call starts, its status
-mark fades when it changes, its body folds open and shut, a result pane rises into place, and a card
-that leaves the transcript — a shell or codemode call that succeeded — first lingers where it stood
-until its visible time is spent, then fades and folds away in place instead of vanishing in one
-frame. Only a card that lived in this page moves: the card remembers whether the call was still
-running at mount, so restoring a session, re-reading the same message, scrolling history or
-re-grouping a turn replays none of it. The run status row above the composer is always in the stack:
-it folds open with the run, folds away when the run ends, and only its words change in between, so
-the composer never jumps under the user's cursor. All of this is opacity, transform or a box size;
+mark fades when it changes, and its body folds open and shut. A user-run command that leaves after
+its short reading hold fades and folds away where it stood. Only a card that lived in this page
+moves: the card remembers whether the call was still running at mount, so restoring a session,
+re-reading the same message, scrolling history or re-grouping a turn replays none of it. The run
+status row above the composer is always in the stack: it folds open with the run, folds away when
+the run ends, and only its words change in between, so the composer never jumps under the user's
+cursor. The Runs panel is a quiet ledger: rows do not animate in or out while commands start and
+finish; only a running mark blinks. All motion is opacity, transform or a box size;
 `prefers-reduced-motion` makes every change instant, including the short hold that keeps a leaving
-card on screen for its fade.
+command on screen.
 
 ## Copying a turn
 
@@ -124,10 +128,10 @@ while a turn keeps its own separation from the next.
 The entry opens the sidebar's "New" dialog language with three scopes:
 
 - **Conversation**: the prompt and the agent's replies, without tool calls.
-- **Kept record**: the replies plus every step the transcript still shows, so edits, patches,
-  questions and failed commands arrive with their arguments and stored results.
-- **Execution log**: the kept record plus the successful shell and codemode calls the transcript
-  folds away, with the structured details a tool recorded.
+- **Kept record**: the replies plus every step the transcript still shows, so edits, patches and
+  questions arrive with their arguments and stored results.
+- **Execution log**: the kept record plus the shell and codemode runs the Runs panel lists, with the
+  structured details a tool recorded.
 
 Every scope leaves out thinking and exploration calls (`read`, `grep`, `find`, `ls`): they are how
 the agent looked something up, not what it did. Tool arguments travel as JSON and results as stored,

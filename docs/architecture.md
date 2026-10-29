@@ -10,20 +10,21 @@ sessions in process; Bun manages dependencies and script invocation.
 
 ## Main entry points
 
-| Area                     | Entry points                                                |
-| ------------------------ | ----------------------------------------------------------- |
-| Layout and navigation    | `components/AppShell.tsx`                                   |
-| Session list             | `components/SessionSidebar.tsx`                             |
-| Conversation and input   | `components/ChatWindow.tsx`, `components/ChatInput.tsx`     |
-| Transcript rendering     | `components/MessageView.tsx`, `components/MarkdownBody.tsx` |
-| Turn copy                | `lib/turn-copy.ts`, `components/TurnCopy.tsx`               |
-| Client session lifecycle | `hooks/useAgentSession.ts`                                  |
-| Agent runtime            | `lib/rpc-manager.ts`                                        |
-| Saved session reading    | `lib/session-reader.ts`                                     |
-| Shared types             | `lib/types.ts`, `lib/pi-types.ts`                           |
-| HTTP APIs                | `app/api/`                                                  |
-| Local launcher           | `bin/pi-web.js`                                             |
-| Portable packaging       | `packaging/`                                                |
+| Area                     | Entry points                                                       |
+| ------------------------ | ------------------------------------------------------------------ |
+| Layout and navigation    | `components/AppShell.tsx`                                          |
+| Session list             | `components/SessionSidebar.tsx`                                    |
+| Conversation and input   | `components/ChatWindow.tsx`, `components/ChatInput.tsx`            |
+| Transcript rendering     | `components/MessageView.tsx`, `components/MarkdownBody.tsx`        |
+| Shell and codemode runs  | `components/ExecutionHistoryPanel.tsx`, `lib/execution-history.ts` |
+| Turn copy                | `lib/turn-copy.ts`, `components/TurnCopy.tsx`                      |
+| Client session lifecycle | `hooks/useAgentSession.ts`                                         |
+| Agent runtime            | `lib/rpc-manager.ts`                                               |
+| Saved session reading    | `lib/session-reader.ts`                                            |
+| Shared types             | `lib/types.ts`, `lib/pi-types.ts`                                  |
+| HTTP APIs                | `app/api/`                                                         |
+| Local launcher           | `bin/pi-web.js`                                                    |
+| Portable packaging       | `packaging/`                                                       |
 
 ## Browser appearance and settings
 
@@ -86,7 +87,10 @@ migration layer. Cleanup removes code, not user files.
 3. Agent events stream to the browser over SSE. Client state reconciles live events with saved
    history.
 4. The transcript renders replies, tool activity, and errors. Display filtering is separate from
-   persisted history and model context.
+   persisted history and model context. Shell and codemode runs are filtered out of the transcript
+   and collected by the Runs panel from the loaded messages plus live execution state;
+   `hooks/useRetainedExecutionHistory.ts` keeps a finished call in place while its stored result
+   arrives.
 
 ## Session output speed
 

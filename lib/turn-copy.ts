@@ -105,10 +105,9 @@ function keepsToolCall(
   if (isExplorationToolName(call.toolName)) return false;
   if (mode === 'execution') return true;
   if (result === undefined) return false;
-  return (
-    !(isShellToolName(call.toolName) || call.toolName === CODEMODE_TOOL_NAME) ||
-    Boolean(result.isError)
-  );
+  // The transcript keeps no shell or codemode card, so the kept record does not
+  // either; the execution log is where those runs belong.
+  return !(isShellToolName(call.toolName) || call.toolName === CODEMODE_TOOL_NAME);
 }
 
 function toolSection(

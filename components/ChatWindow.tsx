@@ -3,6 +3,8 @@ import { AskUserPanel, isAskUserRequest } from './AskUserPanel';
 import { ComposerActivity } from './ComposerActivity';
 import { TurnCopy } from './TurnCopy';
 import { mainTranscriptBlocks } from '@/lib/quiet-activity';
+import { buildExecutionHistory, type ExecutionHistoryEntry } from '@/lib/execution-history';
+import { useRetainedExecutionHistory } from '@/hooks/useRetainedExecutionHistory';
 import { ToolActivityProvider, liveToolIds } from './ToolActivity'; // display-only execution status
 import { GOAL_STATUS_KEY } from '@/lib/goal-state';
 import { registerAbortHandler } from '@/hooks/useKeyboardShortcuts';
@@ -140,6 +142,8 @@ interface Props {
   onSystemPromptChange?: (prompt: string | null) => void;
   onSystemToolsChange?: (tools: ToolEntry[] | null) => void;
   onSystemInfoLoaderChange?: (loader: (() => Promise<void>) | null) => void;
+  /** Every shell and codemode run for the Runs panel, oldest first. */
+  onExecutionHistoryChange?: (entries: ExecutionHistoryEntry[]) => void;
   onSessionStatsChange?: (stats: SessionStatsInfo | null) => void;
   onSessionStatsPanelOpen?: () => void;
   /** Opens Settings on a section: a bare `/mcp` that pi's built-in MCP extension owns opens Settings › MCP. */
@@ -329,6 +333,7 @@ export function ChatWindow({
   onSystemPromptChange,
   onSystemToolsChange,
   onSystemInfoLoaderChange,
+  onExecutionHistoryChange,
   onSessionStatsChange,
   onSessionStatsPanelOpen,
   onOpenSettings,
@@ -1159,6 +1164,16 @@ export function ChatWindow({
     () => liveToolIds(agentPhase, activeToolResults),
     [agentPhase, activeToolResults]
   );
+  const executionHistory = useRetainedExecutionHistory(
+    useMemo(
+      () => buildExecutionHistory(messages, toolResultsMap, liveIds, { pendingBash }),
+      [messages, toolResultsMap, liveIds, pendingBash]
+    )
+  );
+  useEffect(() => {
+    onExecutionHistoryChange?.(executionHistory);
+  }, [executionHistory, onExecutionHistoryChange]);
+  useEffect(() => () => onExecutionHistoryChange?.([]), [onExecutionHistoryChange]);
   // Same idea for the copies a grouped turn passes MessageView (see getFinalAnswerViews).
   const finalAnswerViewCache = useMemo(() => new WeakMap<AssistantMessage, FinalAnswerViews>(), []);
   const inputHistory = useMemo(() => {

@@ -19,6 +19,7 @@ import {
 import type { ChatScrollPosition } from '@/lib/chat-scroll-position';
 import { copyText } from '@/lib/clipboard';
 import { getDraft, rekeyDraft } from '@/lib/draft-store';
+import type { ExecutionHistoryEntry } from '@/lib/execution-history';
 import { getFileName } from '@/lib/file-paths';
 import { getInitialNavigation, linkedSessionId, withTabOpen } from '@/lib/initial-navigation';
 import {
@@ -65,6 +66,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { BranchNavigator, hasSessionBranches } from './BranchNavigator';
 import type { ChatInputHandle } from './ChatInput';
 import { ChatWindow } from './ChatWindow';
+import { ExecutionHistoryPanel } from './ExecutionHistoryPanel';
 import { NewSessionContextBar, type NewSessionContextControl } from './NewSessionContextBar';
 import { ProjectTrustDialog, type ProjectTrustFailure } from './ProjectTrustDialog';
 import { mergeCatalogRow } from './session-catalog-helpers';
@@ -287,6 +289,7 @@ export function AppShell() {
 
   const [systemPrompt, setSystemPrompt] = useState<string | null>(null);
   const [systemTools, setSystemTools] = useState<ToolEntry[] | null>(null);
+  const [executionHistory, setExecutionHistory] = useState<ExecutionHistoryEntry[]>([]);
   const [systemInfoLoading, setSystemInfoLoading] = useState(false);
   const systemInfoLoaderRef = useRef<(() => Promise<void>) | null>(null);
   const systemInfoLoadIdRef = useRef(0);
@@ -299,6 +302,10 @@ export function AppShell() {
 
   const handleSystemToolsChange = useCallback((tools: ToolEntry[] | null) => {
     setSystemTools(tools);
+  }, []);
+
+  const handleExecutionHistoryChange = useCallback((entries: ExecutionHistoryEntry[]) => {
+    setExecutionHistory(entries);
   }, []);
 
   const handleSystemInfoLoaderChange = useCallback((loader: (() => Promise<void>) | null) => {
@@ -348,7 +355,7 @@ export function AppShell() {
 
   // The toolbar opens one information surface at a time.
   const [activeTopPanel, setActiveTopPanel] = useState<
-    'branches' | 'system' | 'tools' | 'session' | null
+    'branches' | 'system' | 'tools' | 'runs' | 'session' | null
   >(null);
 
   useEffect(() => {
@@ -362,7 +369,7 @@ export function AppShell() {
   }, [settingsSection]);
 
   const toggleTopPanel = useCallback(
-    (panel: 'branches' | 'system' | 'tools' | 'session') => {
+    (panel: 'branches' | 'system' | 'tools' | 'runs' | 'session') => {
       if (isMobile) setSidebarOpen(false);
       setActiveTopPanel((cur) => (cur === panel ? null : panel));
       setMobileToolbarMoreOpen(false);
@@ -1745,6 +1752,66 @@ export function AppShell() {
           </svg>
           {!mobile && <span>{translate('tools.label')}</span>}
         </button>
+        <button
+          type="button"
+          onClick={() => toggleTopPanel('runs')}
+          disabled={mobile && !showChat}
+          title={translate('runs.title')}
+          aria-label={translate('runs.title')}
+          aria-pressed={activeTopPanel === 'runs'}
+          aria-controls="session-information"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+            width: mobile ? TOP_BAR_ICON_BUTTON_SIZE : undefined,
+            height: '100%',
+            padding: mobile ? 0 : '0 12px',
+            background: activeTopPanel === 'runs' ? 'var(--bg-selected)' : 'none',
+            border: 'none',
+            borderTop:
+              activeTopPanel === 'runs' ? '2px solid var(--accent)' : '2px solid transparent',
+            borderRight: '1px solid var(--border)',
+            cursor: mobile && !showChat ? 'not-allowed' : 'pointer',
+            color: activeTopPanel === 'runs' ? 'var(--text)' : 'var(--text-muted)',
+            opacity: mobile && !showChat ? 0.45 : 1,
+            fontSize: 11,
+            whiteSpace: 'nowrap',
+            transition: 'color 0.1s, background 0.1s'
+          }}
+          onMouseEnter={(event) => {
+            if (mobile && !showChat) return;
+            event.currentTarget.style.color = 'var(--text)';
+          }}
+          onMouseLeave={(event) => {
+            event.currentTarget.style.color =
+              activeTopPanel === 'runs' ? 'var(--text)' : 'var(--text-muted)';
+          }}
+          data-mobile-toolbar-action={mobile ? 'runs' : undefined}
+        >
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{
+              color: executionHistory.some((entry) => entry.status === 'running')
+                ? 'var(--accent)'
+                : 'var(--text-dim)',
+              flexShrink: 0
+            }}
+            aria-hidden="true"
+          >
+            <path d="m4 17 6-6-6-6" />
+            <line x1="12" y1="19" x2="20" y2="19" />
+          </svg>
+          {!mobile && <span>{translate('runs.label')}</span>}
+        </button>
       </div>
     );
   };
@@ -2377,6 +2444,7 @@ export function AppShell() {
                 onSystemPromptChange={handleSystemPromptChange}
                 onSystemToolsChange={handleSystemToolsChange}
                 onSystemInfoLoaderChange={handleSystemInfoLoaderChange}
+                onExecutionHistoryChange={handleExecutionHistoryChange}
                 onSessionStatsChange={handleSessionStatsChange}
                 onSessionStatsPanelOpen={openSessionStatsPanel}
                 onOpenSettings={openSettingsSection}
@@ -2528,6 +2596,7 @@ export function AppShell() {
                   branches: 'i18n.branches',
                   system: 'system.prompt',
                   tools: 'tools.title',
+                  runs: 'runs.title',
                   session: 'session.title'
                 } as const
               )[activeTopPanel]
@@ -2559,6 +2628,9 @@ export function AppShell() {
                 tools={systemTools}
                 translate={translate}
               />
+            )}
+            {activeTopPanel === 'runs' && (
+              <ExecutionHistoryPanel entries={executionHistory} sessionId={selectedSession?.id} />
             )}
             {activeTopPanel === 'session' && (
               <div

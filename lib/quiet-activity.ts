@@ -19,9 +19,10 @@ export function isQuietActivityBlock(block: AssistantContentBlock): boolean {
  * writing its arguments: a half-streamed JSON blob would intrude on the
  * conversation, while a running call's card is the progress the user asked for.
  *
- * A successful shell command or codemode script leaves no card at all; a
- * failed one keeps its error summary. Every rule here reads persisted results
- * and the reported running calls, never a streamed fragment as if it were a result.
+ * Shell and codemode runs never draw a transcript card: they live in the Runs
+ * panel, which keeps them after they finish. Every rule here reads persisted
+ * results and the reported running calls, never a streamed fragment as if it
+ * were a result.
  */
 export function isTransientToolBlock(
   block: AssistantContentBlock,
@@ -29,16 +30,15 @@ export function isTransientToolBlock(
   running?: ReadonlySet<string>
 ): boolean {
   if (block.type !== 'toolCall') return false;
+  // Shell and codemode runs live in the Runs panel, whether they run, succeed or
+  // fail. The transcript keeps no card for them at all.
+  if (isShellToolName(block.toolName) || block.toolName === CODEMODE_TOOL_NAME) return true;
   // The dedicated question panel is the interaction; do not duplicate its raw call
   // in the transcript while it waits. Completed results remain inspectable.
   if (running?.has(block.toolCallId)) return block.toolName === 'ask_user';
   const result = results?.get(block.toolCallId);
   if (result === undefined) return true;
-  // A codemode script is transient exactly like a shell command: its card is the
-  // progress while it runs, and a success leaves the transcript.
-  return (
-    (isShellToolName(block.toolName) || block.toolName === CODEMODE_TOOL_NAME) && !result.isError
-  );
+  return false;
 }
 
 /** Display filtering never changes the stored transcript or exported history. */
