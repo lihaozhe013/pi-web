@@ -290,7 +290,7 @@ export function AppShell() {
   const [systemPrompt, setSystemPrompt] = useState<string | null>(null);
   const [systemTools, setSystemTools] = useState<ToolEntry[] | null>(null);
   const [executionHistory, setExecutionHistory] = useState<ExecutionHistoryEntry[]>([]);
-  const [runHistoryOpen, setRunHistoryOpen] = useState(true);
+  const [runHistoryOpen, setRunHistoryOpen] = useState(false);
   const [systemInfoLoading, setSystemInfoLoading] = useState(false);
   const systemInfoLoaderRef = useRef<(() => Promise<void>) | null>(null);
   const systemInfoLoadIdRef = useRef(0);

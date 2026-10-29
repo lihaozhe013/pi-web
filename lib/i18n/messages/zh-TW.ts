@@ -217,7 +217,7 @@ export const zhTWLocale: LocalePlugin = {
     'runs.history': '歷史',
     'runs.noHistory': '尚無已完成的執行',
     'runs.label': '執行',
-    'runs.title': '執行紀錄',
+    'runs.title': '執行',
     'runs.summaryOne': '1 次執行',
     'runs.summary': '{count} 次執行',
     'runs.runningOne': '1 個執行中',
