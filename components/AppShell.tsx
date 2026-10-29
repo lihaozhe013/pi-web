@@ -290,6 +290,7 @@ export function AppShell() {
   const [systemPrompt, setSystemPrompt] = useState<string | null>(null);
   const [systemTools, setSystemTools] = useState<ToolEntry[] | null>(null);
   const [executionHistory, setExecutionHistory] = useState<ExecutionHistoryEntry[]>([]);
+  const [runHistoryOpen, setRunHistoryOpen] = useState(true);
   const [systemInfoLoading, setSystemInfoLoading] = useState(false);
   const systemInfoLoaderRef = useRef<(() => Promise<void>) | null>(null);
   const systemInfoLoadIdRef = useRef(0);
@@ -2630,7 +2631,12 @@ export function AppShell() {
               />
             )}
             {activeTopPanel === 'runs' && (
-              <ExecutionHistoryPanel entries={executionHistory} sessionId={selectedSession?.id} />
+              <ExecutionHistoryPanel
+                entries={executionHistory}
+                sessionId={selectedSession?.id}
+                historyOpen={runHistoryOpen}
+                onHistoryOpenChange={setRunHistoryOpen}
+              />
             )}
             {activeTopPanel === 'session' && (
               <div

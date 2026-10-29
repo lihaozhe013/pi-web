@@ -11,12 +11,17 @@ const { renderToStaticMarkup } = await jiti.import('react-dom/server');
 const { ExecutionHistoryPanel } = await jiti.import('./ExecutionHistoryPanel.tsx');
 const { I18nProvider } = await jiti.import('@/hooks/useI18n');
 
-function render(entries, sessionId) {
+function render(entries, sessionId, historyOpen = true) {
   return renderToStaticMarkup(
     React.createElement(
       I18nProvider,
       null,
-      React.createElement(ExecutionHistoryPanel, { entries, sessionId })
+      React.createElement(ExecutionHistoryPanel, {
+        entries,
+        sessionId,
+        historyOpen,
+        onHistoryOpenChange: () => {}
+      })
     )
   );
 }
@@ -66,6 +71,17 @@ test('newest runs lead, a running one opens itself, a success waits folded', () 
   assert.match(html, /aria-expanded="true"/);
   assert.match(html, /class="tool-card-body" data-open="true"/);
   assert.doesNotMatch(html, /data-live="true"/, 'opening the panel does not replay old runs');
+});
+
+test('history can be collapsed without removing its entries', () => {
+  const html = render([{ ...base, id: 'old' }], undefined, false);
+  assert.match(html, /data-history-open="false"/);
+  assert.match(
+    html,
+    /class="run-history-toggle" aria-expanded="false" aria-controls="runs-history-content"/
+  );
+  assert.match(html, /id="runs-history-content"[^>]*aria-hidden="true" inert=""/);
+  assert.match(html, /data-run-id="old"/);
 });
 
 test('a historical failure stays folded', () => {

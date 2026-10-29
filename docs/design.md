@@ -84,10 +84,12 @@ Current main-transcript behavior:
   composer status row names them while they run, and the Runs panel keeps their history: the toggle
   sits beside Tools in the toolbar, is closed by default, and stays open until the user closes it.
   The panel separates active runs from history, with independent scrolling and newest first in each.
-  Active cards default open; completed cards remain in the active section for two seconds, showing
-  their final status, then move to history and default closed. Multiple runs can remain active at
-  once. Codemode lists its nested calls as compact subcards ahead of a script disclosure. Closing
-  the panel does not discard anything.
+  The history heading toggles the section into a compact footer, leaving the active area more room;
+  this choice stays in effect when the panel is closed and reopened. Active cards default open;
+  completed cards remain in the active section for two seconds, showing their final status, then
+  move to history and default closed. Multiple runs can remain active at once. Codemode lists its
+  nested calls as compact subcards ahead of a script disclosure. Closing the panel does not discard
+  anything.
 - Write/edit cards default to expanded. Patch cards fold after completion.
 - A command the user ran themselves (`!`) keeps its live card in the transcript, because its
   progress is the answer they asked for. It also appears in the Runs panel so the history is

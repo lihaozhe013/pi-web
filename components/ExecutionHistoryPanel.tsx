@@ -142,7 +142,10 @@ function RunEntry({
     const replacement = [
       ...(panel?.querySelectorAll<HTMLElement>('.run-history-past [data-run-id]') ?? [])
     ].find((node) => node.dataset.runId === entry.id);
-    replacement?.querySelector<HTMLButtonElement>('.run-history-entry-header')?.focus();
+    const target = replacement?.closest('[inert]')
+      ? panel?.querySelector<HTMLButtonElement>('.run-history-toggle')
+      : replacement?.querySelector<HTMLButtonElement>('.run-history-entry-header');
+    target?.focus();
   }, [entry.id, exiting]);
   const duration = formatExecutionDuration(entry.durationMs);
   const callCount = entry.calls ? entry.calls.length + (entry.omittedCalls ?? 0) : 0;
@@ -248,10 +251,14 @@ const runId = (entry: ExecutionHistoryEntry) => entry.id;
 /** The permanent shell and codemode history, newest first. */
 export function ExecutionHistoryPanel({
   entries,
-  sessionId
+  sessionId,
+  historyOpen,
+  onHistoryOpenChange
 }: {
   entries: readonly ExecutionHistoryEntry[];
   sessionId?: string;
+  historyOpen: boolean;
+  onHistoryOpenChange: (open: boolean) => void;
 }) {
   const { t } = useI18n();
   const ordered = useMemo(() => [...entries].reverse(), [entries]);
@@ -269,7 +276,7 @@ export function ExecutionHistoryPanel({
   });
 
   return (
-    <div className="run-history">
+    <div className="run-history" data-history-open={historyOpen ? 'true' : 'false'}>
       <section
         className="run-history-section run-history-active"
         aria-labelledby="runs-active-title"
@@ -301,11 +308,43 @@ export function ExecutionHistoryPanel({
         className="run-history-section run-history-past"
         aria-labelledby="runs-history-title"
       >
-        <h3 className="run-history-section-title" id="runs-history-title">
-          <span>{t('runs.history')}</span>
-          <span className="run-history-count">{history.length}</span>
+        <h3 className="run-history-section-title run-history-past-title" id="runs-history-title">
+          <button
+            type="button"
+            className="run-history-toggle"
+            aria-expanded={historyOpen}
+            aria-controls="runs-history-content"
+            onClick={() => onHistoryOpenChange(!historyOpen)}
+          >
+            <span>{t('runs.history')}</span>
+            <span className="run-history-toggle-meta">
+              <span className="run-history-count">{history.length}</span>
+              <svg
+                className="run-history-chevron"
+                data-open={historyOpen ? 'true' : undefined}
+                width="10"
+                height="10"
+                viewBox="0 0 10 10"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <polyline points="2 3.5 5 6.5 8 3.5" />
+              </svg>
+            </span>
+          </button>
         </h3>
-        <div className="run-history-scroll" tabIndex={0} aria-label={t('runs.history')}>
+        <div
+          id="runs-history-content"
+          className="run-history-scroll run-history-past-content"
+          tabIndex={historyOpen ? 0 : -1}
+          aria-label={t('runs.history')}
+          aria-hidden={!historyOpen || undefined}
+          inert={!historyOpen || undefined}
+        >
           {history.length ? (
             <ol className="run-history-list">
               {history.map((entry) => (
