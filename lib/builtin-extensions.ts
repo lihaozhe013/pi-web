@@ -17,6 +17,7 @@ import { McpHost, type McpHostOptions } from './mcp-host';
 import { createAskUserExtension } from './ask-user-extension';
 import { createPlanModeExtension } from './plan-mode-extension';
 import { createGoalExtension } from './goal-extension';
+import { readGoalLimitsSync } from './goal-settings';
 import { createPiWebMcpTransportFactory } from './mcp-transport';
 import {
   loadPiSdkInternals,
@@ -451,7 +452,8 @@ export async function createPiWebBuiltinExtensions(
     extensions: [
       createAskUserExtension(),
       createPlanModeExtension(),
-      createGoalExtension(),
+      // The goal's default depth is read when a goal starts, so Settings applies at once.
+      createGoalExtension({ readDefaultLimits: () => readGoalLimitsSync() }),
       builtin('codemode', sandbox.available ? createCodemodeExtension() : unavailableExtension),
       ...extensions
     ],

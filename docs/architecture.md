@@ -143,21 +143,31 @@ configuration.
 ## Autonomous goals
 
 `lib/goal-extension.ts` adds a session-scoped goal to normal Pi Web sessions. The composer's Goal
-button opens the dialog that writes it; `/goal start <objective>`, `/goal resume`, `/goal pause`,
-`/goal complete`, and `/goal clear` remain available as commands. `lib/goal-state.ts` owns the
-snapshot shape and the command the dialog sends, and the extension publishes the same snapshot as
-its status text, so the button and the saved session agree without a separate route. The extension
-stores snapshots as branch-relative Pi custom entries, starts and continues runs from hidden
-messages at `agent_before_settle`, and lets the model report completion or a blocker with evidence.
-A report is the model's claim, not independent proof. The current tool selection and permission
-checks still apply.
+button opens the dialog that writes it;
+`/goal start [--turns N --tokens N --minutes N] <objective>`, `/goal resume`, `/goal pause`,
+`/goal complete`, `/goal limits`, and `/goal clear` remain available as commands.
+`lib/goal-state.ts` owns the snapshot shape, the depth flags, and the command the dialog sends, and
+the extension publishes the same snapshot as its status text, so the button and the saved session
+agree without a separate route. The extension stores snapshots as branch-relative Pi custom entries,
+starts and continues runs from hidden messages at `agent_before_settle`, and lets the model report
+completion or a blocker with evidence. A report is the model's claim, not independent proof. The
+current tool selection and permission checks still apply.
 
-Each start or resume permits at most five automatic continuations, 200,000 reported tokens, or 30
-minutes. These limits are checked between runs, so one long run can exceed them. Stop interrupts the
-run and pauses the goal; session restoration or branch navigation pauses an active goal as well. A
-start that fails before the agent begins stays paused. Resuming starts a new budget. The browser
-does not run the loop, and closing it does not stop the server. Do not use this feature with
-untrusted workspaces or permissions you would not grant to an unattended agent.
+Depth is three limits: automatic continuations, reported tokens, and elapsed time. Settings › Goal
+writes the default to the global `piWebGoal` key in settings.json; `lib/goal-settings.ts` reads it
+when a goal starts, so a change applies to the next start or resume without recreating the session.
+A start or resume copies the resolved limits into the goal entry, and the continuation check uses
+that copy, so a goal keeps the depth it was started with and a later Settings edit does not move a
+running goal's target. The dialog shows the stored default for a new goal and can override it per
+goal; `/goal limits` changes the depth of a paused goal without starting a run. Values outside the
+accepted ranges (1–50 turns, 10,000–5,000,000 tokens, 1–480 minutes) are refused, never clamped, and
+an unreadable stored value falls back to the built-in 5 turns, 200,000 tokens, 30 minutes.
+
+These limits are checked between runs, so one long run can exceed them. Stop interrupts the run and
+pauses the goal; session restoration or branch navigation pauses an active goal as well. A start
+that fails before the agent begins stays paused. Resuming starts a new budget with the goal's depth.
+The browser does not run the loop, and closing it does not stop the server. Do not use this feature
+with untrusted workspaces or permissions you would not grant to an unattended agent.
 
 ## Math rendering dependencies
 

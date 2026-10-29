@@ -175,15 +175,23 @@ and carries its state word (**Running**, **Paused**, **Done**, **Blocked**), so 
 rests on color alone. Only a running goal takes the accent, which marks the one case where the agent
 keeps working without the user. There is no separate goal panel or dashboard.
 
-The button opens a small dialog that holds the whole goal: what should be achieved, the status, and
-the continuations used so far. A new goal starts from an empty objective; an existing one shows its
-state, its stop reason and the limits before any change. The primary action names the change it will
-make (**Start goal**, **Resume goal**, **Pause goal**, **Mark finished**, **Save objective**) and
-stays disabled when nothing would change. A running goal keeps its objective: the field explains
-that the goal must be paused, and the dialog offers **Stop run** instead of editing. While a run is
-active the status choices are disabled and the dialog says so. The dialog traps focus, closes on
-Escape or the backdrop, and returns focus to the button; the objective field validates on blur with
-its error beside the field. Goal completion is the agent's report, not an independent guarantee.
+The button opens a small dialog that holds the whole goal: what should be achieved, the status, the
+depth, and the continuations used so far. A new goal starts from an empty objective at the stored
+default depth; an existing one shows its state, its stop reason, and the depth it runs at. Depth is
+three numbers (automatic turns, tokens, minutes) with **Light**, **Standard**, and **Deep**
+shortcuts above them; typing numbers is the custom case, and the line under the fields states what
+the run will actually be allowed, including that limits are checked between runs. The primary action
+names the change it will make (**Start goal**, **Resume goal**, **Pause goal**, **Mark finished**,
+**Save objective**, **Save depth**) and stays disabled when nothing would change. A depth-only edit
+never starts a run. A running goal keeps its objective and depth: the field explains that the goal
+must be paused, and the dialog offers **Stop run** instead of editing. While a run is active the
+status choices are disabled and the dialog says so. The dialog traps focus, closes on Escape or the
+backdrop, and returns focus to the button; the objective field validates on blur with its error
+beside the field. Goal completion is the agent's report, not an independent guarantee.
+
+Settings › Goal holds the default depth a new goal starts at, in the same three fields, with
+**Restore defaults** beside **Save**. It is one global answer to how far an unattended run may go,
+while the dialog still lets a single goal go further or stop sooner.
 
 ## Starting a conversation
 
