@@ -128,6 +128,11 @@ shell. The app is rebuilt with `NEXT_PUBLIC_PI_WEB_DESKTOP=1`, which keeps the s
 registering. A service worker in a webview caches by origin, survives port changes, and can serve a
 stale shell after an update; the desktop shell does not need offline support.
 
+Production dependencies are pruned of source maps, sharp, and Next.js docs before the archive is
+written. `@next/swc` stays: when it is missing, Next.js downloads the bindings at startup, which
+needs network access and about 190 MiB of the user's disk. The payload is mostly Next.js itself (its
+native compiler plus runtime) and Pi's provider SDKs, not application code.
+
 ## Build
 
 Requirements: a Rust toolchain, the Tauri prerequisites for the host platform, the latest Bun

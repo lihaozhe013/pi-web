@@ -27,8 +27,12 @@ source directory. Add new files to Git before packaging. Deleted files are skipp
 `bun.lock` is copied.
 
 It installs frozen dependencies, builds outside the development checkout, packs using the package
-file allow-list, and installs production dependencies in isolation. The temporary source copy has no
-`.git`, so the packager forwards the source commit as `PI_WEB_COMMIT` and the build's version
+file allow-list, and installs production dependencies in isolation. That production tree is then
+pruned of files `next start` never reads: source maps under `node_modules`, the sharp image
+optimizer (`images.unoptimized` is on), and Next.js documentation. Pruning keeps `@next/swc` and
+fails the build when it is missing, because Next.js would otherwise download the bindings at
+startup. The smoke test runs after pruning, so it validates what ships. The temporary source copy
+has no `.git`, so the packager forwards the source commit as `PI_WEB_COMMIT` and the build's version
 carries its short form (`0.1.0+1c02256`). The final archive contains `.next` and complete production
 `node_modules`; it does not use Next.js standalone output.
 

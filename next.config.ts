@@ -58,6 +58,8 @@ const nextConfig: NextConfig = {
   },
   // next/image is only used for the static logo, so the /_next/image optimizer
   // (and its sharp/libheif attack surface, see GHSA-2xp9-vwfh-vxw4) is not needed.
+  // Packaging removes sharp from the runtime payload for the same reason; turning
+  // optimization back on means keeping @img in packaging/portable.mjs.
   images: { unoptimized: true },
   // Dev and build both run Turbopack (the Next 16 default).
   turbopack: {

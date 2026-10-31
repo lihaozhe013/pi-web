@@ -1,7 +1,17 @@
 // Local portable packaging with Bun for dependencies and Node.js for runtime.
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { cp, mkdir, mkdtemp, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import {
+  cp,
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rename,
+  rm,
+  stat,
+  writeFile
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -16,6 +26,63 @@ export function artifactName(version, platform = process.platform, arch = proces
   }
   // Linux releases target glibc, not Alpine/musl.
   return `pi-web-${version}-${platform}-${arch}${platform === 'linux' ? '-glibc' : ''}`;
+}
+
+/**
+ * Remove files the running server never reads: source maps, the image optimizer
+ * binary, and Next.js documentation. Source maps only matter for stack traces
+ * with `--enable-source-maps`; Next.js's own `.next` maps are already outside
+ * the package allow-list.
+ *
+ * `@next/swc` must stay: when it is missing, Next.js downloads the bindings at
+ * startup into `next/next-swc-fallback`, which needs network access and roughly
+ * 190 MiB of the user's disk.
+ */
+export async function pruneRuntime(appDir) {
+  const nodeModules = join(appDir, 'node_modules');
+  await assertNextSwc(nodeModules);
+  const maps = await removeSourceMaps(nodeModules, { files: 0, bytes: 0 });
+  await rm(join(nodeModules, '@img'), { recursive: true, force: true });
+  await rm(join(nodeModules, 'next', 'dist', 'docs'), { recursive: true, force: true });
+  return maps;
+}
+
+async function assertNextSwc(nodeModules) {
+  let entries = [];
+  try {
+    entries = await readdir(join(nodeModules, '@next'));
+  } catch {
+    /* Reported below. */
+  }
+  if (!entries.some((entry) => entry.startsWith('swc-'))) {
+    throw new Error(
+      'The production install has no @next/swc binary. Next.js would download it at startup, so packaging stops here.'
+    );
+  }
+}
+
+async function removeSourceMaps(dir, removed) {
+  let entries;
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch {
+    return removed;
+  }
+  for (const entry of entries) {
+    const path = join(dir, entry.name);
+    // Never follow symlinks: `.bin` entries point outside the tree and the maps
+    // are always regular files inside it.
+    if (entry.isDirectory()) {
+      await removeSourceMaps(path, removed);
+      continue;
+    }
+    if (!entry.isFile() || !entry.name.endsWith('.map')) continue;
+    const { size } = await stat(path);
+    await rm(path, { force: true });
+    removed.files += 1;
+    removed.bytes += size;
+  }
+  return removed;
 }
 
 async function exists(file) {
@@ -121,6 +188,12 @@ export async function buildPortableArchive({
     await cp(join(source, 'bun.lock'), join(app, 'bun.lock'));
     // Install on the target OS/architecture so optional/native dependencies match.
     bun(['install', '--frozen-lockfile', '--production'], app);
+    // Trim what `next start` never reads. Pruning before the archive is written
+    // means the smoke test below validates the pruned tree.
+    const pruned = await pruneRuntime(app);
+    console.log(
+      `Pruned ${pruned.files} source maps (${(pruned.bytes / 1024 / 1024).toFixed(1)} MiB), sharp, and Next.js docs.`
+    );
     await writeFile(
       join(app, 'PORTABLE.json'),
       JSON.stringify(
