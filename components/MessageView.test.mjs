@@ -292,6 +292,52 @@ test('renders write tool content as readable file text', () => {
   }
 });
 
+test('a write with a stored patch shows the change, not the whole file', () => {
+  const block = {
+    type: 'toolCall',
+    toolCallId: 'call-write-diff',
+    toolName: 'write',
+    input: {
+      path: 'src/example.ts',
+      content: 'export const value = 1;\nexport const fresh = true;\n'
+    }
+  };
+  const result = {
+    role: 'toolResult',
+    toolCallId: block.toolCallId,
+    toolName: 'write',
+    content: [{ type: 'text', text: 'Successfully wrote to src/example.ts' }],
+    isError: false,
+    details: {
+      patch: [
+        '--- src/example.ts',
+        '+++ src/example.ts',
+        '@@ -1,2 +1,2 @@',
+        ' export const value = 1;',
+        '-export const old = true;',
+        '+export const fresh = true;'
+      ].join('\n')
+    }
+  };
+
+  const html = renderMessage(
+    {
+      role: 'assistant',
+      provider: 'anthropic',
+      model: 'claude-test',
+      content: [block]
+    },
+    { toolResults: new Map([[block.toolCallId, result]]) }
+  );
+  const text = textOf(html);
+
+  assert.match(text, /export const old = true;/);
+  assert.match(text, /export const fresh = true;/);
+  assert.doesNotMatch(text, /"content":/);
+  assert.doesNotMatch(text, /Successfully wrote/);
+  assert.ok(!html.includes('<table'));
+});
+
 test('a write with another argument or an empty file shows every argument as a row', () => {
   const cases = [
     {
@@ -764,6 +810,43 @@ test('marks apply_patch returned failures as errors even when isError is unset',
   assert.doesNotMatch(card, /border:|background:/);
   assert.match(html, /color:#f87171[^>]*>apply_patch</);
   assert.doesNotMatch(html, /border:1px solid/);
+});
+
+test('an apply_patch update renders as a diff, not the raw patch', () => {
+  const block = {
+    type: 'toolCall',
+    toolCallId: 'call-patch-diff',
+    toolName: 'apply_patch',
+    input: {
+      input: [
+        '*** Begin Patch',
+        '*** Update File: src/a.ts',
+        '@@',
+        ' const keep = true;',
+        '-const old = true;',
+        '+const fresh = true;',
+        '*** End Patch'
+      ].join('\n')
+    }
+  };
+  setToolCallExpanded(block.toolCallId, true);
+  try {
+    const html = renderMessage(
+      {
+        role: 'assistant',
+        provider: 'openai',
+        model: 'gpt-test',
+        content: [block]
+      },
+      resultsFor(block)
+    );
+    const text = textOf(html);
+    assert.match(text, /const old = true;/);
+    assert.match(text, /const fresh = true;/);
+    assert.doesNotMatch(text, /\*\*\* Begin Patch/);
+  } finally {
+    clearExpandedToolCalls();
+  }
 });
 
 test('collapses a displayed custom message from its header alone', () => {

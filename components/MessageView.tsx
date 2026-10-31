@@ -1507,11 +1507,14 @@ function ToolCallBlock({
     setToolCallExpanded(block.toolCallId, next);
     setExpansionOverride(next);
   };
-  const writtenFileText = getWrittenFileText(block);
+  const resultDiff = result && !result.isError ? getResultDiff(result) : null;
+  // A write with a stored patch is reviewed as the change itself: the full file
+  // text and the arguments would only repeat what the diff already shows.
+  const writeDiffOnly = resultDiff !== null && isWriteToolName(block.toolName);
+  const writtenFileText = writeDiffOnly ? null : getWrittenFileText(block);
   const inputStr = writtenFileText ?? getToolCallInputText(block);
   const isStreamingInput = block.rawInput !== undefined;
   const isEditTool = isEditToolName(block.toolName);
-  const resultDiff = result && !result.isError ? getResultDiff(result) : null;
   const patchFiles = getApplyPatchFiles(block, result);
   const patchLabel = isApplyPatchToolName(block.toolName) ? summarizeApplyPatchInput(block) : null;
   // A script and the calls it made, instead of the input JSON. Streamed input is
@@ -1526,7 +1529,11 @@ function ToolCallBlock({
   // Flat arguments as rows instead of a JSON blob, unless the card has a view of
   // its own (a write's file text, codemode, an applied patch). See `lib/tool-fields.ts`.
   const toolFields =
-    !isStreamingInput && writtenFileText === null && codemode === null && patchFiles === null
+    !isStreamingInput &&
+    !writeDiffOnly &&
+    writtenFileText === null &&
+    codemode === null &&
+    patchFiles === null
       ? toolFieldsOfInput(block.input)
       : null;
 
@@ -1724,6 +1731,7 @@ function ToolCallBlock({
                     !codemode &&
                     (isStreamingInput || !isEditTool) &&
                     !patchFiles &&
+                    !writeDiffOnly &&
                     (toolFields ? (
                       <div
                         style={{

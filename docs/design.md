@@ -115,7 +115,8 @@ Current main-transcript behavior:
   words and marks; cancelled runs remain neutral. Codemode's nested calls use their own status
   colors as compact subcards ahead of a script disclosure. Closing the panel does not discard
   anything.
-- Write/edit/patch cards default to expanded.
+- Write/edit/patch cards default to expanded. A write that replaces a file shows the changed lines
+  as a diff; its final content is not repeated.
 - A command the user ran themselves (`!`) keeps its live card in the transcript, because its
   progress is the answer they asked for. It also appears in the Runs panel so the history is
   complete.

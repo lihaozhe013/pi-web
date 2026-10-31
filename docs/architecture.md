@@ -95,7 +95,10 @@ migration layer. Cleanup removes code, not user files.
    stored result arrives. `AppShell` treats that panel as part of the default docked page: it is
    open unless the user collapsed it, closed where it would overlay the conversation until the user
    asks for it, and hidden by Settings without being collapsed. `components/SessionInfoSidebar.tsx`
-   skips focus for a panel the user did not ask for.
+   skips focus for a panel the user did not ask for. A hidden `lib/write-diff-extension.ts`
+   snapshots a write target before execution and attaches a unified patch to the result, so a
+   write's transcript card shows the change instead of the whole file; `apply_patch` already carries
+   its own patch.
 
 ## Session output speed
 
