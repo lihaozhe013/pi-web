@@ -10,11 +10,11 @@ information sidebar opened from the toolbar. Project groups help locate conversa
 project management. A new session chooses a working directory; Git repository relationships do not
 change its identity.
 
-The information sidebar is currently 400px wide. It overlays the conversation when space is limited
-and fills phone widths. Close and Escape restore focus to the trigger; modal overlays contain
-keyboard focus. A surface opened on the user's behalf — the automatic Runs panel — never takes
-focus. The toolbar's Runs toggle opens the shell and codemode history in this surface, beside the
-System and Tools entries; it starts closed.
+The right panel is dedicated exclusively to Runs and execution context (including Goal and Compaction status) and is currently 400px wide. It overlays the conversation when space is limited
+and fills phone widths. A docked collapse/expand toggle on the right side controls the panel; the panel header also includes
+a collapse button. A surface opened on the user's behalf — the automatic Runs panel — never takes focus. System prompt,
+tools definitions, and session token information open in focused modal dialogs above the conversation rather than sharing
+the sidebar. Active goals and compaction state report inside the Runs panel rather than below the chat input, keeping the main composer clean. The composer options button (`...`) sits in the right toolbar between the tools preset selector and the sound toggle.
 
 ## Quiet, clear, polished
 

@@ -203,6 +203,7 @@ export const zhCNLocale: LocalePlugin = {
     'runs.noHistory': '暂无已完成的运行',
     'runs.label': '运行',
     'runs.title': '运行',
+    'runs.status': '执行状态',
     'runs.summaryOne': '1 次运行',
     'runs.summary': '{count} 次运行',
     'runs.runningOne': '1 个运行中',

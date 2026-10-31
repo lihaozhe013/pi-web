@@ -208,6 +208,7 @@ export const enLocale: LocalePlugin = {
     'runs.noHistory': 'No completed runs yet',
     'runs.label': 'Runs',
     'runs.title': 'Runs',
+    'runs.status': 'Execution status',
     'runs.summaryOne': '1 run',
     'runs.summary': '{count} runs',
     'runs.runningOne': '1 running',

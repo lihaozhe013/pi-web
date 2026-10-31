@@ -3208,19 +3208,6 @@ export const ChatInput = memo(
                     onSetDefault={onSetDefaultModel}
                   />
                 )}
-                {(onCompact || onGoalCommand) && (
-                  <ComposerHub
-                    goal={goal}
-                    running={isStreaming}
-                    onGoalCommand={onGoalCommand}
-                    onGoalStop={onAbort}
-                    onCompact={onCompact}
-                    onAbortCompaction={onAbortCompaction}
-                    isCompacting={isCompacting}
-                    compactResult={compactResult}
-                    contextUsage={contextUsage}
-                  />
-                )}
               </div>
 
               {/* spacer */}
@@ -3586,6 +3573,20 @@ export const ChatInput = memo(
                         </div>
                       )}
                     </div>
+                  )}
+
+                  {(onCompact || onGoalCommand) && (
+                    <ComposerHub
+                      goal={goal}
+                      running={isStreaming}
+                      onGoalCommand={onGoalCommand}
+                      onGoalStop={onAbort}
+                      onCompact={onCompact}
+                      onAbortCompaction={onAbortCompaction}
+                      isCompacting={isCompacting}
+                      compactResult={compactResult}
+                      contextUsage={contextUsage}
+                    />
                   )}
 
                   {isStreaming && (

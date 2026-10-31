@@ -7,7 +7,7 @@ import { buildExecutionHistory, type ExecutionHistoryEntry } from '@/lib/executi
 import { useRetainedExecutionHistory } from '@/hooks/useRetainedExecutionHistory';
 import { useActiveExecutionHistory } from '@/hooks/useActiveExecutionHistory';
 import { ToolActivityProvider, liveToolIds } from './ToolActivity'; // display-only execution status
-import { isGoalSurfaceKey } from '@/lib/goal-driver';
+import type { GoalFacts } from '@/lib/goal-driver';
 import { registerAbortHandler } from '@/hooks/useKeyboardShortcuts';
 import Image from 'next/image';
 import {
@@ -68,12 +68,12 @@ import { MessageView } from './MessageView';
 import { MarkdownBody } from './MarkdownBody';
 import { ChatInput, type ChatInputHandle } from './ChatInput';
 import { ChatMinimap, useMessageRefs } from './ChatMinimap';
-import { ExtensionStatusBar } from './ExtensionStatusBar';
 import { AnsiText } from './AnsiText';
 import { useI18n } from '@/hooks/useI18n';
 import {
   useAgentSession,
   type AgentEndInfo,
+  type CompactResultInfo,
   type NewSessionChoices,
   type NoticeItem
 } from '@/hooks/useAgentSession';
@@ -145,6 +145,12 @@ interface Props {
   onSystemInfoLoaderChange?: (loader: (() => Promise<void>) | null) => void;
   /** Every shell and codemode run for the Runs panel, oldest first. */
   onExecutionHistoryChange?: (entries: ExecutionHistoryEntry[]) => void;
+  onGoalChange?: (goal: GoalFacts | undefined) => void;
+  onCompactionChange?: (compaction: {
+    isCompacting: boolean;
+    compactResult: CompactResultInfo | null;
+    compactError: string | null;
+  }) => void;
   /** Whether this conversation is working: a reply streaming or a command running. */
   onBusyChange?: (busy: boolean) => void;
   onSessionStatsChange?: (stats: SessionStatsInfo | null) => void;
@@ -337,6 +343,8 @@ export function ChatWindow({
   onSystemToolsChange,
   onSystemInfoLoaderChange,
   onExecutionHistoryChange,
+  onGoalChange,
+  onCompactionChange,
   onBusyChange,
   onSessionStatsChange,
   onSessionStatsPanelOpen,
@@ -427,8 +435,6 @@ export function ChatWindow({
     waitingExtensionDialogCount,
     extensionCustomUi,
     waitingExtensionCustomUiCount,
-    extensionStatuses,
-    extensionWidgets,
     goal,
     goalAvailable,
     goalAction,
@@ -459,7 +465,6 @@ export function ChatWindow({
     handleFollowUp,
     handlePromptWithStreamingBehavior,
     handleAbortCompaction,
-    dismissCompactError,
     handleRecallQueue,
     handleBuiltinSlashCommand,
     handleToolPresetChange,
@@ -1186,6 +1191,20 @@ export function ChatWindow({
     onExecutionHistoryChange?.(executionHistory);
   }, [executionHistory, onExecutionHistoryChange]);
   useEffect(() => () => onExecutionHistoryChange?.([]), [onExecutionHistoryChange]);
+
+  useEffect(() => {
+    onGoalChange?.(goal);
+  }, [goal, onGoalChange]);
+  useEffect(() => () => onGoalChange?.(undefined), [onGoalChange]);
+
+  useEffect(() => {
+    onCompactionChange?.({ isCompacting, compactResult, compactError });
+  }, [isCompacting, compactResult, compactError, onCompactionChange]);
+  useEffect(
+    () => () =>
+      onCompactionChange?.({ isCompacting: false, compactResult: null, compactError: null }),
+    [onCompactionChange]
+  );
   // Same idea for the copies a grouped turn passes MessageView (see getFinalAnswerViews).
   const finalAnswerViewCache = useMemo(() => new WeakMap<AssistantMessage, FinalAnswerViews>(), []);
   const inputHistory = useMemo(() => {
@@ -1337,8 +1356,8 @@ export function ChatWindow({
       onCompact={session || isNew ? handleCompact : undefined}
       onAbortCompaction={handleAbortCompaction}
       isCompacting={isCompacting}
-      compactError={compactError}
-      onDismissCompactError={dismissCompactError}
+      compactError={undefined}
+      onDismissCompactError={undefined}
       compactResult={compactResult}
       toolPreset={toolPreset}
       onToolPresetChange={session || isNew ? handleToolPresetChange : undefined}
@@ -2200,12 +2219,6 @@ export function ChatWindow({
             running={agentRunning || isCompacting}
           />
           {chatInputElement}
-          <ExtensionStatusBar
-            statuses={extensionStatuses.filter((status) => !isGoalSurfaceKey(status.key))}
-            widgets={extensionWidgets.filter((widget) => !isGoalSurfaceKey(widget.key))}
-            onCommand={handleSend}
-            commandsDisabled={sessionBusy}
-          />
         </div>
         {isEmptyNew && <div className="min-h-0 flex-1" />}
       </div>

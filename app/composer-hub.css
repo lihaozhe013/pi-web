@@ -9,9 +9,10 @@
 .composer-hub-trigger {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  width: 32px;
   height: 32px;
-  padding: 0 12px;
+  padding: 0;
   border: 1px solid transparent;
   border-radius: 9px;
   background: none;

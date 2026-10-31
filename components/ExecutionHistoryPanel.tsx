@@ -11,6 +11,8 @@ import {
 } from '@/lib/execution-history';
 import { ToolCodeLanguageProvider, ToolCodeTokens } from './ToolCode';
 import { CodemodeCallList } from './CodemodeToolView';
+import type { GoalFacts } from '@/lib/goal-driver';
+import type { CompactResultInfo } from '@/hooks/useAgentSession';
 
 const STATUS_MARK: Record<ExecutionHistoryStatus, string> = {
   running: '▍',
@@ -253,12 +255,20 @@ export function ExecutionHistoryPanel({
   entries,
   sessionId,
   historyOpen,
-  onHistoryOpenChange
+  onHistoryOpenChange,
+  goal,
+  isCompacting,
+  compactResult,
+  compactError
 }: {
   entries: readonly ExecutionHistoryEntry[];
   sessionId?: string;
   historyOpen: boolean;
   onHistoryOpenChange: (open: boolean) => void;
+  goal?: GoalFacts;
+  isCompacting?: boolean;
+  compactResult?: CompactResultInfo | null;
+  compactError?: string | null;
 }) {
   const { t } = useI18n();
   const ordered = useMemo(() => [...entries].reverse(), [entries]);
@@ -275,8 +285,84 @@ export function ExecutionHistoryPanel({
     previousActive.current = new Set(active.map(runId));
   });
 
+  const hasStatus = Boolean(goal || isCompacting || compactResult || compactError);
+
   return (
     <div className="run-history" data-history-open={historyOpen ? 'true' : 'false'}>
+      {hasStatus && (
+        <section
+          className="run-history-status-section"
+          aria-label={t('runs.status')}
+        >
+          {goal && (
+            <div className="run-history-status-card" data-kind="goal" data-status={goal.status}>
+              <div className="run-history-status-header">
+                <span className="run-history-status-title-row">
+                  <span className="run-history-status-badge" data-status={goal.status}>
+                    <span className="run-history-status-dot" aria-hidden="true" />
+                    {goal.status === 'active'
+                      ? t('chat.goalStatus.active')
+                      : goal.status === 'paused'
+                      ? t('chat.goalStatus.paused')
+                      : goal.status === 'done' || goal.status === 'completed'
+                      ? t('chat.goalStatus.done')
+                      : goal.status}
+                  </span>
+                  <span className="run-history-status-title">{t('chat.goal')}</span>
+                </span>
+                {goal.tokensUsed !== undefined && (
+                  <span className="run-history-status-tokens">
+                    {goal.tokenBudget
+                      ? t('chat.goalTokensOfBudget', {
+                          used: goal.tokensUsed.toLocaleString(),
+                          budget: goal.tokenBudget.toLocaleString()
+                        })
+                      : t('chat.goalTokens', { used: goal.tokensUsed.toLocaleString() })}
+                  </span>
+                )}
+              </div>
+              {goal.objective && (
+                <div className="run-history-status-objective" title={goal.objective}>
+                  {goal.objective}
+                </div>
+              )}
+            </div>
+          )}
+
+          {(isCompacting || compactResult || compactError) && (
+            <div
+              className="run-history-status-card"
+              data-kind="compact"
+              data-status={compactError ? 'error' : isCompacting ? 'running' : 'success'}
+            >
+              <div className="run-history-status-header">
+                <span className="run-history-status-title-row">
+                  <span
+                    className="run-history-status-badge"
+                    data-status={compactError ? 'error' : isCompacting ? 'running' : 'success'}
+                  >
+                    <span className="run-history-status-dot" aria-hidden="true" />
+                    {compactError
+                      ? t('codemode.status.error')
+                      : isCompacting
+                      ? t('chat.compacting')
+                      : t('chat.compacted')}
+                  </span>
+                  <span className="run-history-status-title">{t('chat.compact')}</span>
+                </span>
+                {compactResult && !isCompacting && !compactError && (
+                  <span className="run-history-status-tokens">
+                    {compactResult.tokensBefore.toLocaleString()} → {compactResult.estimatedTokensAfter.toLocaleString()}
+                  </span>
+                )}
+              </div>
+              {compactError && (
+                <div className="run-history-status-error">{compactError}</div>
+              )}
+            </div>
+          )}
+        </section>
+      )}
       <section
         className="run-history-section run-history-active"
         aria-labelledby="runs-active-title"

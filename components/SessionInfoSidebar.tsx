@@ -120,9 +120,44 @@ export function SessionInfoSidebar({
         }}
       >
         <header className="session-info-header">
-          <span>{title}</span>
-          <button type="button" onClick={onClose} aria-label={t('chat.close')}>
-            ×
+          <div className="session-info-header-title">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ color: 'var(--accent)', flexShrink: 0 }}
+              aria-hidden="true"
+            >
+              <path d="m4 17 6-6-6-6" />
+              <line x1="12" y1="19" x2="20" y2="19" />
+            </svg>
+            <span>{title}</span>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t('sidebar.hide')}
+            title={t('sidebar.hide')}
+            className="session-info-close-btn"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
           </button>
         </header>
         <div className="session-info-content">{children}</div>

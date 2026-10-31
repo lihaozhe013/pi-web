@@ -11,7 +11,7 @@ const { renderToStaticMarkup } = await jiti.import('react-dom/server');
 const { ExecutionHistoryPanel } = await jiti.import('./ExecutionHistoryPanel.tsx');
 const { I18nProvider } = await jiti.import('@/hooks/useI18n');
 
-function render(entries, sessionId, historyOpen = true) {
+function render(entries, sessionId, historyOpen = true, extraProps = {}) {
   return renderToStaticMarkup(
     React.createElement(
       I18nProvider,
@@ -20,7 +20,8 @@ function render(entries, sessionId, historyOpen = true) {
         entries,
         sessionId,
         historyOpen,
-        onHistoryOpenChange: () => {}
+        onHistoryOpenChange: () => {},
+        ...extraProps
       })
     )
   );
@@ -202,4 +203,37 @@ test('the output keeps its tail behind a button, and a user run is named', () =>
   assert.match(text, /Show full output/);
   assert.match(text, /Download full output/);
   assert.match(html, /\/api\/agent\/session-1\/bash-output\?path=%2Ftmp%2Fpi-bash-abc\.log/);
+});
+
+test('goal and compaction status cards are displayed at the top of the runs panel', () => {
+  const html = render([], undefined, true, {
+    goal: {
+      status: 'active',
+      objective: 'Build the project layout rewrite',
+      tokensUsed: 12500,
+      tokenBudget: 50000
+    },
+    isCompacting: true
+  });
+  const text = textOf(html);
+
+  assert.match(html, /class="run-history-status-section"/);
+  assert.match(html, /data-kind="goal"/);
+  assert.match(html, /data-status="active"/);
+  assert.match(text, /Build the project layout rewrite/);
+  assert.match(text, /12,500 of 50,000 tokens/);
+  assert.match(html, /data-kind="compact"/);
+  assert.match(text, /Compacting context…/);
+});
+
+test('compaction error is displayed in the compaction status card', () => {
+  const html = render([], undefined, true, {
+    compactError: 'Summarization hit the token limit'
+  });
+  const text = textOf(html);
+
+  assert.match(html, /class="run-history-status-section"/);
+  assert.match(html, /data-kind="compact"/);
+  assert.match(html, /data-status="error"/);
+  assert.match(text, /Summarization hit the token limit/);
 });
