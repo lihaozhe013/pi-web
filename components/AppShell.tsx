@@ -2758,16 +2758,14 @@ export function AppShell() {
             </svg>
           }
         >
-          <div style={{ padding: 16 }}>
-            <BranchNavigator
-              tree={branchTree}
-              activeLeafId={branchActiveLeafId}
-              onLeafChange={handleBranchLeafChange}
-              locked={branchSwitchLocked}
-              hasSession={showChat}
-              embedded={false}
-            />
-          </div>
+          <BranchNavigator
+            tree={branchTree}
+            activeLeafId={branchActiveLeafId}
+            onLeafChange={handleBranchLeafChange}
+            locked={branchSwitchLocked}
+            hasSession={showChat}
+            embedded
+          />
         </SessionModal>
       )}
 
