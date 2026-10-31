@@ -179,6 +179,7 @@ export const enLocale: LocalePlugin = {
     'codemode.status.cancelled': 'Cancelled',
     'sidebar.hide': 'Hide sidebar',
     'sidebar.show': 'Show sidebar',
+    'panel.hide': 'Hide {title} panel',
     'theme.light': 'Theme: Light',
     'theme.dark': 'Theme: Dark',
     'theme.mist': 'Theme: Mist',

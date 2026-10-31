@@ -145,8 +145,8 @@ export function SessionInfoSidebar({
           <button
             type="button"
             onClick={onClose}
-            aria-label={t('sidebar.hide')}
-            title={t('sidebar.hide')}
+            aria-label={t('panel.hide', { title })}
+            title={t('panel.hide', { title })}
             className="session-info-close-btn"
           >
             <svg

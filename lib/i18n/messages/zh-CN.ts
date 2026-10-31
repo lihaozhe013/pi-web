@@ -174,6 +174,7 @@ export const zhCNLocale: LocalePlugin = {
     'codemode.status.cancelled': '已取消',
     'sidebar.hide': '隐藏侧边栏',
     'sidebar.show': '显示侧边栏',
+    'panel.hide': '隐藏{title}面板',
     'theme.light': '主题：浅色',
     'theme.dark': '主题：深色',
     'theme.mist': '主题：雾青',

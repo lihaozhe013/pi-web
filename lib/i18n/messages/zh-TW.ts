@@ -175,6 +175,7 @@ export const zhTWLocale: LocalePlugin = {
     'codemode.status.cancelled': '已取消',
     'sidebar.hide': '隱藏側邊欄',
     'sidebar.show': '顯示側邊欄',
+    'panel.hide': '隱藏{title}面板',
     'theme.light': '主題：淺色',
     'theme.dark': '主題：深色',
     'theme.mist': '主題：霧青',
