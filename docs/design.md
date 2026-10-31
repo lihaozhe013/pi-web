@@ -205,52 +205,37 @@ custom panels.
 ## The composer hub
 
 The composer footer keeps the controls that shape the next message: attach, the model, the reasoning
-level and the tool preset. Two controls act on the session instead of one prompt — the goal the
-agent keeps working toward, and compaction of the context — and they share one entry. Neither is a
-per-turn knob, so neither earns a permanent slot beside the knobs; the mobile footer already hid
-compaction behind an overflow while the desktop footer showed it always.
+level and the tool preset. Compaction acts on the session instead of one prompt, so it does not earn
+a permanent slot beside those knobs.
 
-The entry reads **More** and opens one small dialog with two cards, **Compact** and **Goal**, in
-the shape the sidebar's **New** dialog uses: cards are the only strong element, and the chrome around
-them stays flat. When a goal exists the same entry reads **Goal** and carries the goal's state word,
-because a goal that keeps working without the user is the one state that must be readable without
-opening anything. On phones the entry is its icon alone, with that state in its accessible name, and
-the footer's own expander is named **Controls** so the two never read as one. The dialog's title and
-its two cards name the subjects rather than inventing a collective noun, so nothing here competes
-with the agent's tools, the tool presets, or the toolbar's Tools panel.
-
-Compaction is one action, so its card acts at once and closes the dialog: it states the session's
-context size (`64% of 200k`) and the last compaction's result, then reports in the run status row
-above the composer. The card is disabled while a run holds the session, and reads **Stop
-compaction** while a compaction is running. A goal is written rather than toggled, so its card opens
-a second step holding the whole goal; a **Back** button returns to the choices, and Escape leaves one
-level at a time — the goal first, the dialog second. With nothing to compact, the entry opens the
-goal directly, because a single card would only repeat the entry.
+The entry is an unmarked opener that reads **More** and opens one small dialog with one card,
+**Compact**, in the shape the sidebar's **New** dialog uses: the card is the only strong element,
+and the chrome around it stays flat. Compaction is one action, so its card acts at once and closes
+the dialog: it states the session's context size (`64% of 200k`) and the last compaction's result,
+then reports in the run status row above the composer. The card is disabled while a run holds the
+session, and reads **Stop compaction** while a compaction is running. On phones the footer's own
+expander is named **Controls**, so it never reads as this entry.
 
 ## Autonomous goals
 
-A goal is one entry in the composer footer, beside the model picker: it reads **Goal** and carries
-its state word (**Running**, **Paused**, **Done**, **Blocked**), so the state never rests on color
-alone. Only a running goal takes the accent, which marks the one case where the agent keeps working
-without the user. There is no separate goal panel or dashboard.
+The goal is written and managed in a dialog, never in an always-visible switch beside the model
+picker. The composer's one opener — the dots entry that also holds compaction — opens on two cards,
+**Compact** and **Goal**; the goal card opens the goal's own page. A session whose package registers
+no goal command has no goal card, and a session with nothing to compact opens the dialog straight on
+the goal.
 
-The entry opens the composer hub; its **Goal** card opens the step that holds the whole goal: what
-should be achieved, the status, the depth, and the continuations used so far. A new goal starts from
-an empty objective at the stored default depth; an existing one shows its state, its stop reason,
-and the depth it runs at. Depth is three numbers (automatic turns, tokens, minutes) with **Light**, **Standard**, and
-**Deep** shortcuts above them; typing numbers is the custom case, and the line under the fields
-states what the run will actually be allowed, including that limits are checked between runs. The
-primary action names the change it will make (**Start goal**, **Resume goal**, **Pause goal**,
-**Mark finished**, **Save objective**, **Save depth**) and stays disabled when nothing would change.
-A depth-only edit never starts a run. A running goal keeps its objective and depth: the field
-explains that the goal must be paused, and the dialog offers **Stop run** instead of editing. While
-a run is active the status choices are disabled and the dialog says so. The hub traps focus, and the
-backdrop or the close button leaves it; the objective field validates on blur with its error beside
-the field. Goal completion is the agent's report, not an independent guarantee.
+The goal page states where things stand and takes the commands: the package's status word, the
+tokens it counted against the budget it was given, the objective, and one row of actions — **Start
+goal** (or **Update goal**) with the objective, **Pause goal**, **Resume goal**, **Mark done**,
+**Clear goal**, and **Stop run** while a run is holding the session. A goal that is running cannot
+be re-worded: its objective is read-only until it is paused, so an edit never moves the target under
+the run in flight. Escape leaves the goal page for the choices and only then closes the dialog; a
+package word this build does not know is shown as written rather than guessed into a state.
 
-Settings › Goal holds the default depth a new goal starts at, in the same three fields, with
-**Restore defaults** beside **Save**. It is one global answer to how far an unattended run may go,
-while the dialog still lets a single goal go further or stop sooner.
+The loop, the budget and the completion report belong to a Pi goal package, not to Pi Web. Pi Web
+ships one (`pi-better-goal`) so the page is there on a fresh install, and a person who configures
+their own goal package gets that one instead. Labels name the state rather than the mechanism,
+because what the commands start is the package's work, and Pi Web only reads what it wrote.
 
 ## Starting a conversation
 

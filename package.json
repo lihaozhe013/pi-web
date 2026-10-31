@@ -52,6 +52,7 @@
     "@earendil-works/pi-tui": "1.4.0",
     "js-yaml": "^5.5.0",
     "next": "16.4.3",
+    "pi-better-goal": "^0.10.4",
     "proper-lockfile": "4.1.2",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

@@ -66,7 +66,20 @@ import { resolveShellTools } from './powershell-settings';
 import { CHAT_ONLY_RESOURCE_LOADER_OPTIONS, contextFilesSystemPrompt } from './chat-only';
 import { readWorkMode, syncWorkMode, validateWorkMode, type WorkMode } from './work-mode';
 import { createExactSystemPromptExtension } from './exact-system-prompt';
+import {
+  GOAL_COMMAND_NAME,
+  GOAL_STATUS_KEY,
+  formatGoalBridge,
+  goalCommand,
+  isGoalEntry,
+  lastUserObjective,
+  MAX_GOAL_OBJECTIVE_CHARS,
+  readGoalFacts,
+  type GoalAction,
+  type GoalBridge
+} from './goal-driver';
 import { createPiWebBuiltinExtensions } from './builtin-extensions';
+import { goalExtensionPaths } from './goal-package';
 import type { McpHost } from './mcp-host';
 import { mcpPromptPreparation, type McpCommandCandidate } from './mcp-command';
 import { createReadOnlyMcpPolicyExtension } from './mcp-read-only-policy';
@@ -398,6 +411,8 @@ export class AgentSessionWrapper {
   private forceShutdownOnIdle = false;
   // The armed idle timer is the forced cleanup Stop scheduled.
   private forcedIdleTimerArmed = false;
+  // Whether the restored-goal pause of this session has already been decided.
+  private goalRestoreChecked = false;
   private _alive = true;
   private resolveDisposed: () => void = () => {};
   private readonly disposed = new Promise<void>((resolve) => {
@@ -507,6 +522,13 @@ export class AgentSessionWrapper {
       // in the background lands after the run's agent_end, a command's with no
       // run at all, and the sidebar would keep the old one (#1237).
       if (event.type === 'session_info_changed') invalidateSessionListCache();
+      // The goal package writes what it did as session entries, so every one of
+      // its writes is also the moment the composer's switch must be told.
+      if (
+        event.type === 'entry_appended' &&
+        isGoalEntry(event.entry as { type?: unknown; customType?: unknown })
+      )
+        this.publishGoalBridge();
       this.trackActiveToolEvent(event);
       if (IDLE_RESET_EVENT_TYPES.has(event.type)) this.resetIdleTimer();
       let outgoing = event;
@@ -665,6 +687,11 @@ export class AgentSessionWrapper {
         this.inner.extensionRunner.setUIContext?.(uiContext, 'rpc');
       }
       this.extensionsBound = true;
+      // Commands are registered now, so the goal bridge can say whether a package
+      // is installed, and a goal left running by an earlier process is paused
+      // here rather than resumed behind the person's back.
+      this.publishGoalBridge();
+      this.pauseRestoredGoal();
       console.log(
         `[pi-web] session_start dispatched to extensions for session ${this.inner.sessionId}`
       );
@@ -1095,6 +1122,44 @@ export class AgentSessionWrapper {
           } finally {
             if (!this.isRunning()) this.forceShutdownOnIdle = false;
           }
+
+        case 'goal': {
+          // The installed package owns the goal. Pi Web forwards the command the
+          // goal dialog chose; an objective typed into the dialog is used as
+          // written, and a start without one falls back to the last message,
+          // read from the branch here because that copy is the one the package
+          // will read.
+          const action = command.action;
+          if (
+            action !== 'start' &&
+            action !== 'pause' &&
+            action !== 'resume' &&
+            action !== 'complete' &&
+            action !== 'clear'
+          ) {
+            throw new Error('Unknown goal action');
+          }
+          await this.waitForExtensionsBound();
+          if (!this.goalBridge().available) {
+            throw new Error('No goal extension is installed in this session');
+          }
+          const typed =
+            action === 'start' && typeof command.objective === 'string'
+              ? command.objective.trim().slice(0, MAX_GOAL_OBJECTIVE_CHARS)
+              : '';
+          const objective =
+            action === 'start'
+              ? typed || lastUserObjective(this.inner.sessionManager.getBranch() as never)
+              : undefined;
+          if (action === 'start' && !objective) {
+            throw new Error('Send a message or write an objective before starting a goal');
+          }
+          await this.inner.prompt(goalCommand(action as GoalAction, objective ?? ''), {
+            source: 'rpc'
+          });
+          this.publishGoalBridge();
+          return null;
+        }
 
         case 'get_state': {
           const model = this.inner.model;
@@ -1685,6 +1750,61 @@ export class AgentSessionWrapper {
     return Array.from(this.extensionStatuses, ([key, text]) => ({ key, text }));
   }
 
+  /**
+   * The goal as the installed package last wrote it, plus whether its `/goal`
+   * command is registered here. Reading the branch keeps the answer true after
+   * forks and tree navigation, which is where the package reads it too.
+   */
+  private goalBridge(): GoalBridge {
+    try {
+      const available = this.inner.extensionRunner
+        .getRegisteredCommands()
+        .some((command) => command.invocationName === GOAL_COMMAND_NAME);
+      const goal = readGoalFacts(this.inner.sessionManager.getBranch() as never);
+      return goal ? { available, goal } : { available };
+    } catch {
+      return { available: false };
+    }
+  }
+
+  /** Publish the bridge the same way an extension publishes a status: one JSON word. */
+  private publishGoalBridge(): void {
+    if (!this._alive) return;
+    const text = formatGoalBridge(this.goalBridge());
+    if (this.extensionStatuses.get(GOAL_STATUS_KEY) === text) return;
+    this.setExtensionStatus(GOAL_STATUS_KEY, text);
+  }
+
+  private async pauseRestoredGoal(): Promise<void> {
+    if (this.chatOnly || this.goalRestoreChecked) return;
+    this.goalRestoreChecked = true;
+    const bridge = this.goalBridge();
+    if (!bridge.available || bridge.goal?.status !== 'active' || this.inner.isStreaming) return;
+    try {
+      // The package parses this as its own `/goal pause`, so nothing about the
+      // goal is written from here and the package stays the single owner.
+      await this.inner.prompt(goalCommand('pause'), { source: 'rpc' });
+    } catch (error) {
+      console.warn(
+        '[pi-web] could not pause the goal this session was restored with:',
+        error instanceof Error ? error.message : error
+      );
+    }
+    this.publishGoalBridge();
+  }
+
+  private setExtensionStatus(key: string, text: string | undefined): void {
+    if (text === undefined) this.extensionStatuses.delete(key);
+    else this.extensionStatuses.set(key, text);
+    this.emit({
+      type: 'extension_ui_request',
+      id: randomUUID(),
+      method: 'setStatus',
+      statusKey: key,
+      statusText: text
+    } as ExtensionUiRequest as AgentEvent);
+  }
+
   private getExtensionWidgets(): ExtensionWidgetItem[] {
     return Array.from(this.extensionWidgets.values());
   }
@@ -2141,17 +2261,7 @@ export class AgentSessionWrapper {
         } as ExtensionUiRequest as AgentEvent);
       },
       onTerminalInput: () => () => {},
-      setStatus: (key, text) => {
-        if (text === undefined) this.extensionStatuses.delete(key);
-        else this.extensionStatuses.set(key, text);
-        this.emit({
-          type: 'extension_ui_request',
-          id: randomUUID(),
-          method: 'setStatus',
-          statusKey: key,
-          statusText: text
-        } as ExtensionUiRequest as AgentEvent);
-      },
+      setStatus: this.setExtensionStatus.bind(this),
       setWorkingMessage: () => {},
       setWorkingVisible: () => {},
       setWorkingIndicator: () => {},
@@ -2698,6 +2808,15 @@ export async function startRpcSession(
     // codemode, tool-search, and mcp, as the pi CLI loads them, and the host that decides
     // which MCP servers the session connects (ADR 0006).
     const builtins = chatOnly ? undefined : await createPiWebBuiltinExtensions({ agentDir });
+    // The goal package Pi Web ships is loaded as an extension path, the way a
+    // person's own package is. Their configured goal package, if any, wins: two
+    // of them in one session would run two loops over one switch.
+    const goalPaths = chatOnly
+      ? []
+      : goalExtensionPaths(
+          settingsManager.getGlobalSettings(),
+          settingsManager.getProjectSettings()
+        );
     const services = await createAgentSessionServices({
       cwd: sessionCwd,
       agentDir,
@@ -2716,6 +2835,7 @@ export async function startRpcSession(
                 settings: settingsManager
               })
             ],
+            ...(goalPaths.length > 0 ? { additionalExtensionPaths: goalPaths } : {}),
             extensionsOverride: (base) => preferUserBashExtension(base)
           },
       ...(trustReloadOptions ? { resourceLoaderReloadOptions: trustReloadOptions } : {})

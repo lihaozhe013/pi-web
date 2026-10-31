@@ -5,13 +5,8 @@ import { createPortal } from 'react-dom';
 import type { CompactResultInfo } from '@/hooks/useAgentSession';
 import { useI18n } from '@/hooks/useI18n';
 import { compactSummaryText } from '@/lib/compact-summary';
-import {
-  canEditObjective,
-  goalStatusLabelKey,
-  isGoalRunning,
-  type GoalSnapshot
-} from '@/lib/goal-state';
 import { formatCompactCount } from '@/lib/session-stats-format';
+import type { GoalAction, GoalFacts } from '@/lib/goal-driver';
 import { GoalSection } from './GoalSection';
 
 /** What the composer can say about the session's context window. */
@@ -25,25 +20,18 @@ export interface ContextUsageSummary {
 type HubView = 'options' | 'goal';
 
 /**
- * One entry for the controls that act on the whole session instead of one prompt:
- * the goal the agent keeps working toward, and compaction of the context.
+ * One entry for the controls that act on the whole session instead of one
+ * prompt: the goal the agent keeps working toward, and compaction of the
+ * context. Neither is a per-turn knob, so neither takes an always-visible slot.
  *
- * Neither is a per-turn knob, so neither belongs in the always-visible footer.
- * The entry stays in the footer only as an opener — carrying the goal's state
- * word when a goal exists, because a goal that keeps working on its own is the
- * one state a person must be able to read without opening anything. Compaction
- * has no state worth a permanent slot: while it runs it reports in the run
- * status row above the composer, with every other thing the agent is doing.
- *
- * The dialog opens on two choices in the shape the sidebar's "New" dialog uses,
- * **Compact** and **Goal**. Compaction is one action, so it happens from its
- * card; a goal is written, so its card opens a second step holding the goal.
+ * The entry stays in the footer only as an opener, and the dialog holds the
+ * choices in the shape the sidebar's "New" dialog uses, **Compact** and
+ * **Goal**. Compaction is one action, so it happens from its card; a goal is
+ * written and managed, so its card opens a second step holding the goal.
  */
 export function ComposerHub({
   goal,
   running,
-  busy,
-  iconOnly,
   onGoalCommand,
   onGoalStop,
   onCompact,
@@ -52,14 +40,12 @@ export function ComposerHub({
   compactResult,
   contextUsage
 }: {
-  goal?: GoalSnapshot;
+  goal?: GoalFacts;
   /** The selected session is streaming. */
   running: boolean;
-  /** Any work is in flight, including shell commands. */
-  busy: boolean;
-  /** The footer has no room for a word, so the entry is its icon alone. */
-  iconOnly: boolean;
-  onGoalCommand?: (command: string) => void;
+  /** Sends a goal command; without it the goal card is not offered. */
+  onGoalCommand?: (action: GoalAction, objective?: string) => void;
+  /** Stops the running agent, which also pauses an active goal. */
   onGoalStop?: () => void;
   onCompact?: () => void;
   onAbortCompaction?: () => void;
@@ -85,20 +71,15 @@ export function ComposerHub({
   // A goal is the one subject that needs a second step; with nothing to compact
   // it is also the only subject, so the entry opens straight onto it.
   const goalOnly = Boolean(onGoalCommand) && !onCompact;
-  const active = isGoalRunning(goal);
-  const statusLabel = goal ? t(goalStatusLabelKey(goal.status)) : null;
-  // A goal is the reason to open this: land on its objective, or on the dialog
-  // when the goal cannot be edited while a run holds it.
-  const focusObjective = canEditObjective(goal) && !busy;
 
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     if (!open || view !== 'goal') return;
-    // The section focuses its own field, so the dialog only takes focus when the
-    // goal is read-only; otherwise focus would move twice.
-    if (!focusObjective) dialogRef.current?.focus();
-  }, [open, view, focusObjective]);
+    // The section focuses its own field, so the dialog only takes focus when
+    // there is no field to land on.
+    if (!goal || running || goal.status === 'active') dialogRef.current?.focus();
+  }, [open, view, goal, running]);
 
   useEffect(() => {
     if (!open || view !== 'options') return;
@@ -109,61 +90,35 @@ export function ComposerHub({
     (first ?? dialogRef.current)?.focus();
   }, [open, view]);
 
-  const label = goal ? t('chat.goal') : t('chat.more');
-
   const trigger = (
     <button
       ref={triggerRef}
       type="button"
       className="composer-hub-trigger"
-      data-state={active ? 'active' : 'idle'}
       aria-haspopup="dialog"
       aria-expanded={open}
-      aria-label={
-        iconOnly ? (goal ? `${t('chat.goal')}: ${statusLabel}` : t('chat.hubTitle')) : undefined
-      }
-      title={
-        goal ? `${t('chat.hubTitle')} · ${statusLabel}: ${goal.objective}` : t('chat.hubTitle')
-      }
+      aria-label={t('chat.hubTitle')}
+      title={t('chat.hubTitle')}
       onClick={() => {
         setView(goalOnly ? 'goal' : 'options');
         setOpen(true);
       }}
     >
-      {goal ? (
-        <svg
-          width="13"
-          height="13"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <circle cx="12" cy="12" r="8" />
-          <circle cx="12" cy="12" r="2.5" />
-        </svg>
-      ) : (
-        <svg
-          width="13"
-          height="13"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <circle cx="12" cy="12" r="1" />
-          <circle cx="5" cy="12" r="1" />
-          <circle cx="19" cy="12" r="1" />
-        </svg>
-      )}
-      {!iconOnly && <span className="composer-hub-trigger-label">{label}</span>}
-      {statusLabel && <span className="composer-hub-trigger-state">{statusLabel}</span>}
+      <svg
+        width="13"
+        height="13"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="1" />
+        <circle cx="5" cy="12" r="1" />
+        <circle cx="19" cy="12" r="1" />
+      </svg>
     </button>
   );
 
@@ -213,7 +168,7 @@ export function ComposerHub({
             if (event.key !== 'Tab') return;
             const controls = Array.from(
               dialogRef.current?.querySelectorAll<HTMLElement>(
-                'button:not(:disabled), textarea:not(:disabled), input:not(:disabled), [href]'
+                'button:not(:disabled), textarea:not(:disabled), [href]'
               ) ?? []
             );
             const first = controls[0];
@@ -290,11 +245,10 @@ export function ComposerHub({
                       <GoalSection
                         goal={goal}
                         running={running}
-                        busy={busy}
-                        focusObjective={focusObjective}
+                        busy={running}
+                        focusObjective={!goal || (!running && goal.status !== 'active')}
                         onCommand={onGoalCommand}
                         onStop={() => onGoalStop?.()}
-                        onDone={close}
                       />
                     </div>
                   )}
@@ -354,9 +308,7 @@ export function ComposerHub({
                         </span>
                         <span className="composer-hub-choice-title">{compactTitle}</span>
                         <span id={compactId} className="composer-hub-choice-description">
-                          {compactBusy
-                            ? t('chat.hubCompactBusy')
-                            : t('chat.hubContextDescription')}
+                          {compactBusy ? t('chat.hubCompactBusy') : t('chat.hubContextDescription')}
                         </span>
                         <span id={compactStateId} className="composer-hub-choice-meta">
                           {usageText}
@@ -374,8 +326,6 @@ export function ComposerHub({
                         ref={goalRef}
                         type="button"
                         className="composer-hub-choice"
-                        data-state={active ? 'active' : 'idle'}
-                        aria-label={goal ? `${t('chat.goal')}: ${statusLabel}` : t('chat.goal')}
                         aria-describedby={goalChoiceId}
                         onClick={() => setView('goal')}
                       >
@@ -394,14 +344,9 @@ export function ComposerHub({
                             <circle cx="12" cy="12" r="2.5" />
                           </svg>
                         </span>
-                        <span className="composer-hub-choice-title">
-                          {t('chat.goal')}
-                          {statusLabel && (
-                            <span className="composer-hub-choice-state">{statusLabel}</span>
-                          )}
-                        </span>
+                        <span className="composer-hub-choice-title">{t('chat.goal')}</span>
                         <span id={goalChoiceId} className="composer-hub-choice-description">
-                          {goal ? goal.objective : t('chat.goalDialogDescription')}
+                          {goal?.objective || t('chat.goalDialogDescription')}
                         </span>
                       </button>
                     )}

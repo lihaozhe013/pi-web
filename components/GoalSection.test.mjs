@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { createJiti } from 'jiti';
 
@@ -8,16 +7,6 @@ const React = await jiti.import('react');
 const { renderToStaticMarkup } = await jiti.import('react-dom/server');
 const { GoalSection } = await jiti.import('./GoalSection.tsx');
 const { I18nProvider } = await jiti.import('@/hooks/useI18n');
-
-const goal = (overrides = {}) => ({
-  version: 1,
-  objective: 'Ship the parser fix',
-  status: 'active',
-  continuations: 2,
-  startedAt: 1,
-  baselineTokens: 100,
-  ...overrides
-});
 
 const section = (props) =>
   renderToStaticMarkup(
@@ -30,58 +19,73 @@ const section = (props) =>
         focusObjective: false,
         onCommand: () => {},
         onStop: () => {},
-        onDone: () => {},
         ...props
       })
     )
   );
 
-test('a new goal starts empty, at the stored depth, with its depth shortcuts', () => {
+test('a session without a goal is asked for one', () => {
   const html = section({});
+  assert.doesNotMatch(html, /class="goal-current"/);
   assert.match(html, /What should be achieved\?/);
-  assert.doesNotMatch(html, /goal-current/, 'no state card before a goal exists');
-  assert.doesNotMatch(html, /name="[^"]*-status"/, 'status is the goal’s, not the draft’s');
-  assert.match(html, /Light/);
-  assert.match(html, /Standard/);
-  assert.match(html, /Deep/);
-  // Starting a goal is the action a visitor came to this section for.
-  assert.match(html, /hub-button hub-button-primary">Start goal</);
+  assert.doesNotMatch(html, /disabled=""/);
+  assert.match(html, /Start goal/);
+  // Nothing exists yet, so nothing can be paused, resumed or cleared.
+  assert.doesNotMatch(html, /Clear goal|Mark done|Resume goal|Pause goal/);
 });
 
-test('an existing goal shows its state, its reason and its depth', () => {
+test('a running goal shows its state, its count and no edit', () => {
   const html = section({
-    goal: goal({
-      status: 'paused',
-      reason: 'tokens',
-      limits: { maxContinuations: 8, maxTokens: 200_000, maxElapsedMs: 3_600_000 }
-    })
+    goal: { status: 'active', objective: 'Add CSV export', tokensUsed: 12_345 },
+    running: true,
+    busy: true
   });
-  assert.match(html, /class="goal-current" data-state="paused"/);
-  assert.match(html, /goal-current-status">Paused</);
-  assert.match(html, /Turn 2 of 8/);
-  assert.match(html, /token budget was reached/);
-  // Nothing changed yet, so the primary action waits for an edit.
-  assert.match(html, /hub-button hub-button-primary" disabled="">Apply</);
-  assert.match(html, /Clear goal/);
-  assert.match(html, /value="8"/, 'the depth fields show the goal’s own limits');
-  assert.match(html, /value="60"/);
-});
-
-test('a running goal stops rather than edits, and says why', () => {
-  const html = section({ goal: goal(), running: true, busy: true });
-  assert.match(html, /<textarea[^>]*disabled=""/, 'the objective waits for the run to end');
+  assert.match(html, /class="goal-current" data-state="active"/);
+  assert.match(html, /Running/);
+  assert.match(html, /12,345 tokens/);
+  // The run holds the objective: it is read, not rewritten, and Stop is the way out.
+  assert.match(html, /<textarea[^>]*disabled=""/);
   assert.match(html, /Pause the goal before editing its objective\./);
   assert.match(html, /Stop run/);
-  assert.match(html, /A run is active\. Stop it to change the goal\./);
+  assert.match(html, /disabled=""[^>]*>Update goal|Update goal/);
 });
 
-test('the goal form carries no dialog chrome of its own', () => {
-  // The composer hub owns the dialog, its focus trap and its Escape key; a second
-  // backdrop here would nest one modal inside another.
-  return readFile(new URL('./GoalSection.tsx', import.meta.url), 'utf8').then((source) => {
-    assert.doesNotMatch(source, /createPortal/);
-    assert.doesNotMatch(source, /role="dialog"/);
-    assert.doesNotMatch(source, /goal-backdrop/);
-    assert.doesNotMatch(source, /className="goal-actions/);
+test('a paused goal can be resumed, finished or cleared', () => {
+  const html = section({
+    goal: { status: 'paused', objective: 'Add CSV export' },
+    focusObjective: true
   });
+  assert.match(html, /Paused/);
+  assert.match(html, /Resume goal/);
+  assert.match(html, /Mark done/);
+  assert.match(html, /Clear goal/);
+  assert.doesNotMatch(html, /<textarea[^>]*disabled/);
+  assert.match(html, /Update goal/);
+});
+
+test('a finished goal keeps only the ways out', () => {
+  const html = section({
+    goal: { status: 'complete', objective: 'Add CSV export', tokensUsed: 0 }
+  });
+  assert.match(html, /Done/);
+  assert.match(html, /Clear goal/);
+  assert.doesNotMatch(html, /Mark done|Resume goal|Pause goal|Stop run/);
+});
+
+test('the package status words each read as their own label', () => {
+  const limited = section({ goal: { status: 'budgetLimited', objective: 'Add CSV export' } });
+  assert.match(limited, /Budget reached/);
+  assert.match(limited, /Resume goal/);
+
+  // A word this build does not know is shown as the package wrote it.
+  const unknown = section({ goal: { status: 'awaiting-review', objective: 'Add CSV export' } });
+  assert.match(unknown, /awaiting-review/);
+  assert.match(unknown, /Resume goal/);
+});
+
+test('a budget, when the package set one, reads beside the count', () => {
+  const html = section({
+    goal: { status: 'paused', objective: 'Add CSV export', tokensUsed: 500, tokenBudget: 2_000 }
+  });
+  assert.match(html, /500 of 2,000 tokens/);
 });

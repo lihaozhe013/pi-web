@@ -2230,18 +2230,6 @@
   flex-shrink: 0;
 }
 
-/* Settings › Goal: three numbers that stay narrow, so the row reads as a value, not a form. */
-.mcp-add-input.goal-limit-input {
-  width: 148px;
-  flex-shrink: 0;
-}
-
-.goal-limit-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
 /* A server's exposure dropdown, sized to its longest option, with its Saving… beside it. */
 .mcp-exposure-choice {
   display: flex;

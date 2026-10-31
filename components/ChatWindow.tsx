@@ -7,7 +7,7 @@ import { buildExecutionHistory, type ExecutionHistoryEntry } from '@/lib/executi
 import { useRetainedExecutionHistory } from '@/hooks/useRetainedExecutionHistory';
 import { useActiveExecutionHistory } from '@/hooks/useActiveExecutionHistory';
 import { ToolActivityProvider, liveToolIds } from './ToolActivity'; // display-only execution status
-import { GOAL_STATUS_KEY } from '@/lib/goal-state';
+import { isGoalSurfaceKey } from '@/lib/goal-driver';
 import { registerAbortHandler } from '@/hooks/useKeyboardShortcuts';
 import Image from 'next/image';
 import {
@@ -430,6 +430,8 @@ export function ChatWindow({
     extensionStatuses,
     extensionWidgets,
     goal,
+    goalAvailable,
+    goalAction,
     respondToExtensionUi,
     sendExtensionCustomInput,
     setNoticePaused,
@@ -1370,8 +1372,7 @@ export function ChatWindow({
       cwd={session?.cwd ?? newSessionCwd}
       onAttachFiles={onAttachFiles}
       goal={goal}
-      onGoalCommand={toolPreset === 'none' ? undefined : handleSend}
-      onGoalStop={handleAbort}
+      onGoalCommand={goalAvailable && toolPreset !== 'none' ? goalAction : undefined}
       contextUsage={contextUsage}
     />
   );
@@ -2200,8 +2201,8 @@ export function ChatWindow({
           />
           {chatInputElement}
           <ExtensionStatusBar
-            statuses={extensionStatuses.filter((status) => status.key !== GOAL_STATUS_KEY)}
-            widgets={extensionWidgets}
+            statuses={extensionStatuses.filter((status) => !isGoalSurfaceKey(status.key))}
+            widgets={extensionWidgets.filter((widget) => !isGoalSurfaceKey(widget.key))}
             onCommand={handleSend}
             commandsDisabled={sessionBusy}
           />

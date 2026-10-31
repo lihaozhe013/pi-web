@@ -18,7 +18,7 @@ import { computeSessionRevision } from '@/lib/session-revision';
 import type { SessionEntry } from '@/lib/types';
 import { readSessionToolSelection } from '@/lib/session-tool-selection';
 import { readWorkMode } from '@/lib/work-mode';
-import { readGoalFromEntries } from '@/lib/goal-state';
+import { readGoalFacts } from '@/lib/goal-driver';
 import { jsonResponse } from '@/lib/json-response';
 import { deleteSessions } from '@/lib/session-delete';
 import {
@@ -121,8 +121,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const toolNames = readSessionToolSelection(entries as never);
     // Plan and Read-only pin the same tools, so the stored mode is reported beside them.
     const workMode = readWorkMode(entries as never);
-    // The goal is branch state like the work mode: read it from the same entries.
-    const goal = readGoalFromEntries(entries as never);
+    // The goal is branch state like the work mode, and an installed goal package
+    // writes it: read the package's own record from the same entries.
+    const goal = readGoalFacts(entries as never);
     const info = header
       ? (
           await attachSessionProjectInfo([

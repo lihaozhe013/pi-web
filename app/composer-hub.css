@@ -1,12 +1,10 @@
 /* The composer hub: one footer entry for the controls that act on the whole
-   session instead of one prompt — the goal, and compaction of the context.
-   The entry stays quiet until a goal exists; a running goal carries the accent,
-   and the same state is written beside it, so color is never the only signal.
-   Compaction has no state here: while it runs the row above the composer
-   reports it with everything else the agent is doing.
+   session instead of one prompt — the goal, and compaction. The entry stays
+   quiet and unmarked: a compaction in flight reports in the row above the
+   composer with everything else the agent is doing.
 
-   The dialog opens on two cards in the language of the sidebar's "New"
-   dialog, **Compact** and **Goal**; the goal's own page is the second step. */
+   The dialog opens on cards in the language of the sidebar's "New" dialog; the
+   goal's own page reuses the same chrome and adds the form. */
 
 .composer-hub-trigger {
   display: inline-flex;
@@ -53,20 +51,6 @@
 
 .composer-hub-trigger-label {
   white-space: nowrap;
-}
-
-.composer-hub-trigger-state {
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: var(--bg-subtle);
-  color: var(--text-muted);
-  font-size: 10px;
-  letter-spacing: 0.01em;
-}
-
-.composer-hub-trigger[data-state='active'] .composer-hub-trigger-state {
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
-  color: var(--accent);
 }
 
 .composer-hub-backdrop {
@@ -152,24 +136,6 @@
   text-wrap: pretty;
 }
 
-.composer-hub-back {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  flex-shrink: 0;
-  margin-top: 2px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text-muted);
-}
-
-.composer-hub-back:hover {
-  background: var(--bg-hover);
-  color: var(--text);
-}
-
 .composer-hub-dialog button {
   font: inherit;
   cursor: pointer;
@@ -205,18 +171,17 @@
   color: var(--text);
 }
 
-/* The goal's page: one subject, no inner chrome. */
 .composer-hub-section {
   display: flex;
   flex-direction: column;
   gap: 14px;
 }
 
-/* Two subjects, side by side: cards are the only strong element, and the
-   chrome around them stays flat. */
+/* One card: it is the only strong element, and the chrome around it stays flat. */
 .composer-hub-options {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* One card fills the row; two share it. */
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 12px;
 }
 
@@ -277,20 +242,6 @@
   line-height: 1.3;
 }
 
-.composer-hub-choice-state {
-  padding: 1px 7px;
-  border-radius: 999px;
-  background: var(--bg-subtle);
-  color: var(--text-muted);
-  font-size: 0.78em;
-  font-weight: 500;
-}
-
-.composer-hub-choice[data-state='active'] .composer-hub-choice-state {
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
-  color: var(--accent);
-}
-
 .composer-hub-choice-description {
   display: -webkit-box;
   overflow: hidden;
@@ -317,21 +268,6 @@
 
 .composer-hub-choice-note {
   color: var(--text-muted);
-}
-
-.composer-hub-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.composer-hub-actions-spacer {
-  flex: 1;
-}
-
-.composer-hub-actions .goal-hint {
-  flex-basis: 100%;
 }
 
 .hub-button {

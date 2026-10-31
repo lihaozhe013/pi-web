@@ -61,7 +61,7 @@ import type { CustomToolPreset } from '@/lib/custom-tool-presets-shared';
 import { SelectorRow } from './SelectorRow';
 import { ModelSelector, type ModelSelectorOption } from './ModelSelector';
 import { ComposerHub } from './ComposerHub';
-import type { GoalSnapshot } from '@/lib/goal-state';
+import type { GoalAction, GoalFacts } from '@/lib/goal-driver';
 
 export { filterModelOptions } from './ModelSelector';
 
@@ -139,12 +139,10 @@ interface Props {
   cwd?: string | null;
   /** Files picked with the attach button, handled like files dropped onto the chat. Without it the button takes images only. */
   onAttachFiles?: (files: File[]) => void;
-  /** The goal on this session's branch, shown in the composer hub. */
-  goal?: GoalSnapshot;
-  /** Sends a `/goal …` command; without it the composer hub is not offered. */
-  onGoalCommand?: (command: string) => void;
-  /** Stops the running agent, which also pauses an active goal. */
-  onGoalStop?: () => void;
+  /** The goal an installed goal package keeps for this session, shown in the composer hub. */
+  goal?: GoalFacts;
+  /** Sends a goal command; without it the hub offers no goal entry. */
+  onGoalCommand?: (action: GoalAction, objective?: string) => void;
   /** Context usage of this session, read beside the compact action. */
   contextUsage?: { percent: number | null; contextWindow: number; tokens: number | null } | null;
 }
@@ -909,7 +907,6 @@ export const ChatInput = memo(
       onAttachFiles,
       goal,
       onGoalCommand,
-      onGoalStop,
       compact = false
     }: Props,
     ref
@@ -3211,14 +3208,12 @@ export const ChatInput = memo(
                     onSetDefault={onSetDefaultModel}
                   />
                 )}
-                {(onGoalCommand || onCompact) && (
+                {(onCompact || onGoalCommand) && (
                   <ComposerHub
                     goal={goal}
                     running={isStreaming}
-                    busy={isStreaming}
-                    iconOnly={isMobile}
                     onGoalCommand={onGoalCommand}
-                    onGoalStop={onGoalStop}
+                    onGoalStop={onAbort}
                     onCompact={onCompact}
                     onAbortCompaction={onAbortCompaction}
                     isCompacting={isCompacting}

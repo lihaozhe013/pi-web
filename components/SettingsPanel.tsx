@@ -14,7 +14,6 @@ import { focusModalPanel, listenForPanelEscape } from '@/lib/stacked-dialog';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { AppearanceSettings } from './AppearanceSettings';
 import { GlobalAgentsConfig } from './GlobalAgentsConfig';
-import { GoalSettings } from './GoalSettings';
 import { SettingsSearch } from './SettingsSearch';
 import type { SettingsSearchEntry } from '@/lib/settings-search';
 import { McpConfig } from './McpConfig';
@@ -98,15 +97,6 @@ export function SettingsSectionIcon({
     return (
       <svg {...common}>
         <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-      </svg>
-    );
-  if (section === 'goal')
-    return (
-      <svg {...common}>
-        <circle cx="12" cy="12" r="9" />
-        <circle cx="12" cy="12" r="4.5" />
-        <circle cx="12" cy="12" r="1" />
-        <path d="M12 3v3M12 18v3M3 12h3M18 12h3" />
       </svg>
     );
   if (section === 'skills')
@@ -492,7 +482,6 @@ export function SettingsPanel({
       { id: 'appearance', label: t('settings.appearance') },
       { id: 'models', label: t('common.models') },
       { id: 'tools', label: t('settings.tools') },
-      { id: 'goal', label: t('settings.goal') },
       { id: 'skills', label: t('common.skills') },
       { id: 'plugins', label: t('common.plugins') },
       { id: 'mcp', label: t('settings.mcp') }
@@ -687,7 +676,6 @@ export function SettingsPanel({
               />
             )}
             {sectionHost('models', <ModelsConfig embedded cwd={cwd} onClose={onClose} />)}
-            {sectionHost('goal', <GoalSettings embedded onClose={onClose} />)}
             {/* No project needed: the custom presets are global, like the composer's other presets. */}
             {sectionHost(
               'tools',

@@ -41,7 +41,13 @@ import {
 } from '@/lib/tool-presets';
 import type { CustomToolPreset } from '@/lib/custom-tool-presets-shared';
 import type { WorkMode } from '@/lib/work-mode';
-import { readGoalStatus, type GoalSnapshot } from '@/lib/goal-state';
+import {
+  GOAL_STATUS_KEY,
+  parseGoalBridge,
+  type GoalAction,
+  type GoalBridge,
+  type GoalFacts
+} from '@/lib/goal-driver';
 import type { SessionStatsInfo } from '@/lib/pi-types';
 import { mergeSessionStats, type SessionFileStats } from '@/lib/session-stats';
 import { userMessageKey } from '@/lib/prompt-recovery';
@@ -88,8 +94,8 @@ export interface SessionData {
   toolNames?: string[];
   /** The stored work mode. Plan pins the same tools as Read-only, so it travels separately. */
   mode?: WorkMode;
-  /** The goal on the session's current branch, as saved; live statuses supersede it. */
-  goal?: GoalSnapshot;
+  /** The goal an installed goal package last wrote on this branch. */
+  goal?: GoalFacts;
   /** Opaque freshness token for the session view cache (summary tree reads). */
   snapshotRevision?: string | null;
   /** "summary" when `tree` carries the body-free navigation format. */
@@ -526,8 +532,8 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   const [extensionCustomUis, setExtensionCustomUis] = useState<ExtensionUiCustomRequest[]>([]);
   const [extensionStatuses, setExtensionStatuses] = useState<ExtensionStatusItem[]>([]);
   // The saved goal is what a session shows before its runtime starts. Once a status
-  // arrives, the live goal (or its absence) is authoritative.
-  const [savedGoal, setSavedGoal] = useState<GoalSnapshot | undefined>(undefined);
+  // arrives, the live bridge (goal or no goal, package or no package) is authoritative.
+  const [savedGoal, setSavedGoal] = useState<GoalFacts | undefined>(undefined);
   const [extensionWidgets, setExtensionWidgets] = useState<ExtensionWidgetItem[]>([]);
   const [queuedMessages, setQueuedMessages] = useState<QueuedMessages>({
     steering: [],
@@ -2382,6 +2388,29 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     }
   }, []);
 
+  /**
+   * The goal dialog's commands. The server turns each one into the installed
+   * package's `/goal` command, so nothing about the goal is decided here; the
+   * objective is passed through as the person wrote it.
+   */
+  const goalAction = useCallback(
+    async (action: GoalAction, objective?: string) => {
+      const sid = sessionIdRef.current;
+      if (!sid) return;
+      try {
+        await sendAgentCommand(
+          sid,
+          objective === undefined ? { type: 'goal', action } : { type: 'goal', action, objective }
+        );
+      } catch (e) {
+        // A missing package or an empty objective is what the server says here,
+        // and the person needs to read it.
+        addNotice({ message: e instanceof Error ? e.message : String(e), type: 'warning' });
+      }
+    },
+    [addNotice]
+  );
+
   const handleFork = useCallback(
     async (entryId: string) => {
       if (bashRunningRef.current) return;
@@ -3451,8 +3480,15 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
 
   const thinkingLevel: ThinkingLevelOption = displayThinkingLevel ?? 'auto';
   // The head of each queue is on screen; the rest wait behind it.
-  const goalStatus = readGoalStatus(extensionStatuses);
-  const goal = goalStatus.known ? goalStatus.goal : savedGoal;
+  const goalStatus = parseGoalBridge(
+    extensionStatuses.find((status) => status.key === GOAL_STATUS_KEY)?.text
+  );
+  // Without a live session, a saved goal still means the package is installed.
+  const goalBridge: GoalBridge = goalStatus ?? {
+    available: savedGoal !== undefined,
+    ...(savedGoal ? { goal: savedGoal } : {})
+  };
+  const goal = goalBridge.goal;
   const extensionDialog = extensionDialogs[0] ?? null;
   const waitingExtensionDialogCount = Math.max(0, extensionDialogs.length - 1);
   const extensionCustomUi = extensionCustomUis[0] ?? null;
@@ -3510,6 +3546,8 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     extensionStatuses,
     extensionWidgets,
     goal,
+    goalAvailable: goalBridge.available,
+    goalAction,
     respondToExtensionUi,
     sendExtensionCustomInput,
     isAutoModelSelection: isNew && newSessionModel === null,

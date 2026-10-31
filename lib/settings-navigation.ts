@@ -4,7 +4,6 @@ export const SETTINGS_SECTION_VALUES = [
   'appearance',
   'models',
   'tools',
-  'goal',
   'skills',
   'plugins',
   'mcp'

@@ -155,14 +155,6 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     keywords:
       'tool preset customize combine read bash edit write grep find ls 工具 预设 自定义 组合 組合 自訂'
   },
-  {
-    section: 'goal',
-    label: 'settings.goalDepth',
-    description: 'settings.goalDescription',
-    target: 'settings-goal-depth',
-    keywords:
-      'goal autonomous turns tokens minutes depth limit 目标 自主 自动 深度 轮次 时长 上限 目標 自動 輪次 時長'
-  },
   { section: 'skills', label: 'common.skills', keywords: 'skill install prompt 技能 安装 安裝' },
   {
     section: 'plugins',
@@ -183,7 +175,6 @@ export const SETTINGS_SECTION_LABELS: Record<SettingsSection, string> = {
   appearance: 'settings.appearance',
   models: 'common.models',
   tools: 'settings.tools',
-  goal: 'settings.goal',
   skills: 'common.skills',
   plugins: 'common.plugins',
   mcp: 'settings.mcp'

@@ -15,7 +15,7 @@ sessions in process; Bun manages dependencies and script invocation.
 | Layout and navigation    | `components/AppShell.tsx`                                          |
 | Session list             | `components/SessionSidebar.tsx`                                    |
 | Conversation and input   | `components/ChatWindow.tsx`, `components/ChatInput.tsx`            |
-| Composer hub             | `components/ComposerHub.tsx`, `components/GoalSection.tsx`         |
+| Composer hub             | `components/ComposerHub.tsx`, `components/GoalToggle.tsx`          |
 | Transcript rendering     | `components/MessageView.tsx`, `components/MarkdownBody.tsx`        |
 | Shell and codemode runs  | `components/ExecutionHistoryPanel.tsx`, `lib/execution-history.ts` |
 | Turn copy                | `lib/turn-copy.ts`, `components/TurnCopy.tsx`                      |
@@ -145,33 +145,43 @@ configuration.
 
 ## Autonomous goals
 
-`lib/goal-extension.ts` adds a session-scoped goal to normal Pi Web sessions.
-`components/ComposerHub.tsx` is the composer's one entry for it, and for compaction:
-`components/GoalSection.tsx` writes the goal inside that dialog;
-`/goal start [--turns N --tokens N --minutes N] <objective>`, `/goal resume`, `/goal pause`,
-`/goal complete`, `/goal limits`, and `/goal clear` remain available as commands.
-`lib/goal-state.ts` owns the snapshot shape, the depth flags, and the command the section sends, and
-the extension publishes the same snapshot as its status text, so the entry and the saved session
-agree without a separate route. The extension stores snapshots as branch-relative Pi custom entries,
-starts and continues runs from hidden messages at `agent_before_settle`, and lets the model report
-completion or a blocker with evidence. A report is the model's claim, not independent proof. The
-current tool selection and permission checks still apply.
+Pi Web does not implement autonomous goals. A Pi package owns the loop, the budget, the completion
+report and its own pause rules: `pi-better-goal` and `pi-codex-goal` are both understood, and the
+same dialog drives either one.
 
-Depth is three limits: automatic continuations, reported tokens, and elapsed time. Settings › Goal
-writes the default to the global `piWebGoal` key in settings.json; `lib/goal-settings.ts` reads it
-when a goal starts, so a change applies to the next start or resume without recreating the session.
-A start or resume copies the resolved limits into the goal entry, and the continuation check uses
-that copy, so a goal keeps the depth it was started with and a later Settings edit does not move a
-running goal's target. The dialog shows the stored default for a new goal and can override it per
-goal; `/goal limits` changes the depth of a paused goal without starting a run. Values outside the
-accepted ranges (1–50 turns, 10,000–5,000,000 tokens, 1–480 minutes) are refused, never clamped, and
-an unreadable stored value falls back to the built-in 5 turns, 200,000 tokens, 30 minutes.
+`pi-better-goal` is a dependency of Pi Web itself, so goals work on a fresh install with no second
+setup step. `lib/goal-package.ts` resolves that copy and hands its package root to the session's
+resource loader as an extension path — the same path a person's own package takes, so the package's
+`pi.extensions` manifest and its peer modules decide how it loads, and no import of its TypeScript
+enters the Next build. A goal package the person configured themselves (global or project settings)
+wins over the bundled one: two of them in one session would run two loops over one goal. Removing
+the package from the app's dependencies, or configuring another goal package, leaves the sessions
+with the package the person chose; a session with none offers no goal card.
 
-These limits are checked between runs, so one long run can exceed them. Stop interrupts the run and
-pauses the goal; session restoration or branch navigation pauses an active goal as well. A start
-that fails before the agent begins stays paused. Resuming starts a new budget with the goal's depth.
-The browser does not run the loop, and closing it does not stop the server. Do not use this feature
-with untrusted workspaces or permissions you would not grant to an unattended agent.
+`lib/goal-driver.ts` is the whole contract. It reads one status word from the package's session
+entries — `customType` `pi-better-goal` or `pi-codex-goal`, `kind` `set` or `clear`,
+`data.goal.status` — and turns it into three phases: running, waiting or done. Anything else the
+package writes, such as `continuation-state` or permission records, is skipped. Five commands go the
+other way: `/goal <objective>`, `/goal pause`, `/goal resume`, `/goal complete` and `/goal clear`;
+the objective of a start is what the dialog holds, or, when it was not given one, the last message
+the person wrote, read from the branch by `lastUserObjective()`.
+
+The goal dialog sends `{ type: 'goal', action, objective? }` and `lib/rpc-manager.ts` forwards it as
+that command, so the browser never composes a command itself and never decides anything about the
+goal. The wrapper reads the branch and publishes `{ available, goal? }` as the `pi-web-goal`
+extension status on three occasions: once extensions are bound, on every `entry_appended` that
+carries a goal record, and after a command. The same status is in `get_state`, so a reload costs no
+extra route, and `GET /api/sessions/[id]` reads the same record for a session with no live runtime.
+The package's own status and widget are filtered out of the status bar, because the dialog already
+says where the goal stands.
+
+A goal an earlier process left `active` is paused when its session is opened again: the wrapper
+sends the package's own `/goal pause` after binding, so reopening a session cannot resume an
+unattended run (and its cost) on its own. Stop pauses it the same way, through the package's abort
+handling. Every other rule — what counts as done, how tokens are counted, when a continuation is
+retried — belongs to the package; a status word this code does not know is shown as waiting instead
+of guessed. The browser does not run the loop, and closing it does not stop the server. Do not use
+this feature with untrusted workspaces or permissions you would not grant to an unattended agent.
 
 ## Math rendering dependencies
 
