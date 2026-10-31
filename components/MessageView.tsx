@@ -1565,9 +1565,9 @@ function ToolCallBlock({
   // is colored while the input is still streaming JSON.
   const codeLanguage = isStreamingInput ? undefined : toolCodeLanguage(block.toolName, block.input);
 
-  // A shell or codemode card leaves the transcript once it succeeded; while it
-  // is on its way out (`exiting`) it keeps drawing itself as it stood — open —
-  // first held visibly, then fading (`fading`).
+  // A run-panel card (a user-run bash command here) leaves the transcript once
+  // it succeeded; while it is on its way out (`exiting`) it keeps drawing itself
+  // as it stood — open — first held visibly, then fading (`fading`).
   if ((shellTool || codemodeTool) && toolState === 'success' && !exiting) return null;
 
   return (

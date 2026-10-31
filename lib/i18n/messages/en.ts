@@ -214,8 +214,10 @@ export const enLocale: LocalePlugin = {
     'runs.runningOne': '1 running',
     'runs.running': '{count} running',
     'runs.empty': 'No commands yet',
-    'runs.emptyHint': 'Bash and codemode runs stay here, including the ones that failed.',
+    'runs.emptyHint':
+      'Every tool call except writes, edits, and patches stays here, including the ones that failed.',
     'runs.noCommand': '(no command)',
+    'runs.input': 'Input',
     'runs.output': 'Output',
     'runs.waiting': 'Waiting for output…',
     'runs.noOutput': 'No output',
@@ -524,16 +526,16 @@ export const enLocale: LocalePlugin = {
     'chat.copyTurnDone': 'Copied',
     'chat.copyTurnTitle': 'Copy this turn',
     'chat.copyTurnDescription':
-      'One prompt and everything the agent did with it, as Markdown. Thinking and file exploration stay out of every choice.',
+      'One prompt and everything the agent did with it, as Markdown. Thinking stays out of every choice.',
     'chat.copyTurnAnswers': 'Conversation',
     'chat.copyTurnAnswersDescription':
       'The prompt and the agent’s replies, without tool calls. Best for a document or a fresh chat.',
     'chat.copyTurnRecord': 'Kept record',
     'chat.copyTurnRecordDescription':
-      'The replies plus every step the transcript still shows: edits, patches, questions, and failed commands, with their arguments and results.',
+      'The replies plus the write, edit, and patch steps the transcript still shows, with their arguments and results.',
     'chat.copyTurnExecution': 'Execution log',
     'chat.copyTurnExecutionDescription':
-      'Everything the kept record has, including successful shell and codemode calls the transcript folds away, with structured details.',
+      'Everything the kept record has, plus every other tool call in the Runs panel, with structured details.',
     'chat.copyTurnEmpty': 'This turn has nothing to copy yet.',
     'chat.copyTurnFailed': 'Could not copy the turn. Check clipboard access and try again.',
     'transcriptNotice.costSuffix': ' (~{cost})',

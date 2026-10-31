@@ -1,10 +1,9 @@
-import { CODEMODE_TOOL_NAME } from './codemode-view';
 import {
   getAssistantErrorMessage,
   getDisplayableAssistantBlocks,
   isHiddenCustomMessage
 } from './message-display';
-import { isExplorationToolName, isShellToolName } from './tool-names';
+import { isRunsPanelToolName } from './tool-names';
 import type {
   AgentMessage,
   AssistantContentBlock,
@@ -20,14 +19,14 @@ import type {
  * What a turn copy keeps.
  *
  * - `answers`: the conversation alone, for a document or a fresh chat.
- * - `transcript`: what the transcript still shows after the run, so a
- *   successful shell command or codemode script stays out, as its folded card
- *   does.
- * - `execution`: every non-exploration call the turn made, including the
- *   successful shell and codemode calls the transcript folds away.
+ * - `transcript`: what the transcript still shows after the run, so every run
+ *   in the Runs panel stays out, as its folded card does.
+ * - `execution`: every tool call the turn made, including the runs the
+ *   transcript folds away.
  *
- * Thinking and exploration calls (`read`, `grep`, `find`, `ls`) stay out of
- * every mode: they are how the agent looked something up, not what it did.
+ * Thinking stays out of every mode: it is how the agent worked, not what it
+ * did. Exploration calls appear only in the execution log, where they are runs
+ * like any other.
  */
 export type TurnCopyMode = 'answers' | 'transcript' | 'execution';
 
@@ -92,9 +91,9 @@ function toolResultText(result: ToolResultMessage): string {
 }
 
 /**
- * Whether a call belongs in the copy. The transcript keeps a call's card unless
- * it is a successful shell or codemode script; a failed one keeps its error, so
- * a reader can tell what went wrong.
+ * Whether a call belongs in the copy. The transcript keeps cards only for
+ * writes and edits, so the kept record follows it; the execution log is where
+ * every other run belongs.
  */
 function keepsToolCall(
   call: ToolCallContent,
@@ -102,12 +101,9 @@ function keepsToolCall(
   mode: TurnCopyMode
 ): boolean {
   if (mode === 'answers') return false;
-  if (isExplorationToolName(call.toolName)) return false;
   if (mode === 'execution') return true;
-  if (result === undefined) return false;
-  // The transcript keeps no shell or codemode card, so the kept record does not
-  // either; the execution log is where those runs belong.
-  return !(isShellToolName(call.toolName) || call.toolName === CODEMODE_TOOL_NAME);
+  if (isRunsPanelToolName(call.toolName)) return false;
+  return result !== undefined;
 }
 
 function toolSection(

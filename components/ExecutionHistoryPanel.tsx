@@ -235,9 +235,17 @@ function RunEntry({
                     </pre>
                   </details>
                 )}
-                {entry.command && !(entry.kind === 'codemode' && entry.script) && (
-                  <pre className="run-history-command">{entry.command}</pre>
+                {entry.kind === 'tool' && entry.command && (
+                  <>
+                    <div className="run-history-label">{t('runs.input')}</div>
+                    <pre className="run-history-command">{entry.command}</pre>
+                  </>
                 )}
+                {entry.kind !== 'tool' &&
+                  entry.command &&
+                  !(entry.kind === 'codemode' && entry.script) && (
+                    <pre className="run-history-command">{entry.command}</pre>
+                  )}
                 <RunOutput entry={entry} sessionId={sessionId} />
               </div>
             )}
@@ -250,7 +258,7 @@ function RunEntry({
 
 const runId = (entry: ExecutionHistoryEntry) => entry.id;
 
-/** The permanent shell and codemode history, newest first. */
+/** The permanent run history, newest first. */
 export function ExecutionHistoryPanel({
   entries,
   sessionId,

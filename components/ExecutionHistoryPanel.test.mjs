@@ -74,6 +74,27 @@ test('newest runs lead, a running one opens itself, a success waits folded', () 
   assert.doesNotMatch(html, /data-live="true"/, 'opening the panel does not replay old runs');
 });
 
+test('a generic tool run shows its input and output', () => {
+  const html = render([
+    {
+      ...base,
+      id: 'read',
+      kind: 'tool',
+      toolName: 'read',
+      command: '{\n  "path": "src/app.ts"\n}',
+      preview: 'src/app.ts',
+      output: 'file body',
+      active: true
+    }
+  ]);
+  const text = textOf(html);
+
+  assert.match(text, /read/);
+  assert.match(text, /Input/);
+  assert.match(text, /src\/app\.ts/);
+  assert.match(text, /file body/);
+});
+
 test('history can be collapsed without removing its entries', () => {
   const html = render([{ ...base, id: 'old' }], undefined, false);
   assert.match(html, /data-history-open="false"/);

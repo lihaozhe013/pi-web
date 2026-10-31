@@ -67,6 +67,7 @@ import {
 } from '@/lib/agent-event-wire';
 import { getToolExecutionProgress } from '@/lib/tool-execution-progress';
 import { CODEMODE_TOOL_NAME, getCodemodeProgress } from '@/lib/codemode-view';
+import { isRunsPanelToolName } from '@/lib/tool-names';
 import { updateExtensionWidgets } from '@/lib/extension-widgets';
 import { bareMcpOpensSettings } from '@/lib/mcp-command';
 import type { SettingsSection } from '@/lib/settings-navigation';
@@ -2045,11 +2046,9 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
           const name = event.toolName as string;
           const partialResult = event.partialResult as Partial<ToolResultMessage> | undefined;
           const content = partialResult?.content;
-          // Live output for shells; for codemode, the calls its script has made so far.
-          if (
-            (name === 'bash' || name === 'powershell' || name === CODEMODE_TOOL_NAME) &&
-            Array.isArray(content)
-          ) {
+          // Every run keeps its live output in the Runs panel; a codemode
+          // script also reports the calls it has made so far.
+          if (isRunsPanelToolName(name) && Array.isArray(content)) {
             setActiveToolResults((prev) => {
               const next = new Map(prev);
               next.set(id, {

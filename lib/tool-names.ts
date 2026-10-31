@@ -60,6 +60,15 @@ export function isEditToolName(toolName: string): boolean {
   );
 }
 
+/**
+ * Every call except writes, edits, and patches belongs to the Runs panel. Those
+ * keep their transcript cards because their diff and file text are the work
+ * itself, not execution log noise.
+ */
+export function isRunsPanelToolName(toolName: string): boolean {
+  return !isWriteToolName(toolName) && !isEditToolName(toolName) && !isApplyPatchToolName(toolName);
+}
+
 /** Codex-style patch tools (e.g. the pi-apply-patch extension). */
 export function isApplyPatchToolName(toolName: string): boolean {
   const name = toolName.toLowerCase();

@@ -209,8 +209,9 @@ export const zhCNLocale: LocalePlugin = {
     'runs.runningOne': '1 个运行中',
     'runs.running': '{count} 个运行中',
     'runs.empty': '还没有命令',
-    'runs.emptyHint': 'Bash 和 codemode 的运行会留在这里，包括失败的运行。',
+    'runs.emptyHint': '除写入、编辑和补丁外，所有工具调用都会留在这里，包括失败的调用。',
     'runs.noCommand': '(无命令)',
+    'runs.input': '输入',
     'runs.output': '输出',
     'runs.waiting': '等待输出…',
     'runs.noOutput': '无输出',
@@ -514,16 +515,16 @@ export const zhCNLocale: LocalePlugin = {
     'chat.copyTurnDone': '已复制',
     'chat.copyTurnTitle': '复制本轮对话',
     'chat.copyTurnDescription':
-      '把一次提问和模型为其所做的工作复制为 Markdown。思考过程和文件探索不会出现在任何选项中。',
+      '把一次提问和模型为其所做的工作复制为 Markdown。思考过程不会出现在任何选项中。',
     'chat.copyTurnAnswers': '问答正文',
     'chat.copyTurnAnswersDescription':
       '只包含提问和模型回复，不含工具调用。适合保存到文档或发起新对话。',
     'chat.copyTurnRecord': '界面记录',
     'chat.copyTurnRecordDescription':
-      '回复，以及记录中仍显示的全部步骤：写入、补丁、提问和失败的命令，含参数与返回值。',
+      '回复，以及界面中仍显示的写入、编辑和补丁步骤，含参数与返回值。',
     'chat.copyTurnExecution': '执行记录',
     'chat.copyTurnExecutionDescription':
-      '在界面记录基础上，加入已从界面收起的成功 shell 与 codemode 调用，并保留结构化详情。',
+      '在界面记录基础上，加入 Runs 面板中的其他全部工具调用，并保留结构化详情。',
     'chat.copyTurnEmpty': '这一轮还没有可复制的内容。',
     'chat.copyTurnFailed': '复制失败。请检查剪贴板权限后重试。',
     'transcriptNotice.costSuffix': '（约 {cost}）',
@@ -596,7 +597,8 @@ export const zhCNLocale: LocalePlugin = {
     'chat.messagePlaceholder': '消息…输入 / 使用命令，输入 @ 查找文件',
     'chat.steer': '立刻插入',
     'chat.followUp': '做完发送',
-    'chat.steerHint': '在当前对话中途插入：本轮回复和工具调用结束后马上接上你的新要求（点“停止”可中断）',
+    'chat.steerHint':
+      '在当前对话中途插入：本轮回复和工具调用结束后马上接上你的新要求（点“停止”可中断）',
     'chat.followUpHint': '等 Agent 把当前任务全部做完，再自动发送这条消息',
     'chat.inputHistory': '输入历史',
     'chat.modelError': '模型错误',

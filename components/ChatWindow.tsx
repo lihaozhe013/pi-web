@@ -150,7 +150,7 @@ interface Props {
   onSystemPromptChange?: (prompt: string | null) => void;
   onSystemToolsChange?: (tools: ToolEntry[] | null) => void;
   onSystemInfoLoaderChange?: (loader: (() => Promise<void>) | null) => void;
-  /** Every shell and codemode run for the Runs panel, oldest first. */
+  /** Every run for the Runs panel, oldest first. */
   onExecutionHistoryChange?: (entries: ExecutionHistoryEntry[]) => void;
   onGoalChange?: (goal: GoalFacts | undefined) => void;
   onCompactionChange?: (compaction: {

@@ -95,31 +95,31 @@ the composer, where an error cannot be missed by not opening anything.
 Current main-transcript behavior:
 
 - Thinking and exploration calls (`read`, `grep`, `find`, `ls`) draw no card: the composer status
-  row carries them while they run, naming the file, search pattern, or directory, and their result
-  stays out of the transcript whether it succeeded or failed.
+  row carries them while they run, naming the file, search pattern, or directory. The Runs panel
+  keeps their history like any other run.
 - A tool card appears when the call actually starts executing, and not while the model is still
   writing its arguments: a half-streamed JSON blob would intrude, while a running call's card is the
-  progress the user asked for.
-- Shell and codemode calls draw no card in the transcript, running, successful or failed. The
-  composer status row names them while they run, and the Runs panel keeps their history: the panel
-  is part of the default page, so it is already open, and the edge toggle appears only while it is
-  closed. It stays open across sessions and turns; a run never reopens a panel the user collapsed,
-  and a reload restores the default. Where the sidebar would overlay the conversation the panel
-  starts closed, so a phone shows the conversation; the toggle or a phone action opens it there. The
-  panel separates active runs from history, with independent scrolling and newest first in each.
-  History starts collapsed into a compact footer, leaving the active area more room; its heading
-  toggles the section, and the choice stays in effect when the panel is closed and reopened. Active
-  cards default open; completed cards remain in the active section for two seconds, showing their
-  final status, then move to history and default closed. Multiple runs can remain active at once.
-  Active and historical cards use blue for running, green for success, and red for errors, alongside
-  status words and marks; cancelled runs remain neutral. Codemode's nested calls use their own
-  status colors as compact subcards ahead of a script disclosure. Closing the panel does not discard
+  progress the user asked for. Writes, edits, and patches are the only calls that keep such a card.
+- Every other call draws no card in the transcript, running, successful or failed. The composer
+  status row names it while it runs, and the Runs panel keeps its history: the panel is part of the
+  default page, so it is already open, and the edge toggle appears only while it is closed. It stays
+  open across sessions and turns; a run never reopens a panel the user collapsed, and a reload
+  restores the default. Where the sidebar would overlay the conversation the panel starts closed, so
+  a phone shows the conversation; the toggle or a phone action opens it there. The panel separates
+  active runs from history, with independent scrolling and newest first in each. History starts
+  collapsed into a compact footer, leaving the active area more room; its heading toggles the
+  section, and the choice stays in effect when the panel is closed and reopened. Active cards
+  default open; completed cards remain in the active section for two seconds, showing their final
+  status, then move to history and default closed. Multiple runs can remain active at once. Active
+  and historical cards use blue for running, green for success, and red for errors, alongside status
+  words and marks; cancelled runs remain neutral. Codemode's nested calls use their own status
+  colors as compact subcards ahead of a script disclosure. Closing the panel does not discard
   anything.
-- Write/edit cards default to expanded. Patch cards fold after completion.
+- Write/edit/patch cards default to expanded.
 - A command the user ran themselves (`!`) keeps its live card in the transcript, because its
   progress is the answer they asked for. It also appears in the Runs panel so the history is
   complete.
-- Long shell output in the Runs panel initially shows its last 40 lines, with access to all output.
+- Long run output in the Runs panel initially shows its last 40 lines, with access to all output.
 - Explicit expansion choices override defaults for retained cards.
 - Errors, truncation notices, and necessary warnings remain visible.
 
@@ -155,15 +155,16 @@ while a turn keeps its own separation from the next.
 The entry opens the sidebar's "New" dialog language with three scopes:
 
 - **Conversation**: the prompt and the agent's replies, without tool calls.
-- **Kept record**: the replies plus every step the transcript still shows, so edits, patches and
-  questions arrive with their arguments and stored results.
-- **Execution log**: the kept record plus the shell and codemode runs the Runs panel lists, with the
+- **Kept record**: the replies plus the writes, edits, and patches the transcript still shows, with
+  their arguments and stored results.
+- **Execution log**: the kept record plus every other tool call the Runs panel lists, with the
   structured details a tool recorded.
 
-Every scope leaves out thinking and exploration calls (`read`, `grep`, `find`, `ls`): they are how
-the agent looked something up, not what it did. Tool arguments travel as JSON and results as stored,
-so a reader can reopen the work in a new session or keep it in a document. No scope guesses which
-failure was a typo; the conversation scope is how a reader leaves execution noise behind.
+Every scope leaves out thinking: it is how the agent worked, not what it did. Exploration calls
+(`read`, `grep`, `find`, `ls`) join the execution log as ordinary runs. Tool arguments travel as
+JSON and results as stored, so a reader can reopen the work in a new session or keep it in a
+document. No scope guesses which failure was a typo; the conversation scope is how a reader leaves
+execution noise behind.
 
 A scope copies immediately and closes; a clipboard failure stays in the dialog with its reason and a
 retry. Escape, the backdrop and the close button leave the turn unchanged, and focus returns to the

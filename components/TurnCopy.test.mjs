@@ -27,7 +27,7 @@ test('the copy dialog offers the three scopes and their descriptions', () => {
   assert.match(html, /role="dialog"/);
   assert.match(html, /aria-modal="true"/);
   assert.match(html, /without tool calls/);
-  assert.match(html, /successful shell and codemode calls/);
+  assert.match(html, /every other tool call in the Runs panel/);
 });
 
 test('a turn shows one copy entry, and no dialog until it is opened', () => {

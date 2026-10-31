@@ -210,8 +210,9 @@ export const zhTWLocale: LocalePlugin = {
     'runs.runningOne': '1 個執行中',
     'runs.running': '{count} 個執行中',
     'runs.empty': '還沒有命令',
-    'runs.emptyHint': 'Bash 和 codemode 的執行會留在這裡，包括失敗的執行。',
+    'runs.emptyHint': '除寫入、編輯和修補外，所有工具呼叫都會留在這裡，包括失敗的呼叫。',
     'runs.noCommand': '(無命令)',
+    'runs.input': '輸入',
     'runs.output': '輸出',
     'runs.waiting': '等待輸出…',
     'runs.noOutput': '無輸出',
@@ -515,16 +516,16 @@ export const zhTWLocale: LocalePlugin = {
     'chat.copyTurnDone': '已複製',
     'chat.copyTurnTitle': '複製本輪對話',
     'chat.copyTurnDescription':
-      '把一次提問和模型為此所做的工作複製為 Markdown。思考過程與檔案探索不會出現在任何選項中。',
+      '把一次提問和模型為此所做的工作複製為 Markdown。思考過程不會出現在任何選項中。',
     'chat.copyTurnAnswers': '問答正文',
     'chat.copyTurnAnswersDescription':
       '只包含提問和模型回覆，不含工具呼叫。適合儲存到文件或發起新對話。',
     'chat.copyTurnRecord': '介面記錄',
     'chat.copyTurnRecordDescription':
-      '回覆，以及記錄中仍顯示的全部步驟：寫入、修補、提問和失敗的命令，含參數與傳回值。',
+      '回覆，以及介面中仍顯示的寫入、編輯和修補步驟，含參數與傳回值。',
     'chat.copyTurnExecution': '執行記錄',
     'chat.copyTurnExecutionDescription':
-      '在介面記錄基礎上，加入已從介面收起的成功 shell 與 codemode 呼叫，並保留結構化詳細資料。',
+      '在介面記錄基礎上，加入 Runs 面板中的其他全部工具呼叫，並保留結構化詳細資料。',
     'chat.copyTurnEmpty': '這一輪還沒有可複製的內容。',
     'chat.copyTurnFailed': '複製失敗。請檢查剪貼簿權限後重試。',
     'transcriptNotice.costSuffix': '（約 {cost}）',
@@ -597,7 +598,8 @@ export const zhTWLocale: LocalePlugin = {
     'chat.messagePlaceholder': '訊息…輸入 / 使用命令，輸入 @ 搜尋檔案',
     'chat.steer': '立刻插入',
     'chat.followUp': '做完傳送',
-    'chat.steerHint': '在目前對話中途插入：本輪回覆和工具呼叫結束後馬上接上你的新要求（按「停止」可中斷）',
+    'chat.steerHint':
+      '在目前對話中途插入：本輪回覆和工具呼叫結束後馬上接上你的新要求（按「停止」可中斷）',
     'chat.followUpHint': '等 Agent 把目前任務全部做完，再自動傳送這則訊息',
     'chat.inputHistory': '輸入紀錄',
     'chat.modelError': '模型錯誤',

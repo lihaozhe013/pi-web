@@ -17,7 +17,7 @@ sessions in process; Bun manages dependencies and script invocation.
 | Conversation and input   | `components/ChatWindow.tsx`, `components/ChatInput.tsx`            |
 | Composer hub             | `components/ComposerHub.tsx`, `components/GoalToggle.tsx`          |
 | Transcript rendering     | `components/MessageView.tsx`, `components/MarkdownBody.tsx`        |
-| Shell and codemode runs  | `components/ExecutionHistoryPanel.tsx`, `lib/execution-history.ts` |
+| Run history              | `components/ExecutionHistoryPanel.tsx`, `lib/execution-history.ts` |
 | Turn copy                | `lib/turn-copy.ts`, `components/TurnCopy.tsx`                      |
 | Client session lifecycle | `hooks/useAgentSession.ts`                                         |
 | Agent runtime            | `lib/rpc-manager.ts`                                               |
@@ -89,13 +89,13 @@ migration layer. Cleanup removes code, not user files.
 3. Agent events stream to the browser over SSE. Client state reconciles live events with saved
    history.
 4. The transcript renders replies, tool activity, and errors. Display filtering is separate from
-   persisted history and model context. Shell and codemode runs are filtered out of the transcript
-   and collected by the Runs panel from the loaded messages plus live execution state;
-   `hooks/useRetainedExecutionHistory.ts` keeps a finished call in place while its stored result
-   arrives. `AppShell` treats that panel as part of the default docked page: it is open unless the
-   user collapsed it, closed where it would overlay the conversation until the user asks for it, and
-   hidden by Settings without being collapsed. `components/SessionInfoSidebar.tsx` skips focus for a
-   panel the user did not ask for.
+   persisted history and model context. Every tool call except a write, an edit, or a patch is
+   filtered out of the transcript and collected by the Runs panel from the loaded messages plus live
+   execution state; `hooks/useRetainedExecutionHistory.ts` keeps a finished call in place while its
+   stored result arrives. `AppShell` treats that panel as part of the default docked page: it is
+   open unless the user collapsed it, closed where it would overlay the conversation until the user
+   asks for it, and hidden by Settings without being collapsed. `components/SessionInfoSidebar.tsx`
+   skips focus for a panel the user did not ask for.
 
 ## Session output speed
 

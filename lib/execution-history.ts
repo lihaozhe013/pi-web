@@ -1,5 +1,6 @@
 /**
- * The shell and codemode runs of a conversation, for the Runs panel.
+ * The runs of a conversation, for the Runs panel. A run is any tool call except
+ * a write or an edit.
  *
  * The transcript no longer carries these calls: a command's live output and its
  * final result belong to one history that stays readable after the run ends,
@@ -15,7 +16,7 @@ import {
   stripCodemodeHeader,
   type CodemodeCallView
 } from './codemode-view';
-import { isShellToolName } from './tool-names';
+import { isRunsPanelToolName, isShellToolName } from './tool-names';
 import type {
   AgentMessage,
   AssistantMessage,
@@ -28,9 +29,9 @@ export type ExecutionHistoryStatus = 'running' | 'success' | 'error' | 'cancelle
 
 export interface ExecutionHistoryEntry {
   id: string;
-  kind: 'shell' | 'codemode';
+  kind: 'shell' | 'codemode' | 'tool';
   toolName: string;
-  /** The full command or script. */
+  /** The full command, script, or input JSON. */
   command: string;
   /** One line for the collapsed row. */
   preview: string;
@@ -81,6 +82,45 @@ function limitPreview(line: string): string {
   return line.length > 120 ? `${line.slice(0, 117)}...` : line;
 }
 
+function inputJson(input: unknown): string {
+  if (typeof input === 'string') return input;
+  try {
+    return JSON.stringify(input, null, 2) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+/** A tool's most useful argument, one line for the collapsed row. */
+function toolInputPreview(input: unknown): string {
+  if (!isRecord(input)) return limitPreview(typeof input === 'string' ? input : '');
+  for (const key of [
+    'command',
+    'cmd',
+    'path',
+    'file_path',
+    'filePath',
+    'pattern',
+    'query',
+    'url',
+    'name',
+    'description',
+    'prompt'
+  ] as const) {
+    const value = input[key];
+    if (typeof value === 'string' && value.trim()) {
+      return limitPreview(value.replace(/\s+/g, ' ').trim());
+    }
+  }
+  for (const value of Object.values(input)) {
+    if (typeof value === 'string' && value.trim()) {
+      return limitPreview(value.replace(/\s+/g, ' ').trim());
+    }
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  }
+  return '';
+}
+
 function firstCommandLine(command: string): string {
   for (const line of command.split(/\r?\n/)) {
     const trimmed = line.trim();
@@ -117,7 +157,7 @@ function entryDuration(
   );
 }
 
-function shellStatus(result: ToolResultMessage | undefined): ExecutionHistoryStatus {
+function runStatus(result: ToolResultMessage | undefined): ExecutionHistoryStatus {
   if (!result) return 'running';
   if (isRecord(result.details) && result.details.cancelled === true) return 'cancelled';
   return result.isError ? 'error' : 'success';
@@ -142,7 +182,7 @@ function shellEntry(
     toolName: block.toolName,
     command,
     preview: firstCommandLine(command),
-    status: live ? 'running' : shellStatus(result),
+    status: live ? 'running' : runStatus(result),
     output: resultText(result?.content),
     timestamp: message.timestamp,
     durationMs: entryDuration(message, result)
@@ -165,11 +205,31 @@ function codemodeEntry(
     command,
     preview:
       script !== null ? limitPreview(codemodeScriptPreview(script)) : firstCommandLine(command),
-    status: live ? 'running' : shellStatus(result),
+    status: live ? 'running' : runStatus(result),
     output: resultText(result ? stripCodemodeHeader(result.content) : undefined),
     ...(script !== null ? { script } : {}),
     calls: calls.calls,
     omittedCalls: calls.omitted,
+    timestamp: message.timestamp,
+    durationMs: entryDuration(message, result)
+  };
+}
+
+function toolEntry(
+  message: AssistantMessage,
+  block: ToolCallContent,
+  result: ToolResultMessage | undefined,
+  live: boolean
+): ExecutionHistoryEntry {
+  const command = inputJson(block.input);
+  return {
+    id: block.toolCallId,
+    kind: 'tool',
+    toolName: block.toolName,
+    command,
+    preview: toolInputPreview(block.input),
+    status: live ? 'running' : runStatus(result),
+    output: resultText(result?.content),
     timestamp: message.timestamp,
     durationMs: entryDuration(message, result)
   };
@@ -194,7 +254,7 @@ function userBashEntry(message: BashExecutionMessage, index: number): ExecutionH
 }
 
 /**
- * Every shell and codemode run in the loaded conversation, oldest first.
+ * Every run in the loaded conversation, oldest first.
  *
  * `running` is the same live set the transcript cards use, and `results` also
  * carries a running call's partial result, so a command's output grows in the
@@ -219,17 +279,19 @@ export function buildExecutionHistory(
 
     for (const block of message.content) {
       if (block.type !== 'toolCall') continue;
-      const codemode = block.toolName === CODEMODE_TOOL_NAME;
-      if (!codemode && !isShellToolName(block.toolName)) continue;
+      if (!isRunsPanelToolName(block.toolName)) continue;
 
       const result = results.get(block.toolCallId);
       const live = running.has(block.toolCallId);
       if (!result && !live) continue;
 
+      const codemode = block.toolName === CODEMODE_TOOL_NAME;
       entries.push(
         codemode
           ? codemodeEntry(message, block, result, live)
-          : shellEntry(message, block, result, live)
+          : isShellToolName(block.toolName)
+            ? shellEntry(message, block, result, live)
+            : toolEntry(message, block, result, live)
       );
     }
   }

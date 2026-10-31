@@ -327,8 +327,8 @@ test('a nested argument keeps the JSON body: a row cannot hold a subtree', () =>
   const block = {
     type: 'toolCall',
     toolCallId: 'call-mcp-nested',
-    toolName: 'mcp__issues__search',
-    input: { query: 'open bugs', filter: { labels: ['bug'], assignee: 'me' }, limit: 10 }
+    toolName: 'mcp__issues__write',
+    input: { path: 'issues.json', filter: { labels: ['bug'], assignee: 'me' }, limit: 10 }
   };
   clearExpandedToolCalls();
   setToolCallExpanded(block.toolCallId, true);
@@ -379,14 +379,14 @@ test('an extension and a flat MCP call show one row per argument', (t) => {
   const cases = [
     {
       id: 'call-agent-rows',
-      toolName: 'extension_tool',
+      toolName: 'write',
       input: { category: 'Explore', prompt: 'Find the parser' },
       expect: ['>category</td>', 'Find the parser']
     },
     {
       id: 'call-mcp-flat-rows',
-      toolName: 'mcp__issues__search',
-      input: { query: 'open bugs', limit: 10 },
+      toolName: 'mcp__issues__write',
+      input: { path: 'issues.json', query: 'open bugs', limit: 10 },
       expect: ['>query</td>', 'open bugs', '>10</td>']
     }
   ];
@@ -413,7 +413,7 @@ test('a long or multi-line value stays inside the card', (t) => {
   const block = {
     type: 'toolCall',
     toolCallId: 'call-agent-long',
-    toolName: 'extension_tool',
+    toolName: 'write',
     input: { category: 'a'.repeat(200), prompt: content }
   };
   setToolCallExpanded(block.toolCallId, true);
@@ -450,8 +450,8 @@ test('code, diffs and output sit in the card pane, not the page background', () 
   const fetch = {
     type: 'toolCall',
     toolCallId: 'call-pane-fetch',
-    toolName: 'web_fetch',
-    input: { url: 'https://example.com' }
+    toolName: 'edit',
+    input: { path: 'src/demo.ts', edits: [] }
   };
   setToolCallExpanded(write.toolCallId, true);
   setToolCallExpanded(fetch.toolCallId, true);
@@ -477,7 +477,7 @@ test('code, diffs and output sit in the card pane, not the page background', () 
             {
               role: 'toolResult',
               toolCallId: fetch.toolCallId,
-              toolName: 'web_fetch',
+              toolName: 'edit',
               content: [{ type: 'text', text: 'boom' }],
               isError: true
             }
@@ -493,13 +493,13 @@ test('code, diffs and output sit in the card pane, not the page background', () 
 });
 
 test("a tool card shows the run time pi recorded, else the timestamps' difference, never a tiny one", () => {
-  // Shell and exploration calls leave no card at all (docs/design.md),
-  // so the header's time is asserted on a tool that keeps one.
+  // Runs keep no transcript card (docs/design.md), so the header's time is
+  // asserted on a write, which keeps one.
   const block = {
     type: 'toolCall',
     toolCallId: 'call-duration-1',
-    toolName: 'web_fetch',
-    input: { url: 'https://example.com' }
+    toolName: 'write',
+    input: { path: 'src/demo.ts', content: 'const value = 1;\n' }
   };
   const message = {
     role: 'assistant',
@@ -514,7 +514,7 @@ test("a tool card shows the run time pi recorded, else the timestamps' differenc
   const result = {
     role: 'toolResult',
     toolCallId: block.toolCallId,
-    toolName: 'web_fetch',
+    toolName: 'write',
     content: [],
     isError: false
   };
@@ -812,13 +812,15 @@ test('renders custom-message images as buttons that open a larger preview', () =
   assert.match(html, /<img[^>]+src="data:image\/png;base64,YWJj"/);
 });
 
-test('shows tool-result images while the tool details stay collapsed', () => {
+test('shows tool-result images while the tool details stay collapsed', (t) => {
   const block = {
     type: 'toolCall',
     toolCallId: 'call-shot-1',
-    toolName: 'page_screenshot',
-    input: { tabId: 7 }
+    toolName: 'write',
+    input: { path: 'capture.png', content: '' }
   };
+  setToolCallExpanded(block.toolCallId, false);
+  t.after(() => setToolCallExpanded(block.toolCallId, false));
   const result = {
     role: 'toolResult',
     toolCallId: block.toolCallId,
@@ -840,7 +842,7 @@ test('shows tool-result images while the tool details stay collapsed', () => {
   assert.match(html, /<button[^>]+aria-label="Preview image"[^>]*>/);
   assert.match(html, /<img[^>]+src="data:image\/png;base64,YWJj"/);
   assert.doesNotMatch(html, /captured-1280x720/);
-  assert.doesNotMatch(html, /"tabId"/);
+  assert.doesNotMatch(html, /"content"/);
 });
 
 test('uses the unanswered truncation notice for an empty length reply', () => {
@@ -870,7 +872,7 @@ function textOf(html) {
 const CODEMODE_SCRIPT =
   '// @options: {"timeoutMs": 5000}\nconst files = await tools.ls({ path: "." });\nreturn files.length;';
 
-test('shell and codemode runs keep no transcript card, whatever their result', () => {
+test('run-panel calls keep no transcript card, whatever their result', () => {
   const shell = {
     type: 'toolCall',
     toolCallId: 'call-runs-bash',
@@ -883,7 +885,19 @@ test('shell and codemode runs keep no transcript card, whatever their result', (
     toolName: 'codemode',
     input: { code: CODEMODE_SCRIPT }
   };
-  for (const block of [shell, codemode]) {
+  const read = {
+    type: 'toolCall',
+    toolCallId: 'call-runs-read',
+    toolName: 'read',
+    input: { path: 'src/app.ts' }
+  };
+  const fetch = {
+    type: 'toolCall',
+    toolCallId: 'call-runs-fetch',
+    toolName: 'web_fetch',
+    input: { url: 'https://example.com' }
+  };
+  for (const block of [shell, codemode, read, fetch]) {
     const message = {
       role: 'assistant',
       provider: 'anthropic',
@@ -912,7 +926,7 @@ test('labels an MCP call server/tool and indents a JSON result', (t) => {
   const block = {
     type: 'toolCall',
     toolCallId: 'call-mcp-1',
-    toolName: 'mcp__docs_v2__search',
+    toolName: 'mcp__docs_v2__write',
     input: { query: 'codemode' }
   };
   setToolCallExpanded(block.toolCallId, true);
@@ -940,7 +954,7 @@ test('labels an MCP call server/tool and indents a JSON result', (t) => {
   );
   const text = textOf(html);
   assert.match(text, /docs\.v2\/search/);
-  assert.match(html, /title="mcp__docs_v2__search"/);
+  assert.match(html, /title="mcp__docs_v2__write"/);
   assert.match(text, /\{\n {2}"hits": \[\n {4}\{\n {6}"title": "Code mode"/);
 });
 
@@ -949,7 +963,7 @@ test('keeps the registered name where no result names the server and tool', () =
   const block = {
     type: 'toolCall',
     toolCallId: 'call-mcp-running',
-    toolName: 'mcp__docs_v2__search_pages',
+    toolName: 'mcp__docs_v2__search_pages_write',
     input: {}
   };
   // A result without server/tool details: the registered name is all there is.
@@ -964,7 +978,7 @@ test('keeps the registered name where no result names the server and tool', () =
       resultsFor(block)
     )
   );
-  assert.match(unnamed, /mcp__docs_v2__search_pages/);
+  assert.match(unnamed, /mcp__docs_v2__search_pages_write/);
   assert.doesNotMatch(unnamed, /docs_v2\//);
 });
 
