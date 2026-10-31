@@ -172,7 +172,7 @@ async function resyncAfterModelsConfigSave(
       : await buildEnabledModelsInput(renamed, context.models, { withProviderGlobs: true });
 
   const constrained = constrainProviderEntries(current);
-  if (constrained.ok && constrained.changed) {
+  if (constrained.changed) {
     current = await buildEnabledModelsInput(constrained.patterns, context.models, {
       withProviderGlobs: true
     });
@@ -184,7 +184,6 @@ async function resyncAfterModelsConfigSave(
     .map((id) => renames.find((rename) => rename.from === id)?.to ?? id)
     .flatMap((id) => context.models.filter((model) => model.provider === id).map(modelRef));
   const edit = setModelsEnabled(current, refs, true);
-  if (!edit.ok) return edit;
   return { ok: true, patterns: edit.patterns, changed: !samePatternList(edit.patterns, original) };
 }
 
@@ -265,18 +264,15 @@ export async function PUT(req: Request) {
       edit = setModelsEnabled(input, refs, body.enabled === true);
     }
 
-    if (!edit.ok) {
-      return Response.json(
-        { error: 'At least one model must stay enabled', reason: edit.reason },
-        { status: 409 }
-      );
-    }
     if (edit.changed) {
       await writeEnabledModels(context.settingsManager, edit.patterns);
       invalidateModelsCache();
     }
 
-    return Response.json(await buildView(context));
+    // `keptRef` is per response, not part of the stored view: it explains the
+    // one model a "disable everything" edit had to leave on.
+    const view = await buildView(context);
+    return Response.json({ ...view, ...(edit.keptRef ? { keptRef: edit.keptRef } : {}) });
   } catch (error) {
     return Response.json({ error: String(error) }, { status: 500 });
   }

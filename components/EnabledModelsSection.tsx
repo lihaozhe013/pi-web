@@ -8,7 +8,8 @@ import {
   enabledModelsProviderToggle,
   filterEnabledModels,
   findProviderView,
-  isLastEnabledModel
+  isLastEnabledModel,
+  keptModelForProvider
 } from './enabled-models-helpers';
 import { ConfigButton, ConfigSwitch } from './SettingsUi';
 import { ModelContextWindow, type ModelContextSettings } from './ModelContextWindow';
@@ -70,7 +71,6 @@ type MutationBody =
     };
 
 const FAILURE_KEYS: Record<string, string> = {
-  'last-model': 'models.enabledLastModel',
   'project-scope': 'models.enabledProjectScope'
 };
 
@@ -324,7 +324,7 @@ function providerSwitchBlockKey(
   return reason ? FAILURE_KEYS[reason] : null;
 }
 
-/** The note under a models.json provider's detail header saying why its switch cannot move. */
+/** The note under a models.json provider's detail header saying why its switch cannot move, or which model a "disable all" kept on. */
 export function EnabledModelsProviderSwitchNote({
   providerId,
   controller,
@@ -336,11 +336,22 @@ export function EnabledModelsProviderSwitchNote({
 }) {
   const { t } = useI18n();
   const key = providerSwitchBlockKey(controller, providerId);
-  return key ? (
-    <div id={id} className="config-detail-heading-note">
-      {t(key)}
-    </div>
-  ) : null;
+  const kept = keptModelForProvider(controller.view, providerId);
+  if (!key && !kept) return null;
+  return (
+    <>
+      {key && (
+        <div id={id} className="config-detail-heading-note">
+          {t(key)}
+        </div>
+      )}
+      {kept && (
+        <div className="config-detail-heading-note">
+          {t('models.enabledKept', { model: kept })}
+        </div>
+      )}
+    </>
+  );
 }
 
 /** Per-model switches for a provider that owns its own model list. */
@@ -435,10 +446,9 @@ export function EnabledModelsSection({
   const scopeNoteId = `${noteId}-scope`;
   const lastModelNoteId = `${noteId}-last`;
   const contextNoteId = `${noteId}-context`;
-  const disableBlockedByLastModel = editable && !bulk.canDisable && bulk.disableRefs.length > 0;
   const showLastModelNote =
-    disableBlockedByLastModel ||
-    (editable && shown.some((model) => isLastEnabledModel(view, model)));
+    editable && (bulk.keepsOne || shown.some((model) => isLastEnabledModel(view, model)));
+  const kept = keptModelForProvider(view, provider.id);
   // A provider-wide action is resolved server-side so models the browser has
   // not seen yet follow it too; a filtered action names its rows explicitly.
   const runBulk = (enabled: boolean, refs: string[]) => {
@@ -468,7 +478,7 @@ export function EnabledModelsSection({
           size="small"
           disabled={busy || !bulk.canDisable}
           aria-describedby={
-            !editable ? scopeNoteId : disableBlockedByLastModel ? lastModelNoteId : undefined
+            !editable ? scopeNoteId : bulk.keepsOne ? lastModelNoteId : undefined
           }
           onClick={() => runBulk(false, bulk.disableRefs)}
         >
@@ -495,6 +505,9 @@ export function EnabledModelsSection({
         <div id={lastModelNoteId} className="enabled-models-note">
           {t('models.enabledLastModel')}
         </div>
+      )}
+      {kept && (
+        <div className="enabled-models-note">{t('models.enabledKept', { model: kept })}</div>
       )}
       {failure && (
         <div className="enabled-models-error">
@@ -551,7 +564,7 @@ export function EnabledModelsSection({
                 <ConfigSwitch
                   checked={model.enabled}
                   loading={pending === model.ref}
-                  disabled={busy || !view?.editable || lastOne}
+                  disabled={busy || !view?.editable}
                   label={t('models.enabledToggle', { model: model.name })}
                   describedBy={!editable ? scopeNoteId : lastOne ? lastModelNoteId : undefined}
                   onChange={(checked) => controller.setModels(model.ref, [model.ref], checked)}

@@ -1692,7 +1692,8 @@ export const zhTWLocale: LocalePlugin = {
     'models.enabledToggle': '在模型選擇器中顯示 {model}',
     'models.enabledProviderToggle': '啟用 {provider} 的全部模型',
     'models.enabledPinHint': '由 enabledModels 固定的思考等級，需在 settings.json 中修改。',
-    'models.enabledLastModel': '至少需要保留一個啟用的模型。',
+    'models.enabledLastModel': 'pi 會把空的模型篩選讀成「全部模型」，因此總會保留一個模型啟用。',
+    'models.enabledKept': '已保留 {model} 啟用：pi 會把空的模型篩選讀成「全部模型」。',
     'models.enabledProjectScope':
       '目前專案的 .pi/settings.json 設定了 enabledModels 並覆寫全域設定，因此這些開關為唯讀。請直接修改該檔案。',
     'models.enabledUnavailable': '登入該 provider 後即可選擇模型。',

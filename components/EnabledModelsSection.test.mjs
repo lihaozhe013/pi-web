@@ -8,6 +8,7 @@ const {
   enabledModelsProviderToggle,
   filterEnabledModels,
   isLastEnabledModel,
+  keptModelForProvider,
   providerBadgeLabel
 } = await jiti.import('./enabled-models-helpers.ts');
 
@@ -67,17 +68,20 @@ test('bulk actions only offer the direction that changes something', () => {
   assert.equal(enabledModelsBulkActions(view(allOn), allOn).canEnable, false);
 });
 
-test('a bulk disable that would empty the scope is withheld', () => {
+test('a bulk disable that would empty the scope stays available', () => {
   const models = [entry('sonnet', true), entry('opus', false)];
   const actions = enabledModelsBulkActions(view(models), models);
-  assert.equal(actions.canDisable, false);
+  assert.equal(actions.canDisable, true);
+  assert.equal(actions.keepsOne, true);
   assert.deepEqual(actions.disableRefs, ['anthropic/sonnet']);
 });
 
 test('a bulk disable stays available while other providers keep models on', () => {
   const models = [entry('sonnet', true)];
   const scoped = view(models, { enabledTotal: 3, availableTotal: 5 });
-  assert.equal(enabledModelsBulkActions(scoped, models).canDisable, true);
+  const actions = enabledModelsBulkActions(scoped, models);
+  assert.equal(actions.canDisable, true);
+  assert.equal(actions.keepsOne, false);
 });
 
 test('read-only project scope disables both bulk actions', () => {
@@ -88,7 +92,7 @@ test('read-only project scope disables both bulk actions', () => {
   assert.equal(actions.canDisable, false);
 });
 
-test('the last enabled model is locked on', () => {
+test('the last enabled model is flagged so the note can explain it', () => {
   const models = [entry('sonnet', true), entry('opus', false)];
   const single = view(models);
   assert.equal(isLastEnabledModel(single, models[0]), true);
@@ -140,11 +144,11 @@ test('the provider switch is on only while every model of the provider is', () =
   });
 });
 
-test('the provider switch is locked when it would empty the scope or the file is read-only', () => {
+test('the provider switch is only locked by a read-only project scope', () => {
   const lockedOn = view([entry('sonnet', true), entry('opus', true)], { enabledTotal: 2 });
   assert.deepEqual(
     enabledModelsProviderToggle(lockedOn, { ...lockedOn.providers[0], kind: 'custom' }),
-    { checked: true, blocked: true, reason: 'last-model' }
+    { checked: true, blocked: false, reason: null }
   );
 
   const readOnly = view([entry('sonnet', true), entry('opus', false)], {
@@ -155,5 +159,18 @@ test('the provider switch is locked when it would empty the scope or the file is
   assert.deepEqual(
     enabledModelsProviderToggle(readOnly, { ...readOnly.providers[0], kind: 'custom' }),
     { checked: false, blocked: true, reason: 'project-scope' }
+  );
+});
+
+test('the kept model is named only under its own provider', () => {
+  const models = [entry('sonnet', true), entry('opus', false)];
+  const kept = view(models, { keptRef: 'anthropic/sonnet' });
+  assert.equal(keptModelForProvider(kept, 'anthropic'), 'SONNET');
+  assert.equal(keptModelForProvider(kept, 'openai'), null);
+  assert.equal(keptModelForProvider(view(models), 'anthropic'), null);
+  // A reference that is no longer listed still names something concrete.
+  assert.equal(
+    keptModelForProvider(view(models, { keptRef: 'anthropic/gone' }), 'anthropic'),
+    'anthropic/gone'
   );
 });

@@ -1802,7 +1802,10 @@ export const enLocale: LocalePlugin = {
     'models.enabledProviderToggle': 'Enable all {provider} models',
     'models.enabledPinHint':
       'Thinking level pinned by enabledModels. Edit settings.json to change it.',
-    'models.enabledLastModel': 'At least one model has to stay enabled.',
+    'models.enabledLastModel':
+      'pi reads an empty model filter as "all models", so one model always stays enabled.',
+    'models.enabledKept':
+      '{model} stays enabled: pi reads an empty model filter as "all models".',
     'models.enabledProjectScope':
       "This project's .pi/settings.json sets enabledModels and overrides the global value, so these switches are read-only. Edit that file to change the list.",
     'models.enabledUnavailable': 'Sign in to this provider to choose its models.',

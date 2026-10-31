@@ -114,11 +114,20 @@ export interface EnabledModelsView {
   /** False when project settings shadow the global value pi-web can write. */
   editable: boolean;
   modelError?: string;
+  /**
+   * Set on a mutation response only: the model kept on because the edit asked
+   * for every model to be off. See `setModelsEnabled()`.
+   */
+  keptRef?: string;
 }
 
-export type EnabledModelsEdit =
-  | { ok: true; patterns: string[] | undefined; changed: boolean }
-  | { ok: false; reason: 'last-model' };
+export interface EnabledModelsEdit {
+  ok: true;
+  patterns: string[] | undefined;
+  changed: boolean;
+  /** The model kept on when the edit asked for every model to be off. */
+  keptRef?: string;
+}
 
 /** Provider id of a `provider/modelId` reference (model ids may contain `/`). */
 export function modelRefProvider(ref: string): string {
@@ -298,9 +307,11 @@ export function computeEnabledModelsState(input: EnabledModelsInput): EnabledMod
 /**
  * Turn `refs` on or off with the smallest possible edit of the pattern list.
  *
- * Returns `{ ok: false, reason: "last-model" }` when the edit would leave no
- * enabled model: pi treats an empty scope as "no scope" and shows every model
- * again, so disabling the last one would silently mean the opposite.
+ * An edit never fails. Turning everything off is what the panel's "Disable all"
+ * asks for, and pi treats an empty scope as "no scope" and shows every model
+ * again — the opposite of the request. So the last edit keeps exactly one model
+ * on and reports it as `keptRef`, leaving the panel to explain why: a lone
+ * enabled switch reads better than a dead button that pre-empts the click.
  */
 export function setModelsEnabled(
   input: EnabledModelsInput,
@@ -312,6 +323,7 @@ export function setModelsEnabled(
   if (targets.length === 0) return { ok: true, patterns: input.patterns, changed: false };
 
   let entries = materializeEntries(input);
+  let keptRef: string | undefined;
 
   if (enabled) {
     const current = new Set(enabledRefs(entries));
@@ -321,28 +333,46 @@ export function setModelsEnabled(
       entries.push({ pattern: ref, matched: [ref] });
     }
   } else {
+    const withoutTargets = (removed: ReadonlySet<string>): Entry[] => {
+      const next: Entry[] = [];
+      for (const entry of entries) {
+        if (!entry.matched.some((ref) => removed.has(ref))) {
+          next.push(entry);
+          continue;
+        }
+        // Expand only this pattern, keeping its thinking pin on each survivor.
+        for (const ref of entry.matched.filter((matched) => !removed.has(matched))) {
+          next.push({
+            pattern: formatEntry(ref, entry.pin),
+            matched: [ref],
+            ...(entry.pin ? { pin: entry.pin } : {})
+          });
+        }
+      }
+      return next;
+    };
     const removed = new Set(targets);
-    const next: Entry[] = [];
-    for (const entry of entries) {
-      if (!entry.matched.some((ref) => removed.has(ref))) {
-        next.push(entry);
-        continue;
-      }
-      // Expand only this pattern, keeping its thinking pin on each survivor.
-      for (const ref of entry.matched.filter((matched) => !removed.has(matched))) {
-        next.push({
-          pattern: formatEntry(ref, entry.pin),
-          matched: [ref],
-          ...(entry.pin ? { pin: entry.pin } : {})
-        });
-      }
+    let next = withoutTargets(removed);
+    if (enabledRefs(next).length === 0) {
+      // Everything asked off: spare the first target in resolver order, i.e. the
+      // model the selector would start on, by removing the rest only. The entry
+      // that covered it survives in place, so its thinking pin comes along.
+      keptRef = targets.reduce((best, ref) =>
+        input.availableRefs.indexOf(ref) < input.availableRefs.indexOf(best) ? ref : best
+      );
+      removed.delete(keptRef);
+      next = withoutTargets(removed);
     }
-    if (enabledRefs(next).length === 0) return { ok: false, reason: 'last-model' };
     entries = next;
   }
 
   const patterns = serialize(normalizeProviderGlobs(entries, input), input);
-  return { ok: true, patterns, changed: !samePatterns(patterns, input.patterns) };
+  return {
+    ok: true,
+    patterns,
+    changed: !samePatterns(patterns, input.patterns),
+    ...(keptRef ? { keptRef } : {})
+  };
 }
 
 /**
