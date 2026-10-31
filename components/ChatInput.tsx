@@ -712,6 +712,7 @@ function revokeImagePreview(image: AttachedImage): void {
 }
 
 function QueuedMessageRow({ kind, text }: { kind: 'steer' | 'follow-up'; text: string }) {
+  const { t } = useI18n();
   return (
     <div
       title={text}
@@ -736,7 +737,7 @@ function QueuedMessageRow({ kind, text }: { kind: 'steer' | 'follow-up'; text: s
           color: kind === 'steer' ? 'var(--accent)' : 'var(--text-dim)'
         }}
       >
-        {kind}
+        {kind === 'steer' ? t('chat.steer') : t('chat.followUp')}
       </span>
       <span
         style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
