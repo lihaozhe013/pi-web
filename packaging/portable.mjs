@@ -1,7 +1,7 @@
 // Local portable packaging with Bun for dependencies and Node.js for runtime.
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { cp, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -16,6 +16,15 @@ export function artifactName(version, platform = process.platform, arch = proces
   }
   // Linux releases target glibc, not Alpine/musl.
   return `pi-web-${version}-${platform}-${arch}${platform === 'linux' ? '-glibc' : ''}`;
+}
+
+async function exists(file) {
+  try {
+    await stat(file);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function run(command, args, cwd, capture = false, env = process.env) {
@@ -33,6 +42,18 @@ function run(command, args, cwd, capture = false, env = process.env) {
 }
 
 export async function packagePortable(output = join(root, 'build', 'portable')) {
+  return buildPortableArchive({ output });
+}
+
+/**
+ * Build the portable archive and return what it contains. The desktop shell
+ * reuses this pipeline as its payload, so the options stay limited to an output
+ * directory and extra build environment.
+ */
+export async function buildPortableArchive({
+  output = join(root, 'build', 'portable'),
+  env: buildEnv = {}
+} = {}) {
   // Bun sets npm_execpath to its native executable when running package scripts.
   // Spawn it directly, keeping process.execPath reserved for Node.js.
   const bunCli = process.env.npm_execpath;
@@ -77,7 +98,7 @@ export async function packagePortable(output = join(root, 'build', 'portable')) 
       }
     }
     bun(['install', '--frozen-lockfile'], source);
-    bun(['run', 'build'], source, { ...process.env, PI_WEB_COMMIT: commit });
+    bun(['run', 'build'], source, { ...process.env, PI_WEB_COMMIT: commit, ...buildEnv });
 
     // Reuse package.json.files as the archive allow-list. This does not publish.
     bun(['pm', 'pack', '--filename', join(packed, 'app.tgz')], source);
@@ -85,6 +106,18 @@ export async function packagePortable(output = join(root, 'build', 'portable')) 
     run('tar', ['-xzf', 'packed/app.tgz', '-C', 'staging'], work);
     const app = join(staging, 'pi-web');
     await rename(join(staging, 'package'), app);
+    // `bun pm pack` never includes nested node_modules directories, but Next 16
+    // keeps external-package shims in `.next/node_modules` as symlinks into the
+    // package's own node_modules, which the production install below recreates.
+    // Without them `next start` fails to load the instrumentation hook.
+    const shims = join(source, '.next', 'node_modules');
+    if (await exists(shims)) {
+      await cp(shims, join(app, '.next', 'node_modules'), {
+        recursive: true,
+        verbatimSymlinks: true,
+        force: true
+      });
+    }
     await cp(join(source, 'bun.lock'), join(app, 'bun.lock'));
     // Install on the target OS/architecture so optional/native dependencies match.
     bun(['install', '--frozen-lockfile', '--production'], app);
@@ -120,6 +153,14 @@ export async function packagePortable(output = join(root, 'build', 'portable')) 
     await cp(archive, join(output, `${name}.tar.gz`));
     await writeFile(join(output, `${name}.tar.gz.sha256`), `${hash}  ${name}.tar.gz\n`);
     console.log(`Portable archive: ${join(output, `${name}.tar.gz`)}`);
+    return {
+      archive: join(output, `${name}.tar.gz`),
+      name,
+      version: pkg.version,
+      commit,
+      sha256: hash,
+      bytes: (await stat(archive)).size
+    };
   } finally {
     await rm(work, { recursive: true, force: true, maxRetries: 5, retryDelay: 1000 });
   }

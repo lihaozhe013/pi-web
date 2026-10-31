@@ -21,6 +21,10 @@
 # production
 /build
 
+# desktop shell
+/src-tauri/target
+/src-tauri/gen
+
 # misc
 .DS_Store
 *.pem

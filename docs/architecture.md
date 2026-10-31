@@ -26,6 +26,7 @@ sessions in process; Bun manages dependencies and script invocation.
 | HTTP APIs                | `app/api/`                                                         |
 | Local launcher           | `bin/pi-web.js`                                                    |
 | Portable packaging       | `packaging/`                                                       |
+| Desktop shell            | `src-tauri/`, `packaging/desktop.mjs`                              |
 
 ## Browser appearance and settings
 

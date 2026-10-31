@@ -9,6 +9,22 @@ export function PwaRegistration() {
       return;
     }
 
+    // The desktop shell loads this server in a system webview. A service worker
+    // there caches by origin, outlives a port change, and can serve a stale shell
+    // after an update, so the desktop build never registers one and removes any
+    // registration an earlier build left behind.
+    if (process.env.NEXT_PUBLIC_PI_WEB_DESKTOP === '1') {
+      void navigator.serviceWorker
+        .getRegistrations()
+        .then((registrations) =>
+          Promise.all(registrations.map((registration) => registration.unregister()))
+        )
+        .catch((error: unknown) => {
+          console.error('Failed to remove the Pi Web service worker:', error);
+        });
+      return;
+    }
+
     const register = () => {
       const appVersion = formatAppVersion(
         process.env.NEXT_PUBLIC_APP_VERSION ?? 'dev',

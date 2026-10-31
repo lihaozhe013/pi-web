@@ -24,7 +24,11 @@ creating a parallel protocol.
   `node --test path/to/test.mjs`); do not run the full test suite. The owner runs the full suite
   periodically. For packaging changes, use `bun run test:portable`.
 - Reuse a healthy development server. Do not start a second server in the same checkout or run a
-  production build in an active development checkout; portable builds run in isolation.
+  production build in an active development checkout; portable builds run in isolation. The desktop
+  shell follows the same rule: `bun run desktop:dev` attaches to the running development server, and
+  `bun run desktop:build` builds in a copy. Read [desktop shell](docs/desktop.md) before changing
+  `src-tauri/` or `packaging/desktop.mjs`; the shell has no Tauri IPC and must keep its navigation
+  guard, payload extraction, and server shutdown intact.
 - Report which checks ran and what remains unverified.
 
 ## Commits

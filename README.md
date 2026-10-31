@@ -53,8 +53,9 @@ bun run typecheck
 bun run lint
 ```
 
-Use `bun run test`, not `bun test`. See [local packaging](packaging/README.md) for portable builds.
-There is no maintained CI, npm publication workflow, or automated update commitment.
+Use `bun run test`, not `bun test`. See [local packaging](packaging/README.md) for portable builds
+and [desktop shell](docs/desktop.md) for the Tauri window. There is no maintained CI, npm
+publication workflow, or automated update commitment.
 
 ## Version
 
@@ -82,11 +83,25 @@ Do not expose it directly to the internet. Network access requires appropriate a
 encrypted transport. `PI_WEB_PASSWORD` enables login but does not encrypt traffic. Back up Pi data
 before deleting sessions or changing configuration.
 
+## Desktop shell
+
+A Tauri 2 shell starts the same server in a window instead of a browser. It does not bundle Node.js
+or a webview: it needs a Node.js release that satisfies the Next.js floor (`>= 20.9.0`), the system
+webview, and nothing else. Build it locally with `bun run desktop:build`.
+
+```sh
+bun run desktop:dev     # window against the development server on 127.0.0.1:30141
+bun run desktop:build   # payload, release binary, and the host platform package
+```
+
+See [desktop shell](docs/desktop.md) for runtime paths, port handling, and per-platform notes.
+
 ## Documentation
 
 - [Project direction and documentation index](docs/README.md)
 - [Interface principles](docs/design.md)
 - [Architecture](docs/architecture.md)
+- [Desktop shell](docs/desktop.md)
 - [Coding agent instructions](AGENTS.md)
 - [Local browser tests](e2e/README.md)
 

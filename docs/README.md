@@ -45,14 +45,15 @@ pipeline, or automated update commitment is maintained.
 
 All project documentation is maintained in English, without translated copies.
 
-| Document                            | Purpose                             |
-| ----------------------------------- | ----------------------------------- |
-| [README](../README.md)              | Usage, security, and attribution    |
-| [Agent instructions](../AGENTS.md)  | Rules for coding assistants         |
-| [Interface principles](design.md)   | Presentation and interaction        |
-| [Architecture](architecture.md)     | Current entry points and boundaries |
-| [Packaging](../packaging/README.md) | Local portable builds               |
-| [Browser tests](../e2e/README.md)   | Local browser regression testing    |
+| Document                            | Purpose                              |
+| ----------------------------------- | ------------------------------------ |
+| [README](../README.md)              | Usage, security, and attribution     |
+| [Agent instructions](../AGENTS.md)  | Rules for coding assistants          |
+| [Interface principles](design.md)   | Presentation and interaction         |
+| [Architecture](architecture.md)     | Current entry points and boundaries  |
+| [Desktop shell](desktop.md)         | Tauri 2 window and desktop packaging |
+| [Packaging](../packaging/README.md) | Local portable builds                |
+| [Browser tests](../e2e/README.md)   | Local browser regression testing     |
 
 These documents replace the upstream snapshot, fork-specific design guide, translated guides,
 historical ADRs, and release instructions. Use Git history for historical context rather than

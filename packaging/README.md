@@ -68,3 +68,11 @@ running installation or copy native dependencies between platforms.
 Smoke tests verify the build platform, not every provider, OAuth flow, MCP server, or extension.
 Git, shells, Python, npm/npx, and external MCP programs must be provided separately when needed.
 Historical plugin and skill installers may still require npm/npx.
+
+## Desktop shell
+
+The archive is also the payload of the Tauri 2 shell in `src-tauri/`. `bun run desktop:build` runs
+this pipeline, writes `build/desktop/payload.tar.gz` and `payload.json`, builds the shell, and
+packages the host platform; `--payload <archive>` reuses an existing archive. The payload is rebuilt
+with `NEXT_PUBLIC_PI_WEB_DESKTOP=1` so the service worker stays unregistered in a webview. See
+[desktop shell](../docs/desktop.md) for the runtime contract.

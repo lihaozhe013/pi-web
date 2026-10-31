@@ -39,7 +39,10 @@
     "test:e2e": "node e2e/run.mjs",
     "test": "node --experimental-strip-types --test \"app/**/*.test.mjs\" \"components/**/*.test.mjs\" \"hooks/**/*.test.mjs\" \"lib/**/*.test.mjs\" \"public/**/*.test.mjs\"",
     "package:portable": "node packaging/portable.mjs",
+    "desktop:dev": "node packaging/desktop.mjs --dev",
+    "desktop:build": "node packaging/desktop.mjs",
     "test:portable": "node --test packaging/portable.test.mjs",
+    "test:desktop": "node --test packaging/desktop.test.mjs",
     "typecheck": "node node_modules/typescript/bin/tsc --noEmit"
   },
   "dependencies": {
@@ -62,6 +65,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
+    "@tauri-apps/cli": "^2",
     "@types/js-yaml": "^4.0.9",
     "@types/mdast": "^4.0.4",
     "@types/node": "^26",
