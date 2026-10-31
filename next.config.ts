@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next';
+import { execFileSync } from 'child_process';
 import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
@@ -14,6 +15,28 @@ try {
 } catch {
   /* package not found, use default */
 }
+
+/**
+ * The short commit this build came from, shown as the app version's build
+ * metadata (`0.1.0+1c02256`). A portable build runs in a copy without `.git`,
+ * so packaging forwards the commit as `PI_WEB_COMMIT`; outside a Git checkout
+ * the commit is "unknown".
+ */
+function readCommit(): string {
+  const provided = process.env.PI_WEB_COMMIT ?? process.env.GIT_COMMIT;
+  if (provided?.trim()) return provided.trim().slice(0, 7);
+  try {
+    return execFileSync('git', ['rev-parse', '--short=7', 'HEAD'], {
+      cwd: configDir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).trim();
+  } catch {
+    return 'unknown';
+  }
+}
+
+const commit = readCommit();
 
 // mdast-util-gfm-autolink-literal (remark-gfm) ships a RegExp lookbehind that
 // Safari parses only from 16.4, which blanked `/` on iOS 16.2 (#753). The loader
@@ -99,6 +122,7 @@ const nextConfig: NextConfig = {
   },
   env: {
     NEXT_PUBLIC_APP_VERSION: version,
+    NEXT_PUBLIC_APP_COMMIT: commit,
     NEXT_PUBLIC_PI_VERSION: piVersion
   }
 };

@@ -993,14 +993,10 @@ a.session-tree-main {
 }
 
 /* With the files below the sessions there is no tab to choose: the brand
-   stands where the tabs were (PiWebTitle), the panel's anchor: the app's
-   pi mark. Not a cell: no box, no line on its right; it sits in the
-   chevron column (6px in plus a header toggle's 5px). A click shows the
-   versions in the accent for a few seconds. Never cut: New's label
-   gives way first, and on a row too narrow for the versions they take the
-   sidebar's meta size (data-fit 2, which only they reach: at 11px the
-   versions fit beside the two cells at the sidebar's 180px minimum, with
-   a digit to spare). */
+   stands where the tabs were (PiWebTitle), the panel's anchor and the way into
+   About (the build's version and the commit it came from). Not a cell: no box,
+   no line on its right; it sits in the chevron column (6px in plus a header
+   toggle's 5px). Never cut: New's label gives way first. */
 .sidebar-brand {
   flex: none;
   align-self: center;
@@ -1010,26 +1006,20 @@ a.session-tree-main {
   border-radius: 6px;
   background: transparent;
   color: var(--text);
-  font-family: var(--font-mono);
-  font-size: calc(15px + var(--ui-font-size-offset, 0px));
-  font-weight: 700;
-  letter-spacing: -0.01em;
   line-height: normal;
-  text-align: left;
-  white-space: nowrap;
-  cursor: default;
+  cursor: pointer;
 }
 
-/* The mark while the versions are not shown (the app icon, square like its
-   file). Block: no baseline gap below it in the button. */
+/* The app icon, square like its file, in the button's fixed box. Block: no
+   baseline gap below it in the button. */
 .sidebar-brand-icon {
   display: block;
   width: 20px;
   height: 20px;
 }
 
-.sidebar-brand.is-version {
-  color: var(--accent);
+.sidebar-brand:hover {
+  background: var(--bg-hover);
 }
 
 .sidebar-brand:focus {
@@ -1062,8 +1052,7 @@ a.session-tree-main {
 
 /* Where the labels do not fit (useHeaderFit measures them: their widths
    change with the language): New keeps its + (data-fit 1), then the tabs
-   their icons, or the brand's versions take a smaller type (2). A hidden
-   label is still each one's name. */
+   their icons (2). A hidden label is still each one's name. */
 .sidebar-header[data-fit='1'] .sidebar-new-button,
 .sidebar-header[data-fit='2'] .sidebar-new-button {
   width: 36px;
@@ -1072,10 +1061,6 @@ a.session-tree-main {
 
 .sidebar-header[data-fit='2'] .sidebar-tab {
   padding: 0 11px;
-}
-
-.sidebar-header[data-fit='2'] .sidebar-brand {
-  font-size: calc(11px + var(--ui-font-size-offset, 0px));
 }
 
 .sidebar-header[data-fit='1'] .sidebar-new-label,

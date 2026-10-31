@@ -1,0 +1,187 @@
+/* About dialog (components/AboutDialog.tsx): the brand mark, the build's
+   version with its commit, where the build comes from, and its Pi release. */
+
+.about-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 22px 22px 24px;
+}
+
+.about-hero {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background:
+    radial-gradient(
+      130% 160% at 0% 0%,
+      color-mix(in srgb, var(--accent) 20%, transparent),
+      transparent 62%
+    ),
+    var(--bg-panel);
+}
+
+.about-logo {
+  flex: none;
+  width: 64px;
+  height: 64px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--bg);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.16);
+}
+
+.about-hero-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.about-name {
+  margin: 0;
+  color: var(--text);
+  font-size: calc(21px + var(--ui-font-size-offset, 0px));
+  font-weight: 650;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+
+.about-tagline {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: calc(12.5px + var(--ui-font-size-offset, 0px));
+  line-height: 1.45;
+}
+
+.about-version {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-subtle);
+}
+
+.about-version-label,
+.about-fact dt {
+  color: var(--text-muted);
+  font-size: calc(10.5px + var(--ui-font-size-offset, 0px));
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.about-version-value {
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: calc(14px + var(--ui-font-size-offset, 0px));
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* The build metadata is the one part of the version that changes per build:
+   the accent separates it from the hand-maintained number. */
+.about-version-commit {
+  color: var(--accent);
+}
+
+.about-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.about-fact {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.about-fact dd {
+  margin: 0;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: calc(12.5px + var(--ui-font-size-offset, 0px));
+  overflow-wrap: anywhere;
+}
+
+.about-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.about-link {
+  display: inline-flex;
+  flex: 1;
+  min-width: 150px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-panel);
+  color: var(--text);
+  font-size: calc(12.5px + var(--ui-font-size-offset, 0px));
+  font-weight: 500;
+  text-decoration: none;
+  transition:
+    background 0.12s,
+    border-color 0.12s,
+    color 0.12s;
+}
+
+.about-link:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.about-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.about-attribution {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: calc(11px + var(--ui-font-size-offset, 0px));
+  line-height: 1.5;
+  text-align: center;
+}
+
+@media (max-width: 420px) {
+  .about-dialog {
+    gap: 14px;
+    padding: 16px 16px 20px;
+  }
+
+  .about-hero {
+    padding: 16px;
+  }
+
+  .about-facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .about-link {
+    min-width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .about-link {
+    transition: none;
+  }
+}

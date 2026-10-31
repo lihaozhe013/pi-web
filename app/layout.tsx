@@ -12,6 +12,7 @@ import './turn-copy.css';
 import './composer-hub.css';
 import './goal.css';
 import './workspace.css';
+import './about.css';
 import './tool-cards.css';
 import './execution-history.css';
 import './catppuccin.css';

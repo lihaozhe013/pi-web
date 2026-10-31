@@ -7,22 +7,10 @@ const jiti = createJiti(import.meta.url, { jsx: { runtime: 'automatic' }, tsconf
 const React = await jiti.import('react');
 const { renderToStaticMarkup } = await jiti.import('react-dom/server');
 const { I18nProvider } = await jiti.import('@/hooks/useI18n');
-const {
-  BRAND_ICON_SIZE,
-  BRAND_ICON_SRC,
-  BRAND_TEXT,
-  PiWebTitle,
-  SCRAMBLE_CHARS,
-  VERSION_SHOWN_MS,
-  brandVersionText,
-  scrambleFrame,
-  scrambleFrameCount
-} = await jiti.import('./PiWebTitle.tsx');
-const { SIDEBAR_MIN_WIDTH } = await jiti.import('@/lib/panel-layout.ts');
+const { BRAND_ICON_SIZE, BRAND_ICON_SRC, PiWebTitle } = await jiti.import('./PiWebTitle.tsx');
 const { getLocalePlugin } = await jiti.import('@/lib/i18n/registry.ts');
 
 const css = await readFile(new URL('../app/sidebar.css', import.meta.url), 'utf8');
-const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 
 /** A rule's declarations (its first rule for the selector). */
 function rule(selector) {
@@ -31,74 +19,36 @@ function rule(selector) {
   return css.slice(css.indexOf('{', start) + 1, css.indexOf('}', start));
 }
 
-/** A fixed sequence for Math.random's place. */
-function sequence(...values) {
-  let index = 0;
-  return () => values[index++ % values.length];
-}
-
-test("the versions read as the old brand showed them: pi-web's, a p, pi's", () => {
-  assert.equal(brandVersionText('0.11.0', '1.1.0'), '0.11.0p1.1.0');
-  assert.equal(brandVersionText(undefined, undefined), '0.0.0p0.0.0');
-  assert.equal(BRAND_TEXT, 'Pi Web');
+test("the brand is the app's icon in a button that opens About", async () => {
   assert.equal(BRAND_ICON_SRC, '/icons/icon-192.png');
   assert.equal(BRAND_ICON_SIZE, 20);
-  assert.equal(VERSION_SHOWN_MS, 3000);
-});
 
-test('the scramble keeps the length and the spaces and settles left to right', () => {
-  const target = 'Pi Web';
-  const total = scrambleFrameCount(target);
-  assert.equal(total, 24);
-  // The first frame: nothing settled but the space, every character from the set.
-  const first = scrambleFrame(target, 0, sequence(0, 0.5, 0.99));
-  assert.equal(first.length, target.length);
-  assert.equal(first[2], ' ');
-  for (const [index, char] of [...first].entries()) {
-    if (index !== 2) assert.ok(SCRAMBLE_CHARS.includes(char), `${char} is a scramble character`);
-  }
-  const pick = (value) => SCRAMBLE_CHARS[Math.floor(value * SCRAMBLE_CHARS.length)];
-  assert.equal(first, `${pick(0)}${pick(0.5)} ${pick(0.99)}${pick(0)}${pick(0.5)}`);
-  // Halfway, the first half is final.
-  assert.equal(scrambleFrame(target, total / 2, () => 0).slice(0, 3), 'Pi ');
-  assert.equal(scrambleFrame(target, total / 2, () => 0).slice(3), 'AAA');
-  // From the last frame on, the text itself; every frame before has its length.
-  assert.equal(scrambleFrame(target, total), target);
-  assert.equal(scrambleFrame(target, total + 5), target);
-  for (let frame = 0; frame < total; frame++)
-    assert.equal(scrambleFrame(target, frame).length, target.length);
-  const versions = brandVersionText('0.11.0', '1.1.0');
-  assert.equal(scrambleFrameCount(versions), versions.length * 4);
-});
-
-test("the brand is a button named for what its click shows, with the app's icon", async () => {
   const html = renderToStaticMarkup(
     React.createElement(I18nProvider, null, React.createElement(PiWebTitle))
   );
-  const app = process.env.NEXT_PUBLIC_APP_VERSION ?? '0.0.0';
-  const pi = process.env.NEXT_PUBLIC_PI_VERSION ?? '0.0.0';
   // React 19 hoists a preload for the img into the head; the button itself
-  // follows.
+  // follows. About is closed until a click, so no dialog is rendered.
   assert.equal(
     html,
     `<link rel="preload" as="image" href="${BRAND_ICON_SRC}"/>` +
-      `<button type="button" class="sidebar-brand" aria-label="Pi Web, versions: web ${app}, pi ${pi}">` +
+      '<button type="button" class="sidebar-brand" aria-label="About Pi Web" title="About Pi Web"' +
+      ' aria-haspopup="dialog" aria-expanded="false">' +
       `<img class="sidebar-brand-icon" src="${BRAND_ICON_SRC}" alt="" width="${BRAND_ICON_SIZE}" height="${BRAND_ICON_SIZE}"/>` +
       '</button>'
   );
   assert.doesNotMatch(html, /style=/, "no inline styles: its look is app/sidebar.css's");
-  // The icon is the app's, and decorative: the name carries the meaning.
+  assert.doesNotMatch(html, /role="dialog"/);
+  // The icon is the app's, and decorative: the button's name carries the meaning.
   const icon = await readFile(new URL(`../public${BRAND_ICON_SRC}`, import.meta.url));
   assert.ok(icon.length > 0);
-  // In every language, with the visible name in it.
+  // Every language names the button for the page it opens.
   for (const locale of ['en', 'zh-CN', 'zh-TW']) {
     const label = getLocalePlugin(locale).messages['sidebar.brandLabel'];
-    assert.ok(label?.startsWith('Pi Web'), `${locale}: ${label}`);
-    assert.match(label, /\{app\}[\s\S]*\{pi\}/);
+    assert.match(label, /Pi Web/, `${locale}: ${label}`);
   }
 });
 
-test("the brand sits in the chevron column and is never cut at the sidebar's minimum", async () => {
+test('the brand sits in the chevron column and offers a visible hover and focus', () => {
   const brand = rule('.sidebar-brand');
   // Its content in the chevron column: the tree's 6px inset and a toggle's 5px.
   const [marginLeft] = brand
@@ -110,33 +60,19 @@ test("the brand sits in the chevron column and is never cut at the sidebar's min
     .slice(1)
     .map(Number);
   assert.equal(marginLeft + paddingLeft, 6 + 5);
+  assert.match(brand, /(?:^|\s)cursor: pointer;/);
 
-  // The mark when the versions are not shown: the app icon, block in its
-  // square box (20px, the size the brand renders it at).
+  // The mark: the app icon, block in its square box (20px, the size the brand
+  // renders it at).
   const icon = rule('.sidebar-brand-icon');
   assert.match(icon, /(?:^|\s)display: block;/);
   assert.match(icon, new RegExp(`width: ${BRAND_ICON_SIZE}px;`));
   assert.match(icon, new RegExp(`height: ${BRAND_ICON_SIZE}px;`));
 
-  // At the sidebar's minimum (its line off), beside New's + and the search
-  // (36px cells each), the versions fit in the 11px of data-fit 2 (0.6em a
-  // character in the brand's code type).
-  assert.match(brand, /(?:^|\s)font-family: var\(--font-mono\);/);
-  assert.match(brand, /font-size: calc\(15px \+ var\(--ui-font-size-offset, 0px\)\);/);
-  assert.match(
-    css,
-    /\.sidebar-header\[data-fit=['"]2['"]\] \.sidebar-brand \{\s*font-size: calc\(11px \+ var\(--ui-font-size-offset, 0px\)\);\s*\}/
-  );
-  const room = SIDEBAR_MIN_WIDTH - 1 - 36 - 36;
-  const box = (text, fontSize) => marginLeft + 2 * paddingLeft + text.length * 0.6 * fontSize;
-  const piPackage = JSON.parse(
-    await readFile(
-      new URL('../node_modules/@earendil-works/pi-coding-agent/package.json', import.meta.url),
-      'utf8'
-    )
-  );
-  // Today's versions, with room for a longer one.
-  const versions = brandVersionText(packageJson.version, piPackage.version);
-  assert.ok(box(versions, 11) <= room, `${versions} at 11px`);
-  assert.ok(box(`${versions}0`, 11) <= room, 'and a digit more');
+  // Clickable state and keyboard focus.
+  assert.match(css, /\.sidebar-brand:hover \{\s*background: var\(--bg-hover\);\s*\}/);
+  assert.match(css, /\.sidebar-brand:focus-visible \{\s*outline: 2px solid var\(--accent\);/);
+  // The old version-scramble styling is gone: the mark never becomes text.
+  assert.doesNotMatch(css, /\.sidebar-brand\.is-version/);
+  assert.doesNotMatch(css, /\.sidebar-header\[data-fit='2'\] \.sidebar-brand/);
 });

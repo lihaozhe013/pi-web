@@ -8,6 +8,13 @@ import { useRetainedExecutionHistory } from '@/hooks/useRetainedExecutionHistory
 import { useActiveExecutionHistory } from '@/hooks/useActiveExecutionHistory';
 import { ToolActivityProvider, liveToolIds } from './ToolActivity'; // display-only execution status
 import type { GoalFacts } from '@/lib/goal-driver';
+import { formatAppVersion } from '@/lib/app-version';
+
+/** The web build's version, with the commit it came from (`0.1.0+1c02256`). */
+const APP_VERSION_LABEL = formatAppVersion(
+  process.env.NEXT_PUBLIC_APP_VERSION,
+  process.env.NEXT_PUBLIC_APP_COMMIT
+);
 import { registerAbortHandler } from '@/hooks/useKeyboardShortcuts';
 import Image from 'next/image';
 import {
@@ -2185,7 +2192,7 @@ export function ChatWindow({
                   <div className="new-session-brand-text">
                     <span className="new-session-brand-name">Pi Web</span>
                     <span className="new-session-meta">
-                      <span>web v{process.env.NEXT_PUBLIC_APP_VERSION ?? '0.0.0'}</span>
+                      <span>web v{APP_VERSION_LABEL}</span>
                       <span aria-hidden="true">·</span>
                       <span className="new-session-meta-pi">
                         pi v{process.env.NEXT_PUBLIC_PI_VERSION ?? '0.0.0'}

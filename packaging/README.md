@@ -27,8 +27,10 @@ source directory. Add new files to Git before packaging. Deleted files are skipp
 `bun.lock` is copied.
 
 It installs frozen dependencies, builds outside the development checkout, packs using the package
-file allow-list, and installs production dependencies in isolation. The final archive contains
-`.next` and complete production `node_modules`; it does not use Next.js standalone output.
+file allow-list, and installs production dependencies in isolation. The temporary source copy has no
+`.git`, so the packager forwards the source commit as `PI_WEB_COMMIT` and the build's version
+carries its short form (`0.1.0+1c02256`). The final archive contains `.next` and complete production
+`node_modules`; it does not use Next.js standalone output.
 
 Before saving the archive and SHA-256 checksum, the packager extracts it to another path containing
 spaces and smoke-tests the launcher, homepage, static assets, and sessions API. Output defaults to

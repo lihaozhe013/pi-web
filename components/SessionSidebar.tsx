@@ -2576,7 +2576,7 @@ export function SessionSidebar({
     onMoveGroup: moveProject
   } as const;
 
-  const fitHeader = useHeaderFit(headerRef, t('sidebar.new'));
+  useHeaderFit(headerRef, t('sidebar.new'));
   const archivedCount = model.archivedCount;
 
   return (
@@ -2629,7 +2629,7 @@ export function SessionSidebar({
       )}
       {/* Session toolbar. */}
       <div ref={headerRef} className="sidebar-header">
-        <PiWebTitle onWidthChange={fitHeader} />
+        <PiWebTitle />
         <span className="sidebar-header-spacer" />
         <button
           ref={newButtonRef}

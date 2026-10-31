@@ -1,5 +1,6 @@
 'use client';
 
+import { formatAppVersion } from '@/lib/app-version';
 import { useEffect } from 'react';
 
 export function PwaRegistration() {
@@ -9,7 +10,10 @@ export function PwaRegistration() {
     }
 
     const register = () => {
-      const appVersion = process.env.NEXT_PUBLIC_APP_VERSION ?? 'dev';
+      const appVersion = formatAppVersion(
+        process.env.NEXT_PUBLIC_APP_VERSION ?? 'dev',
+        process.env.NEXT_PUBLIC_APP_COMMIT
+      );
       const scriptUrl = `/sw.js?v=${encodeURIComponent(appVersion)}`;
 
       void navigator.serviceWorker

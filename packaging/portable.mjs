@@ -18,9 +18,10 @@ export function artifactName(version, platform = process.platform, arch = proces
   return `pi-web-${version}-${platform}-${arch}${platform === 'linux' ? '-glibc' : ''}`;
 }
 
-function run(command, args, cwd, capture = false) {
+function run(command, args, cwd, capture = false, env = process.env) {
   const result = spawnSync(command, args, {
     cwd,
+    env,
     stdio: capture ? ['ignore', 'pipe', 'inherit'] : 'inherit',
     encoding: 'utf8',
     maxBuffer: 32 * 1024 * 1024
@@ -38,8 +39,14 @@ export async function packagePortable(output = join(root, 'build', 'portable')) 
   if (!bunCli || !/^bun(?:\.exe)?$/i.test(bunCli.split(/[\\/]/).pop())) {
     throw new Error('Run via: bun run package:portable');
   }
-  const bun = (args, cwd) => run(bunCli, args, cwd);
+  const bun = (args, cwd, env) => run(bunCli, args, cwd, false, env);
   const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
+  // The build copy has no .git, so the commit goes to the build as an env var
+  // and the web version shows it (`0.1.0+1c02256`).
+  const commit = execFileSync('git', ['rev-parse', 'HEAD'], {
+    cwd: root,
+    encoding: 'utf8'
+  }).trim();
   const name = artifactName(pkg.version);
   if (process.platform === 'linux' && !process.report.getReport().header.glibcVersionRuntime) {
     throw new Error('Linux portable packages currently require glibc (musl is not supported)');
@@ -70,7 +77,7 @@ export async function packagePortable(output = join(root, 'build', 'portable')) 
       }
     }
     bun(['install', '--frozen-lockfile'], source);
-    bun(['run', 'build'], source);
+    bun(['run', 'build'], source, { ...process.env, PI_WEB_COMMIT: commit });
 
     // Reuse package.json.files as the archive allow-list. This does not publish.
     bun(['pm', 'pack', '--filename', join(packed, 'app.tgz')], source);
@@ -91,10 +98,7 @@ export async function packagePortable(output = join(root, 'build', 'portable')) 
           libc: process.platform === 'linux' ? 'glibc' : undefined,
           buildNode: process.version,
           buildBun: run(bunCli, ['--version'], source, true).trim(),
-          commit: execFileSync('git', ['rev-parse', 'HEAD'], {
-            cwd: root,
-            encoding: 'utf8'
-          }).trim(),
+          commit,
           source: 'tracked working-tree files (may include local changes)'
         },
         null,

@@ -56,6 +56,16 @@ bun run lint
 Use `bun run test`, not `bun test`. See [local packaging](packaging/README.md) for portable builds.
 There is no maintained CI, npm publication workflow, or automated update commitment.
 
+## Version
+
+The package version stays at `0.1.0` for personal use, so builds identify themselves by the short
+commit appended as SemVer build metadata. The configuration reads `HEAD` at dev and build time; a
+portable build runs in a copy without `.git` and receives the commit through `PI_WEB_COMMIT`, which
+also overrides the commit for any other build.
+
+The sidebar's mark opens About, which shows the full version (`0.1.0+1c02256`), the Pi release in
+use, the license, and links to the source and to Pi.
+
 ## Security
 
 This interface controls an agent that can read and write files and execute commands. It is not a
