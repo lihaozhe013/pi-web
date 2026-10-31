@@ -11,14 +11,17 @@ project management. A new session chooses a working directory; Git repository re
 change its identity.
 
 The right panel is dedicated exclusively to Runs and execution context (including Goal and
-Compaction status) and is currently 400px wide. It overlays the conversation when space is limited
-and fills phone widths. A docked collapse/expand toggle on the right side controls the panel; the
-panel header also includes a collapse button. A surface opened on the user's behalf — the automatic
-Runs panel — never takes focus. System prompt, tools definitions, and session token information open
-in focused modal dialogs above the conversation rather than sharing the sidebar. Active goals and
-compaction state report inside the Runs panel rather than below the chat input, keeping the main
-composer clean. The composer options button (`...`) sits in the right toolbar between the tools
-preset selector and the sound toggle.
+Compaction status) and is currently 400px wide. It is part of the default desktop page: it is open
+on load, before any command runs, and only the user's own collapse in that page closes it. It
+overlays the conversation when space is limited and fills phone widths; there it starts closed so
+the conversation stays visible, and opens only when the user asks for it. Settings hides the panel
+without collapsing it, so closing Settings brings it back. A docked collapse/expand toggle on the
+right side reopens a closed panel; the panel header also includes a collapse button. A surface that
+belongs to the default page — the Runs panel — never takes focus; one the user opens does. System
+prompt, tools definitions, and session token information open in focused modal dialogs above the
+conversation rather than sharing the sidebar. Active goals and compaction state report inside the
+Runs panel rather than below the chat input, keeping the main composer clean. The composer options
+button (`...`) sits in the right toolbar between the tools preset selector and the sound toggle.
 
 The sidebar's mark opens About in a modal over the conversation: the logo, the build's version and
 commit, the Pi release in use, the license, and links to the source and to Pi. The mark is not a
@@ -98,20 +101,19 @@ Current main-transcript behavior:
   writing its arguments: a half-streamed JSON blob would intrude, while a running call's card is the
   progress the user asked for.
 - Shell and codemode calls draw no card in the transcript, running, successful or failed. The
-  composer status row names them while they run, and the Runs panel keeps their history: the toggle
-  sits beside Tools in the toolbar, is closed by default, and stays open until the user closes it.
-  The panel also opens itself with the first running command of a turn, and when the user switches
-  to a conversation that is already running one, so a run is visible without a click. Closing it
-  during a turn keeps it closed until the next turn. Where the sidebar would overlay the
-  conversation it stays closed until the toggle or a phone action opens it. The panel separates
-  active runs from history, with independent scrolling and newest first in each. History starts
-  collapsed into a compact footer, leaving the active area more room; its heading toggles the
-  section, and the choice stays in effect when the panel is closed and reopened. Active cards
-  default open; completed cards remain in the active section for two seconds, showing their final
-  status, then move to history and default closed. Multiple runs can remain active at once. Active
-  and historical cards use blue for running, green for success, and red for errors, alongside status
-  words and marks; cancelled runs remain neutral. Codemode's nested calls use their own status
-  colors as compact subcards ahead of a script disclosure. Closing the panel does not discard
+  composer status row names them while they run, and the Runs panel keeps their history: the panel
+  is part of the default page, so it is already open, and the edge toggle appears only while it is
+  closed. It stays open across sessions and turns; a run never reopens a panel the user collapsed,
+  and a reload restores the default. Where the sidebar would overlay the conversation the panel
+  starts closed, so a phone shows the conversation; the toggle or a phone action opens it there. The
+  panel separates active runs from history, with independent scrolling and newest first in each.
+  History starts collapsed into a compact footer, leaving the active area more room; its heading
+  toggles the section, and the choice stays in effect when the panel is closed and reopened. Active
+  cards default open; completed cards remain in the active section for two seconds, showing their
+  final status, then move to history and default closed. Multiple runs can remain active at once.
+  Active and historical cards use blue for running, green for success, and red for errors, alongside
+  status words and marks; cancelled runs remain neutral. Codemode's nested calls use their own
+  status colors as compact subcards ahead of a script disclosure. Closing the panel does not discard
   anything.
 - Write/edit cards default to expanded. Patch cards fold after completion.
 - A command the user ran themselves (`!`) keeps its live card in the transcript, because its

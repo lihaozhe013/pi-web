@@ -1,6 +1,6 @@
 // Isolated browser coverage for the information panel's focus contract. The
-// Runs panel now opens by itself when a conversation runs a command, so a panel
-// the user did not ask for must never take focus from the composer.
+// Runs panel belongs to the default page, so a panel the user did not ask for
+// must never take focus from the composer.
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
@@ -132,7 +132,14 @@ try {
     'a wide layout keeps the panel beside chat'
   );
 
+  // The composer's Escape belongs to the composer: a panel that is part of
+  // the page does not close under it.
   await composer.press('Escape');
+  assert.equal(await panel.isVisible(), true, 'a default panel must not close from the composer');
+
+  // Escape inside the panel closes it and returns focus to where it was.
+  await panel.focus();
+  await page.keyboard.press('Escape');
   await panel.waitFor({ state: 'hidden' });
   assert.equal(
     await composer.evaluate((element) => element === document.activeElement),

@@ -48,15 +48,17 @@ export function SessionInfoSidebar({
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
     if (focusOnMountRef.current) panelRef.current?.focus();
     const handleKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        const otherDialog = [
-          ...document.querySelectorAll<HTMLElement>('[role="dialog"][aria-modal="true"]')
-        ].some((element) => element !== panelRef.current && !panelRef.current?.contains(element));
-        if (otherDialog) return;
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        onCloseRef.current();
-      }
+      if (event.key !== 'Escape') return;
+      // A panel that belongs to the page leaves the composer's Escape alone.
+      const panel = panelRef.current;
+      if (!panel?.contains(document.activeElement)) return;
+      const otherDialog = [
+        ...document.querySelectorAll<HTMLElement>('[role="dialog"][aria-modal="true"]')
+      ].some((element) => element !== panel && !panel.contains(element));
+      if (otherDialog) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      onCloseRef.current();
     };
     document.addEventListener('keydown', handleKey, true);
     return () => {
@@ -64,6 +66,8 @@ export function SessionInfoSidebar({
       // Wait until modal siblings have had their inert state restored.
       const opener = openerRef.current;
       queueMicrotask(() => {
+        // A dialog that opened above the panel keeps the focus it just took.
+        if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
         if (opener?.isConnected && opener.getClientRects().length > 0) opener.focus();
         else document.querySelector<HTMLElement>('[data-mobile-toolbar-more="true"]')?.focus();
       });

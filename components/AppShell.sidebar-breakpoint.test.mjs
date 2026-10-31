@@ -34,7 +34,7 @@ function setup(collapsed = false) {
     isMobile: false,
     sidebarOpen: !collapsed,
     useRef: (current) => ({ current }),
-    setActiveTopPanel() {},
+    dismissRunsPanelOverlay() {},
     setMobileToolbarMoreOpen() {}
   });
   context.desktopSidebarOpenRef = script(nodeText(source, preference.init)).runInContext(context);

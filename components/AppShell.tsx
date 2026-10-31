@@ -31,9 +31,13 @@ import {
 } from '@/lib/new-session-context';
 import {
   getSidebarMaxWidth,
+  isRunsPanelOpen,
+  RUNS_PANEL_DEFAULT_PREFERENCE,
+  type RunsPanelPreference,
   SIDEBAR_DEFAULT_WIDTH,
   SIDEBAR_MAX_WIDTH,
-  SIDEBAR_MIN_WIDTH
+  SIDEBAR_MIN_WIDTH,
+  toggleRunsPanelPreference
 } from '@/lib/panel-layout';
 import type { SessionStatsInfo } from '@/lib/pi-types';
 import { setupPushSubscription } from '@/lib/push-client';
@@ -333,32 +337,10 @@ export function AppShell() {
     []
   );
 
-  // A conversation that is working shows its commands without a click: the Runs
-  // panel opens with the first run of a turn, and again when the user switches to
-  // a conversation that is already running. Closing it during a turn keeps it
-  // closed until the next turn. An overlay would cover the conversation, so only
-  // the side-by-side panel opens itself.
-  const [sessionBusy, setSessionBusy] = useState(false);
-  const handleSessionBusyChange = useCallback((busy: boolean) => {
-    setSessionBusy(busy);
-  }, []);
   const informationPanelOverlay = useInformationPanelOverlay(
     sidebarOpen ? sidebarResizer.width : 0
   );
   const runInProgress = executionHistory.some((entry) => entry.status === 'running');
-  const runSessionKey = selectedSession?.id ?? 'new';
-  const autoOpenedRunsRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!sessionBusy) {
-      autoOpenedRunsRef.current = null;
-      return;
-    }
-    if (informationPanelOverlay || !runInProgress) return;
-    if (autoOpenedRunsRef.current === runSessionKey) return;
-    autoOpenedRunsRef.current = runSessionKey;
-    setActiveTopPanel('runs');
-    setTopPanelAutoOpened(true);
-  }, [informationPanelOverlay, runInProgress, runSessionKey, sessionBusy]);
 
   const handleSystemInfoLoaderChange = useCallback((loader: (() => Promise<void>) | null) => {
     systemInfoLoadIdRef.current += 1;
@@ -405,12 +387,28 @@ export function AppShell() {
     []
   );
 
-  // The right panel is dedicated exclusively to Runs.
-  const [activeTopPanel, setActiveTopPanel] = useState<
-    'branches' | 'system' | 'tools' | 'runs' | 'session' | null
-  >(null);
-  // Set while the Runs panel opened by itself, which must not take focus.
-  const [topPanelAutoOpened, setTopPanelAutoOpened] = useState(false);
+  // The right panel is dedicated exclusively to Runs and belongs to the
+  // default page: docked, it is open until the user collapses it, even before
+  // a command runs. Where it would overlay the conversation it starts closed
+  // so the conversation stays visible. The viewport is measured after mount,
+  // so the server never renders a panel that a phone would cover.
+  const [runsPanelViewportReady, setRunsPanelViewportReady] = useState(false);
+  useLayoutEffect(() => setRunsPanelViewportReady(true), []);
+  const [runsPanelPreference, setRunsPanelPreference] = useState<RunsPanelPreference>(
+    RUNS_PANEL_DEFAULT_PREFERENCE
+  );
+  const runsPanelOpen =
+    runsPanelViewportReady &&
+    isRunsPanelOpen(runsPanelPreference, {
+      overlay: informationPanelOverlay,
+      settingsOpen: Boolean(settingsSection)
+    });
+  // A panel the user asked for takes focus; one that belongs to the default
+  // page must not pull focus out of the conversation.
+  const focusRunsPanelRef = useRef(false);
+  useEffect(() => {
+    if (!runsPanelOpen) focusRunsPanelRef.current = false;
+  }, [runsPanelOpen]);
 
   // Modals for System Prompt, Tools, Session Stats, and Branches
   const [activeModal, setActiveModal] = useState<
@@ -419,27 +417,41 @@ export function AppShell() {
 
   useEffect(() => {
     if (!sessionHasBranches) {
-      setActiveTopPanel((panel) => (panel === 'branches' ? null : panel));
       setActiveModal((modal) => (modal === 'branches' ? null : modal));
     }
   }, [sessionHasBranches]);
 
   useEffect(() => {
-    if (settingsSection) {
-      setActiveTopPanel(null);
-      setActiveModal(null);
-    }
+    if (settingsSection) setActiveModal(null);
   }, [settingsSection]);
 
-  const toggleTopPanel = useCallback(
-    (panel: 'branches' | 'system' | 'tools' | 'runs' | 'session') => {
-      if (isMobile) setSidebarOpen(false);
-      setTopPanelAutoOpened(false);
-      setActiveTopPanel((cur) => (cur === panel ? null : panel));
-      setMobileToolbarMoreOpen(false);
-    },
-    [isMobile]
-  );
+  const toggleRunsPanel = useCallback(() => {
+    if (isMobile) setSidebarOpen(false);
+    setMobileToolbarMoreOpen(false);
+    focusRunsPanelRef.current = !runsPanelOpen;
+    setRunsPanelPreference((preference) =>
+      toggleRunsPanelPreference(preference, {
+        open: runsPanelOpen,
+        overlay: informationPanelOverlay
+      })
+    );
+  }, [informationPanelOverlay, isMobile, runsPanelOpen]);
+
+  const runsPanelToggleRef = useRef<HTMLButtonElement>(null);
+  const closeRunsPanel = useCallback(() => {
+    focusRunsPanelRef.current = false;
+    setRunsPanelPreference({ collapsed: true, overlayRequested: false });
+    // The header's close button leaves the page; the edge toggle takes focus.
+    requestAnimationFrame(() => runsPanelToggleRef.current?.focus({ preventScroll: true }));
+  }, []);
+
+  // A phone's drawer covers the Runs overlay. Dismissing it is not the same as
+  // collapsing the panel: the docked layout keeps its default open state.
+  const dismissRunsPanelOverlay = useCallback(() => {
+    setRunsPanelPreference((preference) =>
+      preference.overlayRequested ? { ...preference, overlayRequested: false } : preference
+    );
+  }, []);
 
   const handleSystemInfoToggle = useCallback(
     (modal: 'system' | 'tools') => {
@@ -474,14 +486,13 @@ export function AppShell() {
 
   // The composer opens Settings too: a bare /mcp opens Settings › MCP (useAgentSession).
   const openSettingsSection = useCallback((section: SettingsSection) => {
-    setActiveTopPanel(null);
     setActiveModal(null);
     setSettingsSection(section);
   }, []);
 
   const handleSidebarToggle = useCallback(() => {
     if (isMobile) {
-      setActiveTopPanel(null);
+      dismissRunsPanelOverlay();
       setMobileToolbarMoreOpen(false);
     }
     setSidebarOpen((open) => {
@@ -489,13 +500,13 @@ export function AppShell() {
       if (!isMobile) desktopSidebarOpenRef.current = next;
       return next;
     });
-  }, [isMobile]);
+  }, [dismissRunsPanelOverlay, isMobile]);
 
   const handleMobileToolbarMoreToggle = useCallback(() => {
     setSidebarOpen(false);
-    setActiveTopPanel(null);
+    dismissRunsPanelOverlay();
     setMobileToolbarMoreOpen((open) => !open);
-  }, []);
+  }, [dismissRunsPanelOverlay]);
 
   useEffect(() => {
     if (!mobileToolbarMoreOpen) return;
@@ -731,7 +742,6 @@ export function AppShell() {
       setSystemPrompt(null);
       setSystemTools(null);
       setSystemInfoLoading(false);
-      setActiveTopPanel(null);
       if (currentProject !== newProject) {
         // Restore the workspace we switched to: its last open session, or keep
         // the default welcome page when none is remembered.
@@ -769,9 +779,6 @@ export function AppShell() {
       activeNewSessionDraftKeyRef.current = null;
       // Adopt an explicitly selected session before the sidebar reports its cwd.
       const projectKey = workspaceKeyOf(session);
-      if (activeProjectKeyRef.current !== projectKey) {
-        setActiveTopPanel(null);
-      }
       activeProjectKeyRef.current = projectKey;
       // Re-clicking the already-open session must not remount the chat and
       // re-run the full load/positioning cycle. Only skip when the effective
@@ -852,7 +859,6 @@ export function AppShell() {
       setSystemPrompt(null);
       setSystemTools(null);
       setSystemInfoLoading(false);
-      setActiveTopPanel(null);
       if (isMobile) setSidebarOpen(false);
       router.replace(`?cwd=${encodeURIComponent(cwd)}`, { scroll: false });
       // The fresh composer takes the caret once it renders (#1313), unless the
@@ -987,7 +993,6 @@ export function AppShell() {
     const sessionId = selectedSession?.id;
     if (!sessionId || autoNameStatus.kind === 'naming') return;
     if (autoNameTimerRef.current) clearTimeout(autoNameTimerRef.current);
-    setActiveTopPanel(null);
     setAutoNameStatus({ kind: 'naming' });
 
     try {
@@ -1098,7 +1103,6 @@ export function AppShell() {
         setSystemPrompt(null);
         setSystemTools(null);
         setSystemInfoLoading(false);
-        setActiveTopPanel(null);
         router.replace(
           cwd
             ? `?cwd=${encodeURIComponent(cwd)}`
@@ -2414,10 +2418,11 @@ export function AppShell() {
 
           {/* Chat content */}
           <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-            {activeTopPanel !== 'runs' && (
+            {!runsPanelOpen && (
               <button
+                ref={runsPanelToggleRef}
                 type="button"
-                onClick={() => toggleTopPanel('runs')}
+                onClick={toggleRunsPanel}
                 className="runs-panel-toggle-btn is-collapsed"
                 title={`${translate('runs.title')}: ${translate('sidebar.show')}`}
                 aria-label={`${translate('runs.title')}: ${translate('sidebar.show')}`}
@@ -2504,7 +2509,6 @@ export function AppShell() {
                 onExecutionHistoryChange={handleExecutionHistoryChange}
                 onGoalChange={handleGoalChange}
                 onCompactionChange={handleCompactionChange}
-                onBusyChange={handleSessionBusyChange}
                 onSessionStatsChange={handleSessionStatsChange}
                 onSessionStatsPanelOpen={openSessionStatsPanel}
                 onOpenSettings={openSettingsSection}
@@ -2648,12 +2652,12 @@ export function AppShell() {
           </div>
         </div>
 
-        {activeTopPanel === 'runs' && (
+        {runsPanelOpen && (
           <SessionInfoSidebar
             title={translate('runs.title')}
             sidebarWidth={sidebarOpen ? sidebarResizer.width : 0}
-            onClose={() => setActiveTopPanel(null)}
-            focusOnMount={!topPanelAutoOpened}
+            onClose={closeRunsPanel}
+            focusOnMount={focusRunsPanelRef.current}
           >
             <ExecutionHistoryPanel
               entries={executionHistory}

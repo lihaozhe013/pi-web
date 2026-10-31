@@ -36,6 +36,49 @@ export function getSidebarMaxWidth(options: {
   return Math.min(SIDEBAR_MAX_WIDTH, viewportWidth - chatWidth - visibleRightPanelWidth);
 }
 
+/** The Runs panel's choice for this page: nothing here is stored across reloads. */
+export interface RunsPanelPreference {
+  /** The user closed the panel; nothing opens it by itself afterwards. */
+  collapsed: boolean;
+  /** The user asked for the panel where it would overlay the conversation. */
+  overlayRequested: boolean;
+}
+
+export const RUNS_PANEL_DEFAULT_PREFERENCE: RunsPanelPreference = {
+  collapsed: false,
+  overlayRequested: false
+};
+
+/**
+ * The Runs panel is part of the default page: docked, it stays open until the
+ * user collapses it, even before a command runs. Where it would overlay the
+ * conversation it stays closed so the conversation remains visible, and opens
+ * only when the user asks for it. Settings hides the panel without collapsing
+ * it, so closing Settings brings it back.
+ */
+export function isRunsPanelOpen(
+  preference: RunsPanelPreference,
+  layout: { overlay: boolean; settingsOpen: boolean }
+): boolean {
+  if (preference.collapsed || layout.settingsOpen) return false;
+  return !layout.overlay || preference.overlayRequested;
+}
+
+/**
+ * The user's toggle: an open panel collapses and forgets an overlay request; a
+ * closed one opens, remembering a request made where the panel overlays.
+ */
+export function toggleRunsPanelPreference(
+  preference: RunsPanelPreference,
+  context: { open: boolean; overlay: boolean }
+): RunsPanelPreference {
+  if (context.open) return { collapsed: true, overlayRequested: false };
+  return {
+    collapsed: false,
+    overlayRequested: preference.overlayRequested || context.overlay
+  };
+}
+
 export function getRightPanelMaxWidth(options: {
   viewportWidth: number;
   sidebarOpen: boolean;

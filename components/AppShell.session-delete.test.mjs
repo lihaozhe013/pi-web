@@ -61,7 +61,6 @@ function runHandleSessionDeleted(capturedSelectedSession, active) {
     setSystemPrompt() {},
     setSystemTools() {},
     setSystemInfoLoading() {},
-    setActiveTopPanel() {},
     useCallback: (callback) => callback
   });
   vm.runInContext(
