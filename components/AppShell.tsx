@@ -30,8 +30,12 @@ import {
   type NewSessionTarget
 } from '@/lib/new-session-context';
 import {
+  getRightPanelMaxWidth,
   getSidebarMaxWidth,
   isRunsPanelOpen,
+  RIGHT_PANEL_DEFAULT_WIDTH,
+  RIGHT_PANEL_MAX_WIDTH,
+  RIGHT_PANEL_MIN_WIDTH,
   RUNS_PANEL_DEFAULT_PREFERENCE,
   type RunsPanelPreference,
   SIDEBAR_DEFAULT_WIDTH,
@@ -226,6 +230,7 @@ export function AppShell() {
   const [mobileToolbarMoreOpen, setMobileToolbarMoreOpen] = useState(false);
   const [mobileSidebarReady, setMobileSidebarReady] = useState(false);
   const sidebarWidthRef = useRef(SIDEBAR_DEFAULT_WIDTH);
+  const runsPanelWidthRef = useRef(RIGHT_PANEL_DEFAULT_WIDTH);
   const getResponsiveSidebarMaxWidth = useCallback(
     () =>
       typeof window === 'undefined'
@@ -400,6 +405,40 @@ export function AppShell() {
       overlay: informationPanelOverlay,
       settingsOpen: Boolean(settingsSection)
     });
+  // The Runs panel is a docked, resizable column beside the conversation. Its
+  // size is the user's own (stored, never rewritten by a small window), and a
+  // window, a wide sidebar or the chat's minimum width caps what it shows.
+  const getResponsiveRunsPanelMaxWidth = useCallback(
+    () =>
+      typeof window === 'undefined'
+        ? RIGHT_PANEL_MAX_WIDTH
+        : getRightPanelMaxWidth({
+            viewportWidth: window.innerWidth,
+            sidebarOpen: sidebarOpen && !isMobile,
+            sidebarWidth: sidebarOpen ? sidebarResizer.width : 0,
+            overlay: informationPanelOverlay
+          }),
+    [informationPanelOverlay, isMobile, sidebarOpen, sidebarResizer.width]
+  );
+  const runsPanelResizer = useResizablePanel({
+    ariaLabel: translate('layout.resizeRunsPanel'),
+    cssVariable: '--runs-panel-width',
+    defaultWidth: RIGHT_PANEL_DEFAULT_WIDTH,
+    getMaxWidth: getResponsiveRunsPanelMaxWidth,
+    growthDirection: 'left',
+    maxWidth: RIGHT_PANEL_MAX_WIDTH,
+    minWidth: RIGHT_PANEL_MIN_WIDTH,
+    persistClamp: false,
+    storageKey: 'pi-runs-panel-width',
+    widthRef: runsPanelWidthRef
+  });
+  // The panel gives way to the conversation: a sidebar that grows, or a window
+  // that shrinks, narrows it, and the user's width returns when there is room.
+  const reclampRunsPanelWidth = runsPanelResizer.reclampWidth;
+  useLayoutEffect(() => {
+    if (!runsPanelViewportReady) return;
+    reclampRunsPanelWidth();
+  }, [reclampRunsPanelWidth, runsPanelViewportReady]);
   // A panel the user asked for takes focus; one that belongs to the default
   // page must not pull focus out of the conversation.
   const focusRunsPanelRef = useRef(false);
@@ -2157,6 +2196,7 @@ export function AppShell() {
     `}</style>
       {/* Shared workspace styling; layout behavior remains in the React components. */}
       <div
+        ref={runsPanelResizer.panelRef}
         className="app-workspace"
         style={{
           display: 'flex',
@@ -2650,23 +2690,35 @@ export function AppShell() {
         </div>
 
         {runsPanelOpen && (
-          <SessionInfoSidebar
-            title={translate('runs.title')}
-            sidebarWidth={sidebarOpen ? sidebarResizer.width : 0}
-            onClose={closeRunsPanel}
-            focusOnMount={focusRunsPanelRef.current}
-          >
-            <ExecutionHistoryPanel
-              entries={executionHistory}
-              sessionId={selectedSession?.id}
-              historyOpen={runHistoryOpen}
-              onHistoryOpenChange={setRunHistoryOpen}
-              goal={sessionGoal}
-              isCompacting={sessionCompaction.isCompacting}
-              compactResult={sessionCompaction.compactResult}
-              compactError={sessionCompaction.compactError}
-            />
-          </SessionInfoSidebar>
+          <>
+            {/* The panel's border is the idle separator; this widens its grasp. */}
+            {!informationPanelOverlay && (
+              <div
+                {...runsPanelResizer.separatorProps}
+                aria-controls="session-information"
+                className={`panel-resize-handle runs-panel-resize-handle${runsPanelResizer.isResizing ? ' is-resizing' : ''}`}
+                data-resize-handle="runs-panel"
+                title={`${translate('layout.resizeRunsPanel')}: ${translate('layout.resizeHint')}`}
+              />
+            )}
+            <SessionInfoSidebar
+              title={translate('runs.title')}
+              sidebarWidth={sidebarOpen ? sidebarResizer.width : 0}
+              onClose={closeRunsPanel}
+              focusOnMount={focusRunsPanelRef.current}
+            >
+              <ExecutionHistoryPanel
+                entries={executionHistory}
+                sessionId={selectedSession?.id}
+                historyOpen={runHistoryOpen}
+                onHistoryOpenChange={setRunHistoryOpen}
+                goal={sessionGoal}
+                isCompacting={sessionCompaction.isCompacting}
+                compactResult={sessionCompaction.compactResult}
+                compactError={sessionCompaction.compactError}
+              />
+            </SessionInfoSidebar>
+          </>
         )}
       </div>
 

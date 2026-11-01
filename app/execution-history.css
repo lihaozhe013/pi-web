@@ -144,6 +144,10 @@
   .run-history-status-badge[data-status='active'] .run-history-status-dot {
     animation: none;
   }
+
+  .run-history-past {
+    transition: none;
+  }
 }
 
 .run-history-status-title {
@@ -176,25 +180,53 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
+/* The two lists share the panel: the history keeps the height the user drags
+   its top edge to (--runs-history-height), the active list takes the rest, and
+   a closed history is only its header row. */
 .run-history-active {
   flex: 0 1 auto;
-  max-height: 55%;
   border-bottom: 1px solid var(--border);
-  transition:
-    flex-grow 240ms ease,
-    max-height 240ms ease;
 }
 .run-history-past {
   flex: 1 1 44px;
   overflow: hidden;
-  transition: flex-grow 240ms ease;
+  transition: flex-basis 240ms ease;
+}
+.run-history[data-history-open='true'] .run-history-active {
+  flex: 1 1 auto;
+  max-height: none;
+}
+.run-history[data-history-open='true'] .run-history-past {
+  flex: 0 1 var(--runs-history-height, 45%);
 }
 .run-history[data-history-open='false'] .run-history-active {
   flex-grow: 1;
   max-height: calc(100% - 44px);
 }
 .run-history[data-history-open='false'] .run-history-past {
-  flex-grow: 0;
+  flex: 0 1 44px;
+}
+/* A drag follows the pointer instead of easing towards it. */
+.run-history.is-resizing .run-history-past {
+  transition: none;
+}
+
+/* The history's top edge: the sidebar's handle turned on its side, so hover,
+   focus and a drag look the same. */
+.panel-resize-handle.run-history-resize-handle {
+  width: auto;
+  height: 12px;
+  margin: -6px 0;
+  flex: 0 0 12px;
+  cursor: row-resize;
+}
+.panel-resize-handle.run-history-resize-handle::after {
+  top: 5px;
+  right: 0;
+  bottom: auto;
+  left: 0;
+  width: auto;
+  height: 2px;
 }
 .run-history-section-title {
   display: flex;

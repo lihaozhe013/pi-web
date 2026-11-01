@@ -104,6 +104,17 @@ test('history can be collapsed without removing its entries', () => {
   );
   assert.match(html, /id="runs-history-content"[^>]*aria-hidden="true" inert=""/);
   assert.match(html, /data-run-id="old"/);
+  assert.doesNotMatch(html, /data-resize-handle="runs-history"/, 'a closed history has no edge');
+});
+
+test('an open history is resizable from its top edge', () => {
+  const html = render([{ ...base, id: 'old' }]);
+  const separator = html.match(/<div [^>]*data-resize-handle="runs-history"[^>]*>/)?.[0];
+  assert.ok(separator, 'the open history has no resize edge');
+  assert.match(separator, /role="separator"/);
+  assert.match(separator, /aria-label="Resize run history"/);
+  assert.match(separator, /aria-orientation="horizontal"/);
+  assert.match(separator, /aria-controls="runs-history-content"/);
 });
 
 test('a historical failure stays folded', () => {

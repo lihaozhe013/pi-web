@@ -11,10 +11,15 @@ project management. A new session chooses a working directory; Git repository re
 change its identity.
 
 The right panel is dedicated exclusively to Runs and execution context (including Goal and
-Compaction status) and is currently 400px wide. It is part of the default desktop page: it is open
+Compaction status) and opens 400px wide. It is part of the default desktop page: it is open
 on load, before any command runs, and only the user's own collapse in that page closes it. It
 overlays the conversation when space is limited and fills phone widths; there it starts closed so
-the conversation stays visible, and opens only when the user asks for it. Settings hides the panel
+the conversation stays visible, and opens only when the user asks for it. Docked, its left edge is
+a resize handle: the panel stretches between 300px and the width that still leaves the conversation
+420px, and it gives way to a sidebar that grows, returning to the size the user chose when there is
+room again. That size is remembered in the browser and kept while a smaller window shows less. The
+separator takes keyboard focus: the arrow keys resize, `Home` and `End` reach the limits, and Enter
+or a double click restores the default. Settings hides the panel
 without collapsing it, so closing Settings brings it back. A docked collapse/expand toggle on the
 right side reopens a closed panel; the panel header also includes a collapse button. A surface that
 belongs to the default page — the Runs panel — never takes focus; one the user opens does. System
@@ -110,7 +115,10 @@ Current main-transcript behavior:
   a phone shows the conversation; the toggle or a phone action opens it there. The panel separates
   active runs from history, with independent scrolling and newest first in each. History starts
   collapsed into a compact footer, leaving the active area more room; its heading toggles the
-  section, and the choice stays in effect when the panel is closed and reopened. Active cards
+  section, and the choice stays in effect when the panel is closed and reopened. An expanded history
+  is resizable from its top edge, which is a separator like the panel's: the history keeps the height
+  the user drags to, between 120px and the room that leaves the active list its title and a card, the
+  active list takes the rest, and the height is remembered in the browser. Active cards
   default open; completed cards remain in the active section for two seconds, showing their final
   status, then move to history and default closed. Multiple runs can remain active at once. Active
   and historical cards use blue for running, green for success, and red for errors, alongside status

@@ -756,8 +756,10 @@
 
 /* Conversation information replaces the retired file and terminal workspace. */
 .session-info-sidebar {
-  flex: 0 0 400px;
-  width: 400px;
+  /* The user's own width (drag, keys, or the stored one); a window, a wide
+     sidebar or an overlay layout caps what it shows. */
+  flex: 0 0 var(--runs-panel-width, 400px);
+  width: var(--runs-panel-width, 400px);
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -769,7 +771,7 @@
 .session-info-sidebar.is-overlay {
   position: fixed;
   inset: 0 0 0 auto;
-  width: min(400px, 100vw);
+  width: min(var(--runs-panel-width, 400px), 100vw);
   z-index: 600;
 }
 .session-info-backdrop {

@@ -6,6 +6,7 @@ export const SIDEBAR_MIN_WIDTH = 180;
 export const SIDEBAR_MAX_WIDTH = 480;
 
 export const RIGHT_PANEL_FALLBACK_WIDTH = 560;
+export const RIGHT_PANEL_DEFAULT_WIDTH = 400;
 export const RIGHT_PANEL_MIN_WIDTH = 300;
 export const RIGHT_PANEL_MAX_WIDTH = 1200;
 
@@ -83,13 +84,19 @@ export function getRightPanelMaxWidth(options: {
   viewportWidth: number;
   sidebarOpen: boolean;
   sidebarWidth: number;
+  /** An overlay panel floats above the conversation instead of sharing its row. */
+  overlay?: boolean;
 }): number {
-  const { viewportWidth, sidebarOpen, sidebarWidth } = options;
-  if (viewportWidth < SPLIT_PANEL_MIN_WIDTH) return RIGHT_PANEL_MAX_WIDTH;
+  const { viewportWidth, sidebarOpen, sidebarWidth, overlay = false } = options;
+  if (overlay) return RIGHT_PANEL_MAX_WIDTH;
 
   const visibleSidebarWidth = sidebarOpen ? sidebarWidth : 0;
+  // A docked panel always leaves the conversation its minimum width.
   return Math.min(
     RIGHT_PANEL_MAX_WIDTH,
-    viewportWidth - DESKTOP_CHAT_MIN_WIDTH - visibleSidebarWidth
+    Math.max(
+      RIGHT_PANEL_MIN_WIDTH,
+      viewportWidth - DESKTOP_CHAT_MIN_WIDTH - visibleSidebarWidth
+    )
   );
 }

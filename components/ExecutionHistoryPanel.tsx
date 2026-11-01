@@ -1,8 +1,9 @@
 'use client';
 
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useBodyContent, useExitingItems } from '@/hooks/useToolCardMotion';
 import { useI18n } from '@/hooks/useI18n';
+import { useResizablePanel } from '@/hooks/useResizablePanel';
 import {
   executionOutputTail,
   formatExecutionDuration,
@@ -258,6 +259,14 @@ function RunEntry({
 
 const runId = (entry: ExecutionHistoryEntry) => entry.id;
 
+// The history's share of the Runs panel, above the header row it keeps when it
+// is closed. The active list always keeps room for its title and one card.
+const RUN_HISTORY_DEFAULT_HEIGHT = 320;
+const RUN_HISTORY_MIN_HEIGHT = 120;
+const RUN_HISTORY_MAX_HEIGHT = 2000;
+const RUN_HISTORY_ACTIVE_RESERVE = 120;
+const RUN_HISTORY_STORAGE_KEY = 'pi-runs-history-height';
+
 /** The permanent run history, newest first. */
 export function ExecutionHistoryPanel({
   entries,
@@ -279,6 +288,46 @@ export function ExecutionHistoryPanel({
   compactError?: string | null;
 }) {
   const { t } = useI18n();
+  // The panel the history shares with the active list: the history keeps the
+  // height the user drags its top edge to, and the list takes the rest.
+  const containerRef = useRef<HTMLDivElement>(null);
+  const statusRef = useRef<HTMLElement>(null);
+  const historyHeightRef = useRef(RUN_HISTORY_DEFAULT_HEIGHT);
+  const getDefaultHistoryHeight = useCallback(
+    () => Math.round((containerRef.current?.clientHeight ?? 0) * 0.45),
+    []
+  );
+  const getMaxHistoryHeight = useCallback(() => {
+    const containerHeight = containerRef.current?.clientHeight ?? 0;
+    const statusHeight = statusRef.current?.offsetHeight ?? 0;
+    return Math.max(
+      RUN_HISTORY_MIN_HEIGHT,
+      containerHeight - statusHeight - RUN_HISTORY_ACTIVE_RESERVE
+    );
+  }, []);
+  const historyResizer = useResizablePanel({
+    ariaLabel: t('layout.resizeRunsHistory'),
+    axis: 'vertical',
+    cssVariable: '--runs-history-height',
+    defaultWidth: RUN_HISTORY_DEFAULT_HEIGHT,
+    getDefaultWidth: getDefaultHistoryHeight,
+    getMaxWidth: getMaxHistoryHeight,
+    growthDirection: 'up',
+    maxWidth: RUN_HISTORY_MAX_HEIGHT,
+    minWidth: RUN_HISTORY_MIN_HEIGHT,
+    persistClamp: false,
+    storageKey: RUN_HISTORY_STORAGE_KEY,
+    widthRef: historyHeightRef
+  });
+  // Goal and compaction cards above the sections change what is left to share.
+  const reclampHistoryHeight = historyResizer.reclampWidth;
+  const panelRefs = useCallback(
+    (node: HTMLDivElement | null) => {
+      containerRef.current = node;
+      historyResizer.panelRef.current = node;
+    },
+    [historyResizer.panelRef]
+  );
   const ordered = useMemo(() => [...entries].reverse(), [entries]);
   const active = ordered.filter((entry) => entry.active ?? entry.status === 'running');
   const history = ordered.filter((entry) => !(entry.active ?? entry.status === 'running'));
@@ -295,10 +344,26 @@ export function ExecutionHistoryPanel({
 
   const hasStatus = Boolean(goal || isCompacting || compactResult || compactError);
 
+  useLayoutEffect(() => {
+    const status = hasStatus ? statusRef.current : null;
+    if (!status || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => reclampHistoryHeight());
+    observer.observe(status);
+    return () => observer.disconnect();
+  }, [hasStatus, reclampHistoryHeight]);
+
   return (
-    <div className="run-history" data-history-open={historyOpen ? 'true' : 'false'}>
+    <div
+      ref={panelRefs}
+      className={`run-history${historyResizer.isResizing ? ' is-resizing' : ''}`}
+      data-history-open={historyOpen ? 'true' : 'false'}
+    >
       {hasStatus && (
-        <section className="run-history-status-section" aria-label={t('runs.status')}>
+        <section
+          ref={statusRef}
+          className="run-history-status-section"
+          aria-label={t('runs.status')}
+        >
           {goal && (
             <div className="run-history-status-card" data-kind="goal" data-status={goal.status}>
               <div className="run-history-status-header">
@@ -394,6 +459,17 @@ export function ExecutionHistoryPanel({
           )}
         </div>
       </section>
+      {/* The active list's bottom border is the idle separator; this widens its
+          grasp and lets the user give the history more or less room. */}
+      {historyOpen && (
+        <div
+          {...historyResizer.separatorProps}
+          aria-controls="runs-history-content"
+          className={`panel-resize-handle run-history-resize-handle${historyResizer.isResizing ? ' is-resizing' : ''}`}
+          data-resize-handle="runs-history"
+          title={`${t('layout.resizeRunsHistory')}: ${t('layout.resizeHint')}`}
+        />
+      )}
       <section
         className="run-history-section run-history-past"
         aria-labelledby="runs-history-title"
