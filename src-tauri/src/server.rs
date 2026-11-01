@@ -16,7 +16,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager, Url};
 
-pub const DEFAULT_PORT: u16 = 30141;
+pub const DEFAULT_PORT: u16 = 3888;
 /// How many ports above the preferred one the shell tries before an OS-assigned one.
 const PORT_ATTEMPTS: u16 = 10;
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(90);
