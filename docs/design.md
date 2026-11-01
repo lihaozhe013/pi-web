@@ -244,10 +244,10 @@ be re-worded: its objective is read-only until it is paused, so an edit never mo
 the run in flight. Escape leaves the goal page for the choices and only then closes the dialog; a
 package word this build does not know is shown as written rather than guessed into a state.
 
-The loop, the budget and the completion report belong to a Pi goal package, not to Pi Web. Pi Web
-ships one (`pi-better-goal`) so the page is there on a fresh install, and a person who configures
-their own goal package gets that one instead. Labels name the state rather than the mechanism,
-because what the commands start is the package's work, and Pi Web only reads what it wrote.
+The loop, the budget and the completion report belong to a Pi goal package, not to Pie. Pie ships
+one (`pi-better-goal`) so the page is there on a fresh install, and a person who configures their
+own goal package gets that one instead. Labels name the state rather than the mechanism, because
+what the commands start is the package's work, and Pie only reads what it wrote.
 
 ## Starting a conversation
 

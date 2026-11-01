@@ -1,6 +1,6 @@
 # Desktop Shell
 
-A Tauri 2 window around the existing Pi Web server. The shell starts the same launcher the portable
+A Tauri 2 window around the existing Pie server. The shell starts the same launcher the portable
 archive uses, waits for it, and shows it in the system webview. There is no separate desktop
 frontend and no Electron, and Node.js is not bundled.
 
@@ -8,7 +8,7 @@ frontend and no Electron, and Node.js is not bundled.
 
 Keep the shell small enough to audit in one sitting:
 
-- Find a Node.js binary and start the Pi Web server as a child process.
+- Find a Node.js binary and start the Pie server as a child process.
 - Give the webview a stable loopback URL and shut the server down on exit.
 - Package the already-tested portable payload; no second build pipeline.
 
@@ -18,32 +18,31 @@ auto-updater and no release channel.
 ## Architecture
 
 ```text
-pi-web-desktop (Rust, Tauri 2)
+pie-desktop (Rust, Tauri 2)
   |-- resolve Node.js                  env -> desktop.json -> PATH -> known install dirs
   |-- resolve payload                  resources/payload.tar.gz -> app data runtime dir
   |-- choose a server                  adopt a recorded server, else a free port from 30141
-  |-- spawn                            node bin/pi-web.js --no-open -H 127.0.0.1 -p <port>
+  |-- spawn                            node bin/pie.js --no-open -H 127.0.0.1 -p <port>
   |-- wait                             GET / until it answers, log lines kept for errors
   |-- show                             webview navigates from the splash page to the server URL
   `-- stop                             close the server, then exit
 ```
 
 The payload is the portable archive except for unrelated metadata: `.next` plus production
-`node_modules`, run by the same `bin/pi-web.js` launcher. Run records, `pi-web status`,
-`pi-web stop`, signal forwarding, and preview-secret rotation keep working because the launcher is
-unchanged.
+`node_modules`, run by the same `bin/pie.js` launcher. Run records, `pie status`, `pie stop`, signal
+forwarding, and preview-secret rotation keep working because the launcher is unchanged.
 
 ## Paths
 
-| Purpose           | Location                                                                           |
-| ----------------- | ---------------------------------------------------------------------------------- |
-| Payload source    | `PI_WEB_DESKTOP_PAYLOAD`, `<resources>/payload.tar.gz`, `<exe dir>/payload.tar.gz` |
-| Extracted payload | `<app data>/runtime/<payload version>/pi-web`                                      |
-| Shell settings    | `<app config>/desktop.json`                                                        |
-| Server log        | `<app log>/pi-web-desktop.log`                                                     |
-| Server state      | Pi's agent directory (`~/.pi/agent/pi-web-run`), written by the launcher           |
+| Purpose           | Location                                                                        |
+| ----------------- | ------------------------------------------------------------------------------- |
+| Payload source    | `PIE_DESKTOP_PAYLOAD`, `<resources>/payload.tar.gz`, `<exe dir>/payload.tar.gz` |
+| Extracted payload | `<app data>/runtime/<payload version>/pie`                                      |
+| Shell settings    | `<app config>/desktop.json`                                                     |
+| Server log        | `<app log>/pie-desktop.log`                                                     |
+| Server state      | Pi's agent directory (`~/.pi/agent/pie-run`), written by the launcher           |
 
-`<app data>` uses the platform convention for identifier `com.github.lihaozhe013.piweb`:
+`<app data>` uses the platform convention for identifier `com.github.lihaozhe013.pie`:
 `~/Library/Application Support/...` on macOS, `$XDG_DATA_HOME/...` on Linux, `%APPDATA%\...` on
 Windows.
 
@@ -58,15 +57,15 @@ Windows away from deep `node_modules` paths inside the installer.
 { "nodePath": "/home/me/.nvm/versions/node/v24.4.0/bin/node" }
 ```
 
-`PI_WEB_DESKTOP_NODE` overrides it. Neither file is required when Node.js is on `PATH` or in a
-location the shell already probes.
+`PIE_DESKTOP_NODE` overrides it. Neither file is required when Node.js is on `PATH` or in a location
+the shell already probes.
 
 ## Node.js
 
 The shell needs a Node.js binary, not Bun or a dependency installation. It accepts a version that
 satisfies the Next.js floor (`>= 20.9.0`). Resolution order:
 
-1. `PI_WEB_DESKTOP_NODE`
+1. `PIE_DESKTOP_NODE`
 2. `nodePath` in `desktop.json`
 3. Every `PATH` entry (`node`, `node.exe`)
 4. Known install locations: `/opt/homebrew/bin`, `/usr/local/bin`, Homebrew, volta, fnm, nvm,
@@ -85,8 +84,7 @@ preferences, so the fallback is logged.
 
 Before spawning, the shell looks for a server it can reuse:
 
-- `<agent dir>/pi-web-run/*.json` records name the port, URL, and version of every running Pi Web
-  server.
+- `<agent dir>/pie-run/*.json` records name the port, URL, and version of every running Pie server.
 - A record is adopted only when its URL answers and its version matches the bundled payload.
 
 An adopted server is shown and left running when the window closes. The shell never signals a
@@ -101,11 +99,11 @@ Closing the window, quitting the app, or Ctrl-C in a terminal stops a server the
 
 - Unix: `SIGTERM` to the launcher's process group, `SIGKILL` after 8 seconds. The launcher forwards
   the signal to Next.js and waits for extensions to shut down.
-- Windows: `taskkill /PID <pid> /T /F`, matching `pi-web stop`.
+- Windows: `taskkill /PID <pid> /T /F`, matching `pie stop`.
 
-A crash of the shell leaves the server behind; the run record is what `pi-web status` and
-`pi-web stop` use to recover. An unexpected server exit leaves the last rendered page in place and
-adds an overlay saying so, instead of showing an empty frame.
+A crash of the shell leaves the server behind; the run record is what `pie status` and `pie stop`
+use to recover. An unexpected server exit leaves the last rendered page in place and adds an overlay
+saying so, instead of showing an empty frame.
 
 ## Security
 
@@ -124,7 +122,7 @@ adds an overlay saying so, instead of showing an empty frame.
 ## Payload
 
 `packaging/portable.mjs` builds the payload, so the desktop build is the portable build plus a
-shell. The app is rebuilt with `NEXT_PUBLIC_PI_WEB_DESKTOP=1`, which keeps the service worker from
+shell. The app is rebuilt with `NEXT_PUBLIC_PIE_DESKTOP=1`, which keeps the service worker from
 registering. A service worker in a webview caches by origin, survives port changes, and can serve a
 stale shell after an update; the desktop shell does not need offline support.
 
@@ -148,17 +146,17 @@ bun run desktop:build            # payload + release binary + platform package
 ```
 
 `desktop:dev` attaches to the development server at `http://127.0.0.1:30141`; it never starts a
-second server in the checkout. `PI_WEB_DESKTOP_SERVER_URL` overrides the address.
+second server in the checkout. `PIE_DESKTOP_SERVER_URL` overrides the address.
 
 `desktop:build` runs the portable pipeline, writes `build/desktop/payload.tar.gz` plus
 `payload.json` (version, size, SHA-256), builds the release binary, and packages the host platform.
 `--payload <archive>` reuses an existing archive and `--skip-payload` reuses `build/desktop`.
 
-| Platform | Output                                                                  | Notes                                                                                             |
-| -------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| macOS    | `.app` and `.dmg` in `src-tauri/target/release/bundle/`                 | Ad-hoc signed, not notarized; minimum macOS 13                                                    |
-| Windows  | NSIS installer in `src-tauri/target/release/bundle/nsis/`               | Per-user install; WebView2 bootstrapper downloads the runtime when missing                        |
-| Linux    | `build/desktop/pi-web-desktop-<version>-linux-<arch>/` with a `.tar.gz` | No deb, rpm, or AppImage: the webview is a declared dependency, and an archive cannot declare one |
+| Platform | Output                                                               | Notes                                                                                             |
+| -------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| macOS    | `.app` and `.dmg` in `src-tauri/target/release/bundle/`              | Ad-hoc signed, not notarized; minimum macOS 13                                                    |
+| Windows  | NSIS installer in `src-tauri/target/release/bundle/nsis/`            | Per-user install; WebView2 bootstrapper downloads the runtime when missing                        |
+| Linux    | `build/desktop/pie-desktop-<version>-linux-<arch>/` with a `.tar.gz` | No deb, rpm, or AppImage: the webview is a declared dependency, and an archive cannot declare one |
 
 The Linux archive contains the binary, `payload.tar.gz`, `payload.json`, `README.txt`, and the
 license. It requires `webkit2gtk-4.1` 2.44 or newer, GTK 3, and Node.js; a distribution older than
@@ -185,4 +183,4 @@ programs invoked by the agent remain the user's responsibility.
 - The portable smoke test runs inside `desktop:build`, so the payload is verified before packaging.
 - Manual, on each platform: start, send a message, drag an attachment, sign in to a provider (system
   browser round-trip), view full history (system browser), close the window, then confirm
-  `pi-web status` is empty.
+  `pie status` is empty.

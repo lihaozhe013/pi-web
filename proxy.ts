@@ -5,7 +5,7 @@ import {
   isValidWebSessionToken,
   isValidBasicAuthorization,
   isWebPasswordEnabled,
-  PI_WEB_SESSION_COOKIE
+  PIE_SESSION_COOKIE
 } from '@/lib/web-auth';
 
 function tooManyAttempts(retryAfterMs: number): NextResponse {
@@ -32,7 +32,7 @@ export function proxy(request: NextRequest) {
     return NextResponse.json({ error: 'Untrusted API request' }, { status: 403 });
   }
 
-  const password = process.env.PI_WEB_PASSWORD;
+  const password = process.env.PIE_PASSWORD;
   if (!isWebPasswordEnabled(password)) {
     if (request.nextUrl.pathname === '/login') {
       return NextResponse.redirect(new URL('/', request.url));
@@ -41,7 +41,7 @@ export function proxy(request: NextRequest) {
   }
 
   let authenticated = isValidWebSessionToken(
-    request.cookies.get(PI_WEB_SESSION_COOKIE)?.value,
+    request.cookies.get(PIE_SESSION_COOKIE)?.value,
     password
   );
   const authorization = isApiRequest ? request.headers.get('authorization') : null;
@@ -74,7 +74,7 @@ export function proxy(request: NextRequest) {
       status: 401,
       headers: {
         'Cache-Control': 'no-store',
-        'WWW-Authenticate': 'Basic realm="Pi Web", charset="UTF-8"'
+        'WWW-Authenticate': 'Basic realm="Pie", charset="UTF-8"'
       }
     });
   }

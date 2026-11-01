@@ -6,7 +6,7 @@ import test, { after } from 'node:test';
 import { createJiti } from 'jiti';
 
 const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
-const testAgentDir = await mkdtemp(join(tmpdir(), 'pi-web-context-limit-route-'));
+const testAgentDir = await mkdtemp(join(tmpdir(), 'pie-context-limit-route-'));
 process.env.PI_CODING_AGENT_DIR = testAgentDir;
 
 const jiti = createJiti(import.meta.url, {
@@ -15,7 +15,7 @@ const jiti = createJiti(import.meta.url, {
   moduleCache: false
 });
 const { GET, PUT } = await jiti.import('./route.ts');
-const settingsPath = join(testAgentDir, 'pi-web-model-settings.json');
+const settingsPath = join(testAgentDir, 'pie-model-settings.json');
 
 after(async () => {
   if (originalAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;

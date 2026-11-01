@@ -1,4 +1,4 @@
-Pi Web portable package
+Pie portable package
 
 Personal-use build of a minimal GUI for the Pi coding agent. There is no
 automated release service or self-updater.
@@ -8,9 +8,9 @@ not to run this archive. Use the archive matching your operating system, CPU,
 and Linux libc.
 
 From the extracted directory:
-  node bin/pi-web.js --no-open
-  node bin/pi-web.js --no-open --port 30141 --hostname 127.0.0.1
-  node bin/pi-web.js --help
+  node bin/pie.js --no-open
+  node bin/pie.js --no-open --port 30141 --hostname 127.0.0.1
+  node bin/pie.js --help
 
 The application directory must be writable (startup rotates preview secrets).
 Keep the complete directory, including hidden .next and node_modules. Do not

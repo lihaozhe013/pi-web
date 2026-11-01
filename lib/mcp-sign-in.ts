@@ -60,7 +60,7 @@ export {
 //
 // What the SDK leaves to its caller, and this file does:
 // - **The flow outlives every request.** It lives in a globalThis registry
-//   (`Symbol.for("pi-web:mcp-sign-in")`) under a random id; the browser polls
+//   (`Symbol.for("pie:mcp-sign-in")`) under a random id; the browser polls
 //   it (`GET /api/mcp/sign-in/[flowId]`), and nothing ties it to a request
 //   signal or an event stream, so a phone that sleeps or a closed tab does not
 //   end it.
@@ -104,7 +104,7 @@ export const MCP_SIGN_IN_TTL_MS = 5 * 60_000;
 export const MCP_SIGN_IN_KEEP_MS = 60_000;
 /**
  * How much longer a flow that has its code when the limit comes gets to
- * finish: the SDK exchanges it whatever Pi Web does, so expiring then would
+ * finish: the SDK exchanges it whatever Pie does, so expiring then would
  * call a sign-in that is about to work "expired". Once, then it expires.
  */
 export const MCP_SIGN_IN_FINISH_GRACE_MS = 60_000;
@@ -269,7 +269,7 @@ export function openMcpSignInConnection(
   };
 }
 
-/** The SDK's own pieces: its connection (through Pi Web's transport factory), sign-in and credential store. */
+/** The SDK's own pieces: its connection (through Pie's transport factory), sign-in and credential store. */
 export function createMcpSignInDeps(internals: McpSignInInternals): McpSignInDeps {
   return {
     open: (target, guard) => openMcpSignInConnection(target, internals, { guard }),
@@ -326,7 +326,7 @@ interface Registry {
   tails: Map<string, Promise<void>>;
 }
 
-const REGISTRY_KEY: symbol = Symbol.for('pi-web:mcp-sign-in');
+const REGISTRY_KEY: symbol = Symbol.for('pie:mcp-sign-in');
 
 function registry(): Registry {
   const store = globalThis as Record<symbol, Registry | undefined>;
@@ -679,7 +679,7 @@ export function pasteMcpSignInRedirect(flowId: string, input: unknown): McpSignI
       ok: false,
       status: 404,
       reason: 'sign-in-unknown',
-      error: 'No sign-in has that id: it ended over a minute ago, or Pi Web restarted'
+      error: 'No sign-in has that id: it ended over a minute ago, or Pie restarted'
     };
   const refuse = (
     status: number,

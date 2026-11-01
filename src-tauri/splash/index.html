@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Pi Web</title>
+    <title>Pie</title>
     <style>
       :root {
         color-scheme: light dark;
@@ -121,7 +121,7 @@
   <body data-state="busy">
     <main>
       <div class="mark" aria-hidden="true"></div>
-      <h1>Pi Web</h1>
+      <h1>Pie</h1>
       <p id="status" role="status">Starting the local server…</p>
       <p class="hint" id="hint">
         The first launch unpacks the server payload. Sessions and Pi configuration stay outside this
@@ -129,7 +129,7 @@
       </p>
     </main>
     <script>
-      window.__piweb = {
+      window.__pie = {
         status(text, error) {
           document.getElementById('status').textContent = text;
           document.getElementById('hint').hidden = Boolean(error);

@@ -42,7 +42,7 @@ pub fn read_file(file: &Path) -> DesktopConfig {
     match serde_json::from_str(&text) {
         Ok(config) => config,
         Err(error) => {
-            eprintln!("[pi-web-desktop] ignoring {}: {error}", file.display());
+            eprintln!("[pie-desktop] ignoring {}: {error}", file.display());
             DesktopConfig::default()
         }
     }

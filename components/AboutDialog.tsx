@@ -5,14 +5,14 @@ import { shortCommit } from '@/lib/app-version';
 import { SessionModal } from './SessionModal';
 
 /**
- * About Pi Web: the brand mark, the build's version (whose build metadata is
+ * About Pie: the brand mark, the build's version (whose build metadata is
  * the short commit the build came from), where the build comes from, and the
- * Pi release it runs. Opened from the sidebar's mark (PiWebTitle).
+ * Pi release it runs. Opened from the sidebar's mark (PieTitle).
  */
 
 export const ABOUT_LOGO_SRC = '/icons/icon-512.png';
 export const ABOUT_LOGO_SIZE = 64;
-export const APP_REPOSITORY_URL = 'https://github.com/lihaozhe013/pi-web';
+export const APP_REPOSITORY_URL = 'https://github.com/lihaozhe013/pie';
 export const PI_REPOSITORY_URL = 'https://github.com/earendil-works/pi';
 export const APP_LICENSE = 'MIT';
 
@@ -65,7 +65,7 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
             height={ABOUT_LOGO_SIZE}
           />
           <div className="about-hero-text">
-            <h3 className="about-name">Pi Web</h3>
+            <h3 className="about-name">Pie</h3>
             <p className="about-tagline">{t('about.tagline')}</p>
           </div>
         </div>

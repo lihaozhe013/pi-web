@@ -5,7 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { createJiti } from 'jiti';
 
-const root = await mkdtemp(path.join(os.tmpdir(), 'pi-web-global-agents-'));
+const root = await mkdtemp(path.join(os.tmpdir(), 'pie-global-agents-'));
 const agentDir = path.join(root, 'agent');
 const agentsPath = path.join(agentDir, 'AGENTS.md');
 const previousAgentDir = process.env.PI_CODING_AGENT_DIR;

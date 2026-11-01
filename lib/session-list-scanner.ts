@@ -80,9 +80,9 @@ const RESUME_SAMPLE_BYTES = 512;
 const NEWLINE = Buffer.from('\n');
 
 declare global {
-  var __piWebScanIndex: Map<string, IndexEntry> | undefined;
-  var __piWebScanIndexLoaded: boolean | undefined;
-  var __piWebScanIndexSave: PendingIndexSave | undefined;
+  var __pieScanIndex: Map<string, IndexEntry> | undefined;
+  var __pieScanIndexLoaded: boolean | undefined;
+  var __pieScanIndexSave: PendingIndexSave | undefined;
 }
 
 /** A queued index write: where it goes and what, both fixed by the last scan that changed it. */
@@ -504,12 +504,12 @@ async function runPool<T>(items: T[], worker: (item: T) => Promise<void>) {
 }
 
 function getIndex(): Map<string, IndexEntry> {
-  if (!globalThis.__piWebScanIndex) globalThis.__piWebScanIndex = new Map();
-  return globalThis.__piWebScanIndex;
+  if (!globalThis.__pieScanIndex) globalThis.__pieScanIndex = new Map();
+  return globalThis.__pieScanIndex;
 }
 
 function indexFilePath(agentDir = getAgentDir()): string {
-  return join(agentDir, 'pi-web-session-index.json');
+  return join(agentDir, 'pie-session-index.json');
 }
 
 /** A persisted resume point, or undefined when it is missing or malformed (the entry stays). */
@@ -543,8 +543,8 @@ function readResumePoint(value: unknown): ResumePoint | undefined {
 }
 
 function loadPersistedIndex(): void {
-  if (globalThis.__piWebScanIndexLoaded) return;
-  globalThis.__piWebScanIndexLoaded = true;
+  if (globalThis.__pieScanIndexLoaded) return;
+  globalThis.__pieScanIndexLoaded = true;
   const path = indexFilePath();
   if (!existsSync(path)) return;
   try {
@@ -600,10 +600,10 @@ function loadPersistedIndex(): void {
 }
 
 function persistIndex(): void {
-  const pending = globalThis.__piWebScanIndexSave;
+  const pending = globalThis.__pieScanIndexSave;
   if (!pending) return;
   clearTimeout(pending.timer);
-  globalThis.__piWebScanIndexSave = undefined;
+  globalThis.__pieScanIndexSave = undefined;
   try {
     writePrivateFileAtomicSync(
       pending.path,
@@ -624,7 +624,7 @@ function persistIndex(): void {
  */
 function queueIndexPersist(path: string): void {
   const entries = [...getIndex()];
-  const pending = globalThis.__piWebScanIndexSave;
+  const pending = globalThis.__pieScanIndexSave;
   if (pending?.path === path) {
     pending.entries = entries;
     return;
@@ -633,7 +633,7 @@ function queueIndexPersist(path: string): void {
   const timer = setTimeout(persistIndex, INDEX_PERSIST_DELAY_MS);
   // A pending write never holds a process open: a lost one means a rescan.
   timer.unref?.();
-  globalThis.__piWebScanIndexSave = { path, entries, timer };
+  globalThis.__pieScanIndexSave = { path, entries, timer };
 }
 
 /**
@@ -754,10 +754,10 @@ export function flushSessionScanIndexForTests(): void {
 
 /** Test seam: drop all in-memory index state and any pending index save. */
 export function resetSessionScanIndexForTests(): void {
-  clearTimeout(globalThis.__piWebScanIndexSave?.timer);
-  globalThis.__piWebScanIndex = undefined;
-  globalThis.__piWebScanIndexLoaded = undefined;
-  globalThis.__piWebScanIndexSave = undefined;
+  clearTimeout(globalThis.__pieScanIndexSave?.timer);
+  globalThis.__pieScanIndex = undefined;
+  globalThis.__pieScanIndexLoaded = undefined;
+  globalThis.__pieScanIndexSave = undefined;
   globalThis.__piSessionMembership = undefined;
   globalThis.__piSessionMembershipCheck = undefined;
 }

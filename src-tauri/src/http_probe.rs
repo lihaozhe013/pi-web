@@ -44,7 +44,7 @@ pub fn probe(url: &Url, timeout: Duration) -> Option<u16> {
         None => host.to_string(),
     };
     let request = format!(
-        "GET {path} HTTP/1.1\r\nHost: {authority}\r\nUser-Agent: pi-web-desktop\r\nAccept: */*\r\nConnection: close\r\n\r\n"
+        "GET {path} HTTP/1.1\r\nHost: {authority}\r\nUser-Agent: pie-desktop\r\nAccept: */*\r\nConnection: close\r\n\r\n"
     );
     stream.write_all(request.as_bytes()).ok()?;
 

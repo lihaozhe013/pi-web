@@ -140,7 +140,7 @@ export async function checkProjectNavigation({
       const expectComposer = async (tab, cwd) => {
         await tab.locator('.new-session-hero').waitFor({ state: 'visible' });
         await tab.waitForFunction((expected) => {
-          const open = JSON.parse(sessionStorage.getItem('pi-web:tab-open-session') || 'null');
+          const open = JSON.parse(sessionStorage.getItem('pie:tab-open-session') || 'null');
           return open?.kind === 'new' && open.cwd === expected;
         }, cwd);
         const url = new URL(tab.url());
@@ -156,7 +156,7 @@ export async function checkProjectNavigation({
         await page.goto(`${base}/?session=${otherSessionId}`, { waitUntil: 'domcontentloaded' });
         await page.waitForFunction(
           (id) =>
-            JSON.parse(sessionStorage.getItem('pi-web:tab-open-session') || 'null')?.sessionId ===
+            JSON.parse(sessionStorage.getItem('pie:tab-open-session') || 'null')?.sessionId ===
             id,
           otherSessionId
         );

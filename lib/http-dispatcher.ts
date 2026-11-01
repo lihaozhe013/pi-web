@@ -8,7 +8,7 @@ import { readRegularFileText } from './regular-file';
 export const DEFAULT_HTTP_IDLE_TIMEOUT_MS = 300_000;
 
 type DispatcherGlobal = typeof globalThis & {
-  __piWebHttpDispatcherConfigured?: boolean;
+  __pieHttpDispatcherConfigured?: boolean;
 };
 
 const dispatcherGlobal = globalThis as DispatcherGlobal;
@@ -121,7 +121,7 @@ function createUndiciOriginDispatcher(origin: string | URL, options: object): un
 }
 
 export function configureHttpDispatcher(timeoutMs: number = DEFAULT_HTTP_IDLE_TIMEOUT_MS): void {
-  if (dispatcherGlobal.__piWebHttpDispatcherConfigured) return;
+  if (dispatcherGlobal.__pieHttpDispatcherConfigured) return;
 
   const normalizedTimeoutMs = parseHttpIdleTimeoutMs(timeoutMs);
   if (normalizedTimeoutMs === undefined) {
@@ -153,5 +153,5 @@ export function configureHttpDispatcher(timeoutMs: number = DEFAULT_HTTP_IDLE_TI
     undici.install?.();
   }
 
-  dispatcherGlobal.__piWebHttpDispatcherConfigured = true;
+  dispatcherGlobal.__pieHttpDispatcherConfigured = true;
 }

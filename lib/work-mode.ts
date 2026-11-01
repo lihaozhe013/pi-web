@@ -9,7 +9,7 @@ import type { SessionEntry } from './types';
  */
 export type WorkMode = 'plan';
 
-export const WORK_MODE_TYPE = 'pi-web:work-mode';
+export const WORK_MODE_TYPE = 'pie:work-mode';
 
 const WORK_MODES = new Set<string>(['plan'] satisfies WorkMode[]);
 

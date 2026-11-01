@@ -25,7 +25,7 @@ export function artifactName(version, platform = process.platform, arch = proces
     throw new Error(`Unsupported target: ${platform}-${arch}`);
   }
   // Linux releases target glibc, not Alpine/musl.
-  return `pi-web-${version}-${platform}-${arch}${platform === 'linux' ? '-glibc' : ''}`;
+  return `pie-${version}-${platform}-${arch}${platform === 'linux' ? '-glibc' : ''}`;
 }
 
 /**
@@ -139,7 +139,7 @@ export async function buildPortableArchive({
   if (process.platform === 'linux' && !process.report.getReport().header.glibcVersionRuntime) {
     throw new Error('Linux portable packages currently require glibc (musl is not supported)');
   }
-  const work = await mkdtemp(join(tmpdir(), 'pi-web-portable-'));
+  const work = await mkdtemp(join(tmpdir(), 'pie-portable-'));
   output = resolve(output);
   try {
     const source = join(work, 'source');
@@ -165,13 +165,13 @@ export async function buildPortableArchive({
       }
     }
     bun(['install', '--frozen-lockfile'], source);
-    bun(['run', 'build'], source, { ...process.env, PI_WEB_COMMIT: commit, ...buildEnv });
+    bun(['run', 'build'], source, { ...process.env, PIE_COMMIT: commit, ...buildEnv });
 
     // Reuse package.json.files as the archive allow-list. This does not publish.
     bun(['pm', 'pack', '--filename', join(packed, 'app.tgz')], source);
     // Relative archive paths avoid GNU tar interpreting Windows C: as a remote host.
     run('tar', ['-xzf', 'packed/app.tgz', '-C', 'staging'], work);
-    const app = join(staging, 'pi-web');
+    const app = join(staging, 'pie');
     await rename(join(staging, 'package'), app);
     // `bun pm pack` never includes nested node_modules directories, but Next 16
     // keeps external-package shims in `.next/node_modules` as symlinks into the
@@ -214,12 +214,12 @@ export async function buildPortableArchive({
     await cp(join(root, 'packaging', 'PORTABLE-README.txt'), join(app, 'PORTABLE-README.txt'));
 
     const archive = join(work, `${name}.tar.gz`);
-    run('tar', ['-czf', `${name}.tar.gz`, '-C', 'staging', 'pi-web'], work);
+    run('tar', ['-czf', `${name}.tar.gz`, '-C', 'staging', 'pie'], work);
     // Test the actual archive after extraction into a different path, not the build tree.
     const check = join(work, 'extracted with spaces');
     await mkdir(check);
     run('tar', ['-xzf', `${name}.tar.gz`, '-C', 'extracted with spaces'], work);
-    await smokeTest(join(check, 'pi-web'));
+    await smokeTest(join(check, 'pie'));
     const hash = createHash('sha256')
       .update(await readFile(archive))
       .digest('hex');

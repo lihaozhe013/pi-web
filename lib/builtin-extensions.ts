@@ -16,7 +16,7 @@ import {
 import { McpHost, type McpHostOptions } from './mcp-host';
 import { createAskUserExtension } from './ask-user-extension';
 import { createPlanModeExtension } from './plan-mode-extension';
-import { createPiWebMcpTransportFactory } from './mcp-transport';
+import { createPieMcpTransportFactory } from './mcp-transport';
 import { createWriteDiffExtension } from './write-diff-extension';
 import {
   loadPiSdkInternals,
@@ -26,7 +26,7 @@ import {
 import { mayReadProjectConfigNow } from './project-trust';
 import { PROJECT_SETTINGS_MAX_BYTES, readRegularFileText } from './regular-file';
 
-export const MCP_DISABLE_VARIABLE = 'PI_WEB_DISABLE_MCP';
+export const MCP_DISABLE_VARIABLE = 'PIE_DISABLE_MCP';
 
 export type BuiltinFeatureStatus = { available: true } | { available: false; reason: string };
 
@@ -89,7 +89,7 @@ function resultText(result: { content?: readonly { type: string; text?: string }
  * its worker thread exactly as a session runs it. The worker and the wasm file
  * are resolved from the SDK's own files at run time, which a bundled or
  * relocated install can break; when that happens the tool would fail every
- * call, so pi-web does not offer it.
+ * call, so pie does not offer it.
  */
 export async function runCodemodeSelfTest(
   options: CodemodeSelfTestOptions = {}
@@ -109,7 +109,7 @@ export async function runCodemodeSelfTest(
       const definition = await (options.createDefinition ?? sdkCodemodeDefinition)();
       // Without a session context the script reaches no tools, store, or models.
       return await definition.execute(
-        'pi-web-self-test',
+        'pie-self-test',
         { code: SELF_TEST_SCRIPT },
         controller.signal,
         undefined,
@@ -141,13 +141,13 @@ export async function runCodemodeSelfTest(
 }
 
 // Hot reload re-evaluates this module; globalThis keeps one self-test per process.
-const CODEMODE_SANDBOX_KEY: symbol = Symbol.for('pi-web.codemodeSandbox');
+const CODEMODE_SANDBOX_KEY: symbol = Symbol.for('pie.codemodeSandbox');
 
 /** The sandbox self-test, run once per server process on the first normal session. */
 export function checkCodemodeSandbox(): Promise<BuiltinFeatureStatus> {
   const store = globalThis as Record<symbol, Promise<BuiltinFeatureStatus> | undefined>;
   return (store[CODEMODE_SANDBOX_KEY] ??= runCodemodeSelfTest().then((status) => {
-    if (!status.available) console.warn(`[pi-web] Code mode is off: ${status.reason}`);
+    if (!status.available) console.warn(`[pie] Code mode is off: ${status.reason}`);
     return status;
   }));
 }
@@ -189,7 +189,7 @@ export function mcpRuntimeFromInternals(
   return { available: true, internals };
 }
 
-const MCP_WARNED_KEY: symbol = Symbol.for('pi-web.mcpOffWarned');
+const MCP_WARNED_KEY: symbol = Symbol.for('pie.mcpOffWarned');
 
 async function loadMcpRuntime(): Promise<McpRuntimeResult> {
   const runtime = mcpRuntimeFromInternals(await loadPiSdkInternals());
@@ -201,13 +201,13 @@ async function loadMcpRuntime(): Promise<McpRuntimeResult> {
     store[MCP_WARNED_KEY] !== runtime.reason
   ) {
     store[MCP_WARNED_KEY] = runtime.reason;
-    console.warn(`[pi-web] MCP is off: ${runtime.reason}`);
+    console.warn(`[pie] MCP is off: ${runtime.reason}`);
   }
   return runtime;
 }
 
 /**
- * `loadConfig` for the SDK's MCP extension. Pi Web decides which servers a
+ * `loadConfig` for the SDK's MCP extension. Pie decides which servers a
  * session connects and registers them itself, so the extension connects none
  * on `session_start`, and its startup wait, which ignores Stop, never arms.
  * The file-level `autoEnableCodemode` still comes from `mcp.json`, as in the
@@ -395,7 +395,7 @@ function createMcpBuiltins(
     codemodeAvailable: () => boolean;
     mcpHost?: Pick<McpHostOptions, 'idleMs' | 'promptWaitMs'>;
   }
-): PiWebBuiltinExtensions {
+): PieBuiltinExtensions {
   const mcpHost = mcp.available
     ? new McpHost({
         ...options.mcpHost,
@@ -412,7 +412,7 @@ function createMcpBuiltins(
         ? createMcpExtension({
             loadConfig: createMcpExtensionConfigLoader(mcp.internals, options.agentDir),
             createTransport: mcpHost.wrapTransportFactory(
-              createPiWebMcpTransportFactory(mcp.internals)
+              createPieMcpTransportFactory(mcp.internals)
             ),
             // The host already waited, and Stop ends its wait. The extension's own wait for
             // servers with `direct` tools, at a session's first prompt, ignores Stop.
@@ -428,19 +428,19 @@ function createMcpBuiltins(
   return { extensions, mcpHost };
 }
 
-export interface PiWebBuiltinExtensionsOptions {
+export interface PieBuiltinExtensionsOptions {
   agentDir: string;
   mcpHost?: Pick<McpHostOptions, 'idleMs' | 'promptWaitMs'>;
 }
 
-export interface PiWebBuiltinExtensions {
+export interface PieBuiltinExtensions {
   extensions: InlineExtension[];
   mcpHost: McpHost | undefined;
 }
 
-export async function createPiWebBuiltinExtensions(
-  options: PiWebBuiltinExtensionsOptions
-): Promise<PiWebBuiltinExtensions> {
+export async function createPieBuiltinExtensions(
+  options: PieBuiltinExtensionsOptions
+): Promise<PieBuiltinExtensions> {
   const [sandbox, mcp] = await Promise.all([checkCodemodeSandbox(), loadMcpRuntime()]);
   const { extensions, mcpHost } = createMcpBuiltins(mcp, {
     agentDir: options.agentDir,

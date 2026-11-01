@@ -13,14 +13,14 @@ export function PwaRegistration() {
     // there caches by origin, outlives a port change, and can serve a stale shell
     // after an update, so the desktop build never registers one and removes any
     // registration an earlier build left behind.
-    if (process.env.NEXT_PUBLIC_PI_WEB_DESKTOP === '1') {
+    if (process.env.NEXT_PUBLIC_PIE_DESKTOP === '1') {
       void navigator.serviceWorker
         .getRegistrations()
         .then((registrations) =>
           Promise.all(registrations.map((registration) => registration.unregister()))
         )
         .catch((error: unknown) => {
-          console.error('Failed to remove the Pi Web service worker:', error);
+          console.error('Failed to remove the Pie service worker:', error);
         });
       return;
     }
@@ -38,7 +38,7 @@ export function PwaRegistration() {
           updateViaCache: 'none'
         })
         .catch((error: unknown) => {
-          console.error('Failed to register the Pi Web service worker:', error);
+          console.error('Failed to register the Pie service worker:', error);
         });
     };
 

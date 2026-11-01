@@ -1,7 +1,7 @@
 const SESSION_LIVENESS_PROTOCOL_VERSION = 1;
-export const SESSION_LIVENESS_REGISTRY_KEY = '@lihaozhe013/pi-web/session-liveness/v1';
+export const SESSION_LIVENESS_REGISTRY_KEY = '@lihaozhe013/pie/session-liveness/v1';
 export const SESSION_LIVENESS_LEASE_TTL_MS = 90_000;
-const SESSION_LIVENESS_LEASES_KEY = '@lihaozhe013/pi-web/session-liveness-leases/v2';
+const SESSION_LIVENESS_LEASES_KEY = '@lihaozhe013/pie/session-liveness-leases/v2';
 
 export interface SessionLivenessProvider {
   name: string;
@@ -86,7 +86,7 @@ function createRegistry(): SessionLivenessRegistry {
           if (active) return true;
         } catch (error) {
           console.error(
-            `[pi-web] Session liveness provider '${provider.name}' failed; preserving the session:`,
+            `[pie] Session liveness provider '${provider.name}' failed; preserving the session:`,
             error
           );
           return true;
@@ -159,7 +159,7 @@ export function holdSessionLivenessLease(sessionId: string, holder: string): voi
   }
   existing?.release();
   const providerRelease = registerSessionLivenessProvider({
-    name: 'pi-web-selected-session',
+    name: 'pie-selected-session',
     sessionId,
     isActive: () => !lease.released && lease.expiresAt > Date.now()
   });
@@ -180,7 +180,7 @@ export function holdSessionLivenessLease(sessionId: string, holder: string): voi
 }
 
 /**
- * Register session-scoped work that must survive pi-web's automatic idle eviction.
+ * Register session-scoped work that must survive pie's automatic idle eviction.
  * Explicit shutdown and runtime replacement still take precedence.
  */
 export function registerSessionLivenessProvider(provider: SessionLivenessProvider): () => void {

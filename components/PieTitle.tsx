@@ -15,7 +15,7 @@ export const BRAND_ICON_SRC = '/icons/icon-192.png';
 /** The mark's box, square like the file. */
 export const BRAND_ICON_SIZE = 20;
 
-export function PiWebTitle() {
+export function PieTitle() {
   const { t } = useI18n();
   const [aboutOpen, setAboutOpen] = useState(false);
   const label = t('sidebar.brandLabel');

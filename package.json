@@ -1,21 +1,21 @@
 {
-  "name": "@lihaozhe013/pi-web",
+  "name": "@lihaozhe013/pie",
   "version": "0.1.0",
-  "description": "Minimal web GUI for the Pi coding agent",
-  "homepage": "https://github.com/lihaozhe013/pi-web#readme",
+  "description": "Minimal GUI for the Pi coding agent",
+  "homepage": "https://github.com/lihaozhe013/pie#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lihaozhe013/pi-web.git"
+    "url": "git+https://github.com/lihaozhe013/pie.git"
   },
   "bugs": {
-    "url": "https://github.com/lihaozhe013/pi-web/issues"
+    "url": "https://github.com/lihaozhe013/pie/issues"
   },
   "license": "MIT",
   "browserslist": [
     "chrome >= 130"
   ],
   "bin": {
-    "pi-web": "bin/pi-web.js"
+    "pie": "bin/pie.js"
   },
   "files": [
     "bin",

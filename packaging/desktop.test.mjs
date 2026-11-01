@@ -18,21 +18,21 @@ test('payload keys identify a build, not just a version', () => {
 });
 
 test('linux archives name the version and architecture', () => {
-  assert.equal(linuxDesktopName('0.1.0', 'x64'), 'pi-web-desktop-0.1.0-linux-x64');
+  assert.equal(linuxDesktopName('0.1.0', 'x64'), 'pie-desktop-0.1.0-linux-x64');
   assert.throws(() => linuxDesktopName('0.1.0', 'ia32'), /Unsupported/);
 });
 
 test('the manifest carries everything the shell verifies', () => {
   assert.deepEqual(
     payloadManifest({
-      name: 'pi-web-0.1.0-linux-x64-glibc',
+      name: 'pie-0.1.0-linux-x64-glibc',
       version: '0.1.0',
       sha256: sha,
       bytes: 42,
       commit: 'abc1234'
     }),
     {
-      name: 'pi-web-0.1.0-linux-x64-glibc',
+      name: 'pie-0.1.0-linux-x64-glibc',
       version: '0.1.0',
       sha256: sha,
       bytes: 42,
@@ -43,7 +43,7 @@ test('the manifest carries everything the shell verifies', () => {
 });
 
 test('the desktop payload is built without a service worker', () => {
-  assert.equal(DESKTOP_BUILD_ENV.NEXT_PUBLIC_PI_WEB_DESKTOP, '1');
+  assert.equal(DESKTOP_BUILD_ENV.NEXT_PUBLIC_PIE_DESKTOP, '1');
 });
 
 test('arguments reach the build orchestration', () => {

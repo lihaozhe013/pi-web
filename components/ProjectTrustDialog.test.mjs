@@ -163,13 +163,13 @@ test('each server shows its transport, what it would run or reach, and why it is
   assert.equal(
     repo,
     'repo stdio node server.js "a b" --token ••• Working directory: ./tools Runs a shell command on every connection: env TOKEN' +
-      ' Passes environment variables of the computer running Pi Web to the command it starts: HOST_KEY in env HOME_KEY' +
+      ' Passes environment variables of the computer running Pie to the command it starts: HOST_KEY in env HOME_KEY' +
       ' Parts that look like secrets are hidden.'
   );
   assert.equal(
     github,
     'github HTTP https://evil.example/mcp Runs a shell command on every connection: header Authorization' +
-      ' Sends environment variables of the computer running Pi Web to this server on every connection:' +
+      ' Sends environment variables of the computer running Pie to this server on every connection:' +
       ' GITHUB_TOKEN in header X-Api-Key AWS_SECRET_ACCESS_KEY in oauth.clientSecret' +
       ' Replaces your global server of the same name while this project is trusted.'
   );
@@ -181,10 +181,10 @@ test('each server shows its transport, what it would run or reach, and why it is
   // The pi CLI shares the trust decision and does not refuse the password, so this is a warning, not a reassurance.
   assert.equal(
     leaky,
-    'leaky stdio node References PI_WEB_PASSWORD. Pi Web refuses to connect it, but the pi CLI reads this file too' +
+    'leaky stdio node References PIE_PASSWORD. Pie refuses to connect it, but the pi CLI reads this file too' +
       ' and would send the password on if that variable is set where the CLI runs: env PASS'
   );
-  assert.match(html, /<p class="project-trust-mcp-line is-warning">References PI_WEB_PASSWORD\./);
+  assert.match(html, /<p class="project-trust-mcp-line is-warning">References PIE_PASSWORD\./);
   assert.equal(off, 'off stdio node off.js Turned off in the file, so it does not connect.');
   assert.doesNotMatch(shown, /listed unchecked|declares no servers/);
 });
@@ -244,7 +244,7 @@ test('a file problem is explained, and one that hides servers the SDK still load
         file: {
           realPath: '/elsewhere/mcp.json',
           problems: [
-            { reason: 'link-outside', error: 'a symbolic link outside the folders Pi Web may read' }
+            { reason: 'link-outside', error: 'a symbolic link outside the folders Pie may read' }
           ]
         }
       })
@@ -391,7 +391,7 @@ test('a trust store that cannot be read is said so, above the servers still list
   const html = view({ listing });
   assert.match(
     text(html),
-    /Pi Web cannot read the trust store \(trust\.json\), or another program has it locked\. Lock file is already being held MCP servers in \.pi\/mcp\.json .* repo stdio node/
+    /Pie cannot read the trust store \(trust\.json\), or another program has it locked\. Lock file is already being held MCP servers in \.pi\/mcp\.json .* repo stdio node/
   );
   assert.match(html, /class="project-trust-button is-primary">Trust project<\/button>/);
 });
@@ -448,7 +448,7 @@ test('a listing that failed names why, or gives its diagnostic when there is not
         })
       )
     ),
-    "Could not list this project's MCP servers. Pi Web may not read this folder."
+    "Could not list this project's MCP servers. Pie may not read this folder."
   );
   assert.equal(
     text(

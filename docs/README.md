@@ -2,8 +2,8 @@
 
 ## A minimal GUI for Pi
 
-Pi Web centers on one workflow: choose a directory, send Pi a message, watch it work, and continue
-the conversation.
+Pie centers on one workflow: choose a directory, send Pi a message, watch it work, and continue the
+conversation.
 
 Pi supplies the agent capabilities. This project improves the visibility and usability of the CLI
 workflow, without replacing Pi or creating a parallel configuration, extension, or execution system.
@@ -24,7 +24,7 @@ them. Directory selection, attachments, inline media, and file references serve 
 they are not a file manager.
 
 Do not build an IDE, file workspace, Git/worktree manager, embedded terminal, multi-panel dashboard,
-multi-agent orchestrator, or comprehensive configuration center. Pi Web does not implement or manage
+multi-agent orchestrator, or comprehensive configuration center. Pie does not implement or manage
 subagents; installed Pi extensions remain Pi's responsibility. Prefer a good default over
 speculative settings.
 
@@ -61,6 +61,6 @@ maintaining conflicting rule sets. Preserve third-party attribution and license 
 
 ## Attribution
 
-Based on [agegr/pi-web](https://github.com/agegr/pi-web), using
+Based on [Pi Web](https://github.com/agegr/pi-web) by agegr, using
 [Pi](https://github.com/earendil-works/pi). Retain the original attribution and MIT license;
 attribution does not require adopting the source project's maintenance model.

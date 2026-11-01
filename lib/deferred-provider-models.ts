@@ -10,12 +10,12 @@ import {
 type RuntimeModel = Awaited<ReturnType<ModelRuntime['getAvailable']>>[number];
 
 declare global {
-  var __piWebProviderModelCatalog: Map<string, RuntimeModel[]> | undefined;
+  var __pieProviderModelCatalog: Map<string, RuntimeModel[]> | undefined;
 }
 
 function catalog(): Map<string, RuntimeModel[]> {
-  globalThis.__piWebProviderModelCatalog ??= new Map();
-  return globalThis.__piWebProviderModelCatalog;
+  globalThis.__pieProviderModelCatalog ??= new Map();
+  return globalThis.__pieProviderModelCatalog;
 }
 
 /** Record what a runtime offers, so later runtimes can show a provider they have not registered yet. */

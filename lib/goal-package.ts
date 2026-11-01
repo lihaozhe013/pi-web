@@ -1,7 +1,7 @@
 /**
- * Where the goal package comes from, and when Pi Web must not add its own.
+ * Where the goal package comes from, and when Pie must not add its own.
  *
- * Pi Web ships `pi-better-goal` as a dependency and loads it as an extension
+ * Pie ships `pi-better-goal` as a dependency and loads it as an extension
  * path, the same way a person's installed package is loaded, so goal support
  * works on a fresh install without a second setup step. The package still owns
  * everything about the goal; this module only finds the copy and keeps a second
@@ -10,7 +10,7 @@
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 
-/** The package Pi Web ships, loaded unless the person has chosen a goal package themselves. */
+/** The package Pie ships, loaded unless the person has chosen a goal package themselves. */
 export const BUNDLED_GOAL_PACKAGE = 'pi-better-goal';
 
 /** A configured package whose name says it provides goals: any of them owns the loop. */
@@ -28,7 +28,7 @@ function resolveOptional(id: string): string | undefined {
   const requireFns: Array<() => NodeJS.Require> = [
     () => createRequire(import.meta.url),
     () => createRequire(__filename),
-    () => createRequire(join(process.cwd(), 'pi-web.js'))
+    () => createRequire(join(process.cwd(), 'pie.js'))
   ];
   for (const make of requireFns) {
     try {

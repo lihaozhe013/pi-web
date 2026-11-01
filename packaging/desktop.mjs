@@ -14,7 +14,7 @@ const tauriDir = join(root, 'src-tauri');
 const cliBuildConfig = join(tauriDir, 'tauri.build.conf.json');
 
 /** The desktop payload is the portable payload, rebuilt without the service worker. */
-export const DESKTOP_BUILD_ENV = { NEXT_PUBLIC_PI_WEB_DESKTOP: '1' };
+export const DESKTOP_BUILD_ENV = { NEXT_PUBLIC_PIE_DESKTOP: '1' };
 
 export function payloadKey(version, sha256) {
   if (!/^[\w.+-]+$/.test(version)) throw new Error('Invalid payload version');
@@ -25,16 +25,16 @@ export function payloadKey(version, sha256) {
 export function linuxDesktopName(version, arch = process.arch) {
   if (!/^[\w.+-]+$/.test(version)) throw new Error('Invalid payload version');
   if (!['x64', 'arm64'].includes(arch)) throw new Error(`Unsupported Linux architecture: ${arch}`);
-  return `pi-web-desktop-${version}-linux-${arch}`;
+  return `pie-desktop-${version}-linux-${arch}`;
 }
 
 export function payloadManifest({ name, version, sha256, bytes, commit }) {
   return { name, version, sha256, bytes, commit, key: payloadKey(version, sha256) };
 }
 
-const linuxReadme = `Pi Web desktop shell
+const linuxReadme = `Pie desktop shell
 
-A window around the local Pi Web server. The server runs as a child process and
+A window around the local Pie server. The server runs as a child process and
 stops when the window closes. Node.js and the webview are not bundled.
 
 Requirements
@@ -43,7 +43,7 @@ Requirements
   A graphical session (X11 or Wayland)
 
 Run
-  ./pi-web-desktop
+  ./pie-desktop
 
 First launch unpacks payload.tar.gz into the app data directory and starts the
 server on 127.0.0.1:30141. Later launches reuse the unpacked payload. The data
@@ -53,13 +53,13 @@ If Node.js is not found, the window names the locations that were already
 searched. Point the shell at a binary in the desktop config file:
 
   # Linux and macOS
-  <config dir>/desktop.json      ~/.config/com.github.lihaozhe013.piweb/desktop.json
+  <config dir>/desktop.json      ~/.config/com.github.lihaozhe013.pie/desktop.json
   # Windows
-  %APPDATA%\\com.github.lihaozhe013.piweb\\desktop.json
+  %APPDATA%\\com.github.lihaozhe013.pie\\desktop.json
 
   { "nodePath": "/home/me/.nvm/versions/node/v24.4.0/bin/node" }
 
-PI_WEB_DESKTOP_NODE overrides that file for a single launch.
+PIE_DESKTOP_NODE overrides that file for a single launch.
 
 Keep payload.tar.gz beside the binary; the shell reads it from there. To update,
 replace the whole directory. Sessions, credentials, and Pi configuration live
@@ -163,7 +163,7 @@ function releaseBinary(candidates) {
 
 async function packageLinux(manifest) {
   const release = join(tauriDir, 'target', 'release');
-  const binary = releaseBinary([join(release, 'pi-web-desktop'), join(release, 'Pi Web')]);
+  const binary = releaseBinary([join(release, 'pie-desktop'), join(release, 'Pie')]);
   // Keep the unpacked release tree runnable in place as well.
   await cp(join(desktopDir, 'payload.tar.gz'), join(release, 'payload.tar.gz'));
   await cp(join(desktopDir, 'payload.json'), join(release, 'payload.json'));
@@ -172,7 +172,7 @@ async function packageLinux(manifest) {
   const stage = join(desktopDir, name);
   await rm(stage, { recursive: true, force: true });
   await mkdir(stage, { recursive: true });
-  await cp(binary, join(stage, 'pi-web-desktop'));
+  await cp(binary, join(stage, 'pie-desktop'));
   await cp(join(desktopDir, 'payload.tar.gz'), join(stage, 'payload.tar.gz'));
   await cp(join(desktopDir, 'payload.json'), join(stage, 'payload.json'));
   await cp(join(root, 'LICENSE'), join(stage, 'LICENSE'));
@@ -212,7 +212,7 @@ export function devDesktop({ env = process.env } = {}) {
   run(process.execPath, [cli, 'dev'], {
     env: {
       ...env,
-      PI_WEB_DESKTOP_SERVER_URL: env.PI_WEB_DESKTOP_SERVER_URL ?? 'http://127.0.0.1:30141'
+      PIE_DESKTOP_SERVER_URL: env.PIE_DESKTOP_SERVER_URL ?? 'http://127.0.0.1:30141'
     }
   });
 }

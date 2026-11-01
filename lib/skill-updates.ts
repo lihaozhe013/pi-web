@@ -114,7 +114,7 @@ async function resolveGitTreeHash(install: SkillInstallInfo): Promise<string> {
   const repository = `https://github.com/${install.source}.git`;
   const ref = install.ref || 'HEAD';
   const folder = skillFolder(install.skillPath!);
-  const gitDir = await mkdtemp(join(tmpdir(), 'pi-web-skill-check-'));
+  const gitDir = await mkdtemp(join(tmpdir(), 'pie-skill-check-'));
 
   try {
     await execFileAsync('git', ['init', '--bare', gitDir], {
@@ -153,7 +153,7 @@ async function checkGlobalSkill(
   const url = `https://api.github.com/repos/${install.source}/git/trees/${encodeURIComponent(ref)}?recursive=1`;
   const headers: Record<string, string> = {
     Accept: 'application/vnd.github.v3+json',
-    'User-Agent': 'pi-web'
+    'User-Agent': 'pie'
   };
   if (options.githubToken) headers.Authorization = `Bearer ${options.githubToken}`;
   const folder = skillFolder(install.skillPath!);

@@ -1,4 +1,4 @@
-//! Own the Pi Web server process: choose a port, start the launcher, wait for it,
+//! Own the Pie server process: choose a port, start the launcher, wait for it,
 //! and stop it again.
 
 use crate::config;
@@ -49,16 +49,16 @@ pub fn start(
     origin: &Arc<Mutex<Option<Url>>>,
     report: Reporter<'_>,
 ) -> Result<String, String> {
-    if let Some(url) = env_nonempty("PI_WEB_DESKTOP_SERVER_URL") {
+    if let Some(url) = env_nonempty("PIE_DESKTOP_SERVER_URL") {
         return attach(&url, origin, report);
     }
     // A debug build attaches to the development server unless the caller asks for
     // the packaged payload, so `desktop:dev` never starts a second server.
-    if cfg!(debug_assertions) && !env_truthy("PI_WEB_DESKTOP_SPAWN") {
+    if cfg!(debug_assertions) && !env_truthy("PIE_DESKTOP_SPAWN") {
         return attach(&format!("http://127.0.0.1:{DEFAULT_PORT}"), origin, report);
     }
 
-    report("Preparing the Pi Web server\u{2026}", false);
+    report("Preparing the Pie server\u{2026}", false);
     let payload = payload::prepare(app, report)?;
     let node = node_locator::resolve(app, report)?;
     report(
@@ -68,7 +68,7 @@ pub fn start(
 
     // A server this machine already runs is adopted and left running.
     if let Some(url) = find_recorded_server(agent_dir(), &payload.version) {
-        report(&format!("Using the running Pi Web server at {url}."), false);
+        report(&format!("Using the running Pie server at {url}."), false);
         return set_origin(origin, &url).map(|_| url);
     }
 
@@ -96,7 +96,7 @@ pub fn start(
         }
         if let Some(status) = shared.poll_exit() {
             return Err(format!(
-                "The Pi Web server exited during startup ({status}).{}",
+                "The Pie server exited during startup ({status}).{}",
                 tail(&lines)
             ));
         }
@@ -106,7 +106,7 @@ pub fn start(
         }
         if Instant::now() >= deadline {
             return Err(format!(
-                "The Pi Web server did not answer at {url} within {} seconds.{}",
+                "The Pie server did not answer at {url} within {} seconds.{}",
                 STARTUP_TIMEOUT.as_secs(),
                 tail(&lines)
             ));
@@ -118,7 +118,7 @@ pub fn start(
     let watcher_app = app.clone();
     let watcher_shared = shared.clone();
     std::thread::Builder::new()
-        .name("pi-web-watchdog".into())
+        .name("pie-watchdog".into())
         .spawn(move || watch(&watcher_app, &watcher_shared))
         .map_err(|error| format!("Could not watch the server: {error}"))?;
     Ok(url)
@@ -131,7 +131,7 @@ fn attach(
 ) -> Result<String, String> {
     let parsed = Url::parse(url).map_err(|error| format!("{url} is not a server URL: {error}"))?;
     report(
-        &format!("Waiting for the Pi Web server at {url}\u{2026}"),
+        &format!("Waiting for the Pie server at {url}\u{2026}"),
         false,
     );
     let deadline = Instant::now() + ATTACH_TIMEOUT;
@@ -168,7 +168,7 @@ fn watch(app: &AppHandle, shared: &Arc<Shared>) {
             crate::window::set_status(
                 app,
                 &format!(
-                    "The Pi Web server stopped ({status}).\n\nRestart the app to start it again."
+                    "The Pie server stopped ({status}).\n\nRestart the app to start it again."
                 ),
                 true,
             );
@@ -200,15 +200,15 @@ fn choose_port(preferred: u16, report: Reporter<'_>) -> Result<u16, String> {
 fn spawn(node: &Path, dir: &Path, port: u16) -> Result<Child, String> {
     let mut command = Command::new(node);
     command
-        .arg("bin/pi-web.js")
+        .arg("bin/pie.js")
         .arg("--no-open")
         .arg("-H")
         .arg("127.0.0.1")
         .arg("-p")
         .arg(port.to_string())
         .current_dir(dir)
-        .env("PI_WEB_HOSTNAME", "127.0.0.1")
-        .env("PI_WEB_NO_OPEN", "1")
+        .env("PIE_HOSTNAME", "127.0.0.1")
+        .env("PIE_NO_OPEN", "1")
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
@@ -232,7 +232,7 @@ fn attach_log(child: &mut Child, log_dir: Option<PathBuf>) -> LogLines {
         OpenOptions::new()
             .create(true)
             .append(true)
-            .open(dir.join("pi-web-desktop.log"))
+            .open(dir.join("pie-desktop.log"))
             .ok()
     });
     let file = Arc::new(Mutex::new(file));
@@ -347,7 +347,7 @@ struct RunRecord {
 
 /// Adopt a server recorded by the launcher when it runs the same payload version.
 fn find_recorded_server(agent_dir: PathBuf, version: &str) -> Option<String> {
-    let entries = fs::read_dir(agent_dir.join("pi-web-run")).ok()?;
+    let entries = fs::read_dir(agent_dir.join("pie-run")).ok()?;
     let mut candidates: Vec<RunRecord> = entries
         .flatten()
         .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "json"))
@@ -423,7 +423,7 @@ mod tests {
     fn stops_the_whole_process_group() {
         use std::os::unix::process::CommandExt;
 
-        let dir = std::env::temp_dir().join(format!("pi-web-stop-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("pie-stop-test-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let marker = dir.join("child.pid");
@@ -467,7 +467,7 @@ mod tests {
 
     #[test]
     fn a_missing_record_directory_is_not_an_error() {
-        let dir = std::env::temp_dir().join(format!("pi-web-missing-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("pie-missing-{}", std::process::id()));
         assert_eq!(find_recorded_server(dir, "0.1.0"), None);
     }
 }

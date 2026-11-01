@@ -153,7 +153,7 @@ test('notification click opens a window and rejects cross-origin targets', async
 // A reachable port backed by a dead upstream answers nothing at all, so these
 // tests drive fetch() with a stub that only settles once the worker aborts it.
 function installOfflineStub() {
-  const offline = new Response('<!doctype html><title>Pi Web is offline</title>', {
+  const offline = new Response('<!doctype html><title>Pie is offline</title>', {
     status: 200,
     headers: { 'Content-Type': 'text/html' }
   });
@@ -275,7 +275,7 @@ test('a stalled navigation falls back to offline.html', async () => {
     const response = await pending;
 
     assert.equal(wasAborted(), true, 'a hung upstream must be aborted, not awaited forever');
-    assert.match(await response.text(), /Pi Web is offline/);
+    assert.match(await response.text(), /Pie is offline/);
   } finally {
     mock.timers.reset();
   }
@@ -347,7 +347,7 @@ test('a response that arrives in time is not cut off mid-stream', async () => {
   let signal;
   globalThis.fetch = async (_request, init) => {
     signal = init.signal;
-    return new Response('<!doctype html><title>Pi Web</title>', {
+    return new Response('<!doctype html><title>Pie</title>', {
       status: 200,
       headers: { 'Content-Type': 'text/html' }
     });
@@ -362,7 +362,7 @@ test('a response that arrives in time is not cut off mid-stream', async () => {
     mock.timers.tick(60000);
 
     assert.equal(signal.aborted, false);
-    assert.match(await response.text(), /<title>Pi Web<\/title>/);
+    assert.match(await response.text(), /<title>Pie<\/title>/);
   } finally {
     mock.timers.reset();
   }

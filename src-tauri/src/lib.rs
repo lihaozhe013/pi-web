@@ -1,6 +1,6 @@
-//! Desktop shell for Pi Web.
+//! Desktop shell for Pie.
 //!
-//! The shell owns one child process: the portable `bin/pi-web.js` launcher, which
+//! The shell owns one child process: the portable `bin/pie.js` launcher, which
 //! serves the browser interface on loopback. The webview loads that URL, so the
 //! window is the only desktop-specific part. There is no Tauri IPC: the webview
 //! gets no capability, no commands, and no way back into Rust.
@@ -102,12 +102,12 @@ pub fn run() {
             let origin: Arc<Mutex<Option<tauri::Url>>> = Arc::new(Mutex::new(None));
             window::create_main(&handle, origin.clone(), startup_shared.clone())?;
             std::thread::Builder::new()
-                .name("pi-web-launcher".into())
+                .name("pie-launcher".into())
                 .spawn(move || launch(&handle, &startup_shared, &origin))?;
             Ok(())
         })
         .build(tauri::generate_context!())
-        .expect("could not build the Pi Web desktop shell");
+        .expect("could not build the Pie desktop shell");
 
     app.run(|app_handle, event| match event {
         RunEvent::ExitRequested { api, code, .. } => {
@@ -140,7 +140,7 @@ fn launch(app: &AppHandle, shared: &Arc<Shared>, origin: &Arc<Mutex<Option<tauri
             if let Err(error) = window::navigate(app, &url) {
                 window::set_status(
                     app,
-                    &format!("Could not open the Pi Web interface: {error}"),
+                    &format!("Could not open the Pie interface: {error}"),
                     true,
                 );
             }
@@ -153,14 +153,14 @@ fn launch(app: &AppHandle, shared: &Arc<Shared>, origin: &Arc<Mutex<Option<tauri
 fn shutdown_and_exit(app: &AppHandle, shared: Arc<Shared>) {
     let app = app.clone();
     std::thread::Builder::new()
-        .name("pi-web-shutdown".into())
+        .name("pie-shutdown".into())
         .spawn(move || {
             if let Some(mut server) = shared.take_server() {
                 server.stop();
             }
             app.exit(0);
         })
-        .expect("could not start the Pi Web shutdown thread");
+        .expect("could not start the Pie shutdown thread");
 }
 
 pub(crate) fn begin_close(app: &AppHandle, shared: &Arc<Shared>) {

@@ -8,7 +8,7 @@ import { createJiti } from 'jiti';
 import { refractor } from 'refractor/all';
 import { astNodes, declarationName, nodeText, parseSource } from '../../../lib/source-testing.mjs';
 
-const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pi-web-files-language-')));
+const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pie-files-language-')));
 process.env.PI_CODING_AGENT_DIR = path.join(root, 'agent');
 test.after(() => fs.rmSync(root, { recursive: true, force: true }));
 

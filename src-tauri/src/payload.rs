@@ -18,7 +18,7 @@ pub struct Manifest {
 }
 
 pub struct Payload {
-    /// Directory that contains `bin/pi-web.js`.
+    /// Directory that contains `bin/pie.js`.
     pub dir: PathBuf,
     /// Payload version, compared against running server records.
     pub version: String,
@@ -28,9 +28,9 @@ pub fn prepare(app: &tauri::AppHandle, report: Reporter<'_>) -> Result<Payload, 
     let source = locate(app)?;
 
     if source.is_dir() {
-        if !source.join("bin").join("pi-web.js").is_file() {
+        if !source.join("bin").join("pie.js").is_file() {
             return Err(format!(
-                "{} does not contain bin/pi-web.js.",
+                "{} does not contain bin/pie.js.",
                 source.display()
             ));
         }
@@ -77,8 +77,8 @@ pub fn prepare(app: &tauri::AppHandle, report: Reporter<'_>) -> Result<Payload, 
         }
     };
 
-    let app_dir = runtime.join(&key).join("pi-web");
-    if app_dir.join("bin").join("pi-web.js").is_file() {
+    let app_dir = runtime.join(&key).join("pie");
+    if app_dir.join("bin").join("pie.js").is_file() {
         cleanup(&runtime, &key);
         return Ok(Payload {
             dir: app_dir,
@@ -88,9 +88,9 @@ pub fn prepare(app: &tauri::AppHandle, report: Reporter<'_>) -> Result<Payload, 
 
     report("Unpacking the server payload\u{2026}", false);
     extract(&source, &runtime, &key)?;
-    if !app_dir.join("bin").join("pi-web.js").is_file() {
+    if !app_dir.join("bin").join("pie.js").is_file() {
         return Err(format!(
-            "The unpacked payload is incomplete: {} has no bin/pi-web.js.",
+            "The unpacked payload is incomplete: {} has no bin/pie.js.",
             app_dir.display()
         ));
     }
@@ -104,7 +104,7 @@ pub fn prepare(app: &tauri::AppHandle, report: Reporter<'_>) -> Result<Payload, 
 fn locate(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let mut tried: Vec<PathBuf> = Vec::new();
 
-    if let Some(value) = std::env::var_os("PI_WEB_DESKTOP_PAYLOAD") {
+    if let Some(value) = std::env::var_os("PIE_DESKTOP_PAYLOAD") {
         let path = PathBuf::from(value);
         if path.exists() {
             return Ok(path);
@@ -134,7 +134,7 @@ fn locate(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     }
 
     Err(format!(
-        "The Pi Web server payload was not found. Looked for:\n{}",
+        "The Pie server payload was not found. Looked for:\n{}",
         tried
             .iter()
             .map(|path| format!("  {}", path.display()))
@@ -284,7 +284,7 @@ mod tests {
 
     fn workspace(name: &str) -> PathBuf {
         let dir =
-            std::env::temp_dir().join(format!("pi-web-payload-{name}-{}", std::process::id()));
+            std::env::temp_dir().join(format!("pie-payload-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         dir
@@ -297,17 +297,17 @@ mod tests {
         write_archive(
             &archive,
             &[
-                ("pi-web/bin/pi-web.js", "console.log('server')"),
-                ("pi-web/PORTABLE.json", "{\"version\":\"0.1.0\"}"),
+                ("pie/bin/pie.js", "console.log('server')"),
+                ("pie/PORTABLE.json", "{\"version\":\"0.1.0\"}"),
             ],
         );
         let runtime = root.join("runtime");
 
         extract(&archive, &runtime, "0.1.0-abcdef123456").unwrap();
         let target = runtime.join("0.1.0-abcdef123456");
-        assert!(target.join("pi-web/bin/pi-web.js").is_file());
+        assert!(target.join("pie/bin/pie.js").is_file());
         assert_eq!(
-            portable_version(&target.join("pi-web")).as_deref(),
+            portable_version(&target.join("pie")).as_deref(),
             Some("0.1.0")
         );
         assert!(!runtime.join(".0.1.0-abcdef123456.partial").exists());
@@ -315,7 +315,7 @@ mod tests {
         fs::write(target.join("stale.txt"), "old").unwrap();
         extract(&archive, &runtime, "0.1.0-abcdef123456").unwrap();
         assert!(!target.join("stale.txt").exists());
-        assert!(target.join("pi-web/bin/pi-web.js").is_file());
+        assert!(target.join("pie/bin/pie.js").is_file());
 
         let _ = fs::remove_dir_all(&root);
     }
@@ -339,15 +339,15 @@ mod tests {
 
     #[test]
     fn accepts_relative_archive_entries() {
-        assert!(is_safe_entry(Path::new("pi-web/bin/pi-web.js")));
-        assert!(is_safe_entry(Path::new("./pi-web/package.json")));
+        assert!(is_safe_entry(Path::new("pie/bin/pie.js")));
+        assert!(is_safe_entry(Path::new("./pie/package.json")));
     }
 
     #[test]
     fn rejects_escaping_archive_entries() {
         assert!(!is_safe_entry(Path::new("/etc/passwd")));
         assert!(!is_safe_entry(Path::new("../outside")));
-        assert!(!is_safe_entry(Path::new("pi-web/../../outside")));
+        assert!(!is_safe_entry(Path::new("pie/../../outside")));
         assert!(!is_safe_entry(Path::new("")));
     }
 

@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'pi-web:last-open-by-workspace';
+const STORAGE_KEY = 'pie:last-open-by-workspace';
 
 interface StorageLike {
   getItem(key: string): string | null;

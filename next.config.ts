@@ -19,11 +19,11 @@ try {
 /**
  * The short commit this build came from, shown as the app version's build
  * metadata (`0.1.0+1c02256`). A portable build runs in a copy without `.git`,
- * so packaging forwards the commit as `PI_WEB_COMMIT`; outside a Git checkout
+ * so packaging forwards the commit as `PIE_COMMIT`; outside a Git checkout
  * the commit is "unknown".
  */
 function readCommit(): string {
-  const provided = process.env.PI_WEB_COMMIT ?? process.env.GIT_COMMIT;
+  const provided = process.env.PIE_COMMIT ?? process.env.GIT_COMMIT;
   if (provided?.trim()) return provided.trim().slice(0, 7);
   try {
     return execFileSync('git', ['rev-parse', '--short=7', 'HEAD'], {

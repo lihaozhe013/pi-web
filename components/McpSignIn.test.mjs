@@ -183,7 +183,7 @@ test('a blocked sign-in is disabled and points at the visible reason', () => {
     assert.match(
       html,
       new RegExp(
-        `<span id="${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}" class="mcp-config-line is-dim">This project is not trusted, so Pi Web does not sign in to or out of its servers\\.</span>`
+        `<span id="${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}" class="mcp-config-line is-dim">This project is not trusted, so Pie does not sign in to or out of its servers\\.</span>`
       )
     );
   }
@@ -192,7 +192,7 @@ test('a blocked sign-in is disabled and points at the visible reason', () => {
     /may replace|Sign out deletes/,
     'no explanation of what cannot be done'
   );
-  // A PI_WEB_PASSWORD entry cannot sign in, but its tokens can still go.
+  // A PIE_PASSWORD entry cannot sign in, but its tokens can still go.
   const password = buttons(row({ server: { ...oauth, signedIn: true }, block: 'web-password' }));
   assert.match(password[0].attributes, /disabled=""/);
   assert.doesNotMatch(password[1].attributes, /disabled/);
@@ -275,9 +275,9 @@ test('waiting for the browser shows the page as a link, the paste box, and where
   );
   assert.match(
     text(html),
-    /After you approve, the browser is sent to http:\/\/127\.0\.0\.1:53682\/callback, which only the computer running Pi Web can open\./
+    /After you approve, the browser is sent to http:\/\/127\.0\.0\.1:53682\/callback, which only the computer running Pie can open\./
   );
-  assert.match(text(html), /Pi Web waits up to 5 minutes from the start of the sign-in\./);
+  assert.match(text(html), /Pie waits up to 5 minutes from the start of the sign-in\./);
   assert.deepEqual(
     buttons(html).map((button) => button.label),
     ['Continue', 'Cancel sign-in']
@@ -366,7 +366,7 @@ test('how the sign-in ended stays under the row, with Sign in again', () => {
   );
   assert.match(
     text(row({ run: { flow: flow('expired') } })),
-    /The sign-in was not finished within 5 minutes, so Pi Web stopped waiting\./
+    /The sign-in was not finished within 5 minutes, so Pie stopped waiting\./
   );
   assert.match(text(row({ run: { flow: flow('cancelled') } })), /Sign-in cancelled\./);
   assert.deepEqual(
@@ -376,7 +376,7 @@ test('how the sign-in ended stays under the row, with Sign in again', () => {
   // A flow the server forgot, and requests that failed, each say so.
   assert.match(
     text(row({ run: { flow: flow('authorize'), gone: true } })),
-    /Pi Web no longer knows this sign-in: it ended a while ago, or Pi Web restarted\. Press Sign in to start again\./
+    /Pie no longer knows this sign-in: it ended a while ago, or Pie restarted\. Press Sign in to start again\./
   );
   assert.match(
     text(row({ run: { error: { error: 'x', reason: 'sign-in-not-oauth' } } })),
@@ -384,15 +384,15 @@ test('how the sign-in ended stays under the row, with Sign in again', () => {
   );
   assert.match(
     text(row({ run: { error: { error: 'x', reason: 'project-untrusted' } } })),
-    /Could not sign in: This project is not trusted, so Pi Web does not sign in to or out of its servers\./
+    /Could not sign in: This project is not trusted, so Pie does not sign in to or out of its servers\./
   );
   assert.match(
     text(row({ run: { error: { error: 'x', reason: 'unparsable' } } })),
-    /Could not sign in: Pi Web cannot read this entry from its file anymore\. Press Refresh\./
+    /Could not sign in: Pie cannot read this entry from its file anymore\. Press Refresh\./
   );
   assert.match(
     text(row({ run: { error: { error: 'GET timed out', timedOut: true } } })),
-    /Pi Web did not answer in time\. Press Sign in again to see the sign-in under way\./
+    /Pie did not answer in time\. Press Sign in again to see the sign-in under way\./
   );
   assert.match(
     text(
@@ -401,7 +401,7 @@ test('how the sign-in ended stays under the row, with Sign in again', () => {
         run: { signOutError: { error: 'x', timedOut: true } }
       })
     ),
-    /Could not sign out: Pi Web did not answer in time, so the change may not have been made\./
+    /Could not sign out: Pie did not answer in time, so the change may not have been made\./
   );
   assert.match(
     text(row({ run: { signedOut: { removed: true } } })),
@@ -458,7 +458,7 @@ test('a failed cancel is shown while the sign-in runs, and not once it has ended
   const cancelError = { error: 'DELETE timed out', timedOut: true };
   assert.match(
     text(row({ run: { flow: flow('authorize', { authorizationUrl: PAGE }), cancelError } })),
-    /Could not cancel the sign-in: Pi Web did not answer in time\. The sign-in may still be under way/
+    /Could not cancel the sign-in: Pie did not answer in time\. The sign-in may still be under way/
   );
   const ended = text(
     row({

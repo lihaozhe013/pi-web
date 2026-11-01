@@ -1,8 +1,8 @@
-# Pi Web — Agent Instructions
+# Pie — Agent Instructions
 
-Pi Web is a personal, local GUI for Pi. Keep changes focused on making conversations and agent
-activity clear and convenient. Pi owns agent capabilities; use the installed SDK rather than
-creating a parallel protocol.
+Pie is a personal, local GUI for Pi. Keep changes focused on making conversations and agent activity
+clear and convenient. Pi owns agent capabilities; use the installed SDK rather than creating a
+parallel protocol.
 
 ## Changes
 

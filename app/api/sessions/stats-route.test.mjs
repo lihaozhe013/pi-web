@@ -75,7 +75,7 @@ async function writeSession(sessionsDir, id, lines) {
 }
 
 async function scratchAgentDir(t) {
-  const dir = await mkdtemp(join(tmpdir(), 'pi-web-stats-route-'));
+  const dir = await mkdtemp(join(tmpdir(), 'pie-stats-route-'));
   const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
   const previousRegistry = globalThis.__piSessions;
   process.env.PI_CODING_AGENT_DIR = dir;

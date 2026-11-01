@@ -291,7 +291,7 @@ export function locateProjectMcpConfig(
       path,
       realPath,
       reason: 'link-outside',
-      error: 'a symbolic link outside the folders Pi Web may read'
+      error: 'a symbolic link outside the folders Pie may read'
     };
   }
   return { kind: 'found', path, realPath };
@@ -330,7 +330,7 @@ export function projectMcpConfigCreatePath(
     return {
       ok: false,
       reason: 'link-outside',
-      error: 'a symbolic link outside the folders Pi Web may read'
+      error: 'a symbolic link outside the folders Pie may read'
     };
   }
   return { ok: true, realPath: join(realDir, 'mcp.json') };
@@ -446,7 +446,7 @@ function authStateOf(
 
 /**
  * The transport a connection uses, decided as the SDK's `createDefaultTransport()`
- * (and Pi Web's factory, and the value walk in `resolvedConfigValues()`)
+ * (and Pie's factory, and the value walk in `resolvedConfigValues()`)
  * decide it: by whether the key `url` is present, whatever its value or
  * `type`. The validator decides differently — `{ type: "stdio", command, url }`
  * passes as stdio — but such an entry connects over HTTP, with its headers'
@@ -937,7 +937,7 @@ function mcpAvailability(
     return {
       available: false,
       reason: 'internals-unavailable',
-      error: "Pi Web cannot load the SDK's MCP modules",
+      error: "Pie cannot load the SDK's MCP modules",
       detail: internals.reason
     };
   }
@@ -1074,7 +1074,7 @@ export async function readMcpOverview(options: McpOverviewOptions): Promise<McpR
   } catch (error) {
     // A settings file that cannot be read leaves the built-ins as the session would find them: on.
     console.warn(
-      `[pi-web] cannot read the extensions settings for Settings › MCP: ${errorMessage(error)}`
+      `[pie] cannot read the extensions settings for Settings › MCP: ${errorMessage(error)}`
     );
   }
   const { files, servers } = readMcpServerConfigs({

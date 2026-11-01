@@ -12,7 +12,7 @@ import { generateUnifiedPatch, type InlineExtension } from '@earendil-works/pi-c
  * unified patch to its result, which the existing patch view already renders.
  */
 
-export const WRITE_DIFF_EXTENSION_NAME = 'pi-web-write-diff';
+export const WRITE_DIFF_EXTENSION_NAME = 'pie-write-diff';
 
 /** The SDK's write tool. A custom tool that happens to write elsewhere keeps its own result. */
 const WRITE_TOOL_NAME = 'write';

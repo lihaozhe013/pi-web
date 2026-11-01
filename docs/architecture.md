@@ -24,7 +24,7 @@ sessions in process; Bun manages dependencies and script invocation.
 | Saved session reading    | `lib/session-reader.ts`                                            |
 | Shared types             | `lib/types.ts`, `lib/pi-types.ts`                                  |
 | HTTP APIs                | `app/api/`                                                         |
-| Local launcher           | `bin/pi-web.js`                                                    |
+| Local launcher           | `bin/pie.js`                                                       |
 | Portable packaging       | `packaging/`                                                       |
 | Desktop shell            | `src-tauri/`, `packaging/desktop.mjs`                              |
 
@@ -52,10 +52,10 @@ explicit working directory retains path authorization, project trust, and projec
 semantics. Global and project model lists have separate cache keys; default and reasoning edits
 still write global settings and refuse edits shadowed by the selected project's settings.
 
-Settings › Models › General saves a global context window limit in `pi-web-model-settings.json` in
-the agent directory (`lib/model-context-limit.ts`, served by `app/api/models/context-limit`).
-Because pi compacts from the session model's native `contextWindow`, the limit is applied where
-models are resolved: `withContextWindowLimit()` wraps the `ModelRuntime` the same transparent way
+Settings › Models › General saves a global context window limit in `pie-model-settings.json` in the
+agent directory (`lib/model-context-limit.ts`, served by `app/api/models/context-limit`). Because pi
+compacts from the session model's native `contextWindow`, the limit is applied where models are
+resolved: `withContextWindowLimit()` wraps the `ModelRuntime` the same transparent way
 `withDeferredProviderModels()` does — session runtimes in `lib/rpc-manager.ts`, the shared
 extension-loaded runtime in `lib/model-runtime.ts`, and the listing routes. Every model then
 resolves with `min(native, limit)` as its window, so compaction triggers earlier and prompts stay
@@ -66,10 +66,10 @@ model is selected again. Pi CLI sharing the agent directory does not apply the c
 
 ## Product boundary
 
-Pi Web hosts ordinary Pi SDK sessions. It does not register subagent control tools, run
-child-session queues, maintain agent profiles, or create Git worktrees. There are no subagent HTTP
-routes or specialized transcript viewers. Installed extensions follow Pi's normal loading semantics
-and render through generic tool and extension UI paths.
+Pie hosts ordinary Pi SDK sessions. It does not register subagent control tools, run child-session
+queues, maintain agent profiles, or create Git worktrees. There are no subagent HTTP routes or
+specialized transcript viewers. Installed extensions follow Pi's normal loading semantics and render
+through generic tool and extension UI paths.
 
 Session catalog entries are grouped by their recorded working directory. Directory validation and
 model lookup do not inspect Git or infer a replacement directory for a missing checkout. A missing
@@ -102,22 +102,22 @@ migration layer. Cleanup removes code, not user files.
 
 ## Session output speed
 
-Pi Web observes the first nonempty assistant stream delta and response end with a monotonic clock.
-For successful responses with output usage and at least 500 ms of observed streaming, a Pi custom
-entry immediately before the assistant message records output tokens and stream duration. It is not
-model context. Full-file statistics count only records paired with their assistant message; live
-messages carry the same measurement separately for immediate display. Older history cannot recover
+Pie observes the first nonempty assistant stream delta and response end with a monotonic clock. For
+successful responses with output usage and at least 500 ms of observed streaming, a Pi custom entry
+immediately before the assistant message records output tokens and stream duration. It is not model
+context. Full-file statistics count only records paired with their assistant message; live messages
+carry the same measurement separately for immediate display. Older history cannot recover
 first-token timing. The end-to-end speed continues to use Pi's recorded response durations.
 
 ## Modes and questions
 
 `lib/tool-presets.ts` selects the coding tools a session may call. Plan is the one preset that also
 carries a work mode, because it pins the same read-only tools as Read-only; the mode is stored in
-the session log (`lib/work-mode.ts`, `pi-web:work-mode`) and travels next to the tool list in
+the session log (`lib/work-mode.ts`, `pie:work-mode`) and travels next to the tool list in
 `GET /api/sessions/[id]` and `get_tools`.
 
 Users combine the built-in coding tools into named custom presets beside the built-in ones. The list
-lives in `pi-web-tool-presets.json` in the agent directory (`lib/custom-tool-presets.ts`), is served
+lives in `pie-tool-presets.json` in the agent directory (`lib/custom-tool-presets.ts`), is served
 whole by `GET/PUT /api/tools/presets`, and stores canonical tool names (`bash` stands for whatever
 shell the PowerShell setting selects). Settings › Tools edits the list
 (`components/ToolPresetsSettings.tsx`), and a save bumps a refresh key so the session's composer
@@ -150,11 +150,11 @@ configuration.
 
 ## Autonomous goals
 
-Pi Web does not implement autonomous goals. A Pi package owns the loop, the budget, the completion
+Pie does not implement autonomous goals. A Pi package owns the loop, the budget, the completion
 report and its own pause rules: `pi-better-goal` and `pi-codex-goal` are both understood, and the
 same dialog drives either one.
 
-`pi-better-goal` is a dependency of Pi Web itself, so goals work on a fresh install with no second
+`pi-better-goal` is a dependency of Pie itself, so goals work on a fresh install with no second
 setup step. `lib/goal-package.ts` resolves that copy and hands its package root to the session's
 resource loader as an extension path — the same path a person's own package takes, so the package's
 `pi.extensions` manifest and its peer modules decide how it loads, and no import of its TypeScript
@@ -173,12 +173,12 @@ the person wrote, read from the branch by `lastUserObjective()`.
 
 The goal dialog sends `{ type: 'goal', action, objective? }` and `lib/rpc-manager.ts` forwards it as
 that command, so the browser never composes a command itself and never decides anything about the
-goal. The wrapper reads the branch and publishes `{ available, goal? }` as the `pi-web-goal`
-extension status on three occasions: once extensions are bound, on every `entry_appended` that
-carries a goal record, and after a command. The same status is in `get_state`, so a reload costs no
-extra route, and `GET /api/sessions/[id]` reads the same record for a session with no live runtime.
-The package's own status and widget are filtered out of the status bar, because the dialog already
-says where the goal stands.
+goal. The wrapper reads the branch and publishes `{ available, goal? }` as the `pie-goal` extension
+status on three occasions: once extensions are bound, on every `entry_appended` that carries a goal
+record, and after a command. The same status is in `get_state`, so a reload costs no extra route,
+and `GET /api/sessions/[id]` reads the same record for a session with no live runtime. The package's
+own status and widget are filtered out of the status bar, because the dialog already says where the
+goal stands.
 
 A goal an earlier process left `active` is paused when its session is opened again: the wrapper
 sends the package's own `/goal pause` after binding, so reopening a session cannot resume an

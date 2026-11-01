@@ -172,7 +172,7 @@ test('before Add the pane shows what would be written: the target as written, na
     'a JSON paste offers the pi-config toggle'
   );
   // Off, the label says it all; on, the line under it says what runs.
-  assert.doesNotMatch(shown, /reads a variable on the computer running Pi Web/);
+  assert.doesNotMatch(shown, /reads a variable on the computer running Pie/);
   // A paste replaces the examples, and the preview leaves out what is not set.
   assert.doesNotMatch(decode(html), /config-add-source-examples/);
   assert.doesNotMatch(preview, /Working directory/);
@@ -182,7 +182,7 @@ test('before Add the pane shows what would be written: the target as written, na
   const raw = text(pane({ draft: { text: paste, rawPi: true } }));
   assert.match(
     raw,
-    /In env and header values, \$NAME reads a variable on the computer running Pi Web/
+    /In env and header values, \$NAME reads a variable on the computer running Pie/
   );
   assert.match(raw, /Shell commands Runs a shell command on every connection: env HOOK/);
 });
@@ -235,7 +235,7 @@ test('why Project is unavailable is visible text under the switch, never only a 
     /<span id="([^"]+)" class="config-scope-switch-reason">([^<]*)<\/span>/
   );
   assert.ok(reason, 'the reason is rendered');
-  assert.match(reason[2], /This folder holds .*repo\/app, another folder Pi Web knows/);
+  assert.match(reason[2], /This folder holds .*repo\/app, another folder Pie knows/);
   assert.match(
     html,
     new RegExp(
@@ -254,7 +254,7 @@ test('why Project is unavailable is visible text under the switch, never only a 
   });
   assert.match(
     text(html),
-    /is a link to nothing\. It would need trust once its target appears, so Pi Web does not trust the folder by itself\./
+    /is a link to nothing\. It would need trust once its target appears, so Pie does not trust the folder by itself\./
   );
 
   // A literal secret, with the way out: read it from a host variable, with the control that does it.
@@ -269,11 +269,11 @@ test('why Project is unavailable is visible text under the switch, never only a 
   html = pane({ draft: { text: secret } });
   assert.match(
     text(html),
-    /headers\.Authorization holds a secret as plain text, so this server can be saved only globally\. To save it in the project, choose “Read it from a variable of the computer running Pi Web” for it\./
+    /headers\.Authorization holds a secret as plain text, so this server can be saved only globally\. To save it in the project, choose “Read it from a variable of the computer running Pie” for it\./
   );
   assert.match(
     text(html),
-    /Secrets in the paste headers\.Authorization holds a secret as plain text\. Read it from a variable of the computer running Pi Web Saved in mcp\.json as pasted/
+    /Secrets in the paste headers\.Authorization holds a secret as plain text\. Read it from a variable of the computer running Pie Saved in mcp\.json as pasted/
   );
   assert.doesNotMatch(
     text(html),
@@ -309,7 +309,7 @@ test('why Project is unavailable is visible text under the switch, never only a 
   });
   assert.match(
     text(html),
-    /This project is not trusted, so Pi Web does not write its \.pi\/mcp\.json\. Trust it first\./
+    /This project is not trusted, so Pie does not write its \.pi\/mcp\.json\. Trust it first\./
   );
   // The way to make Project available sits under its reason, in the save target.
   assert.match(
@@ -364,7 +364,7 @@ test('a password field takes a host variable instead, and the name field says wh
   );
   assert.match(text(html), /GitHub personal access token/);
   assert.match(text(html), /Stored as Bearer ‹your value›\./);
-  assert.match(text(html), /Read it from a variable of the computer running Pi Web/);
+  assert.match(text(html), /Read it from a variable of the computer running Pie/);
   assert.match(text(html), /Fill in pat first\./);
   html = decode(pane({ draft: { text: paste, references: { 'input.pat': 'GH_TOKEN' } } }));
   assert.match(html, /aria-label="Variable for pat"[^>]*value="GH_TOKEN"\/>/);
@@ -375,7 +375,7 @@ test('a password field takes a host variable instead, and the name field says wh
   // The preview then says the header sends that variable.
   assert.match(
     text(html),
-    /Host variables Sends environment variables of the computer running Pi Web to this server on every connection: GH_TOKEN in header Authorization/
+    /Host variables Sends environment variables of the computer running Pie to this server on every connection: GH_TOKEN in header Authorization/
   );
   assert.doesNotMatch(addButton(html).tag, /disabled/);
 
@@ -521,9 +521,9 @@ test('a refused Add says why; host variables are added only through an explicit 
   assert.match(decode(html), /<div role="alert" class="mcp-add-failure">/);
   assert.match(
     text(html),
-    /Not added: The server would be sent variables of the computer running Pi Web; confirm that first\./
+    /Not added: The server would be sent variables of the computer running Pie; confirm that first\./
   );
-  assert.match(text(html), /read GH_TOKEN, which are set on the computer running Pi Web/);
+  assert.match(text(html), /read GH_TOKEN, which are set on the computer running Pie/);
   assert.match(text(html), /Add and send these values/);
 
   html = pane({
@@ -545,7 +545,7 @@ test('a refused Add says why; host variables are added only through an explicit 
   });
   assert.match(text(html), /This looks like JSON but does not parse: Unexpected end/);
   html = pane({ draft: { text: 'x' }, failure: { error: 'x', timedOut: true } });
-  assert.match(text(html), /Not added: Pi Web did not answer in time/);
+  assert.match(text(html), /Not added: Pie did not answer in time/);
   // The write failed after trusting, and the trust could not be taken back: said in words, not only in the diagnostic.
   html = pane({
     draft: { text: 'npx x', scope: 'project' },
@@ -564,7 +564,7 @@ test('a refused Add says why; host variables are added only through an explicit 
   });
   assert.match(
     text(html),
-    /Not added: .* Pi Web trusted ~?\/?.*repo for this step and could not take that back, so the folder stays trusted\./
+    /Not added: .* Pie trusted ~?\/?.*repo for this step and could not take that back, so the folder stays trusted\./
   );
   assert.doesNotMatch(text(html), /the folder stays trusted$/m, 'not the English diagnostic');
 
@@ -586,7 +586,7 @@ test('a refused Add says why; host variables are added only through an explicit 
     draft: { text: 'https://api.example.com/mcp' },
     failure: { error: 'x', reason: 'web-password', name: 'server' }
   });
-  assert.match(text(html), /Not added: It references PI_WEB_PASSWORD, so Pi Web does not add it\./);
+  assert.match(text(html), /Not added: It references PIE_PASSWORD, so Pie does not add it\./);
 });
 
 test('Settings › MCP opens the add pane from the sidebar, keeps the draft, and says what Add wrote', () => {

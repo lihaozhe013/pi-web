@@ -15,7 +15,7 @@ const { POST } = await jiti.import('./route.ts');
 const { projectIdentityKey } = await jiti.import('../../../../lib/project-identity.ts');
 
 test('validated cwd responses group by the selected directory, even inside a Git repository', async (t) => {
-  const cwd = await mkdtemp(path.join(os.tmpdir(), 'pi-web-cwd-validate-'));
+  const cwd = await mkdtemp(path.join(os.tmpdir(), 'pie-cwd-validate-'));
   t.after(() => rm(cwd, { recursive: true, force: true }));
   execFileSync('git', ['init', '--quiet', cwd]);
   const selected = path.join(cwd, 'nested');

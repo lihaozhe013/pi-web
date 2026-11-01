@@ -5,22 +5,22 @@ import { invalidateModelsCache } from '@/lib/models-cache';
 /**
  * On-demand refresh of pi's remote provider catalogs.
  *
- * pi's built-in model lists are generated when the SDK is built and pi-web
+ * pi's built-in model lists are generated when the SDK is built and pie
  * pins one SDK version, so a model a provider ships after that release stays
- * invisible until pi-web itself publishes a new version (#914: Kimi for
+ * invisible until pie itself publishes a new version (#914: Kimi for
  * Coding's K2.8). The SDK already carries the missing half: every built-in
  * provider is wrapped in a pi.dev catalog overlay that `ModelRuntime.refresh()`
  * fetches and persists to `~/.pi/agent/models-store.json`, keyed by provider.
  * Restoring that overlay needs no network, which is why "run the pi CLI once"
  * was the known workaround — the CLI refreshes with the network on, and every
- * pi-web request then reads what the CLI left behind. pi-web's own refresh
+ * pie request then reads what the CLI left behind. pie's own refresh
  * paths ask for the offline half only (`createAgentSessionServices()`,
  * `set_model` in `lib/rpc-manager.ts` and the shared runtime's per-call
  * refresh in `lib/model-runtime.ts` pass `allowNetwork: false`;
  * `lib/provider-usage.ts` skips the refresh with `refreshOnCreate: false`), so
- * pi-web never filled that file itself.
+ * pie never filled that file itself.
  *
- * This runs the network pass in pi-web, behind the Models panel's refresh
+ * This runs the network pass in pie, behind the Models panel's refresh
  * button. It only has to write `models-store.json`: the overlay reaches the UI
  * through the ordinary `/api/models` load, which builds a fresh runtime, and
  * the `/api/models/enabled` load, which refreshes the shared runtime offline;
@@ -79,7 +79,7 @@ export function isModelNetworkDisabled(): boolean {
  * Fetch the remote catalogs once and persist them.
  *
  * `refresh()` is called without `allowNetwork` so the runtime applies its own
- * `PI_OFFLINE` rule instead of pi-web overriding it, and always with
+ * `PI_OFFLINE` rule instead of pie overriding it, and always with
  * `force: true`: someone who pressed the button is asking past the SDK's
  * four-hour freshness window, which is the whole point of a manual refresh.
  * Never rejects — a provider that cannot be reached is reported, not thrown.

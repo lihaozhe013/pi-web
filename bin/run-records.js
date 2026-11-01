@@ -1,8 +1,8 @@
 'use strict';
 
-// Records of running pi-web servers: one <agentDir>/pi-web-run/<launcher pid>.json
+// Records of running pie servers: one <agentDir>/pie-run/<launcher pid>.json
 // per server, written by the launcher once Next.js is ready and removed when it
-// exits. pi-web keeps all its state in pi's agent directory, so this does too.
+// exits. pie keeps all its state in pi's agent directory, so this does too.
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { spawnSync } = require('child_process');
@@ -27,7 +27,7 @@ function getAgentDir(env = process.env, home = os.homedir()) {
 }
 
 function getRunDir(env = process.env, home = os.homedir()) {
-  return path.join(getAgentDir(env, home), 'pi-web-run');
+  return path.join(getAgentDir(env, home), 'pie-run');
 }
 
 // The address a browser on this machine can open: wildcard binds become
@@ -91,7 +91,7 @@ function isRecordProcess(
   const command = readCommand(pid, { platform });
   if (command === null) return true;
   if (platform === 'win32') return /^node/i.test(command);
-  return role === 'launcher' ? command.includes('pi-web') : command.includes('next');
+  return role === 'launcher' ? command.includes('pie') : command.includes('next');
 }
 
 function recordPath(dir, pid) {
@@ -184,17 +184,17 @@ function selectRunRecord(records, port) {
     return {
       error:
         port === undefined
-          ? 'No pi-web server is running.'
-          : `No pi-web server is running on port ${port}.`
+          ? 'No pie server is running.'
+          : `No pie server is running on port ${port}.`
     };
   }
   if (port !== undefined) {
     return {
-      error: `Several pi-web servers are running on port ${port}:\n${matching.map(formatRunRecord).join('\n')}`
+      error: `Several pie servers are running on port ${port}:\n${matching.map(formatRunRecord).join('\n')}`
     };
   }
   return {
-    error: `Several pi-web servers are running:\n${matching.map(formatRunRecord).join('\n')}\nPass --port <port> to choose one.`
+    error: `Several pie servers are running:\n${matching.map(formatRunRecord).join('\n')}\nPass --port <port> to choose one.`
   };
 }
 
@@ -220,7 +220,7 @@ function createRunRecordTracker({ dir, record, parentProcess = process, warn = c
         writeRunRecord(runDir, record);
       } catch (error) {
         warn(
-          `[pi-web] could not write the run record (pi-web status/stop/open will not see this server): ${error.message}`
+          `[pie] could not write the run record (pie status/stop/open will not see this server): ${error.message}`
         );
         return;
       }

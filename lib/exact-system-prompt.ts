@@ -1,6 +1,6 @@
 import type { InlineExtension } from '@earendil-works/pi-coding-agent';
 
-export const EXACT_SYSTEM_PROMPT_EXTENSION_NAME = 'pi-web-exact-system-prompt';
+export const EXACT_SYSTEM_PROMPT_EXTENSION_NAME = 'pie-exact-system-prompt';
 
 export function createExactSystemPromptExtension(
   getPrompt: () => string | undefined

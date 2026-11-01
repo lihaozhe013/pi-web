@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const temporary = mkdtempSync(join(tmpdir(), 'pi-web-question-'));
+const temporary = mkdtempSync(join(tmpdir(), 'pie-question-'));
 const artifacts = join(root, 'test-results/e2e');
 mkdirSync(artifacts, { recursive: true });
 const entry = join(temporary, 'entry.tsx');

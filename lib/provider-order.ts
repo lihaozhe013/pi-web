@@ -2,14 +2,14 @@
  * The provider order the user arranges in Settings › Models.
  *
  * Pi owns which providers exist and their registry order, and models.json only
- * orders a provider's models. The order across providers is therefore a Pi Web
+ * orders a provider's models. The order across providers is therefore a Pie
  * preference: it lives in this browser's local storage and is applied wherever
  * providers are listed (the Settings sidebar and the model selector). Provider
  * ids that are not listed any more stay harmless in the saved array, so signing
  * a provider out and back in does not lose its place.
  */
 
-export const PROVIDER_ORDER_STORAGE_KEY = 'pi-web:model-provider-order';
+export const PROVIDER_ORDER_STORAGE_KEY = 'pie:model-provider-order';
 
 export interface ProviderOrderStorage {
   getItem(key: string): string | null;

@@ -143,7 +143,7 @@ test("a row's state follows the file, the most important reason first", () => {
     ),
     'invalid'
   );
-  // Pi Web refuses it even while turned off, since turning it on would be refused too.
+  // Pie refuses it even while turned off, since turning it on would be refused too.
   assert.equal(
     mcpServerRowState(
       server({ enabled: false, webPasswordField: { kind: 'header', name: 'X' } }),
@@ -1717,7 +1717,7 @@ test('the panel is read-only while MCP is off on the server, and for a project n
     assert.equal(typeof messages[`mcp.reason.${block}`], 'string', block);
 });
 
-test('a group switch sends only the servers it changes, and never turns on one that references PI_WEB_PASSWORD', () => {
+test('a group switch sends only the servers it changes, and never turns on one that references PIE_PASSWORD', () => {
   const servers = [
     server({ name: 'on' }),
     server({ name: 'off', enabled: false }),
@@ -1730,7 +1730,7 @@ test('a group switch sends only the servers it changes, and never turns on one t
   ];
   const names = ({ targets, keptOff }) => [targets.map((target) => target.name), keptOff];
   assert.deepEqual(names(mcpGroupSwitchTargets(servers, true)), [['off'], 1]);
-  // Switching off reaches every server that is on, a PI_WEB_PASSWORD one included.
+  // Switching off reaches every server that is on, a PIE_PASSWORD one included.
   assert.deepEqual(names(mcpGroupSwitchTargets(servers, false)), [['on', 'pw-on'], 0]);
   assert.deepEqual(names(mcpGroupSwitchTargets([server({ name: 'on' })], true)), [[], 0]);
 });
@@ -1747,7 +1747,7 @@ test('a group switch reads on once every server it can turn on is, so a click ca
       servers: servers.map((item) => (targets.includes(item) ? { ...item, enabled: next } : item))
     };
   };
-  // A server on and one referencing PI_WEB_PASSWORD off: reading "every row on" kept this group
+  // A server on and one referencing PIE_PASSWORD off: reading "every row on" kept this group
   // off for good, so each click asked to turn it on, sent nothing, and it never switched off.
   let servers = [
     server({ name: 'a' }),
@@ -1769,7 +1769,7 @@ test('a group switch reads on once every server it can turn on is, so a click ca
     false
   );
   assert.equal(mcpGroupSwitchChecked([]), false);
-  // A PI_WEB_PASSWORD entry that is on counts as on, and switching off reaches it.
+  // A PIE_PASSWORD entry that is on counts as on, and switching off reaches it.
   assert.equal(mcpGroupSwitchChecked([server({ name: 'pw', webPasswordField: pwField })]), true);
   // Nothing it could turn on: off, and a click only says why the entries stay off.
   servers = [server({ name: 'pw', enabled: false, webPasswordField: pwField })];
@@ -2470,11 +2470,11 @@ test('a test is posted to its own route with the project only when given, and en
   const refused = await postMcpTest({ scope: 'global', name: 'pw' }, null, async () => ({
     ok: false,
     status: 409,
-    json: async () => ({ error: 'references PI_WEB_PASSWORD', reason: 'web-password', name: 'pw' })
+    json: async () => ({ error: 'references PIE_PASSWORD', reason: 'web-password', name: 'pw' })
   }));
   assert.deepEqual(refused, {
     ok: false,
-    error: { error: 'references PI_WEB_PASSWORD', reason: 'web-password', name: 'pw' }
+    error: { error: 'references PIE_PASSWORD', reason: 'web-password', name: 'pw' }
   });
   // An answer that is not a test result is a failure, not a result.
   assert.deepEqual(

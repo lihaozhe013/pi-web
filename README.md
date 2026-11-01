@@ -1,4 +1,4 @@
-# Pi Web
+# Pie
 
 A minimal GUI for Pi: talk to the agent, follow its work, and continue the conversation in a clear,
 polished browser interface.
@@ -18,14 +18,14 @@ its source project. It is not an IDE or an all-in-one manager.
 Pi provides the agent capabilities; this project provides their presentation and interaction.
 Visualizing the CLI does not mean building a management panel for every CLI feature.
 
-Pi Web does not provide built-in subagents, multi-agent orchestration, Git/worktree management, file
+Pie does not provide built-in subagents, multi-agent orchestration, Git/worktree management, file
 browsing, file previews, or terminal tabs. Sessions are grouped by their working directories, not by
-Git repositories. Installed Pi extensions still load according to Pi semantics; Pi Web does not add
-an agent-management layer around them.
+Git repositories. Installed Pi extensions still load according to Pi semantics; Pie does not add an
+agent-management layer around them.
 
-Historical Pi Web subagent sessions and settings are not migrated or supported. Existing files are
-not deleted automatically. Historical settings modules for other features are not commitments to
-retain those features.
+Historical subagent sessions and settings from the original Pi Web project have no compatibility or
+migration layer here. Existing files are not deleted automatically. Historical settings modules for
+other features are not commitments to retain those features.
 
 ## Run locally
 
@@ -61,7 +61,7 @@ publication workflow, or automated update commitment.
 
 The package version stays at `0.1.0` for personal use, so builds identify themselves by the short
 commit appended as SemVer build metadata. The configuration reads `HEAD` at dev and build time; a
-portable build runs in a copy without `.git` and receives the commit through `PI_WEB_COMMIT`, which
+portable build runs in a copy without `.git` and receives the commit through `PIE_COMMIT`, which
 also overrides the commit for any other build.
 
 The sidebar's mark opens About, which shows the full version (`0.1.0+1c02256`), the Pi release in
@@ -71,7 +71,7 @@ use, the license, and links to the source and to Pi.
 
 This interface controls an agent that can read and write files and execute commands. It is not a
 read-only website. `bun run start` exposes it to any device that can reach the server, including
-potentially the internet. Without `PI_WEB_PASSWORD`, access is unauthenticated and can allow command
+potentially the internet. Without `PIE_PASSWORD`, access is unauthenticated and can allow command
 execution and access to local files. Use `bun run start:local` and prefer SSH forwarding for remote
 access:
 
@@ -80,7 +80,7 @@ ssh -N -L 30141:127.0.0.1:30141 user@server
 ```
 
 Do not expose it directly to the internet. Network access requires appropriate access controls and
-encrypted transport. `PI_WEB_PASSWORD` enables login but does not encrypt traffic. Back up Pi data
+encrypted transport. `PIE_PASSWORD` enables login but does not encrypt traffic. Back up Pi data
 before deleting sessions or changing configuration.
 
 ## Desktop shell
@@ -109,7 +109,7 @@ All project documentation is maintained in English.
 
 ## Attribution and license
 
-Based on [agegr/pi-web](https://github.com/agegr/pi-web), with agent capabilities provided by
+Based on [Pi Web](https://github.com/agegr/pi-web) by agegr, with agent capabilities provided by
 [Pi](https://github.com/earendil-works/pi). Thanks to the original authors and contributors.
 
 This independent personal version does not represent the source project. The [MIT license](LICENSE)

@@ -81,7 +81,7 @@ export interface AssistantMessage {
   /** From `timestamp` until the response ended, measured by pi (pi 1.1); absent for older messages. */
   durationMs?: number;
   /** Live-only stream measurement; persisted separately as a Pi custom entry. */
-  piWebStreamSpeed?: import('./session-stream-speed').StreamSpeed;
+  pieStreamSpeed?: import('./session-stream-speed').StreamSpeed;
   usage?: AgentUsage;
 }
 

@@ -1,14 +1,14 @@
 [package]
-name = "pi-web-desktop"
+name = "pie-desktop"
 version = "0.1.0"
-description = "Desktop window for the Pi Web server"
+description = "Desktop window for the Pie server"
 edition = "2021"
 rust-version = "1.77"
 license = "MIT"
 publish = false
 
 [lib]
-name = "pi_web_desktop_lib"
+name = "pie_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

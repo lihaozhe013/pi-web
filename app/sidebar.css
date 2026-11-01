@@ -993,7 +993,7 @@ a.session-tree-main {
 }
 
 /* With the files below the sessions there is no tab to choose: the brand
-   stands where the tabs were (PiWebTitle), the panel's anchor and the way into
+   stands where the tabs were (PieTitle), the panel's anchor and the way into
    About (the build's version and the commit it came from). Not a cell: no box,
    no line on its right; it sits in the chevron column (6px in plus a header
    toggle's 5px). Never cut: New's label gives way first. */

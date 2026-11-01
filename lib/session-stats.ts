@@ -75,12 +75,12 @@ function addMessage(stats: SessionFileStats, message: SessionMessage): void {
     }
     addUsage(stats, message.usage);
     if (
-      validStreamSpeed(message.piWebStreamSpeed) &&
-      message.piWebStreamSpeed.outputTokens === message.usage?.output
+      validStreamSpeed(message.pieStreamSpeed) &&
+      message.pieStreamSpeed.outputTokens === message.usage?.output
     ) {
       stats.streamSpeed ??= { outputTokens: 0, streamMs: 0, responses: 0 };
-      stats.streamSpeed.outputTokens += message.piWebStreamSpeed.outputTokens;
-      stats.streamSpeed.streamMs += message.piWebStreamSpeed.streamMs;
+      stats.streamSpeed.outputTokens += message.pieStreamSpeed.outputTokens;
+      stats.streamSpeed.streamMs += message.pieStreamSpeed.streamMs;
       stats.streamSpeed.responses++;
     }
     const output = message.usage?.output ?? 0;

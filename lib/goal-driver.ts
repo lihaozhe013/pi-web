@@ -1,9 +1,9 @@
 /**
- * Pi Web's whole contract with an installed Pi goal package.
+ * Pie's whole contract with an installed Pi goal package.
  *
  * An autonomous goal is not implemented here: an installed package
  * (`pi-better-goal`, or `pi-codex-goal`) owns the continuation loop, the token
- * budget, the completion report and the pause rules. Pi Web reads one status
+ * budget, the completion report and the pause rules. Pie reads one status
  * word from the package's session entries and sends `/goal …` back, so the
  * goal dialog needs a status, an objective and five commands instead of a goal
  * engine. Whatever a package adds on top — tasks, drafts, auditors, permission
@@ -14,7 +14,7 @@
  * The extension status key carrying {@link GoalBridge} to the browser: the live
  * session publishes it, and the composer reads it without a separate route.
  */
-export const GOAL_STATUS_KEY = 'pi-web-goal';
+export const GOAL_STATUS_KEY = 'pie-goal';
 
 /**
  * The session entry types this bridge reads. Both packages write `set` and
@@ -28,13 +28,13 @@ export const GOAL_ENTRY_TYPES: readonly string[] = ['pi-better-goal', 'pi-codex-
 export const GOAL_COMMAND_NAME = 'goal';
 
 /**
- * The status and widget keys the packages publish beside Pi Web's own bridge.
+ * The status and widget keys the packages publish beside Pie's own bridge.
  * The goal dialog already reports the goal, so those duplicates stay out of the
  * status bar and the widget row.
  */
 export const GOAL_PACKAGE_KEYS: readonly string[] = ['pi-better-goal', 'codex-goal'];
 
-/** Whether a status or widget key belongs to the goal Pi Web itself reports. */
+/** Whether a status or widget key belongs to the goal Pie itself reports. */
 export function isGoalSurfaceKey(key: string): boolean {
   return key === GOAL_STATUS_KEY || GOAL_PACKAGE_KEYS.includes(key);
 }
@@ -91,7 +91,7 @@ function factFrom(value: unknown): GoalFacts | undefined {
     status: value.status,
     objective: typeof value.objective === 'string' ? value.objective : ''
   };
-  // Usage is what the package counted, not something Pi Web estimates; a package
+  // Usage is what the package counted, not something Pie estimates; a package
   // that does not report it leaves the numbers out instead of showing zeros.
   const usage = isRecord(value.usage) ? value.usage.tokensUsed : undefined;
   if (typeof usage === 'number' && Number.isFinite(usage) && usage >= 0) {

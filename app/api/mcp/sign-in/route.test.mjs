@@ -15,13 +15,13 @@ import {
 // /api/mcp/sign-in connects and writes mcp-auth.json, so every case runs
 // against a PI_CODING_AGENT_DIR in a temporary folder and a fake OAuth server
 // on 127.0.0.1, never ~/.pi/agent or a real server.
-const root = realpathSync(await mkdtemp(join(tmpdir(), 'pi-web-mcp-sign-in-route-')));
+const root = realpathSync(await mkdtemp(join(tmpdir(), 'pie-mcp-sign-in-route-')));
 const agentDir = join(root, 'agent');
 const cwd = join(root, 'project');
 const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
-const previousDisable = process.env.PI_WEB_DISABLE_MCP;
+const previousDisable = process.env.PIE_DISABLE_MCP;
 process.env.PI_CODING_AGENT_DIR = agentDir;
-delete process.env.PI_WEB_DISABLE_MCP;
+delete process.env.PIE_DISABLE_MCP;
 await mkdir(agentDir, { recursive: true });
 await mkdir(join(cwd, '.pi'), { recursive: true });
 
@@ -43,8 +43,8 @@ after(async () => {
   await fake.close();
   if (previousAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
   else process.env.PI_CODING_AGENT_DIR = previousAgentDir;
-  if (previousDisable === undefined) delete process.env.PI_WEB_DISABLE_MCP;
-  else process.env.PI_WEB_DISABLE_MCP = previousDisable;
+  if (previousDisable === undefined) delete process.env.PIE_DISABLE_MCP;
+  else process.env.PIE_DISABLE_MCP = previousDisable;
   await rm(root, { recursive: true, force: true });
 });
 
@@ -55,7 +55,7 @@ const marker = join(root, 'command-ran');
 const store = new ProjectTrustStore(agentDir);
 
 beforeEach(async () => {
-  delete process.env.PI_WEB_DISABLE_MCP;
+  delete process.env.PIE_DISABLE_MCP;
   clearMcpSignIns();
   clearMcpStatuses();
   fake.issued.access.clear();
@@ -70,7 +70,7 @@ beforeEach(async () => {
           alias: { url: fake.url, exposure: 'direct' },
           keyed: { url: 'http://127.0.0.1:9/mcp', headers: { Authorization: 'Bearer literal' } },
           lint: { command: process.execPath, args: ['--version'] },
-          pw: { url: 'https://pw.example.com/mcp', headers: { 'X-Key': '${PI_WEB_PASSWORD}' } },
+          pw: { url: 'https://pw.example.com/mcp', headers: { 'X-Key': '${PIE_PASSWORD}' } },
           sse: { type: 'sse', url: 'https://old.example.com/sse' },
           junk: 'not an object'
         }
@@ -251,7 +251,7 @@ test('a cancel ends the sign-in, and a flow nobody knows is a 404', async () => 
   const unknown = {
     status: 404,
     body: {
-      error: 'No sign-in has that id: it ended over a minute ago, or Pi Web restarted',
+      error: 'No sign-in has that id: it ended over a minute ago, or Pie restarted',
       reason: 'sign-in-unknown'
     }
   };
@@ -299,7 +299,7 @@ test('requests from another page, or not sent as JSON, are refused on every rout
   assert.equal((await paste('any', '{ nope')).body.reason, 'invalid-request');
 });
 
-test('only an OAuth server Pi Web would connect signs in', async () => {
+test('only an OAuth server Pie would connect signs in', async () => {
   assert.deepEqual(await start({ scope: 'global', name: 'lint' }), {
     status: 409,
     body: {
@@ -314,11 +314,11 @@ test('only an OAuth server Pi Web would connect signs in', async () => {
   assert.equal((await start({ scope: 'global', name: 'sse' })).body.reason, 'server-invalid');
   assert.equal((await start({ scope: 'global', name: 'junk' })).body.reason, 'entry-not-object');
   assert.equal((await start({ scope: 'global', name: 'missing' })).body.reason, 'server-missing');
-  process.env.PI_WEB_DISABLE_MCP = '1';
+  process.env.PIE_DISABLE_MCP = '1';
   assert.deepEqual(await start({ scope: 'global', name: 'oauth' }), {
     status: 409,
     body: {
-      error: 'PI_WEB_DISABLE_MCP is set, so Pi Web connects no MCP server',
+      error: 'PIE_DISABLE_MCP is set, so Pie connects no MCP server',
       reason: 'mcp-off'
     }
   });
@@ -329,7 +329,7 @@ test("an untrusted project's server is never contacted; a trusted one's is", asy
   assert.deepEqual(denied, {
     status: 403,
     body: {
-      error: 'The project is not trusted, so Pi Web does not start its MCP servers',
+      error: 'The project is not trusted, so Pie does not start its MCP servers',
       reason: 'project-untrusted'
     }
   });
@@ -357,9 +357,9 @@ test("an untrusted project's server is never contacted; a trusted one's is", asy
 for (const [label, revoke] of [
   ['trust is revoked', () => store.set(cwd, false)],
   [
-    'PI_WEB_DISABLE_MCP is set',
+    'PIE_DISABLE_MCP is set',
     () => {
-      process.env.PI_WEB_DISABLE_MCP = '1';
+      process.env.PIE_DISABLE_MCP = '1';
     }
   ]
 ]) {
@@ -422,7 +422,7 @@ test("sign-out deletes the server's tokens through POST /api/mcp, under the chec
     (await action({ action: 'sign-out', scope: 'project', name: 'repo', cwd })).status,
     403
   );
-  process.env.PI_WEB_DISABLE_MCP = '1';
+  process.env.PIE_DISABLE_MCP = '1';
   assert.equal(
     (await action({ action: 'sign-out', scope: 'global', name: 'oauth' })).body.reason,
     'mcp-off'

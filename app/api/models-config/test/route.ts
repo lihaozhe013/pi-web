@@ -56,7 +56,7 @@ export async function POST(req: Request) {
     if (!modelId)
       return NextResponse.json({ ok: false, error: 'Model ID is required' }, { status: 400 });
 
-    tempDir = mkdtempSync(join(tmpdir(), 'pi-web-model-test-'));
+    tempDir = mkdtempSync(join(tmpdir(), 'pie-model-test-'));
     const modelsPath = join(tempDir, 'models.json');
     writeFileSync(
       modelsPath,

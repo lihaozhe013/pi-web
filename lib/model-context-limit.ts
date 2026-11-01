@@ -8,12 +8,12 @@ import { invalidateModelsCache } from './models-cache';
 import { readRegularFileText } from './regular-file';
 import { serializeByKey } from './key-serializer';
 
-/** Largest `pi-web-model-settings.json` that is parsed; a larger file is ignored. */
+/** Largest `pie-model-settings.json` that is parsed; a larger file is ignored. */
 const SETTINGS_MAX_BYTES = 1024 * 1024;
 
-/** General pi-web model settings, beside pi's own files in the agent directory. */
+/** General pie model settings, beside pi's own files in the agent directory. */
 export function getModelsSettingsPath(agentDir = getAgentDir()): string {
-  return join(agentDir, 'pi-web-model-settings.json');
+  return join(agentDir, 'pie-model-settings.json');
 }
 
 interface CachedFile {
@@ -24,12 +24,12 @@ interface CachedFile {
 }
 
 declare global {
-  var __piWebContextLimitFileCache: Map<string, CachedFile> | undefined;
+  var __pieContextLimitFileCache: Map<string, CachedFile> | undefined;
 }
 
 function fileCache(): Map<string, CachedFile> {
-  globalThis.__piWebContextLimitFileCache ??= new Map();
-  return globalThis.__piWebContextLimitFileCache;
+  globalThis.__pieContextLimitFileCache ??= new Map();
+  return globalThis.__pieContextLimitFileCache;
 }
 
 function cachedValue<T>(
@@ -63,12 +63,12 @@ function parseSettingsText(path: string, text: string): number | null {
   try {
     parsed = JSON.parse(text);
   } catch {
-    console.warn(`[pi-web] ${path} is not valid JSON; reading the context window limit as unset`);
+    console.warn(`[pie] ${path} is not valid JSON; reading the context window limit as unset`);
     return null;
   }
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
     console.warn(
-      `[pi-web] ${path} is not a settings object; reading the context window limit as unset`
+      `[pie] ${path} is not a settings object; reading the context window limit as unset`
     );
     return null;
   }
@@ -76,7 +76,7 @@ function parseSettingsText(path: string, text: string): number | null {
   if (value === undefined || value === null) return null;
   const limit = parseContextWindow(value);
   if (limit === undefined) {
-    console.warn(`[pi-web] ${path} has an invalid contextWindowLimit; reading it as unset`);
+    console.warn(`[pie] ${path} has an invalid contextWindowLimit; reading it as unset`);
     return null;
   }
   return limit;
@@ -165,12 +165,12 @@ export function readModelOverrideWindows(
   return windows;
 }
 
-const WRITE_QUEUE: symbol = Symbol.for('pi-web:context-window-limit-write');
+const WRITE_QUEUE: symbol = Symbol.for('pie:context-window-limit-write');
 
 /**
  * Validate and save the cap (null removes it), returning the saved value.
  *
- * The write merges into the file's current object, so other pi-web settings
+ * The write merges into the file's current object, so other pie settings
  * added beside `contextWindowLimit` survive; an unparsable file is set aside
  * first, never silently discarded.
  */
@@ -196,10 +196,10 @@ export async function writeContextWindowLimit(
         const backup = `${path}.corrupt-${Date.now()}`;
         try {
           renameSync(path, backup);
-          console.warn(`[pi-web] ${path} could not be parsed; moved it to ${backup}`);
+          console.warn(`[pie] ${path} could not be parsed; moved it to ${backup}`);
         } catch (error) {
           console.warn(
-            `[pi-web] ${path} could not be parsed and could not be moved aside (${error instanceof Error ? error.message : String(error)})`
+            `[pie] ${path} could not be parsed and could not be moved aside (${error instanceof Error ? error.message : String(error)})`
           );
         }
       }
@@ -220,7 +220,7 @@ export async function writeContextWindowLimit(
 
 /** Restore the module's caches between tests. */
 export function resetContextWindowLimitCacheForTests(): void {
-  globalThis.__piWebContextLimitFileCache = undefined;
+  globalThis.__pieContextLimitFileCache = undefined;
 }
 
 export interface ContextWindowLimitOptions {

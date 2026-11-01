@@ -1,6 +1,6 @@
 import type { SessionEntry } from './types';
 
-export const STREAM_SPEED_ENTRY = 'pi-web:stream-speed';
+export const STREAM_SPEED_ENTRY = 'pie:stream-speed';
 export const MIN_STREAM_MS = 500;
 
 export interface StreamSpeed {

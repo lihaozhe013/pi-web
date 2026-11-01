@@ -422,7 +422,7 @@ function streamFile(
   };
   // SVG is the only preview type a browser executes as a document. A
   // repo-controlled SVG navigated to directly (for example through a link in
-  // a transcript) would otherwise run script in the Pi Web origin, where it
+  // a transcript) would otherwise run script in the Pie origin, where it
   // can call any /api route. These headers only affect document rendering;
   // <img> preview embedding ignores them.
   if (contentType === 'image/svg+xml') {

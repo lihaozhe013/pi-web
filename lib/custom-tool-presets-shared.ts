@@ -2,7 +2,7 @@ import { CANONICAL_CODING_TOOLS } from './tool-presets';
 
 /**
  * User-defined tool presets: combinations of the built-in coding tools, saved in
- * `pi-web-tool-presets.json` in the agent directory and offered beside the built-in
+ * `pie-tool-presets.json` in the agent directory and offered beside the built-in
  * presets in the composer's tool dropdown. `lib/custom-tool-presets.ts` holds the
  * file; these rules are shared with the client, whose editor validates a draft
  * before sending the whole document to `PUT /api/tools/presets`.

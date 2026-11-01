@@ -26,7 +26,7 @@ const { readSessionUiState, resetSessionUiStateCacheForTests, updateSessionUiSta
   await jiti.import('../../../lib/session-ui-state.ts');
 
 test('list versions expose idle session creation, rename and deletion to other windows', async (t) => {
-  const dir = await mkdtemp(join(tmpdir(), 'pi-web-list-sync-'));
+  const dir = await mkdtemp(join(tmpdir(), 'pie-list-sync-'));
   const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
   process.env.PI_CODING_AGENT_DIR = dir;
   invalidateSessionListCache();
@@ -99,7 +99,7 @@ test('list versions expose idle session creation, rename and deletion to other w
 });
 
 test('the running poll carries the sidebar state revision and deleting a session forgets its pins', async (t) => {
-  const dir = await mkdtemp(join(tmpdir(), 'pi-web-ui-state-delete-'));
+  const dir = await mkdtemp(join(tmpdir(), 'pie-ui-state-delete-'));
   const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
   process.env.PI_CODING_AGENT_DIR = dir;
   invalidateSessionListCache();
@@ -139,7 +139,7 @@ test('the running poll carries the sidebar state revision and deleting a session
 });
 
 test('session listing returns a gzip-compressed response when the client accepts it', async (t) => {
-  const dir = await mkdtemp(join(tmpdir(), 'pi-web-list-gzip-'));
+  const dir = await mkdtemp(join(tmpdir(), 'pie-list-gzip-'));
   const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
   process.env.PI_CODING_AGENT_DIR = dir;
   invalidateSessionListCache();
@@ -181,7 +181,7 @@ test('session listing returns a gzip-compressed response when the client accepts
 });
 
 test('deleting an unpersisted session shuts down its runtime and invalidates caches', async (t) => {
-  const dir = await mkdtemp(join(tmpdir(), 'pi-web-delete-empty-'));
+  const dir = await mkdtemp(join(tmpdir(), 'pie-delete-empty-'));
   const previousRegistry = globalThis.__piSessions;
   const ids = [];
   globalThis.__piSessions = new Map();
@@ -243,7 +243,7 @@ test('live detail and state routes work without a persisted JSONL file', async (
     getLeafId: () => entry.id,
     getTree: () => [],
     getSessionName: () => undefined,
-    getSessionFile: () => `/tmp/pi-web-live-route-not-persisted-${process.pid}.jsonl`
+    getSessionFile: () => `/tmp/pie-live-route-not-persisted-${process.pid}.jsonl`
   };
   globalThis.__piSessions = new Map([
     [
@@ -307,7 +307,7 @@ test('session detail returns a gzip-compressed response when the client accepts 
     getLeafId: () => entry.id,
     getTree: () => [],
     getSessionName: () => undefined,
-    getSessionFile: () => `/tmp/pi-web-live-route-gzip-${process.pid}.jsonl`
+    getSessionFile: () => `/tmp/pie-live-route-gzip-${process.pid}.jsonl`
   };
   globalThis.__piSessions = new Map([
     [

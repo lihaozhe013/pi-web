@@ -9,7 +9,7 @@ import {
 import type { PiSdkInternals } from './pi-sdk-internals';
 import { sanitizeProjectCommandEnvironment } from './project-command-env';
 
-// The resolved-value walk and the PI_WEB_PASSWORD rule are client-safe (`lib/mcp-config-values.ts`).
+// The resolved-value walk and the PIE_PASSWORD rule are client-safe (`lib/mcp-config-values.ts`).
 export {
   findWebPasswordField,
   resolvedConfigValues,
@@ -31,7 +31,7 @@ type ConfigValueInternals = Pick<
   'getConfigValueEnvVarNames' | 'isCommandConfigValue'
 >;
 
-export interface PiWebMcpTransportOptions {
+export interface PieMcpTransportOptions {
   /** Environment stdio servers start from, before sanitizing. Defaults to `process.env` at connect time. */
   baseEnvironment?: NodeJS.ProcessEnv;
   platform?: NodeJS.Platform;
@@ -76,23 +76,23 @@ function serverEnvironment(
 }
 
 /**
- * The transport factory pi-web gives the SDK's MCP connections. HTTP servers
+ * The transport factory pie gives the SDK's MCP connections. HTTP servers
  * use the SDK's transport unchanged. A stdio server gets the transport the
  * SDK would build, with every option it passes (command and args with `~`
  * expanded, cwd resolved against the session, piped stderr) and its `env`
  * values resolved by the SDK, but started with `inheritEnv: false` from the
  * sanitized environment. It never falls back to the SDK's stdio transport.
  */
-export function createPiWebMcpTransportFactory(
+export function createPieMcpTransportFactory(
   internals: TransportInternals,
-  options: PiWebMcpTransportOptions = {}
+  options: PieMcpTransportOptions = {}
 ): McpTransportFactory {
   const platform = options.platform ?? process.platform;
   return (entry, cwd, authProvider) => {
     const field = findWebPasswordReference(entry.config, internals);
     if (field) {
       throw new Error(
-        `MCP server "${entry.name}" ${field} references ${WEB_PASSWORD_VARIABLE}, which Pi Web does not pass to MCP servers`
+        `MCP server "${entry.name}" ${field} references ${WEB_PASSWORD_VARIABLE}, which Pie does not pass to MCP servers`
       );
     }
     const transport = internals.createDefaultTransport(entry, cwd, authProvider);
@@ -102,7 +102,7 @@ export function createPiWebMcpTransportFactory(
     }
     const { env: configured = {}, ...stdioOptions } = transport.options;
     // `env` must hold only the entry's own values; anything else would be the
-    // SDK passing environment that pi-web has not sanitized.
+    // SDK passing environment that pie has not sanitized.
     const declared = new Set(Object.keys(entry.config.env ?? {}));
     const unexpected = Object.keys(configured).find((name) => !declared.has(name));
     if (unexpected !== undefined) {

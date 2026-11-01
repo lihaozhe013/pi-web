@@ -13,7 +13,7 @@ const INJECTED_SCRIPT: &str = r#"
     try {
       window.location.assign(new URL(String(target), window.location.href).href);
     } catch (error) {
-      console.error('Pi Web could not open', target, error);
+      console.error('Pie could not open', target, error);
     }
     return null;
   };
@@ -48,7 +48,7 @@ pub fn create_main(
 ) -> tauri::Result<WebviewWindow> {
     let navigation_origin = origin;
     let window = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-        .title("Pi Web")
+        .title("Pie")
         .inner_size(1280.0, 860.0)
         .min_inner_size(900.0, 620.0)
         .center()
@@ -136,11 +136,11 @@ fn status_script(message: &str, error: bool) -> String {
     format!(
         r#"(() => {{
   const message = {json};
-  if (window.__piweb && typeof window.__piweb.status === 'function') {{
-    window.__piweb.status(message, {error});
+  if (window.__pie && typeof window.__pie.status === 'function') {{
+    window.__pie.status(message, {error});
     return;
   }}
-  const id = 'pi-web-desktop-status';
+  const id = 'pie-desktop-status';
   let box = document.getElementById(id);
   if (!box) {{
     box = document.createElement('div');
@@ -231,6 +231,6 @@ mod tests {
     fn status_text_is_escaped_for_script_injection() {
         let script = status_script("quote \" and </script>", true);
         assert!(script.contains(r#"quote \" and </script>"#));
-        assert!(script.contains("window.__piweb.status(message, true)"));
+        assert!(script.contains("window.__pie.status(message, true)"));
     }
 }

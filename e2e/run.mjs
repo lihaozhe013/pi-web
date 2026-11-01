@@ -40,7 +40,7 @@ assert.ok(
 );
 const artifacts = join(root, 'test-results/e2e');
 mkdirSync(artifacts, { recursive: true });
-const agentDir = mkdtempSync(join(tmpdir(), 'pi-web-e2e-'));
+const agentDir = mkdtempSync(join(tmpdir(), 'pie-e2e-'));
 const project = join(agentDir, 'project');
 const sessionDir = join(agentDir, 'sessions', 'e2e');
 mkdirSync(project);
@@ -224,7 +224,7 @@ try {
       env: {
         ...process.env,
         PI_CODING_AGENT_DIR: agentDir,
-        PI_WEB_PASSWORD: '',
+        PIE_PASSWORD: '',
         NEXT_TELEMETRY_DISABLED: '1'
       },
       stdio: ['ignore', 'pipe', 'pipe']

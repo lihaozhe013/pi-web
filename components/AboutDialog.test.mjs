@@ -38,11 +38,11 @@ test('About shows the logo, the build version with its commit, and the Pi releas
   assert.equal(BUILD_COMMIT.startsWith('1c02256'), true);
 
   assert.match(html, /role="dialog"/);
-  assert.match(html, /aria-label="About Pi Web"/);
+  assert.match(html, /aria-label="About Pie"/);
   assert.ok(html.includes(`class="about-logo"`));
   assert.ok(html.includes(`src="${ABOUT_LOGO_SRC}"`));
   assert.ok(html.includes(`width="${ABOUT_LOGO_SIZE}"`));
-  assert.match(html, /<h3 class="about-name">Pi Web<\/h3>/);
+  assert.match(html, /<h3 class="about-name">Pie<\/h3>/);
   assert.match(html, /A minimal web GUI for the Pi coding agent\./);
   // The version, with the short commit as build metadata in the accent.
   assert.match(html, /0\.1\.0<span class="about-version-commit">\+1c02256<\/span>/);
@@ -63,7 +63,7 @@ test('About links to the project and to Pi, opening in a new tab', () => {
       `${url} opens in a new tab`
     );
   }
-  assert.equal(APP_REPOSITORY_URL, 'https://github.com/lihaozhe013/pi-web');
+  assert.equal(APP_REPOSITORY_URL, 'https://github.com/lihaozhe013/pie');
   assert.equal(PI_REPOSITORY_URL, 'https://github.com/earendil-works/pi');
 });
 

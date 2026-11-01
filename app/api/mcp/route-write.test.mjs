@@ -9,14 +9,14 @@ import { createJiti } from 'jiti';
 
 // POST /api/mcp writes the user's files, so every case runs against a
 // PI_CODING_AGENT_DIR in a temporary folder, never the real ~/.pi/agent.
-const root = realpathSync(await mkdtemp(join(tmpdir(), 'pi-web-mcp-write-route-')));
+const root = realpathSync(await mkdtemp(join(tmpdir(), 'pie-mcp-write-route-')));
 const agentDir = join(root, 'agent');
 const cwd = join(root, 'project');
 const outside = join(root, 'outside');
 const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
-const previousDisable = process.env.PI_WEB_DISABLE_MCP;
+const previousDisable = process.env.PIE_DISABLE_MCP;
 process.env.PI_CODING_AGENT_DIR = agentDir;
-delete process.env.PI_WEB_DISABLE_MCP;
+delete process.env.PIE_DISABLE_MCP;
 await mkdir(agentDir, { recursive: true });
 await mkdir(join(cwd, '.pi'), { recursive: true });
 await mkdir(outside, { recursive: true });
@@ -29,8 +29,8 @@ allowFileRoot(cwd);
 after(async () => {
   if (previousAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
   else process.env.PI_CODING_AGENT_DIR = previousAgentDir;
-  if (previousDisable === undefined) delete process.env.PI_WEB_DISABLE_MCP;
-  else process.env.PI_WEB_DISABLE_MCP = previousDisable;
+  if (previousDisable === undefined) delete process.env.PIE_DISABLE_MCP;
+  else process.env.PIE_DISABLE_MCP = previousDisable;
   await rm(root, { recursive: true, force: true });
 });
 
@@ -46,7 +46,7 @@ const globalText = `${JSON.stringify(
       lint: { command: 'npx', args: ['lint-mcp'] },
       pw: {
         url: 'https://pw.example.com/mcp',
-        headers: { Authorization: 'Bearer ${PI_WEB_PASSWORD}' },
+        headers: { Authorization: 'Bearer ${PIE_PASSWORD}' },
         enabled: false
       }
     },
@@ -58,7 +58,7 @@ const globalText = `${JSON.stringify(
 const projectText = `${JSON.stringify({ mcpServers: { repo: { command: 'node', args: ['server.js'] } } }, null, 2)}\n`;
 
 beforeEach(async () => {
-  delete process.env.PI_WEB_DISABLE_MCP;
+  delete process.env.PIE_DISABLE_MCP;
   await writeFile(globalPath, globalText);
   await rm(projectPath, { force: true, recursive: true });
   await writeFile(projectPath, projectText);
@@ -149,7 +149,7 @@ test("a server's exposure is set in its file, codemode removing the key, and the
     'codemode, the default, removes the key, as the SDK does'
   );
 
-  // Nothing connects because of it, so an entry that references PI_WEB_PASSWORD may change too, and stays off.
+  // Nothing connects because of it, so an entry that references PIE_PASSWORD may change too, and stays off.
   ({ status, body } = await post({
     action: 'set-exposure',
     scope: 'global',
@@ -207,7 +207,7 @@ test('an exposure change follows the same guards as a switch', async () => {
   });
   assert.deepEqual([untrusted.status, untrusted.body.reason], [403, 'project-untrusted']);
   assert.equal(await readFile(projectPath, 'utf8'), projectText);
-  process.env.PI_WEB_DISABLE_MCP = '1';
+  process.env.PIE_DISABLE_MCP = '1';
   const off = await post({
     action: 'set-exposure',
     scope: 'global',
@@ -215,7 +215,7 @@ test('an exposure change follows the same guards as a switch', async () => {
     exposure: 'direct'
   });
   assert.deepEqual([off.status, off.body.reason], [409, 'mcp-off']);
-  delete process.env.PI_WEB_DISABLE_MCP;
+  delete process.env.PIE_DISABLE_MCP;
   assert.equal(await readFile(globalPath, 'utf8'), globalText);
 
   await writeFile(globalPath, JSON.stringify({ mcpServers: { text: 'x' } }));
@@ -304,7 +304,7 @@ test("an unreadable trust store keeps the project's file unwritten, and the glob
 });
 
 test('while MCP is off nothing is written', async () => {
-  process.env.PI_WEB_DISABLE_MCP = '1';
+  process.env.PIE_DISABLE_MCP = '1';
   for (const body of [
     { action: 'disable', scope: 'global', name: 'lint' },
     { action: 'remove', scope: 'global', name: 'lint' },
@@ -318,7 +318,7 @@ test('while MCP is off nothing is written', async () => {
   assert.equal(await readFile(globalPath, 'utf8'), globalText);
 });
 
-test('an entry that references PI_WEB_PASSWORD is never turned on, but can be turned off and removed', async () => {
+test('an entry that references PIE_PASSWORD is never turned on, but can be turned off and removed', async () => {
   const refused = await post({ action: 'enable', scope: 'global', name: 'pw' });
   assert.deepEqual(
     [refused.status, refused.body.reason, refused.body.name],
@@ -573,7 +573,7 @@ test('a global server is turned off and on in the project alone, through an over
     args: ['server.js']
   });
 
-  // A server that references PI_WEB_PASSWORD is never turned on, here either; off works.
+  // A server that references PIE_PASSWORD is never turned on, here either; off works.
   ({ status, body } = await post({ action: 'set-in-project', name: 'pw', enabled: true, cwd }));
   assert.equal(status, 409);
   assert.equal(body.reason, 'web-password');

@@ -9,7 +9,7 @@ import {
 import type { SessionEntry } from './types';
 import { readWorkMode } from './work-mode';
 
-export const PLAN_MODE_EXTENSION_NAME = 'pi-web-plan-mode';
+export const PLAN_MODE_EXTENSION_NAME = 'pie-plan-mode';
 
 const PLAN_BLOCKED_EXACT = new Set<string>(['bash', 'powershell', 'edit', 'write']);
 

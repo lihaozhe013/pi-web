@@ -6,8 +6,8 @@ import test from 'node:test';
 import { artifactName, pruneRuntime } from './portable.mjs';
 
 async function fixtureTree(files) {
-  const root = await mkdtemp(join(tmpdir(), 'pi-web-prune-'));
-  const app = join(root, 'pi-web');
+  const root = await mkdtemp(join(tmpdir(), 'pie-prune-'));
+  const app = join(root, 'pie');
   for (const file of files) {
     const path = join(app, file);
     await mkdir(dirname(path), { recursive: true });
@@ -27,12 +27,12 @@ async function present(file) {
 
 // The actual extracted-archive runtime smoke test is mandatory in packagePortable.
 test('portable artifact names identify platform, architecture and Linux libc', () => {
-  assert.equal(artifactName('0.1.0', 'linux', 'x64'), 'pi-web-0.1.0-linux-x64-glibc');
-  assert.equal(artifactName('0.1.0', 'linux', 'arm64'), 'pi-web-0.1.0-linux-arm64-glibc');
-  assert.equal(artifactName('0.1.0', 'win32', 'x64'), 'pi-web-0.1.0-win32-x64');
+  assert.equal(artifactName('0.1.0', 'linux', 'x64'), 'pie-0.1.0-linux-x64-glibc');
+  assert.equal(artifactName('0.1.0', 'linux', 'arm64'), 'pie-0.1.0-linux-arm64-glibc');
+  assert.equal(artifactName('0.1.0', 'win32', 'x64'), 'pie-0.1.0-win32-x64');
   assert.equal(
     artifactName('0.1.0-local.1', 'darwin', 'arm64'),
-    'pi-web-0.1.0-local.1-darwin-arm64'
+    'pie-0.1.0-local.1-darwin-arm64'
   );
 });
 
@@ -51,7 +51,7 @@ test('runtime pruning removes source maps, sharp, and Next.js docs', async () =>
     'node_modules/other/index.js',
     'node_modules/other/index.js.map',
     'node_modules/@img/sharp-linux-x64/lib/libvips.so',
-    'bin/pi-web.js'
+    'bin/pie.js'
   ]);
   try {
     const removed = await pruneRuntime(app);
@@ -69,7 +69,7 @@ test('runtime pruning removes source maps, sharp, and Next.js docs', async () =>
     );
     assert.equal(await present(join(app, 'node_modules/next/dist/server/chunk.js')), true);
     assert.equal(await present(join(app, 'node_modules/other/index.js')), true);
-    assert.equal(await present(join(app, 'bin/pi-web.js')), true);
+    assert.equal(await present(join(app, 'bin/pie.js')), true);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

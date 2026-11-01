@@ -220,7 +220,7 @@ async function overviewResponse(
   }
 }
 
-/** Turning on an entry that references PI_WEB_PASSWORD is refused: Pi Web would not connect it, and the pi CLI would send the password. */
+/** Turning on an entry that references PIE_PASSWORD is refused: Pie would not connect it, and the pi CLI would send the password. */
 function webPasswordRefusal(internals: PiSdkInternals) {
   return (_name: string, entry: Record<string, unknown>) =>
     findWebPasswordField(entry, internals) ? ('web-password' as const) : undefined;
@@ -249,7 +249,7 @@ function outcomeRefusal(
       return new Refusal(
         409,
         'web-password',
-        `"${name}" references PI_WEB_PASSWORD, so Pi Web does not turn it on`,
+        `"${name}" references PIE_PASSWORD, so Pie does not turn it on`,
         { name }
       );
     default:
@@ -287,7 +287,7 @@ async function switchServer(
 /**
  * How one server's tools reach the model. Nothing connects because of it:
  * open sessions register the changed entry again at their next message, so
- * an entry that references PI_WEB_PASSWORD may change too, and stays off.
+ * an entry that references PIE_PASSWORD may change too, and stays off.
  */
 async function setServerExposure(
   agentDir: string,
@@ -312,7 +312,7 @@ async function setServerExposure(
  * "Enable / Disable in this project" does: an override entry in the project's
  * `.pi/mcp.json` (pi 1.0.1), written under any project write's checks. The
  * global entry must be one pi loads, since an override of anything else is
- * skipped; turning on one that references PI_WEB_PASSWORD is refused, as its
+ * skipped; turning on one that references PIE_PASSWORD is refused, as its
  * switch would be. Remove on the override's row goes back to the global value.
  */
 async function switchServerInProject(
@@ -337,7 +337,7 @@ async function switchServerInProject(
     return refusal(
       409,
       'web-password',
-      `"${name}" references PI_WEB_PASSWORD, so Pi Web does not turn it on`,
+      `"${name}" references PIE_PASSWORD, so Pie does not turn it on`,
       { name }
     );
   }
@@ -354,7 +354,7 @@ async function switchServerInProject(
 /**
  * The group switch: every server asked for, one write per file, and a result
  * per server, so one the route refuses (removed meanwhile, not an object,
- * referencing PI_WEB_PASSWORD, in an untrusted project, in a file that no
+ * referencing PIE_PASSWORD, in an untrusted project, in a file that no
  * longer parses) keeps the rest from failing.
  */
 async function switchServers(
@@ -419,7 +419,7 @@ async function removeServer(agentDir: string, project: Project | undefined, serv
 /**
  * Puts a removed entry back where it stood, under the same checks as any
  * write: a project entry's folder must still be allowed and trusted. The
- * entry is restored as it was, a PI_WEB_PASSWORD reference included, since
+ * entry is restored as it was, a PIE_PASSWORD reference included, since
  * undo returns the file to what it held a moment ago; the panel shows such an
  * entry as refused. A name the file defines again since is never replaced.
  */

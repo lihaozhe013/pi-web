@@ -32,7 +32,7 @@ pruned of files `next start` never reads: source maps under `node_modules`, the 
 optimizer (`images.unoptimized` is on), and Next.js documentation. Pruning keeps `@next/swc` and
 fails the build when it is missing, because Next.js would otherwise download the bindings at
 startup. The smoke test runs after pruning, so it validates what ships. The temporary source copy
-has no `.git`, so the packager forwards the source commit as `PI_WEB_COMMIT` and the build's version
+has no `.git`, so the packager forwards the source commit as `PIE_COMMIT` and the build's version
 carries its short form (`0.1.0+1c02256`). The final archive contains `.next` and complete production
 `node_modules`; it does not use Next.js standalone output.
 
@@ -47,10 +47,10 @@ modifications.
 
 ## Run
 
-Extract the archive, enter its `pi-web` directory, then run:
+Extract the archive, enter its `pie` directory, then run:
 
 ```sh
-node bin/pi-web.js --no-open
+node bin/pie.js --no-open
 ```
 
 Open <http://127.0.0.1:30141>. Verify the supplied checksum before extraction, using `sha256sum` or
@@ -78,5 +78,5 @@ Historical plugin and skill installers may still require npm/npx.
 The archive is also the payload of the Tauri 2 shell in `src-tauri/`. `bun run desktop:build` runs
 this pipeline, writes `build/desktop/payload.tar.gz` and `payload.json`, builds the shell, and
 packages the host platform; `--payload <archive>` reuses an existing archive. The payload is rebuilt
-with `NEXT_PUBLIC_PI_WEB_DESKTOP=1` so the service worker stays unregistered in a webview. See
+with `NEXT_PUBLIC_PIE_DESKTOP=1` so the service worker stays unregistered in a webview. See
 [desktop shell](../docs/desktop.md) for the runtime contract.

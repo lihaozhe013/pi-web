@@ -20,24 +20,24 @@ async function freePort() {
 }
 
 export async function smokeTest(app) {
-  const home = await mkdtemp(join(tmpdir(), 'pi-web-smoke-'));
+  const home = await mkdtemp(join(tmpdir(), 'pie-smoke-'));
   const env = {
     ...process.env,
     HOME: home,
     USERPROFILE: home,
     PI_CODING_AGENT_DIR: join(home, 'agent'),
-    PI_WEB_PASSWORD: '',
-    PI_WEB_ALLOWED_HOSTS: ''
+    PIE_PASSWORD: '',
+    PIE_ALLOWED_HOSTS: ''
   };
   let child;
   let exited;
   let log = '';
   try {
-    execFileSync(process.execPath, ['bin/pi-web.js', '--help'], { cwd: app, env, timeout: 15000 });
+    execFileSync(process.execPath, ['bin/pie.js', '--help'], { cwd: app, env, timeout: 15000 });
     const port = await freePort();
     child = spawn(
       process.execPath,
-      ['bin/pi-web.js', '--no-open', '-H', '127.0.0.1', '-p', String(port)],
+      ['bin/pie.js', '--no-open', '-H', '127.0.0.1', '-p', String(port)],
       {
         cwd: app,
         env,

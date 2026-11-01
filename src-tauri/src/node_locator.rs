@@ -220,7 +220,7 @@ fn version_dirs(root: &Path, suffix: &[String], executable: &str) -> Vec<PathBuf
 
 pub fn resolve(app: &AppHandle, report: Reporter<'_>) -> Result<Located, String> {
     let settings = config::read(app);
-    let configured = std::env::var("PI_WEB_DESKTOP_NODE")
+    let configured = std::env::var("PIE_DESKTOP_NODE")
         .ok()
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
@@ -230,7 +230,7 @@ pub fn resolve(app: &AppHandle, report: Reporter<'_>) -> Result<Located, String>
     if let Some(path) = configured.as_ref() {
         if !path.is_file() {
             return Err(format!(
-                "The configured Node.js binary does not exist:\n{}\n\nFix PI_WEB_DESKTOP_NODE or the nodePath entry in {}.",
+                "The configured Node.js binary does not exist:\n{}\n\nFix PIE_DESKTOP_NODE or the nodePath entry in {}.",
                 path.display(),
                 config_path(app)
             ));
@@ -241,11 +241,11 @@ pub fn resolve(app: &AppHandle, report: Reporter<'_>) -> Result<Located, String>
                 version,
             }),
             Some(version) => Err(format!(
-                "Node.js at {} is {version}. Pi Web needs {MINIMUM} or newer.",
+                "Node.js at {} is {version}. Pie needs {MINIMUM} or newer.",
                 path.display()
             )),
             None => Err(format!(
-                "Could not run {} as Node.js.\n\nFix PI_WEB_DESKTOP_NODE or the nodePath entry in {}.",
+                "Could not run {} as Node.js.\n\nFix PIE_DESKTOP_NODE or the nodePath entry in {}.",
                 path.display(),
                 config_path(app)
             )),
@@ -282,7 +282,7 @@ pub fn resolve(app: &AppHandle, report: Reporter<'_>) -> Result<Located, String>
         ));
     }
     message.push_str(&format!(
-        "\n\nInstall Node.js, or name a binary with PI_WEB_DESKTOP_NODE or in {}:\n\n  {{ \"nodePath\": \"/path/to/node\" }}",
+        "\n\nInstall Node.js, or name a binary with PIE_DESKTOP_NODE or in {}:\n\n  {{ \"nodePath\": \"/path/to/node\" }}",
         config_path(app)
     ));
     Err(message)
@@ -423,7 +423,7 @@ mod tests {
 
     #[test]
     fn orders_version_manager_directories_newest_first() {
-        let root = std::env::temp_dir().join(format!("pi-web-node-test-{}", std::process::id()));
+        let root = std::env::temp_dir().join(format!("pie-node-test-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         for version in ["v20.9.0", "v24.4.0", "v22.11.0", "not-a-version"] {
             std::fs::create_dir_all(root.join(version).join("bin")).unwrap();

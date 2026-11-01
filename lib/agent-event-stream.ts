@@ -64,7 +64,7 @@ function isDroppableEvent(event: AgentEventLike): boolean {
   );
 }
 function resolveBacklogLimitBytes(): number {
-  const raw = Number(process.env.PI_WEB_SSE_BACKLOG_LIMIT_BYTES);
+  const raw = Number(process.env.PIE_SSE_BACKLOG_LIMIT_BYTES);
   return Number.isFinite(raw) && raw >= 64 * 1024 ? raw : DEFAULT_BACKLOG_LIMIT_BYTES;
 }
 
@@ -81,8 +81,8 @@ function logBackpressure(
   const queued = `${Math.round(queuedBytes / 1024)} KB`;
   console.warn(
     closing
-      ? `[pi-web] Agent event stream for ${sessionId} closed: client backlog ${queued} exceeds ${Math.round(limitBytes / 1024)} KB; it reconnects and re-snapshots.`
-      : `[pi-web] Agent event stream for ${sessionId} is behind (${queued} queued): dropping rebuildable deltas (${droppedEvents} so far).`
+      ? `[pie] Agent event stream for ${sessionId} closed: client backlog ${queued} exceeds ${Math.round(limitBytes / 1024)} KB; it reconnects and re-snapshots.`
+      : `[pie] Agent event stream for ${sessionId} is behind (${queued} queued): dropping rebuildable deltas (${droppedEvents} so far).`
   );
 }
 
@@ -100,7 +100,7 @@ function logBackpressure(
  * graphs, each with its own copy of this module; a plain module-level Set
  * would be two disconnected registries. Symbol.for + globalThis shares one.
  */
-const CLOSER_REGISTRY: symbol = Symbol.for('pi-web.agentEventStreamClosers');
+const CLOSER_REGISTRY: symbol = Symbol.for('pie.agentEventStreamClosers');
 type StreamCloser = (closeController: boolean | 'error') => void;
 const activeStreamClosers: Set<StreamCloser> = ((globalThis as Record<symbol, Set<StreamCloser>>)[
   CLOSER_REGISTRY
@@ -164,7 +164,7 @@ export function createAgentEventStream(
           if (abortHandler) req.signal.removeEventListener('abort', abortHandler);
           if (closeController === 'error') {
             try {
-              controller.error(reason ?? new Error('pi-web server shutting down'));
+              controller.error(reason ?? new Error('pie server shutting down'));
             } catch {
               /* already closed */
             }
@@ -199,7 +199,7 @@ export function createAgentEventStream(
             cleanup(
               'error',
               new Error(
-                `pi-web agent event stream closed: client backlog exceeded ${Math.round(backlogLimitBytes / 1024)} KB`
+                `pie agent event stream closed: client backlog exceeded ${Math.round(backlogLimitBytes / 1024)} KB`
               )
             );
             return;

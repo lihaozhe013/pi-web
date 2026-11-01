@@ -2183,7 +2183,7 @@ export function ChatWindow({
                     className="new-session-logo"
                   />
                   <div className="new-session-brand-text">
-                    <span className="new-session-brand-name">Pi Web</span>
+                    <span className="new-session-brand-name">Pie</span>
                     <span className="new-session-meta">
                       <span>web v{APP_VERSION_LABEL}</span>
                       <span aria-hidden="true">·</span>

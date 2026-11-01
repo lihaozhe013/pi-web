@@ -470,7 +470,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   );
   const [newSessionDefaultModel, setNewSessionDefaultModel] = useState<SelectedModel | null>(null);
   const [toolPreset, setToolPreset] = useState<ToolPresetSelection>(CONFIGURED_TOOL_PRESET);
-  // The user's custom tool presets, served from `pi-web-tool-presets.json`. The
+  // The user's custom tool presets, served from `pie-tool-presets.json`. The
   // list is read once and refreshed after each editor save; the ref lets the
   // session callbacks below resolve a `custom:<id>` selection without becoming
   // dependent on the list.

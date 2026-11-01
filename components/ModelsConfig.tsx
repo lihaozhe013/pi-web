@@ -446,7 +446,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 /**
  * Up/down arrows beside a sidebar row.
  *
- * They follow the order the list actually has: provider rows follow the Pi Web
+ * They follow the order the list actually has: provider rows follow the Pie
  * preference saved in this browser, while models inside a models.json provider
  * move in the draft and need Save, because the file keeps their order.
  */

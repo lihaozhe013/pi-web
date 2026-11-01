@@ -11,7 +11,7 @@ import { createJiti } from 'jiti';
 
 const execFileAsync = promisify(execFile);
 
-const root = realpathSync(await mkdtemp(join(tmpdir(), 'pi-web-models-route-')));
+const root = realpathSync(await mkdtemp(join(tmpdir(), 'pie-models-route-')));
 const agentDir = join(root, 'agent');
 const repo = join(root, 'repo');
 const previousAgentDir = process.env.PI_CODING_AGENT_DIR;

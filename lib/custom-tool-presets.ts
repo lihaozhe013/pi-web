@@ -15,7 +15,7 @@ import {
 
 /**
  * The user's custom tool presets (`lib/custom-tool-presets-shared.ts` has the rules)
- * in `pi-web-tool-presets.json` beside pi's own files. It holds what the user chose,
+ * in `pie-tool-presets.json` beside pi's own files. It holds what the user chose,
  * so like the session UI state it is never rebuilt: writes are serialized in-process,
  * locked against other processes, replaced atomically, and a file that cannot be
  * parsed is set aside, never overwritten.
@@ -24,14 +24,14 @@ import {
 const MAX_BYTES = 1024 * 1024;
 
 // Route handlers are bundled separately and hot reload re-evaluates modules; globalThis keeps one queue per process.
-const QUEUE_KEY: symbol = Symbol.for('pi-web:custom-tool-presets-write-queue');
+const QUEUE_KEY: symbol = Symbol.for('pie:custom-tool-presets-write-queue');
 
 const LOCK_OPTIONS = {
   realpath: false,
   stale: 10_000,
   retries: { retries: 10, factor: 2, minTimeout: 25, maxTimeout: 500 },
   onCompromised: (error: Error) => {
-    console.warn(`[pi-web] the tool preset file lock was compromised: ${error.message}`);
+    console.warn(`[pie] the tool preset file lock was compromised: ${error.message}`);
   }
 };
 
@@ -51,11 +51,11 @@ interface CachedRead {
 }
 
 declare global {
-  var __piWebCustomToolPresetsCache: Map<string, CachedRead> | undefined;
+  var __pieCustomToolPresetsCache: Map<string, CachedRead> | undefined;
 }
 
 function cache(): Map<string, CachedRead> {
-  return (globalThis.__piWebCustomToolPresetsCache ??= new Map());
+  return (globalThis.__pieCustomToolPresetsCache ??= new Map());
 }
 
 function errorCode(error: unknown): string | undefined {
@@ -63,7 +63,7 @@ function errorCode(error: unknown): string | undefined {
 }
 
 export function getCustomToolPresetsPath(agentDir = getAgentDir()): string {
-  return join(agentDir, 'pi-web-tool-presets.json');
+  return join(agentDir, 'pie-tool-presets.json');
 }
 
 function copyPresets(presets: CustomToolPreset[]): CustomToolPreset[] {
@@ -80,7 +80,7 @@ function parsePresetsText(path: string, text: string): CustomToolPreset[] {
   const presets = parsed !== null ? parseCustomToolPresetDocument(parsed) : undefined;
   if (presets === undefined) {
     console.warn(
-      `[pi-web] ${path} is not valid custom tool presets; reading it as empty until the next change sets it aside`
+      `[pie] ${path} is not valid custom tool presets; reading it as empty until the next change sets it aside`
     );
     return [];
   }
@@ -131,7 +131,7 @@ export function readCustomToolPresets(path?: string): CustomToolPreset[] {
     return copyPresets(loadPresets(path ?? getCustomToolPresetsPath()));
   } catch (error) {
     console.warn(
-      `[pi-web] could not read the custom tool presets: ${error instanceof Error ? error.message : String(error)}`
+      `[pie] could not read the custom tool presets: ${error instanceof Error ? error.message : String(error)}`
     );
     return [];
   }
@@ -143,11 +143,11 @@ function backUpCorruptFile(path: string): void {
   try {
     renameSync(path, backup);
     console.warn(
-      `[pi-web] ${path} could not be parsed; moved it to ${backup} and started from an empty tool preset list`
+      `[pie] ${path} could not be parsed; moved it to ${backup} and started from an empty tool preset list`
     );
   } catch (error) {
     console.warn(
-      `[pi-web] ${path} could not be parsed and could not be moved aside (${error instanceof Error ? error.message : String(error)}); starting from an empty tool preset list`
+      `[pie] ${path} could not be parsed and could not be moved aside (${error instanceof Error ? error.message : String(error)}); starting from an empty tool preset list`
     );
   }
 }
@@ -218,5 +218,5 @@ export async function writeCustomToolPresets(
 }
 
 export function resetCustomToolPresetsCacheForTests(): void {
-  globalThis.__piWebCustomToolPresetsCache = undefined;
+  globalThis.__pieCustomToolPresetsCache = undefined;
 }

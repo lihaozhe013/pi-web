@@ -78,7 +78,7 @@ import {
   type GoalAction,
   type GoalBridge
 } from './goal-driver';
-import { createPiWebBuiltinExtensions } from './builtin-extensions';
+import { createPieBuiltinExtensions } from './builtin-extensions';
 import { goalExtensionPaths } from './goal-package';
 import type { McpHost } from './mcp-host';
 import { mcpPromptPreparation, type McpCommandCandidate } from './mcp-command';
@@ -195,7 +195,7 @@ const IDLE_RESET_EVENT_TYPES = new Set([
 const DEFAULT_SESSION_IDLE_TIMEOUT_MS = 10 * 60 * 1000;
 
 /**
- * Resolves the PI_WEB_IDLE_TIMEOUT_MS environment variable into a session idle
+ * Resolves the PIE_IDLE_TIMEOUT_MS environment variable into a session idle
  * timeout in milliseconds. An unset/blank value returns the 10-minute default,
  * `0` disables idle shutdown, and positive values up to Node's timer limit
  * (2147483647 ms) are used as-is. Invalid or out-of-range values fall back to
@@ -203,13 +203,13 @@ const DEFAULT_SESSION_IDLE_TIMEOUT_MS = 10 * 60 * 1000;
  * @param rawValue Value to parse; defaults to the environment variable.
  */
 export function resolveSessionIdleTimeoutMs(
-  rawValue: string | undefined = process.env.PI_WEB_IDLE_TIMEOUT_MS
+  rawValue: string | undefined = process.env.PIE_IDLE_TIMEOUT_MS
 ): number {
   if (rawValue !== undefined && rawValue.trim() !== '') {
     const parsed = Number(rawValue);
     if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 2_147_483_647) return parsed;
     console.warn(
-      `[pi-web] invalid PI_WEB_IDLE_TIMEOUT_MS "${rawValue}", falling back to 10 minutes`
+      `[pie] invalid PIE_IDLE_TIMEOUT_MS "${rawValue}", falling back to 10 minutes`
     );
   }
   return DEFAULT_SESSION_IDLE_TIMEOUT_MS;
@@ -220,7 +220,7 @@ const SESSION_IDLE_TIMEOUT_MS = resolveSessionIdleTimeoutMs();
 const DEFAULT_SESSION_SHUTDOWN_DEADLINE_MS = 5_000;
 
 /**
- * Resolves the PI_WEB_SHUTDOWN_DEADLINE_MS environment variable into the time
+ * Resolves the PIE_SHUTDOWN_DEADLINE_MS environment variable into the time
  * extensions get to handle `session_shutdown` before the wrapper disposes the
  * SDK session anyway. An unset/blank value returns the 5-second default, and
  * positive values up to Node's timer limit (2147483647 ms) are used as-is.
@@ -229,13 +229,13 @@ const DEFAULT_SESSION_SHUTDOWN_DEADLINE_MS = 5_000;
  * @param rawValue Value to parse; defaults to the environment variable.
  */
 export function resolveSessionShutdownDeadlineMs(
-  rawValue: string | undefined = process.env.PI_WEB_SHUTDOWN_DEADLINE_MS
+  rawValue: string | undefined = process.env.PIE_SHUTDOWN_DEADLINE_MS
 ): number {
   if (rawValue !== undefined && rawValue.trim() !== '') {
     const parsed = Number(rawValue);
     if (Number.isFinite(parsed) && parsed > 0 && parsed <= 2_147_483_647) return parsed;
     console.warn(
-      `[pi-web] invalid PI_WEB_SHUTDOWN_DEADLINE_MS "${rawValue}", falling back to 5 seconds`
+      `[pie] invalid PIE_SHUTDOWN_DEADLINE_MS "${rawValue}", falling back to 5 seconds`
     );
   }
   return DEFAULT_SESSION_SHUTDOWN_DEADLINE_MS;
@@ -553,9 +553,9 @@ export class AgentSessionWrapper {
             // Pi appends the assistant message immediately after notifying listeners.
             // This custom parent entry keeps metrics out of model context.
             this.inner.sessionManager.appendCustomEntry(STREAM_SPEED_ENTRY, speed);
-            outgoing = { ...event, message: { ...message, piWebStreamSpeed: speed } };
+            outgoing = { ...event, message: { ...message, pieStreamSpeed: speed } };
           } catch (error) {
-            console.warn('[pi-web] stream speed recording failed:', error);
+            console.warn('[pie] stream speed recording failed:', error);
           }
         }
       }
@@ -586,7 +586,7 @@ export class AgentSessionWrapper {
       return notices.length > 0 ? { ...event, transcriptNotices: notices } : event;
     } catch (error) {
       console.warn(
-        '[pi-web] transcript notices failed:',
+        '[pie] transcript notices failed:',
         error instanceof Error ? error.message : error
       );
       return event;
@@ -623,7 +623,7 @@ export class AgentSessionWrapper {
       this.onAgentRunComplete?.(this.sessionId, this.inner.sessionManager.getSessionName());
     } catch (error) {
       console.error(
-        '[pi-web] completion listener failed:',
+        '[pie] completion listener failed:',
         error instanceof Error ? error.message : error
       );
     }
@@ -637,7 +637,7 @@ export class AgentSessionWrapper {
   beginExtensionBinding(): void {
     void this.ensureExtensionsBound().catch((err) => {
       console.error(
-        '[pi-web] failed to dispatch session_start to extensions:',
+        '[pie] failed to dispatch session_start to extensions:',
         err instanceof Error ? err.message : err
       );
     });
@@ -673,7 +673,7 @@ export class AgentSessionWrapper {
               id: randomUUID(),
               method: 'notify',
               notifyType: 'warning',
-              message: 'Extension requested shutdown, but shutdown is not supported in Pi Web.'
+              message: 'Extension requested shutdown, but shutdown is not supported in Pie.'
             } as ExtensionUiRequest as AgentEvent),
           onError: (error) =>
             this.emit({
@@ -693,7 +693,7 @@ export class AgentSessionWrapper {
       this.publishGoalBridge();
       this.pauseRestoredGoal();
       console.log(
-        `[pi-web] session_start dispatched to extensions for session ${this.inner.sessionId}`
+        `[pie] session_start dispatched to extensions for session ${this.inner.sessionId}`
       );
     })().catch((err) => {
       this.extensionBindingError = err;
@@ -778,7 +778,7 @@ export class AgentSessionWrapper {
         listener(event);
       } catch (error) {
         console.error(
-          `[pi-web] failed to deliver ${event.type} event:`,
+          `[pie] failed to deliver ${event.type} event:`,
           error instanceof Error ? error.message : error
         );
       }
@@ -827,7 +827,7 @@ export class AgentSessionWrapper {
       }
       void this.shutdown().catch((error) => {
         console.error(
-          '[pi-web] failed to shut down idle session:',
+          '[pie] failed to shut down idle session:',
           error instanceof Error ? error.message : error
         );
       });
@@ -908,7 +908,7 @@ export class AgentSessionWrapper {
       await this.shutdown();
     } catch (error) {
       console.error(
-        `[pi-web] ${replacement} succeeded, but source session shutdown failed:`,
+        `[pie] ${replacement} succeeded, but source session shutdown failed:`,
         error instanceof Error ? error.message : error
       );
     }
@@ -939,7 +939,7 @@ export class AgentSessionWrapper {
         const imageError = validateAgentImages(command.images);
         if (imageError) throw new Error(imageError);
       }
-      // A session whose folder was deleted outside pi-web stays readable, but a
+      // A session whose folder was deleted outside pie stays readable, but a
       // run there would reach the model only for its tools to fail (and `write`
       // to recreate the folder). The pi CLI does not resume such a session
       // either; refuse as /api/agent/new does. (A `!` command already refuses.)
@@ -1023,7 +1023,7 @@ export class AgentSessionWrapper {
                 .prepareForPrompt(controller.signal, { wait: mcpPreparation === 'wait' })
                 .catch((error: unknown) => {
                   console.error(
-                    '[pi-web] MCP servers could not be prepared:',
+                    '[pie] MCP servers could not be prepared:',
                     error instanceof Error ? error.message : error
                   );
                 })
@@ -1089,7 +1089,7 @@ export class AgentSessionWrapper {
               )
               .catch((error) => {
                 console.error(
-                  '[pi-web] prompt completion handler failed:',
+                  '[pie] prompt completion handler failed:',
                   error instanceof Error ? error.message : error
                 );
               });
@@ -1124,7 +1124,7 @@ export class AgentSessionWrapper {
           }
 
         case 'goal': {
-          // The installed package owns the goal. Pi Web forwards the command the
+          // The installed package owns the goal. Pie forwards the command the
           // goal dialog chose; an objective typed into the dialog is used as
           // written, and a start without one falls back to the last message,
           // read from the branch here because that copy is the one the package
@@ -1619,7 +1619,7 @@ export class AgentSessionWrapper {
       this.mcpHost?.dispose();
     } catch (error) {
       console.error(
-        '[pi-web] MCP host dispose failed:',
+        '[pie] MCP host dispose failed:',
         error instanceof Error ? error.message : error
       );
     }
@@ -1669,7 +1669,7 @@ export class AgentSessionWrapper {
     void this.emitSessionShutdown(emit)
       .catch((error) => {
         console.error(
-          '[pi-web] session_shutdown before dispose failed:',
+          '[pie] session_shutdown before dispose failed:',
           error instanceof Error ? error.message : error
         );
       })
@@ -1689,7 +1689,7 @@ export class AgentSessionWrapper {
           await this.waitForExtensionsBound();
         } catch (error) {
           console.error(
-            '[pi-web] extension binding failed before session shutdown:',
+            '[pie] extension binding failed before session shutdown:',
             error instanceof Error ? error.message : error
           );
         }
@@ -1732,7 +1732,7 @@ export class AgentSessionWrapper {
     try {
       if ((await Promise.race([handled, deadline])) === 'timeout') {
         console.warn(
-          `[pi-web] extensions did not finish session_shutdown for session ${this.sessionId} within ${SESSION_SHUTDOWN_DEADLINE_MS} ms; disposing it anyway`
+          `[pie] extensions did not finish session_shutdown for session ${this.sessionId} within ${SESSION_SHUTDOWN_DEADLINE_MS} ms; disposing it anyway`
         );
       }
     } finally {
@@ -1786,7 +1786,7 @@ export class AgentSessionWrapper {
       await this.inner.prompt(goalCommand('pause'), { source: 'rpc' });
     } catch (error) {
       console.warn(
-        '[pi-web] could not pause the goal this session was restored with:',
+        '[pie] could not pause the goal this session was restored with:',
         error instanceof Error ? error.message : error
       );
     }
@@ -2338,7 +2338,7 @@ export class AgentSessionWrapper {
       getTheme: () => undefined,
       setTheme: () => ({
         success: false,
-        error: 'Theme switching is not supported in Pi Web extension UI yet'
+        error: 'Theme switching is not supported in Pie extension UI yet'
       }),
       getToolsExpanded: () => false,
       setToolsExpanded: () => {}
@@ -2475,7 +2475,7 @@ function closingRpcSessionWait(sessionId: string): Promise<void> | null {
       .then((disposed) => {
         if (!disposed)
           console.warn(
-            `[pi-web] session ${sessionId} is still shutting down; starting it again anyway`
+            `[pie] session ${sessionId} is still shutting down; starting it again anyway`
           );
       })
       .finally(() => {
@@ -2807,8 +2807,8 @@ export async function startRpcSession(
     );
     // codemode, tool-search, and mcp, as the pi CLI loads them, and the host that decides
     // which MCP servers the session connects (ADR 0006).
-    const builtins = chatOnly ? undefined : await createPiWebBuiltinExtensions({ agentDir });
-    // The goal package Pi Web ships is loaded as an extension path, the way a
+    const builtins = chatOnly ? undefined : await createPieBuiltinExtensions({ agentDir });
+    // The goal package Pie ships is loaded as an extension path, the way a
     // person's own package is. Their configured goal package, if any, wins: two
     // of them in one session would run two loops over one switch.
     const goalPaths = chatOnly
@@ -2966,7 +2966,7 @@ export async function startRpcSession(
     // A pinned selection replaces only the coding tools of the SDK's initial loadout, which
     // already holds the extension tools pi activates on registration and whatever
     // `defaultTools` names (such as `+codemode`), so installed extensions stay usable in
-    // Pi Web just like in the `pi` CLI.
+    // Pie just like in the `pi` CLI.
     if (!chatOnly) {
       const initialToolNames = inner.getActiveToolNames();
       inner.setActiveToolsByName(
@@ -2985,7 +2985,7 @@ export async function startRpcSession(
       onAgentRunComplete: (completedSessionId, sessionName) => {
         void notifySessionComplete(completedSessionId, sessionName).catch((error) => {
           console.error(
-            '[pi-web] failed to send completion push:',
+            '[pie] failed to send completion push:',
             error instanceof Error ? error.message : error
           );
         });
@@ -3009,7 +3009,7 @@ export async function startRpcSession(
             await wrapper.send({ type: 'set_thinking_level', level: deferredThinkingLevel });
         } catch (error) {
           console.error(
-            `[pi-web] could not switch to ${deferredModel.provider}/${deferredModel.id}:`,
+            `[pie] could not switch to ${deferredModel.provider}/${deferredModel.id}:`,
             error instanceof Error ? error.message : error
           );
         }

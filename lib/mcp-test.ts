@@ -24,7 +24,7 @@ import {
   type McpSignInWriteGuard
 } from './mcp-sign-out';
 import { recordMcpStatus } from './mcp-status';
-import { createPiWebMcpTransportFactory, resolvedConfigValues } from './mcp-transport';
+import { createPieMcpTransportFactory, resolvedConfigValues } from './mcp-transport';
 import { getModelRuntimeWithExtensions } from './model-runtime';
 import type {
   McpClient,
@@ -38,8 +38,8 @@ import type {
 
 // Settings › MCP's Test (ADR 0006): connect one `mcp.json` entry once, outside
 // any session, list what it offers, and close it again. It connects the way a
-// session does — the SDK's `McpServerConnection`, Pi Web's transport factory
-// (scrubbed environment, PI_WEB_PASSWORD refused), the default OAuth store in
+// session does — the SDK's `McpServerConnection`, Pie's transport factory
+// (scrubbed environment, PIE_PASSWORD refused), the default OAuth store in
 // `mcp-auth.json` — so what it finds is what a session would find. The route
 // (`app/api/mcp/test/route.ts`) decides whether an entry may be tested at all
 // and reads it from the file; nothing here takes a config from the browser.
@@ -399,7 +399,7 @@ function splitStderr(
 
 /**
  * One entry's connection as a test opens it: the SDK's `McpServerConnection`
- * through Pi Web's transport factory, with every transport it creates kept so
+ * through Pie's transport factory, with every transport it creates kept so
  * that closing can reach them directly. Settings › MCP's sign-in
  * (`lib/mcp-sign-in.ts`) opens its connection the same way and keeps it from
  * the first connect, which records the server's OAuth challenge, through the
@@ -433,7 +433,7 @@ export function openTestConnection(
     scope: target.scope
   };
   const transports: McpTransport[] = [];
-  const factory = createPiWebMcpTransportFactory(internals);
+  const factory = createPieMcpTransportFactory(internals);
   const connection = new internals.McpServerConnection({
     entry,
     cwd: target.cwd,
@@ -568,7 +568,7 @@ export async function observeTestConnection(
 }
 
 /**
- * The SDK's connection to one entry through Pi Web's transport factory, until
+ * The SDK's connection to one entry through Pie's transport factory, until
  * it settles or `signal` aborts. With `guard`, an OAuth entry's connection
  * reads and refreshes tokens through `guardedCredentialStore()`, as a
  * sign-in's does: a refresh still on its way when the URL is signed out
@@ -599,8 +599,8 @@ export async function connectForTest(
 // The queue for entries that run a shell command, joining, the deadline
 // ---------------------------------------------------------------------------
 
-const FLIGHTS_KEY: symbol = Symbol.for('pi-web:mcp-test-flights');
-const COMMAND_QUEUE_KEY: symbol = Symbol.for('pi-web:mcp-test-command-queue');
+const FLIGHTS_KEY: symbol = Symbol.for('pie:mcp-test-flights');
+const COMMAND_QUEUE_KEY: symbol = Symbol.for('pie:mcp-test-command-queue');
 const CANCELLED = 'cancelled';
 const DEADLINE = 'deadline';
 

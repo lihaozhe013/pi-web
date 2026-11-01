@@ -135,11 +135,11 @@ function chosenVariableNames(
 }
 
 /**
- * The variables of the Pi Web host a server would be sent: the `${NAME}` /
+ * The variables of the Pie host a server would be sent: the `${NAME}` /
  * `$NAME` references in an HTTP entry's header values and `oauth.clientSecret`,
  * which pi resolves from the whole `process.env` of the process connecting it,
  * for those names set there. A stdio entry's `env` stays on this computer, in
- * the process it starts, and is not counted. `PI_WEB_PASSWORD` is not counted
+ * the process it starts, and is not counted. `PIE_PASSWORD` is not counted
  * either: such an entry is refused outright.
  */
 export function mcpHostEnvNames(
@@ -151,7 +151,7 @@ export function mcpHostEnvNames(
   for (const { kind, value } of resolvedConfigValues(config)) {
     if (kind === 'env' || internals.isCommandConfigValue(value)) continue;
     for (const name of internals.getConfigValueEnvVarNames(value)) {
-      if (name.toUpperCase() === 'PI_WEB_PASSWORD') continue;
+      if (name.toUpperCase() === 'PIE_PASSWORD') continue;
       if (environment[name] !== undefined && !names.includes(name)) names.push(name);
     }
   }
@@ -170,7 +170,7 @@ export function mcpHostEnvNames(
  *   secrets the user chose to read from a variable stored as `${NAME}`
  *   (`fields-incomplete`, with the importer's notes);
  * - the SDK's validator must accept the result (`server-invalid`), and it may
- *   not reference `PI_WEB_PASSWORD` (`web-password`);
+ *   not reference `PIE_PASSWORD` (`web-password`);
  * - a literal secret keeps it global (`secret-global-only`, with the fields):
  *   a project file is often committed;
  * - a non-pi paste whose headers or client secret read variables set on this
@@ -245,7 +245,7 @@ export function prepareMcpAdd(
       ok: false,
       status: 409,
       reason: 'web-password',
-      error: `"${name}" references PI_WEB_PASSWORD, so Pi Web does not add it`,
+      error: `"${name}" references PIE_PASSWORD, so Pie does not add it`,
       name
     };
   }
@@ -270,7 +270,7 @@ export function prepareMcpAdd(
         ok: false,
         status: 409,
         reason: 'host-env-confirm',
-        error: `"${name}" would send these variables of the Pi Web host to its server: ${names.join(', ')}`,
+        error: `"${name}" would send these variables of the Pie host to its server: ${names.join(', ')}`,
         name,
         names
       };

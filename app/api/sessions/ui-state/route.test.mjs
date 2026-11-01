@@ -5,7 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { createJiti } from 'jiti';
 
-const agentDir = await mkdtemp(path.join(os.tmpdir(), 'pi-web-session-ui-state-route-'));
+const agentDir = await mkdtemp(path.join(os.tmpdir(), 'pie-session-ui-state-route-'));
 const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
 process.env.PI_CODING_AGENT_DIR = agentDir;
 test.after(async () => {
@@ -24,7 +24,7 @@ const { resetSessionUiStateCacheForTests } = await jiti.import(
   '../../../../lib/session-ui-state.ts'
 );
 
-const statePath = path.join(agentDir, 'pi-web-session-state.json');
+const statePath = path.join(agentDir, 'pie-session-state.json');
 const JSON_HEADERS = { host: 'localhost', 'Content-Type': 'application/json' };
 
 function post(body, headers = JSON_HEADERS) {
@@ -270,7 +270,7 @@ test('a corrupt file is kept as a backup and the state starts over', async () =>
     assert.deepEqual(Object.keys(next.sessions), ['a']);
     assert.equal(next.revision, 2);
     const backups = (await readdir(agentDir)).filter((name) =>
-      name.startsWith('pi-web-session-state.json.corrupt-')
+      name.startsWith('pie-session-state.json.corrupt-')
     );
     assert.equal(backups.length, 1);
     assert.equal(

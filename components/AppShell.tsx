@@ -1271,7 +1271,7 @@ export function AppShell() {
   );
 
   const activeCwdName = activeCwd ? getFileName(activeCwd) || activeCwd : null;
-  const windowTitle = activeCwdName ? `${activeCwdName} - Pi Web` : 'Pi Web';
+  const windowTitle = activeCwdName ? `${activeCwdName} - Pie` : 'Pie';
 
   useEffect(() => {
     const syncWindowTitle = () => {

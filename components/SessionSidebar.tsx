@@ -81,7 +81,7 @@ import {
 } from 'react';
 import { DirectoryPicker } from './DirectoryPicker';
 import { NewSessionChooser } from './NewSessionChooser';
-import { PiWebTitle } from './PiWebTitle';
+import { PieTitle } from './PieTitle';
 import { SessionSearch } from './SessionSearch';
 import { sessionRowTitle, SessionTree, type SessionTreeReveal } from './SessionTree';
 import {
@@ -221,8 +221,8 @@ type SidebarMenuState =
 /** The archive bar's deletes: every archived session, or those archived over 30 days ago. */
 type ArchiveDeleteScope = 'all' | 'old';
 
-const UNREAD_SESSIONS_STORAGE_KEY = 'pi-web:unread-session-ids';
-const LAST_CUSTOM_CWD_STORAGE_KEY = 'pi-web:last-custom-cwd';
+const UNREAD_SESSIONS_STORAGE_KEY = 'pie:unread-session-ids';
+const LAST_CUSTOM_CWD_STORAGE_KEY = 'pie:last-custom-cwd';
 const RUNNING_SESSIONS_POLL_MS = 2500;
 const SESSION_DETAILS_HYDRATION_DELAY_MS = 750;
 /** "Archive sessions older than 7 days" in a project's menu. */
@@ -580,7 +580,7 @@ export function SessionSidebar({
     focusIfLost(document, focusAfterCommitTarget());
   }, [focusAfterCommitTarget]);
 
-  // Pins, archive and project order: pi-web's own state, kept on the server for every window.
+  // Pins, archive and project order: pie's own state, kept on the server for every window.
   const {
     state: uiState,
     loaded: uiStateLoaded,
@@ -1574,7 +1574,7 @@ export function SessionSidebar({
     [loadSessions]
   );
 
-  // A project's display name is pi-web's own (the UI state file): renaming
+  // A project's display name is pie's own (the UI state file): renaming
   // it never selects the project, nor moves, pins or folds its group. The
   // header's field goes as the name is saved; its toggle takes the focus.
   const startProjectRename = useCallback((project: SidebarProject) => {
@@ -1806,7 +1806,7 @@ export function SessionSidebar({
     []
   );
 
-  // Right-click: an extension listening for the downstream event (a pi-web
+  // Right-click: an extension listening for the downstream event (a pie
   // integration) claims the row first; only an unclaimed event opens the
   // built-in menu. A transient row has nothing to offer, so the browser's own
   // menu stays.
@@ -2629,7 +2629,7 @@ export function SessionSidebar({
       )}
       {/* Session toolbar. */}
       <div ref={headerRef} className="sidebar-header">
-        <PiWebTitle />
+        <PieTitle />
         <span className="sidebar-header-spacer" />
         <button
           ref={newButtonRef}

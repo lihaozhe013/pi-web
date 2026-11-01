@@ -7,7 +7,7 @@ const jiti = createJiti(import.meta.url, { jsx: { runtime: 'automatic' }, tsconf
 const React = await jiti.import('react');
 const { renderToStaticMarkup } = await jiti.import('react-dom/server');
 const { I18nProvider } = await jiti.import('@/hooks/useI18n');
-const { BRAND_ICON_SIZE, BRAND_ICON_SRC, PiWebTitle } = await jiti.import('./PiWebTitle.tsx');
+const { BRAND_ICON_SIZE, BRAND_ICON_SRC, PieTitle } = await jiti.import('./PieTitle.tsx');
 const { getLocalePlugin } = await jiti.import('@/lib/i18n/registry.ts');
 
 const css = await readFile(new URL('../app/sidebar.css', import.meta.url), 'utf8');
@@ -24,14 +24,14 @@ test("the brand is the app's icon in a button that opens About", async () => {
   assert.equal(BRAND_ICON_SIZE, 20);
 
   const html = renderToStaticMarkup(
-    React.createElement(I18nProvider, null, React.createElement(PiWebTitle))
+    React.createElement(I18nProvider, null, React.createElement(PieTitle))
   );
   // React 19 hoists a preload for the img into the head; the button itself
   // follows. About is closed until a click, so no dialog is rendered.
   assert.equal(
     html,
     `<link rel="preload" as="image" href="${BRAND_ICON_SRC}"/>` +
-      '<button type="button" class="sidebar-brand" aria-label="About Pi Web" title="About Pi Web"' +
+      '<button type="button" class="sidebar-brand" aria-label="About Pie" title="About Pie"' +
       ' aria-haspopup="dialog" aria-expanded="false">' +
       `<img class="sidebar-brand-icon" src="${BRAND_ICON_SRC}" alt="" width="${BRAND_ICON_SIZE}" height="${BRAND_ICON_SIZE}"/>` +
       '</button>'
@@ -44,7 +44,7 @@ test("the brand is the app's icon in a button that opens About", async () => {
   // Every language names the button for the page it opens.
   for (const locale of ['en', 'zh-CN', 'zh-TW']) {
     const label = getLocalePlugin(locale).messages['sidebar.brandLabel'];
-    assert.match(label, /Pi Web/, `${locale}: ${label}`);
+    assert.match(label, /Pie/, `${locale}: ${label}`);
   }
 });
 

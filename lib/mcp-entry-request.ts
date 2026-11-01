@@ -15,9 +15,9 @@ import { hasJsonContentType, isApiRequestAllowed } from './request-security';
 // session: Settings › MCP's Test (`POST /api/mcp/test`) and its sign-in
 // (`POST /api/mcp/sign-in`). Each starts a process or contacts a URL and may
 // run a `!command` value, so each re-checks everything a session's start
-// would: the request is Pi Web's own, MCP is not off, the entry is read from
+// would: the request is Pie's own, MCP is not off, the entry is read from
 // its file (never a config from the browser) and valid, it does not reference
-// PI_WEB_PASSWORD, and a project entry's folder is allowed and trusted.
+// PIE_PASSWORD, and a project entry's folder is allowed and trusted.
 
 export interface McpEntryRefusal {
   status: number;
@@ -123,23 +123,23 @@ export async function validateMcpProject(
 
 /**
  * The SDK's internals, or MCP off as every Settings › MCP route reads it: the
- * operator's switch (`PI_WEB_DISABLE_MCP`), which nothing in the browser may
+ * operator's switch (`PIE_DISABLE_MCP`), which nothing in the browser may
  * override, or SDK modules that cannot load, without which nothing can be
- * checked, written or connected through Pi Web's transport. `-builtin:mcp`
+ * checked, written or connected through Pie's transport. `-builtin:mcp`
  * does not count: a project may reverse that setting, and an explicit action
- * still works. `doing` ends the operator's message ("so Pi Web …").
+ * still works. `doing` ends the operator's message ("so Pie …").
  */
 export async function mcpInternalsOrRefusal(
   doing: string
 ): Promise<PiSdkInternals | McpEntryRefusal> {
   if (isMcpDisabledByOperator())
-    return mcpEntryRefusal(409, 'mcp-off', `${MCP_DISABLE_VARIABLE} is set, so Pi Web ${doing}`);
+    return mcpEntryRefusal(409, 'mcp-off', `${MCP_DISABLE_VARIABLE} is set, so Pie ${doing}`);
   const internals = await loadPiSdkInternals();
   if (!internals.ok)
     return mcpEntryRefusal(
       409,
       'mcp-off',
-      `Pi Web cannot load the SDK's MCP modules: ${internals.reason}`
+      `Pie cannot load the SDK's MCP modules: ${internals.reason}`
     );
   return internals;
 }
@@ -157,7 +157,7 @@ function readScope(value: unknown): McpScope | undefined {
 export function mcpProjectTrustRefusal(
   cwd: string,
   agentDir: string,
-  untrustedMessage = 'The project is not trusted, so Pi Web does not start its MCP servers'
+  untrustedMessage = 'The project is not trusted, so Pie does not start its MCP servers'
 ): McpEntryRefusal | undefined {
   try {
     const status = getProjectTrustStatus(cwd, agentDir);
@@ -176,11 +176,11 @@ export function mcpProjectTrustRefusal(
  * Reads `{ scope, name, cwd? }` from a JSON POST and the entry it names, in
  * the order a refusal is most useful: origin (403 `request-denied`), JSON
  * (415, 400 `invalid-request`), the cwd (`cwd-*`; required for a project
- * entry), MCP off (409 `mcp-off`: `PI_WEB_DISABLE_MCP`, or SDK modules that
+ * entry), MCP off (409 `mcp-off`: `PIE_DISABLE_MCP`, or SDK modules that
  * cannot load; `-builtin:mcp` does not count, an explicit action still
  * works), the project's trust, then the entry: its file's problems, missing
  * (`server-missing`), not an object, refused by the SDK's validator
- * (`server-invalid`), or referencing PI_WEB_PASSWORD (`web-password`).
+ * (`server-invalid`), or referencing PIE_PASSWORD (`web-password`).
  */
 export async function readConnectableMcpEntry(
   req: Request
@@ -250,7 +250,7 @@ export async function readConnectableMcpEntry(
       return mcpEntryRefusal(
         409,
         'web-password',
-        `"${name}" references PI_WEB_PASSWORD, so Pi Web does not connect it`,
+        `"${name}" references PIE_PASSWORD, so Pie does not connect it`,
         { name }
       );
     }

@@ -39,7 +39,7 @@ type UsageResponse = {
   message?: string;
 };
 
-const STORAGE_PREFIX = 'pi-web:provider-usage:';
+const STORAGE_PREFIX = 'pie:provider-usage:';
 
 export function ProviderUsageSummary({
   providerId,

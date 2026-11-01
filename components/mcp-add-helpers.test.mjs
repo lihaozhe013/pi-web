@@ -680,8 +680,8 @@ test("a variable box opens with a name pi accepts: an env value's own, or one ma
   assert.equal(mcpSuggestedVariableName('env.9', 'x'), undefined);
   assert.equal(mcpSuggestedVariableName('url', 'x'), undefined);
   // Never the variable Add refuses.
-  assert.equal(mcpSuggestedVariableName('env.PI_WEB_PASSWORD', 'x'), undefined);
-  assert.equal(mcpSuggestedVariableName('headers.X-Password', 'pi-web'), undefined);
+  assert.equal(mcpSuggestedVariableName('env.PIE_PASSWORD', 'x'), undefined);
+  assert.equal(mcpSuggestedVariableName('headers.X-Password', 'pie'), undefined);
   for (const [label, server] of [
     ['env.A', 'x'],
     ['headers.Authorization', 'a b'],
@@ -816,7 +816,7 @@ test('Add waits, with a reason, for a free valid name, the values, and a scope i
   assert.deepEqual(analyse({ text: 'nothing to see | here' }).submitBlock, { kind: 'nothing' });
   const password = analyse({
     text: JSON.stringify({
-      mcpServers: { pw: { url: 'https://pw/mcp', headers: { A: '${PI_WEB_PASSWORD}' } } }
+      mcpServers: { pw: { url: 'https://pw/mcp', headers: { A: '${PIE_PASSWORD}' } } }
     }),
     rawPi: true
   });

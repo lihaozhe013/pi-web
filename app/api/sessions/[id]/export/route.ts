@@ -247,7 +247,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
-    const tempDir = join(tmpdir(), 'pi-web-export');
+    const tempDir = join(tmpdir(), 'pie-export');
     mkdirSync(tempDir, { recursive: true });
 
     const sessionBase = basename(filePath, '.jsonl');

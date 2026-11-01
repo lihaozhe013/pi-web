@@ -13,7 +13,7 @@ import type { SessionEntry } from './types';
 const WRITE_CAPABLE_TOOLS = new Set(['bash', 'powershell', 'edit', 'write']);
 const MCP_TOOL_PREFIX = 'mcp__';
 
-export const READ_ONLY_MCP_POLICY_EXTENSION_NAME = 'pi-web-read-only-mcp';
+export const READ_ONLY_MCP_POLICY_EXTENSION_NAME = 'pie-read-only-mcp';
 
 /**
  * Whether a pinned tool selection is read-only: it names tools, and none of

@@ -30,7 +30,7 @@ function normalizePort(value) {
 }
 
 // Subcommands and their own options. Matched only as the first argument, so a
-// bare `pi-web [options]` still starts the server.
+// bare `pie [options]` still starts the server.
 const COMMAND_OPTIONS = {
   version: {},
   status: {},
@@ -39,31 +39,31 @@ const COMMAND_OPTIONS = {
 };
 
 function getHelpText() {
-  return `Usage: pi-web [command] [options]
+  return `Usage: pie [command] [options]
 
-Start the Pi Web UI server, or run one of the commands below.
+Start the Pie UI server, or run one of the commands below.
 
 Commands:
-  version                    Print the installed Pi Web version (also -v, --version)
-  status                     List running Pi Web servers
+  version                    Print the installed Pie version (also -v, --version)
+  status                     List running Pie servers
   stop [--port <port>]       Stop a running server
   open [--port <port>]       Open a running server in the browser
 
 Options:
   -p, --port <port>          Server port (default: 30141, or PORT)
-  -H, --hostname <host>      Bind hostname (default: 127.0.0.1, or PI_WEB_HOSTNAME)
+  -H, --hostname <host>      Bind hostname (default: 127.0.0.1, or PIE_HOSTNAME)
       --no-open              Do not open a browser automatically
   -h, --help                 Show this help message and exit
 
 Environment:
   PORT                       Default port when --port is omitted
-  PI_WEB_HOSTNAME            Default hostname when --hostname is omitted
-  PI_WEB_NO_OPEN             Set to 1/true/yes/on to disable browser open
-  PI_WEB_APP_NAME            PWA manifest name (trimmed; default Pi Web)
-  PI_WEB_PASSWORD            Enable browser password login and API Basic Auth
-  PI_WEB_ALLOWED_HOSTS       Extra exact proxy/custom hostnames, comma-separated
-  PI_WEB_IDLE_TIMEOUT_MS     Session idle timeout in ms (0 disables; default 600000)
-  PI_WEB_SHUTDOWN_DEADLINE_MS  Shutdown wait for extensions in ms (default 5000)
+  PIE_HOSTNAME               Default hostname when --hostname is omitted
+  PIE_NO_OPEN                Set to 1/true/yes/on to disable browser open
+  PIE_APP_NAME               PWA manifest name (trimmed; default Pie)
+  PIE_PASSWORD               Enable browser password login and API Basic Auth
+  PIE_ALLOWED_HOSTS          Extra exact proxy/custom hostnames, comma-separated
+  PIE_IDLE_TIMEOUT_MS        Session idle timeout in ms (0 disables; default 600000)
+  PIE_SHUTDOWN_DEADLINE_MS   Shutdown wait for extensions in ms (default 5000)
 `;
 }
 
@@ -129,8 +129,8 @@ function parseLaunchOptions(args = process.argv.slice(2), env = process.env) {
   return {
     help: false,
     port: normalizePort(values.port ?? env.PORT ?? '30141'),
-    hostname: values.hostname ?? env.PI_WEB_HOSTNAME ?? '127.0.0.1',
-    openBrowser: !values['no-open'] && !isEnabled(env.PI_WEB_NO_OPEN)
+    hostname: values.hostname ?? env.PIE_HOSTNAME ?? '127.0.0.1',
+    openBrowser: !values['no-open'] && !isEnabled(env.PIE_NO_OPEN)
   };
 }
 

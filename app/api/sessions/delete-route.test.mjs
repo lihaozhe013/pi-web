@@ -31,7 +31,7 @@ function post(body, headers = JSON_HEADERS) {
 }
 
 async function scratchAgentDir(t) {
-  const dir = await mkdtemp(join(tmpdir(), 'pi-web-delete-route-'));
+  const dir = await mkdtemp(join(tmpdir(), 'pie-delete-route-'));
   const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
   const previousRegistry = globalThis.__piSessions;
   process.env.PI_CODING_AGENT_DIR = dir;

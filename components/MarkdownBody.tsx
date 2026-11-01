@@ -156,7 +156,7 @@ function createMarkdownComponents({
         );
       }
       if (href?.startsWith('#')) {
-        // An in-page link: never a second tab of Pi Web.
+        // An in-page link: never a second tab of Pie.
         return (
           <MarkdownLinkContext.Provider value={true}>
             <a href={href} {...props} onClick={jumpToMarkdownFragment}>

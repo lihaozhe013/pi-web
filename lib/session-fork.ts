@@ -106,7 +106,7 @@ export function forkSessionBranch(
   if (name) manager.appendSessionInfo(name);
   if (path && !existsSync(path)) {
     // pi writes the copy only once it has a user or assistant message; a
-    // shell-only branch (pi-web keeps those sessions) is written here.
+    // shell-only branch (pie keeps those sessions) is written here.
     const header = manager.getHeader();
     if (header) {
       const content =

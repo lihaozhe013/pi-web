@@ -10,7 +10,7 @@ import { defineTool, type InlineExtension } from '@earendil-works/pi-coding-agen
  */
 
 export const ASK_USER_TOOL_NAME = 'ask_user';
-export const ASK_USER_EXTENSION_NAME = 'pi-web-ask-user';
+export const ASK_USER_EXTENSION_NAME = 'pie-ask-user';
 
 /** Appended to the offered options; selecting it opens the text field instead of answering. */
 export const ASK_USER_OTHER_LABEL = 'Write my own answer…';

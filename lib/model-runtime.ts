@@ -46,14 +46,14 @@ interface SharedModelRuntime {
 }
 
 declare global {
-  var __piWebSharedModelRuntime: SharedModelRuntime | undefined;
+  var __pieSharedModelRuntime: SharedModelRuntime | undefined;
 }
 
-// Pi Web's own plugin changes and reloads invalidate the entry, so the TTL is
-// only a backstop for changes made outside Pi Web: `pi install` from a
+// Pie's own plugin changes and reloads invalidate the entry, so the TTL is
+// only a backstop for changes made outside Pie: `pi install` from a
 // terminal, an edited extension file.
 const SHARED_MODEL_RUNTIME_TTL_MS = 10 * 60_000;
-const REFRESH_QUEUE_KEY: symbol = Symbol.for('pi-web:shared-model-runtime-refresh');
+const REFRESH_QUEUE_KEY: symbol = Symbol.for('pie:shared-model-runtime-refresh');
 
 /**
  * One extension-loaded runtime per agent dir, shared by the routes that only
@@ -66,15 +66,15 @@ const REFRESH_QUEUE_KEY: symbol = Symbol.for('pi-web:shared-model-runtime-refres
  * it does. Only the extension registrations are reused: each call refreshes
  * the runtime offline, which reads models.json, auth.json and
  * models-store.json again, so auth status is as fresh as a new runtime's.
- * Extensions changed outside Pi Web show once the entry expires; Pi Web's own
+ * Extensions changed outside Pie show once the entry expires; Pie's own
  * plugin changes and reloads call `invalidateModelRuntimeWithExtensions()`.
  */
 export async function getModelRuntimeWithExtensions(): Promise<ModelRuntime> {
   const agentDir = getAgentDir();
-  let entry = globalThis.__piWebSharedModelRuntime;
+  let entry = globalThis.__pieSharedModelRuntime;
   if (!entry || entry.agentDir !== agentDir || entry.expiresAt <= Date.now()) {
     entry = buildSharedModelRuntime(agentDir);
-    globalThis.__piWebSharedModelRuntime = entry;
+    globalThis.__pieSharedModelRuntime = entry;
   }
   // Awaited outside the queue: a build stuck in an extension factory (the SDK
   // awaits each one with no timeout) would otherwise hold every later call,
@@ -112,8 +112,8 @@ function buildSharedModelRuntime(agentDir: string): SharedModelRuntime {
     },
     () => {
       // A failed build is not kept: the next caller tries again.
-      if (globalThis.__piWebSharedModelRuntime === entry)
-        globalThis.__piWebSharedModelRuntime = undefined;
+      if (globalThis.__pieSharedModelRuntime === entry)
+        globalThis.__pieSharedModelRuntime = undefined;
     }
   );
   return entry;
@@ -121,5 +121,5 @@ function buildSharedModelRuntime(agentDir: string): SharedModelRuntime {
 
 /** Build the shared runtime again on its next use, after the extension set may have changed. */
 export function invalidateModelRuntimeWithExtensions(): void {
-  globalThis.__piWebSharedModelRuntime = undefined;
+  globalThis.__pieSharedModelRuntime = undefined;
 }

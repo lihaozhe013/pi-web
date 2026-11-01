@@ -401,7 +401,7 @@ test('icons are decorative unless labelled, and the spinner turns through a clas
 const projectChoices = Array.from({ length: SIDEBAR_MENU_FILTER_MIN_CHOICES }, (_, index) => ({
   type: 'item',
   id: `project:${index}`,
-  label: index === 3 ? 'pi-web' : `project-${index}`,
+  label: index === 3 ? 'pie' : `project-${index}`,
   note: index === 5 ? 'Workspace' : undefined,
   title: `/home/me/${index === 6 ? 'clients/acme' : `p${index}`}`,
   checked: index === 0,
@@ -425,7 +425,7 @@ test('a filter shows once a menu has enough choices, and narrows only the choice
   assert.equal(sidebarMenuHasFilter(undefined), false);
   // By label, note or title, case-insensitive; separators and actions stay.
   const ids = (query) => filterSidebarMenuItems(projectMenu, query).map((item) => item.id);
-  assert.deepEqual(ids('PI-WEB'), ['project:3', 'separator', 'open-folder']);
+  assert.deepEqual(ids('PIE'), ['project:3', 'separator', 'open-folder']);
   assert.deepEqual(ids('workspace'), ['project:5', 'separator', 'open-folder']);
   assert.deepEqual(ids('acme'), ['project:6', 'separator', 'open-folder']);
   assert.deepEqual(
@@ -499,7 +499,7 @@ test('filter markup: a field above the list, the empty label, focus only on a de
   );
   assert.equal((html.match(/role="menu"/g) ?? []).length, 1);
   assert.equal((html.match(/role="menuitemradio"/g) ?? []).length, 8);
-  const narrowed = surface({ items: projectMenu, filter, filterQuery: 'pi-web' });
+  const narrowed = surface({ items: projectMenu, filter, filterQuery: 'pie' });
   assert.equal((narrowed.match(/role="menuitemradio"/g) ?? []).length, 1);
   assert.match(narrowed, /Open another project…/);
   assert.doesNotMatch(narrowed, /sidebar-menu-empty/);

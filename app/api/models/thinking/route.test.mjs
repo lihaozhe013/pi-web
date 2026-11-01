@@ -7,7 +7,7 @@ import test, { after } from 'node:test';
 import { ProjectTrustStore } from '@earendil-works/pi-coding-agent';
 import { createJiti } from 'jiti';
 
-const root = realpathSync(await mkdtemp(join(tmpdir(), 'pi-web-model-thinking-')));
+const root = realpathSync(await mkdtemp(join(tmpdir(), 'pie-model-thinking-')));
 const agentDir = join(root, 'agent');
 const cwd = join(root, 'project');
 const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
