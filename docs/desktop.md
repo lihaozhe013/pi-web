@@ -142,7 +142,15 @@ native compiler plus runtime) and Pi's provider SDKs, not application code.
 
 Requirements: a Rust toolchain, the Tauri prerequisites for the host platform, the latest Bun
 release, the latest Node.js LTS release, and network access. Linux also needs
-`libwebkit2gtk-4.1-dev`, `librsvg2-dev`, and `patchelf` to build.
+`libwebkit2gtk-4.1-dev`, `librsvg2-dev`, and `patchelf` to build. Windows needs the Visual Studio
+Build Tools with the "Desktop development with C++" workload, which provides the MSVC linker and the
+Windows SDK; rustup alone is not enough.
+
+Tauri shells out to `cargo` itself, so the build adds `$CARGO_HOME/bin` and `~/.cargo/bin`
+(`%USERPROFILE%\.cargo\bin`) to `PATH` for that child process only. A terminal opened before rustup
+modified the user `PATH` therefore still builds, and no other toolchain on the machine is touched.
+When neither location holds a `cargo`, the build stops before compiling and names both the rustup
+and the Windows prerequisites.
 
 ```sh
 bun install --frozen-lockfile

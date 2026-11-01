@@ -1,12 +1,15 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { delimiter, join } from 'node:path';
 import test from 'node:test';
 import {
   DESKTOP_BUILD_ENV,
   linuxDesktopName,
   parseArguments,
   payloadKey,
-  payloadManifest
+  payloadManifest,
+  rustBinDirs,
+  withRustToolchain
 } from './desktop.mjs';
 
 const sha = 'a'.repeat(64);
@@ -60,6 +63,44 @@ test('arguments reach the build orchestration', () => {
   );
   assert.throws(() => parseArguments(['--payload']), /archive path/);
   assert.throws(() => parseArguments(['--nope']), /Unknown argument/);
+});
+
+test('rust install locations cover rustup defaults', () => {
+  const home = join('home', 'me');
+  assert.deepEqual(rustBinDirs({ HOME: home }), [join(home, '.cargo', 'bin')]);
+  assert.deepEqual(rustBinDirs({ USERPROFILE: home, CARGO_HOME: join('usr', 'rust') }), [
+    join('usr', 'rust', 'bin'),
+    join(home, '.cargo', 'bin')
+  ]);
+  assert.deepEqual(rustBinDirs({}), []);
+});
+
+test('the build environment can find cargo when PATH does not', () => {
+  const cargoName = process.platform === 'win32' ? 'cargo.exe' : 'cargo';
+  const cargoBin = join('usr', 'rust', 'bin');
+  const env = {
+    PATH: [join('usr', 'bin'), join('opt', 'node', 'bin')].join(delimiter),
+    CARGO_HOME: join('usr', 'rust')
+  };
+  const patched = withRustToolchain(env, { exists: (file) => file === join(cargoBin, cargoName) });
+  assert.equal(patched.PATH, [cargoBin, env.PATH].join(delimiter));
+  // The caller's environment is not modified.
+  assert.equal(env.PATH, [join('usr', 'bin'), join('opt', 'node', 'bin')].join(delimiter));
+
+  // A cargo that is already on PATH needs no change.
+  const onPath = { PATH: [cargoBin, join('usr', 'bin')].join(delimiter) };
+  assert.equal(
+    withRustToolchain(onPath, { exists: (file) => file === join(cargoBin, cargoName) }),
+    onPath
+  );
+});
+
+test('a missing rust toolchain fails with the install instructions', () => {
+  assert.throws(() => withRustToolchain({ PATH: '' }, { exists: () => false }), /rustup\.rs/);
+  assert.throws(
+    () => withRustToolchain({ Path: '' }, { platform: 'win32', exists: () => false }),
+    /Visual Studio Build Tools/
+  );
 });
 
 test('the shell stays out of the npm package and ships no updater', async () => {

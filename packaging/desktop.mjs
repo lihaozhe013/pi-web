@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { cp, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
-import { dirname, join, resolve } from 'node:path';
+import { delimiter, dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { buildPortableArchive } from './portable.mjs';
 
@@ -75,6 +75,54 @@ function run(command, args, { cwd = root, env = process.env } = {}) {
   if (result.status !== 0)
     throw new Error(`${command} ${args.join(' ')} failed (${result.status})`);
   return result;
+}
+
+/**
+ * Directories a Rust installation puts `cargo` in. rustup does not always add the
+ * directory to PATH (common on Windows), and Tauri shells out to `cargo` itself,
+ * so the build passes an environment that can find it.
+ */
+export function rustBinDirs(env = process.env) {
+  const home = env.USERPROFILE || env.HOME;
+  const dirs = [];
+  if (env.CARGO_HOME) dirs.push(join(env.CARGO_HOME, 'bin'));
+  if (home) dirs.push(join(home, '.cargo', 'bin'));
+  return [...new Set(dirs)];
+}
+
+/** The environment variable that holds PATH; Windows sets it as `Path`. */
+function pathKey(env) {
+  return Object.keys(env).find((key) => key.toUpperCase() === 'PATH') ?? 'PATH';
+}
+
+/**
+ * Return `env` with a usable `cargo` on PATH. Child processes only: the caller's
+ * PATH and any other toolchain on the machine stay untouched.
+ */
+export function withRustToolchain(
+  env = process.env,
+  { platform = process.platform, exists = existsSync } = {}
+) {
+  const key = pathKey(env);
+  const separator = platform === 'win32' ? ';' : delimiter;
+  const executable = platform === 'win32' ? 'cargo.exe' : 'cargo';
+  const entries = (env[key] ?? '').split(separator).filter(Boolean);
+  if (entries.some((dir) => exists(join(dir, executable)))) return env;
+
+  const found = rustBinDirs(env).find((dir) => exists(join(dir, executable)));
+  if (!found) {
+    const where = platform === 'win32' ? '%USERPROFILE%\\.cargo\\bin' : '~/.cargo/bin';
+    const tools =
+      platform === 'win32'
+        ? ' Windows builds also need the Visual Studio Build Tools with the "Desktop development ' +
+          'with C++" workload.'
+        : '';
+    throw new Error(
+      `Rust toolchain not found: install it from https://rustup.rs and reopen the terminal, ` +
+        `or add ${where} to PATH.${tools}`
+    );
+  }
+  return { ...env, [key]: [found, ...entries].join(separator) };
 }
 
 function resolveTauriCli() {
@@ -200,7 +248,7 @@ export async function buildDesktop({ payload, skipPayload = false } = {}) {
   // Linux ships a hand-made archive: no deb, rpm, or AppImage can declare the
   // webview dependency the shell needs.
   if (process.platform === 'linux') args.push('--no-bundle');
-  run(process.execPath, [cli, ...args]);
+  run(process.execPath, [cli, ...args], { env: withRustToolchain() });
 
   const archive = process.platform === 'linux' ? await packageLinux(manifest) : null;
   return { manifest, archive };
@@ -211,7 +259,7 @@ export function devDesktop({ env = process.env } = {}) {
   if (!cli) throw new Error('Missing @tauri-apps/cli. Run: bun install --frozen-lockfile');
   run(process.execPath, [cli, 'dev'], {
     env: {
-      ...env,
+      ...withRustToolchain(env),
       PIE_DESKTOP_SERVER_URL: env.PIE_DESKTOP_SERVER_URL ?? 'http://127.0.0.1:30141'
     }
   });
