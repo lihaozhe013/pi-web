@@ -44,10 +44,12 @@ test('About shows the logo, the build version with its commit, and the Pi releas
   assert.ok(html.includes(`width="${ABOUT_LOGO_SIZE}"`));
   assert.match(html, /<h3 class="about-name">Pie<\/h3>/);
   assert.match(html, /A minimal web GUI for the Pi coding agent\./);
-  // The version, with the short commit as build metadata in the accent.
-  assert.match(html, /0\.1\.0<span class="about-version-commit">\+1c02256<\/span>/);
-  assert.match(html, /<dt>Pi agent<\/dt><dd>v1\.4\.0<\/dd>/);
+  // The version, with the short commit as build metadata in parentheses.
+  assert.match(html, /0\.1\.0<\/span> \(<span class="about-version-commit">1c02256<\/span>\)/);
+  assert.match(html, /<dt>Pi agent<\/dt><dd>1\.4\.0<\/dd>/);
   assert.match(html, new RegExp(`<dt>License</dt><dd>${APP_LICENSE}</dd>`));
+  // One centered column of text: no cards or frames of its own.
+  assert.doesNotMatch(html, /about-hero/);
   // The dialog's own look is app/about.css's (the shared modal shell sizes itself).
   assert.doesNotMatch(html.slice(html.indexOf('<div class="about-dialog"')), /style=/);
 
@@ -70,12 +72,16 @@ test('About links to the project and to Pi, opening in a new tab', () => {
 test('About is styled from the shared theme and stays usable on narrow screens', () => {
   // The dialog's own sheet is part of the app's global styles.
   assert.match(layout, /import '\.\/about\.css';/);
-  // Semantic theme variables only, and the commit in the accent.
+  // Semantic theme variables only, and the per-build commit dimmed.
   assert.doesNotMatch(css, /#[0-9a-f]{3,8}\b/i);
-  assert.match(css, /\.about-version-commit \{\s*color: var\(--accent\);\s*\}/);
+  assert.match(css, /\.about-version-commit \{\s*color: var\(--text-dim\);\s*\}/);
   assert.match(css, /\.about-logo \{[\s\S]*?width: 64px;/);
+  // A traditional about panel: no gradients, frames or shadows of its own.
+  const declarations = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.doesNotMatch(declarations, /gradient|box-shadow/);
+  assert.doesNotMatch(declarations, /\.about-(hero|versions?|facts)[^{]*\{[^}]*border:/);
   // Keyboard focus stays visible, motion is optional, and phones get one column.
   assert.match(css, /\.about-link:focus-visible \{\s*outline: 2px solid var\(--accent\);/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{[\s\S]*?transition: none;/);
-  assert.match(css, /@media \(max-width: 420px\) \{[\s\S]*?\.about-facts \{/);
+  assert.match(css, /@media \(max-width: 420px\) \{[\s\S]*?\.about-links \{/);
 });

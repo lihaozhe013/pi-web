@@ -23,9 +23,11 @@ conversation rather than sharing the sidebar. Active goals and compaction state 
 Runs panel rather than below the chat input, keeping the main composer clean. The composer options
 button (`...`) sits in the right toolbar between the tools preset selector and the sound toggle.
 
-The sidebar's mark opens About in a modal over the conversation: the logo, the build's version and
-commit, the Pi release in use, the license, and links to the source and to Pi. The mark is not a
-text label; its hover, focus ring, and accessible name say it opens About.
+The sidebar's wordmark opens About in a modal over the conversation: the logo, the build's version
+and commit, the Pi release in use, the license, and links to the source and to Pi. The wordmark is
+plain text; its hover and focus ring show it is a control, and its accessible name says it opens
+About. About is a traditional panel: one centered column of logo, name, tagline, version, facts and
+links, without cards, frames or gradients.
 
 ## Quiet, clear, polished
 
