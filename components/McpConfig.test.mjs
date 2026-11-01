@@ -314,14 +314,52 @@ test("a stdio server's detail shows its masked command line, folder, env names a
   assert.doesNotMatch(plain, /Working directory|Environment|None/);
 });
 
+test('a server that reads the host PATH says what PATH is for, without a warning tone', () => {
+  const pathServer = server({
+    name: 'browser',
+    transport: 'stdio',
+    command: 'npx',
+    args: ['-y', '@acme/browser-mcp'],
+    envNames: ['PATH'],
+    variableReferences: [{ kind: 'env', name: 'PATH', variables: ['PATH'] }]
+  });
+  const html = view({
+    selected: 'global\0browser',
+    load: { state: 'loaded', data: overview({ servers: [pathServer] }) }
+  });
+  const shown = text(html);
+  const markup = decode(html);
+  assert.match(
+    shown,
+    /Host variables Passes these environment variables from the computer running Pie to the command it starts: PATH in env PATH PATH is how the command finds node, npx, and other tools\./
+  );
+  assert.match(
+    markup,
+    /<span class="mcp-config-line is-dim">Passes these environment variables from the computer running Pie to the command it starts:<\/span>/
+  );
+  assert.match(
+    markup,
+    /<span class="mcp-config-line is-dim">PATH is how the command finds node, npx, and other tools\.<\/span>/
+  );
+});
+
 test("an HTTP server's detail shows its URL, header names, the variables it sends and how it signs in", () => {
   const shown = text(view({ selected: 'global\0github' }));
   assert.match(shown, /URL https:\/\/api\.example\.com\/mcp/);
   assert.match(shown, /Headers Authorization Host variables/);
   assert.match(
     shown,
-    /Host variables Sends environment variables of the computer running Pie to this server on every connection: GITHUB_TOKEN in header Authorization/
+    /Host variables Sends these environment variables from the computer running Pie to this server on every connection: GITHUB_TOKEN in header Authorization/
   );
+  // A disclosure of what the entry reads, not a fault: the row is secondary text.
+  const markup = decode(view({ selected: 'global\0github' }));
+  assert.match(
+    markup,
+    /<span class="mcp-config-line is-dim">Sends these environment variables from the computer running Pie to this server on every connection:<\/span>/
+  );
+  assert.doesNotMatch(markup, /class="mcp-config-line is-warning">Sends/);
+  // PATH is what every command needs to find its own tools, so it is spelled out.
+  assert.doesNotMatch(shown, /PATH is how the command finds/);
   // Its Authorization header is how it signs in, which the Headers row already says; the URL label says HTTP.
   assert.doesNotMatch(shown, /Sign-in|Transport/);
   assert.match(

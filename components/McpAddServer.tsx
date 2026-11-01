@@ -7,7 +7,12 @@ import { useI18n } from '@/hooks/useI18n';
 import { shortenPath } from '@/lib/display-path';
 import type { McpImportField, McpImportNote } from '@/lib/mcp-import';
 import { isReferenceOnly } from '@/lib/mcp-secrets';
-import { mcpFieldLabel, mcpVariableChips, revealHiddenCharacters } from '@/lib/mcp-server-display';
+import {
+  mcpFieldLabel,
+  mcpReferencesPath,
+  mcpVariableChips,
+  revealHiddenCharacters
+} from '@/lib/mcp-server-display';
 import {
   ConfigAddSourcePanel,
   ConfigButton,
@@ -436,7 +441,7 @@ export function McpAddServer({
             {preview.variableReferences.length > 0 && (
               <ConfigDetailGridRow label={t('mcp.detail.variables')} tone="plain">
                 <span className="mcp-config-lines">
-                  <span className="mcp-config-line is-warning">
+                  <span className="mcp-config-line is-dim">
                     {t(
                       preview.transport === 'http'
                         ? 'mcp.server.sendsVariables'
@@ -459,6 +464,9 @@ export function McpAddServer({
                       );
                     })}
                   </span>
+                  {mcpReferencesPath(preview) && (
+                    <span className="mcp-config-line is-dim">{t('mcp.server.pathNote')}</span>
+                  )}
                 </span>
               </ConfigDetailGridRow>
             )}

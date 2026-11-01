@@ -7,6 +7,7 @@
 
 use crate::config;
 use crate::Reporter;
+use std::ffi::OsString;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -218,6 +219,118 @@ fn version_dirs(root: &Path, suffix: &[String], executable: &str) -> Vec<PathBuf
     versions.into_iter().map(|(_, path)| path).collect()
 }
 
+/// Whether two `PATH` entries name the same directory. Windows compares
+/// environment values case-insensitively, so `C:\Tools` and `c:\tools` are one
+/// entry there and two files apart elsewhere.
+fn same_dir(left: &Path, right: &Path) -> bool {
+    if cfg!(windows) {
+        left.to_string_lossy()
+            .eq_ignore_ascii_case(&right.to_string_lossy())
+    } else {
+        left == right
+    }
+}
+
+/// Where version managers and package managers install commands outside the
+/// fixed prefixes: `~/.bun/bin`, `~/.cargo/bin`, `%APPDATA%\npm`, and the like.
+/// Missing directories are dropped by the caller.
+fn tool_dirs() -> Vec<PathBuf> {
+    let platform = Platform::current();
+    let mut dirs: Vec<PathBuf> = Vec::new();
+    let home = std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(PathBuf::from);
+    if let Some(home) = home {
+        let relative: &[&[&str]] = if platform == Platform::Windows {
+            &[
+                &[".bun", "bin"],
+                &[".cargo", "bin"],
+                &[".volta", "bin"],
+                &[".local", "bin"],
+            ]
+        } else {
+            &[
+                &[".bun", "bin"],
+                &[".cargo", "bin"],
+                &[".volta", "bin"],
+                &[".asdf", "shims"],
+                &[".local", "bin"],
+                &["Library", "pnpm"],
+            ]
+        };
+        for parts in relative {
+            let mut dir = home.clone();
+            for part in *parts {
+                dir = dir.join(part);
+            }
+            dirs.push(dir);
+        }
+    }
+    for variable in ["APPDATA", "LOCALAPPDATA"] {
+        if let Some(root) = std::env::var_os(variable).map(PathBuf::from) {
+            dirs.push(root.join("npm"));
+            dirs.push(root.join("pnpm"));
+        }
+    }
+    for dir in [
+        "/opt/homebrew/bin",
+        "/usr/local/bin",
+        "/opt/local/bin",
+        "/snap/bin",
+    ] {
+        dirs.push(PathBuf::from(dir));
+    }
+    dirs
+}
+
+/// The `PATH` the Pie server, its MCP servers, and its bash tool should see.
+///
+/// A window started from Finder or the Start menu inherits the desktop's
+/// environment, not the shell's: on macOS that is `/usr/bin:/bin:/usr/sbin:/sbin`,
+/// with no nvm, Homebrew, or `~/.bun/bin`. The server would then start no
+/// `npx`, `bunx`, or `#!/usr/bin/env node` MCP server, and the model's commands
+/// would lose the same tools, although both work when Pie is started from a
+/// terminal. The Node.js binary the shell resolved leads the list, so the
+/// interpreter that runs Pie and the one its MCP servers reach are the same,
+/// then Pi's managed bin directory (its node shim, rg, fd) and the places
+/// package managers install into. Entries the desktop already had follow
+/// unchanged, each once.
+///
+/// `is_dir` decides which additions exist; tests pass their own probe.
+pub fn child_path(
+    node: &Path,
+    agent_bin: &Path,
+    current: Option<OsString>,
+    is_dir: impl Fn(&Path) -> bool,
+) -> OsString {
+    let mut dirs: Vec<PathBuf> = Vec::new();
+    let mut push = |dir: PathBuf| {
+        if !dirs.iter().any(|seen| same_dir(seen, &dir)) {
+            dirs.push(dir);
+        }
+    };
+    // Not probed: the shell resolved this binary, so its directory exists.
+    // A relative path would add an entry that resolves against the payload's
+    // working directory, so only an absolute binary contributes one.
+    if let Some(parent) = node.parent().filter(|parent| parent.is_absolute()) {
+        push(parent.to_path_buf());
+    }
+    for dir in std::iter::once(agent_bin.to_path_buf()).chain(tool_dirs()) {
+        if is_dir(&dir) {
+            push(dir);
+        }
+    }
+    if let Some(current) = current.as_deref() {
+        for dir in std::env::split_paths(current).filter(|dir| !dir.as_os_str().is_empty()) {
+            push(dir);
+        }
+    }
+    std::env::join_paths(&dirs).unwrap_or_else(|_| {
+        // An entry holding the separator cannot be joined; keep the desktop's PATH.
+        current.unwrap_or_default()
+    })
+}
+
 pub fn resolve(app: &AppHandle, report: Reporter<'_>) -> Result<Located, String> {
     let settings = config::read(app);
     let configured = std::env::var("PIE_DESKTOP_NODE")
@@ -419,6 +532,62 @@ mod tests {
     fn uses_the_platform_executable_name() {
         let found = candidates(&search(Platform::Windows, None, &[r"C:\nodejs"]));
         assert_eq!(found[0], PathBuf::from(r"C:\nodejs").join("node.exe"));
+    }
+
+    #[test]
+    fn child_path_leads_with_the_node_directory_and_keeps_every_entry_once() {
+        let node = PathBuf::from("/versions/v24/bin/node");
+        let path = child_path(
+            &node,
+            Path::new("/agent/bin"),
+            Some(OsString::from("/usr/bin::/versions/v24/bin:/opt/custom")),
+            |dir| dir == Path::new("/agent/bin"),
+        );
+        let entries: Vec<PathBuf> = std::env::split_paths(&path).collect();
+        assert_eq!(entries[0], PathBuf::from("/versions/v24/bin"));
+        assert_eq!(entries[1], PathBuf::from("/agent/bin"));
+        // An empty entry would add the working directory to every lookup.
+        assert!(!entries.iter().any(|dir| dir.as_os_str().is_empty()));
+        for expected in ["/usr/bin", "/versions/v24/bin", "/opt/custom"] {
+            let wanted = PathBuf::from(expected);
+            assert_eq!(entries.iter().filter(|dir| **dir == wanted).count(), 1);
+        }
+        // The desktop's entries keep their order.
+        let inherited: Vec<&PathBuf> = entries
+            .iter()
+            .filter(|dir| dir.ends_with("/usr/bin") || dir.ends_with("/opt/custom"))
+            .collect();
+        assert_eq!(
+            inherited,
+            vec![&PathBuf::from("/usr/bin"), &PathBuf::from("/opt/custom")]
+        );
+    }
+
+    #[test]
+    fn child_path_skips_tool_directories_that_do_not_exist() {
+        let path = child_path(
+            Path::new("/versions/v24/bin/node"),
+            Path::new("/agent/bin"),
+            None,
+            |_| false,
+        );
+        assert_eq!(
+            std::env::split_paths(&path).collect::<Vec<PathBuf>>(),
+            vec![PathBuf::from("/versions/v24/bin")]
+        );
+    }
+
+    #[test]
+    fn tool_directories_cover_the_common_package_managers() {
+        let dirs = tool_dirs();
+        let home = std::env::var_os("HOME")
+            .or_else(|| std::env::var_os("USERPROFILE"))
+            .map(PathBuf::from);
+        if let Some(home) = home {
+            assert!(dirs.contains(&home.join(".bun").join("bin")));
+            assert!(dirs.contains(&home.join(".local").join("bin")));
+        }
+        assert!(dirs.contains(&PathBuf::from("/opt/homebrew/bin")));
     }
 
     #[test]

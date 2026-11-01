@@ -79,6 +79,33 @@ satisfies the Next.js floor (`>= 20.9.0`). Resolution order:
 The first candidate whose reported version is supported wins; a binary that exists but is too old is
 reported with its version instead of being ignored.
 
+## Environment
+
+A window opened from Finder or the Start menu inherits the desktop session's environment, not a
+shell's. On macOS that `PATH` is `/usr/bin:/bin:/usr/sbin:/sbin`, with no nvm, Homebrew, or
+`~/.bun/bin`. Started from a terminal, Pie would find those; started from the desktop, it would
+spawn no `npx`, `bunx`, or `#!/usr/bin/env node` MCP server, and the commands the model runs through
+the bash tool would lose the same tools.
+
+The shell therefore hands the server a `PATH` of its own, in this order:
+
+1. the directory of the Node.js binary it resolved, so `node`, `npm`, and `npx` are the installation
+   that runs Pie;
+2. Pi's managed bin directory (`<agent dir>/bin`, which holds its `node` shim, `rg`, and `fd`);
+3. `~/.bun/bin`, `~/.cargo/bin`, `~/.volta/bin`, `~/.asdf/shims`, `~/.local/bin`, `~/Library/pnpm`,
+   `%APPDATA%\npm`, `%LOCALAPPDATA%\pnpm`, and the fixed Homebrew, MacPorts, and snap prefixes,
+   skipping the ones that do not exist;
+4. every entry the desktop session already had, unchanged and in order, each appearing once.
+
+Only `PATH` is rewritten. The rest of the environment (credentials included) reaches the server as
+the desktop had it, and `HOME` is what the shell itself uses. `${PATH}` in an MCP entry therefore
+resolves to this widened value, not to the shell's. MCP entries still run from a project folder with
+only this environment plus their own `env`, as before.
+
+Programs a shell profile adds (a `PATH` line in `~/.zshrc` that no installer wrote, say) stay
+invisible to the desktop app. Install through a package manager the list above covers, or point the
+shell at a Node.js binary with `nodePath` and let that install's directory lead the `PATH`.
+
 ## Ports and origin
 
 The shell prefers port `30141` and then walks upward, ending with an OS-assigned port. A stable port
@@ -193,7 +220,9 @@ programs invoked by the agent remain the user's responsibility.
 ## Verification
 
 - `cargo test` in `src-tauri`: version parsing, HTTP status parsing, path safety, navigation
-  classification, port candidates.
+  classification, port candidates, and the `PATH` the shell gives the server.
+- From Finder or the Start menu (not a terminal), `ps eww -p <server pid>` shows the widened `PATH`,
+  and both an `npx`-based MCP entry's Test button and `bun --version` in the bash tool work.
 - `node --test packaging/desktop.test.mjs`: payload manifest and archive layout.
 - The portable smoke test runs inside `desktop:build`, so the payload is verified before packaging.
 - Manual, on each platform: start, send a message, drag an attachment, sign in to a provider (system

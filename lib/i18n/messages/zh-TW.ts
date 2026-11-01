@@ -867,8 +867,9 @@ export const zhTWLocale: LocalePlugin = {
       '指向你的同名全域伺服器，但沒有變更 enabled、exposure 或 toolExposure。',
     'mcp.server.masked': '疑似機密的部分已隱藏。',
     'mcp.server.hiddenCharacters': '包含不可見字元或控制字元，這裡以 \\u{…} 代碼顯示。',
-    'mcp.server.sendsVariables': '每次連線都會把執行 Pie 的電腦上的環境變數傳送給此伺服器：',
-    'mcp.server.passesVariables': '會把執行 Pie 的電腦上的環境變數傳給它啟動的命令：',
+    'mcp.server.sendsVariables': '每次連線都會把執行 Pie 的電腦上的這些環境變數傳送給此伺服器：',
+    'mcp.server.passesVariables': '會把執行 Pie 的電腦上的這些環境變數傳給它啟動的命令：',
+    'mcp.server.pathNote': '命令靠 PATH 找到 node、npx 等工具。',
     'mcp.server.variableIn': '{field} 中的 {variable}',
     'mcp.fileProblem.unparsable': '此檔案不是有效的 JSON，其中的伺服器都不會載入。',
     'mcp.fileProblem.invalid-shape':

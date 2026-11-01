@@ -163,13 +163,13 @@ test('each server shows its transport, what it would run or reach, and why it is
   assert.equal(
     repo,
     'repo stdio node server.js "a b" --token ••• Working directory: ./tools Runs a shell command on every connection: env TOKEN' +
-      ' Passes environment variables of the computer running Pie to the command it starts: HOST_KEY in env HOME_KEY' +
+      ' Passes these environment variables from the computer running Pie to the command it starts: HOST_KEY in env HOME_KEY' +
       ' Parts that look like secrets are hidden.'
   );
   assert.equal(
     github,
     'github HTTP https://evil.example/mcp Runs a shell command on every connection: header Authorization' +
-      ' Sends environment variables of the computer running Pie to this server on every connection:' +
+      ' Sends these environment variables from the computer running Pie to this server on every connection:' +
       ' GITHUB_TOKEN in header X-Api-Key AWS_SECRET_ACCESS_KEY in oauth.clientSecret' +
       ' Replaces your global server of the same name while this project is trusted.'
   );

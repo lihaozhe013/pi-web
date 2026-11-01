@@ -8,6 +8,7 @@ use crate::payload;
 use crate::{Reporter, Shared};
 use serde::Deserialize;
 use std::collections::VecDeque;
+use std::ffi::OsString;
 use std::fs::{self, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
@@ -208,7 +209,19 @@ fn spawn(node: &Path, dir: &Path, port: u16) -> Result<Child, String> {
         .arg(port.to_string())
         .current_dir(dir)
         .env("PIE_HOSTNAME", "127.0.0.1")
-        .env("PIE_NO_OPEN", "1")
+        .env("PIE_NO_OPEN", "1");
+    // The window was started from Finder or the Start menu, so it has the
+    // desktop's `PATH`, not the shell's. Widen it for the server and everything
+    // it starts: the MCP servers it spawns and the commands the model runs.
+    let key = path_key();
+    let path = node_locator::child_path(
+        node,
+        &agent_dir().join("bin"),
+        std::env::var_os(&key),
+        |candidate| candidate.is_dir(),
+    );
+    command
+        .env(key, path)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
@@ -370,6 +383,16 @@ fn find_recorded_server(agent_dir: PathBuf, version: &str) -> Option<String> {
         }
     }
     None
+}
+
+/// The environment variable that holds `PATH`; Windows sets it as `Path`.
+fn path_key() -> OsString {
+    for name in ["PATH", "Path"] {
+        if std::env::var_os(name).is_some() {
+            return OsString::from(name);
+        }
+    }
+    OsString::from("PATH")
 }
 
 /// Mirror `getAgentDir()` in `bin/run-records.js`.

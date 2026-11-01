@@ -23,6 +23,7 @@ import {
   mcpFieldLabel,
   mcpFileProblemDetail,
   mcpOverrideNotice,
+  mcpReferencesPath,
   mcpServerHasHiddenCharacters,
   mcpServerTarget,
   mcpVariableChips,
@@ -1852,9 +1853,7 @@ function McpServerDetail({
         {connects && server.variableReferences.length > 0 && (
           <ConfigDetailGridRow label={t('mcp.detail.variables')} tone="plain">
             <span className="mcp-config-lines">
-              <span className="mcp-config-line is-warning">
-                {t(mcpVariableReferencesKey(server))}
-              </span>
+              <span className="mcp-config-line is-dim">{t(mcpVariableReferencesKey(server))}</span>
               <span className="mcp-config-chips">
                 {mcpVariableChips(server.variableReferences).map(({ variable, field }) => {
                   const label = mcpFieldLabel(field);
@@ -1868,6 +1867,9 @@ function McpServerDetail({
                   );
                 })}
               </span>
+              {mcpReferencesPath(server) && (
+                <span className="mcp-config-line is-dim">{t('mcp.server.pathNote')}</span>
+              )}
             </span>
           </ConfigDetailGridRow>
         )}

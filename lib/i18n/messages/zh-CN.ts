@@ -866,8 +866,9 @@ export const zhCNLocale: LocalePlugin = {
       '指向你的同名全局服务器，但没有更改 enabled、exposure 或 toolExposure。',
     'mcp.server.masked': '疑似密钥的部分已隐藏。',
     'mcp.server.hiddenCharacters': '包含不可见字符或控制字符，这里以 \\u{…} 代码显示。',
-    'mcp.server.sendsVariables': '每次连接都会把运行 Pie 的计算机上的环境变量发送给此服务器：',
-    'mcp.server.passesVariables': '会把运行 Pie 的计算机上的环境变量传给它启动的命令：',
+    'mcp.server.sendsVariables': '每次连接都会把运行 Pie 的计算机上的这些环境变量发送给此服务器：',
+    'mcp.server.passesVariables': '会把运行 Pie 的计算机上的这些环境变量传给它启动的命令：',
+    'mcp.server.pathNote': '命令靠 PATH 找到 node、npx 等工具。',
     'mcp.server.variableIn': '{field} 中的 {variable}',
     'mcp.fileProblem.unparsable': '该文件不是有效的 JSON，其中的服务器都不会加载。',
     'mcp.fileProblem.invalid-shape':

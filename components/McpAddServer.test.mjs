@@ -375,7 +375,7 @@ test('a password field takes a host variable instead, and the name field says wh
   // The preview then says the header sends that variable.
   assert.match(
     text(html),
-    /Host variables Sends environment variables of the computer running Pie to this server on every connection: GH_TOKEN in header Authorization/
+    /Host variables Sends these environment variables from the computer running Pie to this server on every connection: GH_TOKEN in header Authorization/
   );
   assert.doesNotMatch(addButton(html).tag, /disabled/);
 

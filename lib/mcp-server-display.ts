@@ -124,6 +124,17 @@ export function mcpVariableReferencesKey(server: Pick<McpServerInfo, 'transport'
   return server.transport === 'http' ? 'mcp.server.sendsVariables' : 'mcp.server.passesVariables';
 }
 
+/**
+ * Whether the entry reads the host's `PATH`. Every command uses it to find its
+ * own tools, and most entries set it so `npx` and `node` resolve at all, so the
+ * interface explains it instead of leaving it to look like a leak.
+ */
+export function mcpReferencesPath(server: Pick<McpServerInfo, 'variableReferences'>): boolean {
+  return server.variableReferences.some((reference) =>
+    reference.variables.some((name) => name.toUpperCase() === 'PATH')
+  );
+}
+
 /** What a project override changes of the global server of its name (`McpServerInfo.override`), as a message key. */
 export function mcpOverrideNotice(keys: readonly McpOverrideKey[]): {
   key: string;

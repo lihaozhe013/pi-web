@@ -894,9 +894,10 @@ export const enLocale: LocalePlugin = {
     'mcp.server.hiddenCharacters':
       'Holds invisible or control characters, shown here as \\u{…} codes.',
     'mcp.server.sendsVariables':
-      'Sends environment variables of the computer running Pie to this server on every connection:',
+      'Sends these environment variables from the computer running Pie to this server on every connection:',
     'mcp.server.passesVariables':
-      'Passes environment variables of the computer running Pie to the command it starts:',
+      'Passes these environment variables from the computer running Pie to the command it starts:',
+    'mcp.server.pathNote': 'PATH is how the command finds node, npx, and other tools.',
     'mcp.server.variableIn': '{variable} in {field}',
     'mcp.fileProblem.unparsable': 'The file is not valid JSON, so none of its servers load.',
     'mcp.fileProblem.invalid-shape':
