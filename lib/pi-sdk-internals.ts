@@ -330,6 +330,24 @@ function resolvedSdkPackageDir(cwd: string): string {
   return realpathSync(join(manifestPath, '..'));
 }
 
+/**
+ * `name@version` of a package directory, or undefined when it has no readable
+ * manifest. A production build keeps the SDK in `.next/node_modules` as a real
+ * copy when Next.js cannot create a symlink (Windows without Developer Mode),
+ * so the copy that the server bundle loads can live at a path of its own.
+ */
+function packageRelease(dir: string): string | undefined {
+  try {
+    const manifest: unknown = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
+    if (!isRecord(manifest)) return undefined;
+    const { name, version } = manifest;
+    if (typeof name !== 'string' || typeof version !== 'string') return undefined;
+    return `${name}@${version}`;
+  } catch {
+    return undefined;
+  }
+}
+
 async function importSdkModules(packageDir: string): Promise<LoadedModules | string> {
   const paths = Object.fromEntries(
     Object.entries(SDK_MODULES).map(([name, path]) => [name, join(packageDir, path)])
@@ -402,10 +420,15 @@ export async function importPiSdkInternals(
     packageDir = realpathSync(getPackageDir());
     const resolvedDir = resolvedSdkPackageDir(cwd);
     if (!sameRealPath(packageDir, resolvedDir)) {
-      return {
-        ok: false,
-        reason: `${SDK_PACKAGE} at ${packageDir} is not the package Pie resolves (${resolvedDir})`
-      };
+      // A build copy of the same release is still the SDK pie runs; the module
+      // identity check below is what rules out a second copy.
+      const release = packageRelease(packageDir);
+      if (release === undefined || release !== packageRelease(resolvedDir)) {
+        return {
+          ok: false,
+          reason: `${SDK_PACKAGE} at ${packageDir} is not the package Pie resolves (${resolvedDir})`
+        };
+      }
     }
   } catch (error) {
     return { ok: false, reason: `cannot locate ${SDK_PACKAGE}: ${errorMessage(error)}` };

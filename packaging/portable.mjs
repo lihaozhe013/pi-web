@@ -174,9 +174,13 @@ export async function buildPortableArchive({
     const app = join(staging, 'pie');
     await rename(join(staging, 'package'), app);
     // `bun pm pack` never includes nested node_modules directories, but Next 16
-    // keeps external-package shims in `.next/node_modules` as symlinks into the
-    // package's own node_modules, which the production install below recreates.
-    // Without them `next start` fails to load the instrumentation hook.
+    // keeps external-package shims in `.next/node_modules`
+    // (`@earendil-works/pi-coding-agent-<hash>`), and the server bundle loads
+    // them from there. Next.js links the package on systems that allow it and
+    // copies it where it cannot create a link (Windows without Developer Mode),
+    // so `cp` may materialise a directory here; the packaged server then runs
+    // the SDK from this copy, not from `node_modules`. Without the entries
+    // `next start` fails to load the instrumentation hook.
     const shims = join(source, '.next', 'node_modules');
     if (await exists(shims)) {
       await cp(shims, join(app, '.next', 'node_modules'), {
