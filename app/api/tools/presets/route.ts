@@ -28,10 +28,7 @@ export async function PUT(req: Request) {
     return NextResponse.json({ error: 'Untrusted API request' }, { status: 403 });
   }
   if (!hasJsonContentType(req)) {
-    return NextResponse.json(
-      { error: 'Content-Type must be application/json' },
-      { status: 415 }
-    );
+    return NextResponse.json({ error: 'Content-Type must be application/json' }, { status: 415 });
   }
 
   let body: unknown;

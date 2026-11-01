@@ -346,9 +346,7 @@ export function EnabledModelsProviderSwitchNote({
         </div>
       )}
       {kept && (
-        <div className="config-detail-heading-note">
-          {t('models.enabledKept', { model: kept })}
-        </div>
+        <div className="config-detail-heading-note">{t('models.enabledKept', { model: kept })}</div>
       )}
     </>
   );
@@ -477,9 +475,7 @@ export function EnabledModelsSection({
         <ConfigButton
           size="small"
           disabled={busy || !bulk.canDisable}
-          aria-describedby={
-            !editable ? scopeNoteId : bulk.keepsOne ? lastModelNoteId : undefined
-          }
+          aria-describedby={!editable ? scopeNoteId : bulk.keepsOne ? lastModelNoteId : undefined}
           onClick={() => runBulk(false, bulk.disableRefs)}
         >
           {filtered ? t('models.disableShown') : t('models.disableAll')}

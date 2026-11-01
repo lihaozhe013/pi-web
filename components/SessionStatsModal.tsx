@@ -2,10 +2,7 @@
 
 import type { SessionInfo } from '@/lib/types';
 import type { SessionStatsInfo } from '@/lib/pi-types';
-import {
-  formatActiveDuration,
-  formatCompactCount
-} from '@/lib/session-stats-format';
+import { formatActiveDuration, formatCompactCount } from '@/lib/session-stats-format';
 import { SessionModal } from './SessionModal';
 
 export type SessionCopyField = 'file' | 'id' | 'projectDir';
@@ -102,12 +99,7 @@ export function SessionStatsModal({
         [translate('session.input'), sessionStats.tokens.input.toLocaleString(locale)],
         [translate('session.output'), sessionStats.tokens.output.toLocaleString(locale)],
         ...(sessionStats.tokens.cacheRead > 0
-          ? [
-              [
-                translate('session.cacheRead'),
-                sessionStats.tokens.cacheRead.toLocaleString(locale)
-              ]
-            ]
+          ? [[translate('session.cacheRead'), sessionStats.tokens.cacheRead.toLocaleString(locale)]]
           : []),
         ...(sessionStats.tokens.cacheWrite > 0
           ? [
@@ -138,9 +130,7 @@ export function SessionStatsModal({
             ]
           : []),
         ...(sessionStats.tokens.cacheRead + sessionStats.tokens.cacheWrite > 0 &&
-        sessionStats.tokens.cacheRead +
-          sessionStats.tokens.cacheWrite +
-          sessionStats.tokens.input >
+        sessionStats.tokens.cacheRead + sessionStats.tokens.cacheWrite + sessionStats.tokens.input >
           0
           ? [
               [

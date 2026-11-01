@@ -41,10 +41,7 @@ import {
 } from '@/lib/panel-layout';
 import type { SessionStatsInfo } from '@/lib/pi-types';
 import { setupPushSubscription } from '@/lib/push-client';
-import {
-  formatCompactCount,
-  formatCostShort
-} from '@/lib/session-stats-format';
+import { formatCompactCount, formatCostShort } from '@/lib/session-stats-format';
 import {
   getLastSettingsSection,
   settingsSectionRequiresProject,
@@ -2457,7 +2454,10 @@ export function AppShell() {
                   strokeLinejoin="round"
                   aria-hidden="true"
                   style={{
-                    color: runInProgress || sessionCompaction.isCompacting ? 'var(--accent)' : 'currentColor',
+                    color:
+                      runInProgress || sessionCompaction.isCompacting
+                        ? 'var(--accent)'
+                        : 'currentColor',
                     flexShrink: 0
                   }}
                 >
@@ -2466,10 +2466,7 @@ export function AppShell() {
                 </svg>
                 <span className="runs-toggle-label">{translate('runs.label')}</span>
                 {(runInProgress || sessionCompaction.isCompacting) && (
-                  <span
-                    className="runs-toggle-dot"
-                    aria-label="Running"
-                  />
+                  <span className="runs-toggle-dot" aria-label="Running" />
                 )}
               </button>
             )}

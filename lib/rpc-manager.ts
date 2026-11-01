@@ -208,9 +208,7 @@ export function resolveSessionIdleTimeoutMs(
   if (rawValue !== undefined && rawValue.trim() !== '') {
     const parsed = Number(rawValue);
     if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 2_147_483_647) return parsed;
-    console.warn(
-      `[pie] invalid PIE_IDLE_TIMEOUT_MS "${rawValue}", falling back to 10 minutes`
-    );
+    console.warn(`[pie] invalid PIE_IDLE_TIMEOUT_MS "${rawValue}", falling back to 10 minutes`);
   }
   return DEFAULT_SESSION_IDLE_TIMEOUT_MS;
 }
@@ -234,9 +232,7 @@ export function resolveSessionShutdownDeadlineMs(
   if (rawValue !== undefined && rawValue.trim() !== '') {
     const parsed = Number(rawValue);
     if (Number.isFinite(parsed) && parsed > 0 && parsed <= 2_147_483_647) return parsed;
-    console.warn(
-      `[pie] invalid PIE_SHUTDOWN_DEADLINE_MS "${rawValue}", falling back to 5 seconds`
-    );
+    console.warn(`[pie] invalid PIE_SHUTDOWN_DEADLINE_MS "${rawValue}", falling back to 5 seconds`);
   }
   return DEFAULT_SESSION_SHUTDOWN_DEADLINE_MS;
 }

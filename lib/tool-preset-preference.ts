@@ -1,4 +1,8 @@
-import { CONFIGURED_TOOL_PRESET, isToolPresetSelection, type ToolPresetSelection } from './tool-presets';
+import {
+  CONFIGURED_TOOL_PRESET,
+  isToolPresetSelection,
+  type ToolPresetSelection
+} from './tool-presets';
 
 const STORAGE_KEY = 'pi-tool-preset';
 

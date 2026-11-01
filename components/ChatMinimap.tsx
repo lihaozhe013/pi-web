@@ -431,7 +431,9 @@ export const ChatMinimap = memo(function ChatMinimap({
       let targetTop: number | null = pendingNode.targetTurn.scrollTop;
       if (pendingNavigation.target === 'assistant') {
         const assistantRect = assistant?.element?.getBoundingClientRect();
-        targetTop = assistantRect ? assistantRect.top - containerRect.top + scrollEl.scrollTop : null;
+        targetTop = assistantRect
+          ? assistantRect.top - containerRect.top + scrollEl.scrollTop
+          : null;
       } else if (pendingNavigation.target === 'heading') {
         const heading =
           pendingNavigation.headingIndex === undefined

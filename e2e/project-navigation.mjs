@@ -156,8 +156,7 @@ export async function checkProjectNavigation({
         await page.goto(`${base}/?session=${otherSessionId}`, { waitUntil: 'domcontentloaded' });
         await page.waitForFunction(
           (id) =>
-            JSON.parse(sessionStorage.getItem('pie:tab-open-session') || 'null')?.sessionId ===
-            id,
+            JSON.parse(sessionStorage.getItem('pie:tab-open-session') || 'null')?.sessionId === id,
           otherSessionId
         );
         await page.goto(`${base}/?session=${fixture.id}`, { waitUntil: 'domcontentloaded' });

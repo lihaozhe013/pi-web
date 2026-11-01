@@ -298,10 +298,7 @@ export function ExecutionHistoryPanel({
   return (
     <div className="run-history" data-history-open={historyOpen ? 'true' : 'false'}>
       {hasStatus && (
-        <section
-          className="run-history-status-section"
-          aria-label={t('runs.status')}
-        >
+        <section className="run-history-status-section" aria-label={t('runs.status')}>
           {goal && (
             <div className="run-history-status-card" data-kind="goal" data-status={goal.status}>
               <div className="run-history-status-header">
@@ -311,10 +308,10 @@ export function ExecutionHistoryPanel({
                     {goal.status === 'active'
                       ? t('chat.goalStatus.active')
                       : goal.status === 'paused'
-                      ? t('chat.goalStatus.paused')
-                      : goal.status === 'done' || goal.status === 'completed'
-                      ? t('chat.goalStatus.done')
-                      : goal.status}
+                        ? t('chat.goalStatus.paused')
+                        : goal.status === 'done' || goal.status === 'completed'
+                          ? t('chat.goalStatus.done')
+                          : goal.status}
                   </span>
                   <span className="run-history-status-title">{t('chat.goal')}</span>
                 </span>
@@ -353,20 +350,19 @@ export function ExecutionHistoryPanel({
                     {compactError
                       ? t('codemode.status.error')
                       : isCompacting
-                      ? t('chat.compacting')
-                      : t('chat.compacted')}
+                        ? t('chat.compacting')
+                        : t('chat.compacted')}
                   </span>
                   <span className="run-history-status-title">{t('chat.compact')}</span>
                 </span>
                 {compactResult && !isCompacting && !compactError && (
                   <span className="run-history-status-tokens">
-                    {compactResult.tokensBefore.toLocaleString()} → {compactResult.estimatedTokensAfter.toLocaleString()}
+                    {compactResult.tokensBefore.toLocaleString()} →{' '}
+                    {compactResult.estimatedTokensAfter.toLocaleString()}
                   </span>
                 )}
               </div>
-              {compactError && (
-                <div className="run-history-status-error">{compactError}</div>
-              )}
+              {compactError && <div className="run-history-status-error">{compactError}</div>}
             </div>
           )}
         </section>

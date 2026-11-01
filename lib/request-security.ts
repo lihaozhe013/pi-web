@@ -55,10 +55,9 @@ function isLoopbackHostname(hostname: string): boolean {
 }
 
 function configuredHostnamesFromEnvironment(): string[] {
-  return [
-    process.env.PIE_HOSTNAME,
-    ...(process.env.PIE_ALLOWED_HOSTS?.split(',') ?? [])
-  ].filter((value): value is string => Boolean(value?.trim()));
+  return [process.env.PIE_HOSTNAME, ...(process.env.PIE_ALLOWED_HOSTS?.split(',') ?? [])].filter(
+    (value): value is string => Boolean(value?.trim())
+  );
 }
 
 function canonicalOrigin(value: string): string | null {

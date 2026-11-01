@@ -1390,10 +1390,7 @@ test('a parked draft keeps its file chips without storing an empty list', () => 
       files
     });
     // A rejected submission brings its text back and leaves the chips attached.
-    assert.deepEqual(
-      mergeRestoredSubmissionDraft('failed text', [], '', [], files).files,
-      files
-    );
+    assert.deepEqual(mergeRestoredSubmissionDraft('failed text', [], '', [], files).files, files);
     // A draft without files carries no `files` field at all.
     assert.deepEqual(mergeRestoredSubmissionDraft('failed text', [], '', []), {
       value: 'failed text',

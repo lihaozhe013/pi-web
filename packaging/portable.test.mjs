@@ -30,10 +30,7 @@ test('portable artifact names identify platform, architecture and Linux libc', (
   assert.equal(artifactName('0.1.0', 'linux', 'x64'), 'pie-0.1.0-linux-x64-glibc');
   assert.equal(artifactName('0.1.0', 'linux', 'arm64'), 'pie-0.1.0-linux-arm64-glibc');
   assert.equal(artifactName('0.1.0', 'win32', 'x64'), 'pie-0.1.0-win32-x64');
-  assert.equal(
-    artifactName('0.1.0-local.1', 'darwin', 'arm64'),
-    'pie-0.1.0-local.1-darwin-arm64'
-  );
+  assert.equal(artifactName('0.1.0-local.1', 'darwin', 'arm64'), 'pie-0.1.0-local.1-darwin-arm64');
 });
 
 test('reject ambiguous or unsafe artifact names', () => {

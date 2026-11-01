@@ -850,7 +850,9 @@
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  transition: color 0.12s, background 0.12s;
+  transition:
+    color 0.12s,
+    background 0.12s;
 }
 
 .session-info-close-btn:hover {
@@ -883,7 +885,11 @@
   font-family: inherit;
   cursor: pointer;
   box-shadow: -2px 2px 8px rgba(0, 0, 0, 0.08);
-  transition: color 0.15s, background 0.15s, transform 0.15s, box-shadow 0.15s;
+  transition:
+    color 0.15s,
+    background 0.15s,
+    transform 0.15s,
+    box-shadow 0.15s;
 }
 
 .runs-panel-toggle-btn:hover {
@@ -913,7 +919,8 @@
 }
 
 @keyframes runs-dot-pulse {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(0.9);
     opacity: 0.8;
   }
@@ -990,7 +997,9 @@
   font-size: 20px;
   line-height: 1;
   cursor: pointer;
-  transition: color 0.12s, background 0.12s;
+  transition:
+    color 0.12s,
+    background 0.12s;
 }
 
 .session-modal-close-btn:hover {

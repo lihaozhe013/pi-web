@@ -2,11 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { useI18n } from '@/hooks/useI18n';
-import {
-  PRESET_DEFAULT,
-  PRESET_FULL,
-  PRESET_READ_ONLY
-} from '@/lib/tool-presets';
+import { PRESET_DEFAULT, PRESET_FULL, PRESET_READ_ONLY } from '@/lib/tool-presets';
 import {
   CANONICAL_CODING_TOOLS,
   CUSTOM_TOOL_PRESET_MAX_COUNT,
@@ -233,9 +229,7 @@ export function ToolPresetsSettings({ embedded, onClose, onSaved }: Props) {
   };
 
   const atLimit = draft.length >= CUSTOM_TOOL_PRESET_MAX_COUNT;
-  const nameError = selected
-    ? customPresetNameError(draft, selected.id, selected.name)
-    : undefined;
+  const nameError = selected ? customPresetNameError(draft, selected.id, selected.name) : undefined;
   const builtInName = (preset: (typeof BUILT_IN_PRESETS)[number]): string =>
     preset.name === 'plan'
       ? t('chat.planMode')
@@ -330,7 +324,12 @@ export function ToolPresetsSettings({ embedded, onClose, onSaved }: Props) {
                   <ConfigSectionTitle>{t('toolPresets.tools')}</ConfigSectionTitle>
                   {CANONICAL_CODING_TOOLS.map((tool) => (
                     <label key={tool} className="tool-presets-tool is-readonly">
-                      <input type="checkbox" checked={builtInView.tools.includes(tool)} disabled readOnly />
+                      <input
+                        type="checkbox"
+                        checked={builtInView.tools.includes(tool)}
+                        disabled
+                        readOnly
+                      />
                       <code>{tool === SHELL_TOOL ? 'shell' : tool}</code>
                       <span>{t(`toolPresets.tool.${tool}`)}</span>
                     </label>

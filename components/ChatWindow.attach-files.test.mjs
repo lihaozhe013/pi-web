@@ -7,9 +7,7 @@ import { createJiti } from 'jiti';
 import { astNodes, declarationName, nodeText, parseSource } from '../lib/source-testing.mjs';
 
 const jiti = createJiti(import.meta.url);
-const { dropMentionPaths, splitDroppedItems } = await jiti.import(
-  '../lib/file-upload-client.ts'
-);
+const { dropMentionPaths, splitDroppedItems } = await jiti.import('../lib/file-upload-client.ts');
 
 const sourceText = readFileSync(new URL('./ChatWindow.tsx', import.meta.url), 'utf8');
 const nodes = astNodes(parseSource(sourceText, 'ChatWindow.tsx'));
