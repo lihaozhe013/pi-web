@@ -88,6 +88,9 @@ export const zhTWLocale: LocalePlugin = {
     'settings.enterSendModeEnter': 'Enter',
     'settings.enterSendModeCtrlEnter': 'Ctrl/Cmd+Enter',
     'settings.quoteSelection': '選取文字時顯示提問浮窗',
+    'settings.transcriptToolCards': '在對話中顯示寫入與編輯卡片',
+    'settings.transcriptToolCardsDescription':
+      '關閉後對話只保留你的訊息與 AI 的回覆，寫入、編輯與補丁只在右側 Runs 面板顯示，並附上 diff。',
     'settings.sidebar': '側邊欄',
     'settings.filesPlacement': '檔案瀏覽器',
     'settings.filesPlacementBelow': '工作階段下方',
@@ -547,8 +550,7 @@ export const zhTWLocale: LocalePlugin = {
     'settings.cacheMissNotices': '顯示快取與費用提示',
     'settings.cacheMissNoticesDescription':
       '即 pi 的 showCacheMissNotices：在對話中顯示快取未命中、快取預熱、壓縮費用，以及 Anthropic 捨棄思考區塊。儲存到全域 settings.json，專案的 .pi/settings.json 可以覆寫它。',
-    'chat.filesWritten': '已變更的檔案',
-    'chat.openWrittenFile': '開啟 {name}',
+    'chat.filesChanged': '已修改 {count} 個檔案',
     'chat.loadEarlier': '向上捲動以載入較早的訊息',
     'chat.scrollToLatest': '回到最新訊息',
     'chat.questionPending': '等待你的回答',

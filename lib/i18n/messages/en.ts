@@ -90,6 +90,9 @@ export const enLocale: LocalePlugin = {
     'settings.enterSendModeEnter': 'Enter',
     'settings.enterSendModeCtrlEnter': 'Ctrl/Cmd+Enter',
     'settings.quoteSelection': 'Show actions for selected text',
+    'settings.transcriptToolCards': 'Show write and edit cards in the conversation',
+    'settings.transcriptToolCardsDescription':
+      "Off keeps the conversation to your messages and the agent's replies: writes, edits, and patches then appear only in the Runs panel, with their diffs.",
     'settings.sidebar': 'Sidebar',
     'settings.filesPlacement': 'File browser',
     'settings.filesPlacementBelow': 'Below sessions',
@@ -561,8 +564,7 @@ export const enLocale: LocalePlugin = {
     'settings.cacheMissNotices': 'Show cache and cost notices',
     'settings.cacheMissNoticesDescription':
       "pi's showCacheMissNotices: cache misses, cache warming, compaction cost and Anthropic dropping thinking blocks, in the chat. Saved to the global settings.json; a project's .pi/settings.json can override it.",
-    'chat.filesWritten': 'Files changed',
-    'chat.openWrittenFile': 'Open {name}',
+    'chat.filesChanged': '{count} files changed',
     'chat.loadEarlier': 'Scroll up to load earlier messages',
     'chat.scrollToLatest': 'Scroll to latest',
     'chat.questionPending': 'Waiting for your answer',

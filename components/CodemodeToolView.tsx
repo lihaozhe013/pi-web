@@ -124,7 +124,7 @@ export function CodemodeCallList({
       className="tool-card-pane"
       style={{
         // the quiet card's whisper divider, matching every other pane
-        // inside a tool card (CARD_RULE in MessageView.tsx).
+        // inside a tool card (CARD_RULE in components/card-style.ts).
         borderTop: '1px solid color-mix(in srgb, var(--border) 45%, transparent)',
         padding: '6px 10px',
         fontFamily: 'var(--font-mono)',

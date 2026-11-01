@@ -17,18 +17,15 @@ function render(props) {
   );
 }
 
-test('renders a button per file showing the basename and full path', () => {
+test('counts the files a turn wrote instead of naming them', () => {
   const html = render({
-    files: [{ filePath: '/abs/out/report.html' }, { filePath: '/abs/out/data.json' }],
-    onOpenFile() {}
+    files: [{ filePath: '/abs/out/report.html' }, { filePath: '/abs/out/data.json' }]
   });
-  assert.match(html, /<button/);
-  assert.match(html, /report\.html/);
-  assert.match(html, /data\.json/);
-  assert.match(html, /title="\/abs\/out\/report\.html"/);
-  assert.match(html, /title="\/abs\/out\/data\.json"/);
+  assert.match(html, /2 files changed/);
+  assert.doesNotMatch(html, /<button/);
+  assert.doesNotMatch(html, /report\.html/);
 });
 
 test('renders nothing when no files were written', () => {
-  assert.equal(render({ files: [], onOpenFile() {} }), '');
+  assert.equal(render({ files: [] }), '');
 });

@@ -46,10 +46,11 @@ links, without cards, frames or gradients.
 ## Settings and appearance
 
 Settings stays in a modal over the conversation. Desktop navigation uses a left-hand category list;
-phones use a category picker. General contains behavior and language; Appearance contains themes,
-fonts, sizes, conversation width and a live preview. The theme gallery is a native disclosure,
-collapsed initially to keep font controls near the top; a theme search result opens it
-automatically. Visited categories stay mounted so switching does not discard an editor's draft.
+phones use a category picker. General contains behavior and language, including how much of a run
+the transcript shows; Appearance contains themes, fonts, sizes, conversation width and a live
+preview. The theme gallery is a native disclosure, collapsed initially to keep font controls near
+the top; a theme search result opens it automatically. Visited categories stay mounted so switching
+does not discard an editor's draft.
 
 Interface size (15px default), chat text size (16px) and monospace content size (12px) are
 independent. UI text retains its hierarchy relative to the interface baseline. Large UI sizes also
@@ -127,6 +128,16 @@ Current main-transcript behavior:
   anything.
 - Write/edit/patch cards default to expanded. A write that replaces a file shows the changed lines
   as a diff; its final content is not repeated.
+- Settings › General can move those cards to the Runs panel too (`Show write and edit cards in
+  the conversation`, on by default). With it off the transcript carries the user's messages and the
+  agent's replies and nothing else, so a reader who never inspects the agent's code sees only the
+  conversation. The panel then keeps the writes and edits like any other run, showing the diff a
+  card would have shown, opened while the run is active and through its two-second reading hold,
+  then folded into history. Such a run names the file it touched instead of repeating the whole
+  file as arguments. The choice is a browser preference, like the other chat options; it changes
+  display only, never stored history, exports, or agent context.
+- A turn that wrote files says so in one line (`3 files changed`) under its answer instead of
+  listing them as chips: the Runs panel already names the files and carries their diffs.
 - A command the user ran themselves (`!`) keeps its live card in the transcript, because its
   progress is the answer they asked for. It also appears in the Runs panel so the history is
   complete.
@@ -166,8 +177,10 @@ while a turn keeps its own separation from the next.
 The entry opens the sidebar's "New" dialog language with three scopes:
 
 - **Conversation**: the prompt and the agent's replies, without tool calls.
-- **Kept record**: the replies plus the writes, edits, and patches the transcript still shows, with
-  their arguments and stored results.
+- **Kept record**: the replies plus the writes, edits, and patches the default transcript shows,
+  with their arguments and stored results. The scope describes that record, not the display mode in
+  effect: a turn copies the same kept record whether its tool cards are on screen or in the Runs
+  panel.
 - **Execution log**: the kept record plus every other tool call the Runs panel lists, with the
   structured details a tool recorded.
 

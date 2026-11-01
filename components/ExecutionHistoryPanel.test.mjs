@@ -269,3 +269,39 @@ test('compaction error is displayed in the compaction status card', () => {
   assert.match(html, /data-status="error"/);
   assert.match(text, /Summarization hit the token limit/);
 });
+
+test('a write or edit run shows its diff instead of its input', () => {
+  const html = render([
+    {
+      ...base,
+      id: 'w1',
+      kind: 'tool',
+      toolName: 'edit',
+      command: '',
+      preview: 'src/app.ts',
+      output: 'Updated src/app.ts',
+      active: true,
+      diffFiles: [
+        {
+          oldPath: 'a/src/app.ts',
+          newPath: 'b/src/app.ts',
+          rows: [
+            { type: 'hunk', text: '@@ -1 +1 @@' },
+            {
+              type: 'line',
+              left: { lineNo: 1, text: 'const before = 1;', type: 'removed' },
+              right: { lineNo: 1, text: 'const after = 1;', type: 'added' }
+            }
+          ]
+        }
+      ]
+    }
+  ]);
+  const text = textOf(html);
+
+  assert.match(html, /class="run-history-diff"/);
+  assert.match(text, /const before = 1;/);
+  assert.match(text, /const after = 1;/);
+  assert.doesNotMatch(text, /Input/, 'the diff is the input that matters');
+  assert.match(text, /Updated src\/app\.ts/);
+});

@@ -2,7 +2,8 @@
 import { AskUserPanel, isAskUserRequest } from './AskUserPanel';
 import { ComposerActivity } from './ComposerActivity';
 import { TurnCopy } from './TurnCopy';
-import { mainTranscriptBlocks } from '@/lib/quiet-activity';
+import { mainTranscriptBlocks, type TranscriptToolDisplay } from '@/lib/quiet-activity';
+import { useTranscriptToolDisplay } from '@/hooks/useTranscriptMode';
 import { buildExecutionHistory, type ExecutionHistoryEntry } from '@/lib/execution-history';
 import { useRetainedExecutionHistory } from '@/hooks/useRetainedExecutionHistory';
 import { useActiveExecutionHistory } from '@/hooks/useActiveExecutionHistory';
@@ -1180,10 +1181,13 @@ export function ChatWindow({
     () => liveToolIds(agentPhase, activeToolResults),
     [agentPhase, activeToolResults]
   );
+  // The conversation-only mode hides every tool card; the Runs panel then owns
+  // the writes and edits too.
+  const toolDisplay = useTranscriptToolDisplay();
   const retainedExecutionHistory = useRetainedExecutionHistory(
     useMemo(
-      () => buildExecutionHistory(messages, toolResultsMap, liveIds, { pendingBash }),
-      [messages, toolResultsMap, liveIds, pendingBash]
+      () => buildExecutionHistory(messages, toolResultsMap, liveIds, { pendingBash, toolDisplay }),
+      [messages, toolResultsMap, liveIds, pendingBash, toolDisplay]
     )
   );
   const executionHistory = useActiveExecutionHistory(retainedExecutionHistory);
@@ -1637,6 +1641,7 @@ export function ChatWindow({
                             writtenFiles={options.writtenFiles}
                             turnDurationMs={options.turnDurationMs}
                             turnUsage={options.turnUsage}
+                            toolDisplay={toolDisplay}
                             onCompact={options.recoverTruncation ? handleCompact : undefined}
                             isCompacting={options.recoverTruncation ? isCompacting : undefined}
                             compactError={options.recoverTruncation ? compactError : undefined}
@@ -1773,7 +1778,8 @@ export function ChatWindow({
                           const blocks = mainTranscriptBlocks(
                             getDisplayableAssistantBlocks(message),
                             toolResultsMap,
-                            liveIds
+                            liveIds,
+                            toolDisplay
                           );
                           if (
                             blocks.length === 0 &&
@@ -1926,6 +1932,7 @@ export function ChatWindow({
                         toolResults={toolResultsMap}
                         cwd={messageCwd}
                         onOpenFile={onOpenFile}
+                        toolDisplay={toolDisplay}
                       />
                     )}
 
@@ -2232,7 +2239,8 @@ const StreamingReply = memo(function StreamingReply({
   onCommit,
   toolResults,
   cwd,
-  onOpenFile
+  onOpenFile,
+  toolDisplay
 }: {
   store: StreamingStore;
   /** Runs after each chunk is in the DOM. */
@@ -2240,6 +2248,7 @@ const StreamingReply = memo(function StreamingReply({
   toolResults: Map<string, ToolResultMessage>;
   cwd?: string;
   onOpenFile?: (filePath: string, page?: number) => void;
+  toolDisplay?: TranscriptToolDisplay;
 }) {
   const message = useStreamingSelector(store, selectStreamingMessage);
   useLayoutEffect(onCommit, [message, onCommit]);
@@ -2251,6 +2260,7 @@ const StreamingReply = memo(function StreamingReply({
       isStreaming
       cwd={cwd}
       onOpenFile={onOpenFile}
+      toolDisplay={toolDisplay}
     />
   );
 });

@@ -67,7 +67,6 @@ import {
 } from '@/lib/agent-event-wire';
 import { getToolExecutionProgress } from '@/lib/tool-execution-progress';
 import { CODEMODE_TOOL_NAME, getCodemodeProgress } from '@/lib/codemode-view';
-import { isRunsPanelToolName } from '@/lib/tool-names';
 import { updateExtensionWidgets } from '@/lib/extension-widgets';
 import { bareMcpOpensSettings } from '@/lib/mcp-command';
 import type { SettingsSection } from '@/lib/settings-navigation';
@@ -2047,8 +2046,10 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
           const partialResult = event.partialResult as Partial<ToolResultMessage> | undefined;
           const content = partialResult?.content;
           // Every run keeps its live output in the Runs panel; a codemode
-          // script also reports the calls it has made so far.
-          if (isRunsPanelToolName(name) && Array.isArray(content)) {
+          // script also reports the calls it has made so far. A write or an
+          // edit is collected too: in the conversation-only display its run
+          // lives in the panel, and its stored diff arrives with the result.
+          if (Array.isArray(content)) {
             setActiveToolResults((prev) => {
               const next = new Map(prev);
               next.set(id, {

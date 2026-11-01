@@ -1,12 +1,15 @@
 'use client';
 
 import { memo, useState, useRef, useEffect, useMemo, type CSSProperties } from 'react';
-import { isQuietActivityBlock, isTransientToolBlock } from '@/lib/quiet-activity';
+import {
+  isQuietActivityBlock,
+  isTransientToolBlock,
+  type TranscriptToolDisplay
+} from '@/lib/quiet-activity';
 import { MarkdownBody } from './MarkdownBody';
 import { ImagePreview } from './ImagePreview';
 import { ThinkingIcon } from './ThinkingIcon';
 import { useI18n } from '@/hooks/useI18n';
-import { useIsMobile } from '@/hooks/useIsMobile';
 import {
   TOOL_CARD_MIN_VISIBLE_MS,
   useBodyContent,
@@ -22,15 +25,7 @@ import {
 } from '@/lib/message-display';
 import { formatTurnDuration, type TurnUsage } from '@/lib/turn-duration';
 import { formatCompactCount } from '@/lib/session-stats-format';
-import {
-  diffGapLabel,
-  parseUnifiedPatch,
-  unifiedDiffLines,
-  type SplitDiffCell,
-  type SplitDiffFile,
-  type SplitDiffGap,
-  type UnifiedDiffLine
-} from '@/lib/patch';
+import type { SplitDiffFile } from '@/lib/patch';
 import {
   applyPatchPreviewToFiles,
   applyPatchResultHasFailures,
@@ -48,13 +43,15 @@ import { getToolCallExpansion, setToolCallExpanded } from '@/lib/tool-call-expan
 import { ToolStatus, useToolState, useToolActivity } from './ToolActivity';
 import { isToolCardExpandedByDefault, shellOutputTail } from '@/lib/tool-card-expansion';
 // Syntax colors for tool-card content.
-import { toolPathLanguage, toolCodeLanguage } from '@/lib/tool-code-language';
+import { toolCodeLanguage } from '@/lib/tool-code-language';
 import { ToolCodeLanguageProvider, ToolCodeTokens } from './ToolCode';
 import {
   isThinkingExpandedByDefault,
   THINKING_EXPANDED_EVENT
 } from '@/lib/thinking-expansion-preference';
 import { TurnWrittenFiles } from './TurnWrittenFiles';
+import { SplitPatchView, SplitFilesView } from './PatchDiffView';
+import { CARD_RULE, CARD_RULE_COLOR } from './card-style';
 import type { WrittenFile } from '@/lib/turn-written-files';
 import { skillExpansionToCommand } from '@/lib/slash-display';
 import {
@@ -244,6 +241,8 @@ interface Props {
   turnDurationMs?: number;
   /** The whole turn's billed tokens, beside its time; the hover spells them out. */
   turnUsage?: TurnUsage;
+  /** How much of the run this transcript shows; see `TranscriptToolDisplay`. */
+  toolDisplay?: TranscriptToolDisplay;
   onCompact?: () => void;
   isCompacting?: boolean;
   compactError?: string | null;
@@ -354,6 +353,7 @@ export const MessageView = memo(
     writtenFiles,
     turnDurationMs,
     turnUsage,
+    toolDisplay,
     onCompact,
     isCompacting,
     compactError
@@ -389,6 +389,7 @@ export const MessageView = memo(
           writtenFiles={writtenFiles}
           turnDurationMs={turnDurationMs}
           turnUsage={turnUsage}
+          toolDisplay={toolDisplay}
           onCompact={onCompact}
           isCompacting={isCompacting}
           compactError={compactError}
@@ -431,6 +432,7 @@ export const MessageView = memo(
       prev.writtenFiles === next.writtenFiles &&
       prev.turnDurationMs === next.turnDurationMs &&
       sameTurnUsage(prev.turnUsage, next.turnUsage) &&
+      prev.toolDisplay === next.toolDisplay &&
       prev.sessionId === next.sessionId &&
       prev.onCompact === next.onCompact &&
       prev.isCompacting === next.isCompacting &&
@@ -827,6 +829,7 @@ function AssistantMessageView({
   writtenFiles,
   turnDurationMs,
   turnUsage,
+  toolDisplay,
   onCompact,
   isCompacting,
   compactError
@@ -844,6 +847,7 @@ function AssistantMessageView({
   writtenFiles?: WrittenFile[];
   turnDurationMs?: number;
   turnUsage?: TurnUsage;
+  toolDisplay?: TranscriptToolDisplay;
   onCompact?: () => void;
   isCompacting?: boolean;
   compactError?: string | null;
@@ -859,9 +863,10 @@ function AssistantMessageView({
         // arguments there is nothing to show but a half-streamed JSON blob.
         .filter(
           ({ block }) =>
-            !isQuietActivityBlock(block) && !isTransientToolBlock(block, toolResults, live)
+            !isQuietActivityBlock(block) &&
+            !isTransientToolBlock(block, toolResults, live, toolDisplay)
         ),
-    [message.content, toolResults, live]
+    [message.content, toolResults, live, toolDisplay]
   );
   // A card that just left (a shell that succeeded) stays where it stood until it
   // has been visible long enough to be read — a command that finished in a blink
@@ -1150,9 +1155,7 @@ function AssistantMessageView({
         </div>
       )}
 
-      {writtenFiles && writtenFiles.length > 0 && (
-        <TurnWrittenFiles files={writtenFiles} onOpenFile={onOpenFile} />
-      )}
+      {writtenFiles && writtenFiles.length > 0 && <TurnWrittenFiles files={writtenFiles} />}
 
       <div
         style={{
@@ -1450,8 +1453,6 @@ const TOOL_DURATION_MIN_MS = 100;
  * `app/tool-cards.css` draws the card — so every divider inside it is the
  * border token at less than half strength: a whisper, not a rule.
  */
-const CARD_RULE_COLOR = 'color-mix(in srgb, var(--border) 45%, transparent)';
-const CARD_RULE = `1px solid ${CARD_RULE_COLOR}`;
 
 /** A tool's run time as the pi CLI's "Took" writes it: 2.4s, then 3m 5s, then 1h 2m 5s. */
 export function formatToolDuration(ms: number): string {
@@ -1832,341 +1833,6 @@ function PairedDiffResult({ diff }: { diff: ResultDiff }) {
   return (
     <div className="tool-card-pane" style={{ borderTop: CARD_RULE }}>
       <SplitPatchView text={diff.text} />
-    </div>
-  );
-}
-
-function SplitPatchView({ text }: { text: string }) {
-  const files = useMemo(() => parseUnifiedPatch(text), [text]);
-  if (!files) return <PatchTextView text={text} />;
-  return <SplitFilesView files={files} />;
-}
-
-/** Two code columns side by side, or one column of patch lines. */
-export type PatchDiffLayout = 'split' | 'stacked';
-
-/**
- * The patch as the viewport can show it. Two columns need two code columns side
- * by side, which a phone does not have: there the same rows read as one column
- * — a removed line above the line that replaces it, each with its own number —
- * the way the file viewer's diff has always been drawn. See `unifiedDiffLines()`.
- */
-function SplitFilesView({ files }: { files: SplitDiffFile[] }) {
-  const layout: PatchDiffLayout = useIsMobile() ? 'stacked' : 'split';
-  return <PatchDiffFiles files={files} layout={layout} />;
-}
-
-export function PatchDiffFiles({
-  files,
-  layout
-}: {
-  files: SplitDiffFile[];
-  layout: PatchDiffLayout;
-}) {
-  const { t } = useI18n();
-  const showFileHeaders = files.length > 1;
-
-  return (
-    <div
-      className="tool-card-pane"
-      style={{
-        maxHeight: 560,
-        overflowY: 'auto',
-        overflowX: 'hidden',
-        background: 'var(--tool-card-pane)'
-      }}
-    >
-      {files.map((file, fileIndex) => (
-        // each file of a patch carries its own syntax, read off its path.
-        <ToolCodeLanguageProvider key={fileIndex} lang={toolPathLanguage(stackedFilePath(file))}>
-          <div
-            key={fileIndex}
-            style={{
-              minWidth: 0,
-              borderTop: fileIndex === 0 ? 'none' : CARD_RULE,
-              fontFamily: 'var(--font-mono)',
-              fontWeight: 'var(--font-mono-weight)',
-              fontSize: 'var(--font-mono-size, 15px)',
-              lineHeight: 1.55
-            }}
-          >
-            {showFileHeaders && layout === 'split' && (
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
-                  position: 'sticky',
-                  top: 0,
-                  zIndex: 1,
-                  background: 'var(--bg-panel)',
-                  borderBottom: CARD_RULE
-                }}
-              >
-                <SplitDiffHeader title={file.oldPath || t('i18n.before')} side="left" />
-                <SplitDiffHeader title={file.newPath || t('i18n.after')} side="right" />
-              </div>
-            )}
-
-            {showFileHeaders && layout === 'stacked' && stackedFilePath(file) && (
-              <div
-                title={stackedFilePath(file)}
-                style={{
-                  position: 'sticky',
-                  top: 0,
-                  zIndex: 1,
-                  padding: '5px 10px',
-                  color: 'var(--text-dim)',
-                  background: 'var(--bg-panel)',
-                  borderBottom: CARD_RULE,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                {stackedFilePath(file)}
-              </div>
-            )}
-
-            {layout === 'split' && (
-              <div
-                style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)' }}
-              >
-                {file.rows.map((row, rowIndex) => {
-                  if (row.type === 'hunk') {
-                    return null;
-                  }
-                  if (row.type === 'gap') {
-                    return <DiffGapRow key={rowIndex} gap={row} />;
-                  }
-
-                  return (
-                    <div key={rowIndex} style={{ display: 'contents' }}>
-                      <SplitDiffCellView cell={row.left} side="left" />
-                      <SplitDiffCellView cell={row.right} side="right" />
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {layout === 'stacked' &&
-              unifiedDiffLines(file).map((line, lineIndex) =>
-                line.type === 'gap' ? (
-                  <DiffGapRow key={lineIndex} gap={line} />
-                ) : (
-                  <StackedDiffLineView key={lineIndex} line={line} />
-                )
-              )}
-          </div>
-        </ToolCodeLanguageProvider>
-      ))}
-    </div>
-  );
-}
-
-/** Unchanged lines the patch leaves out between two hunks, across the whole width. */
-function DiffGapRow({ gap }: { gap: SplitDiffGap }) {
-  const { t } = useI18n();
-  return (
-    <div
-      style={{
-        gridColumn: '1 / -1',
-        padding: '0 10px',
-        color: 'var(--text-dim)',
-        background: 'var(--bg-panel)',
-        borderTop: CARD_RULE,
-        borderBottom: CARD_RULE,
-        userSelect: 'none'
-      }}
-    >
-      {gap.count === null ? '⋯' : `⋯ ${diffGapLabel(gap.count, t)}`}
-    </div>
-  );
-}
-
-/** The file a stacked section is named for: the new path, the one that survives, unless the file was deleted. */
-function stackedFilePath(file: SplitDiffFile): string {
-  if (file.newPath && file.newPath !== '/dev/null') return file.newPath;
-  return file.oldPath || file.newPath || '';
-}
-
-function StackedDiffLineView({ line }: { line: UnifiedDiffLine }) {
-  return (
-    <SplitDiffCellView
-      side="right"
-      cell={{
-        // One gutter, so a removed line keeps the old number and everything else the new one.
-        lineNo: line.type === 'removed' ? line.oldLineNo : line.newLineNo,
-        text: line.text,
-        type: line.type
-      }}
-    />
-  );
-}
-
-function SplitDiffHeader({ title, side }: { title: string; side: 'left' | 'right' }) {
-  return (
-    <div
-      title={title}
-      style={{
-        padding: '5px 10px',
-        color: 'var(--text-dim)',
-        borderRight: side === 'left' ? CARD_RULE : 'none',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap'
-      }}
-    >
-      {title}
-    </div>
-  );
-}
-
-function SplitDiffCellView({ cell, side }: { cell: SplitDiffCell; side: 'left' | 'right' }) {
-  const bg =
-    cell.type === 'added'
-      ? 'rgba(34,197,94,0.12)'
-      : cell.type === 'removed'
-        ? 'rgba(248,113,113,0.13)'
-        : cell.type === 'empty'
-          ? 'var(--bg-subtle)'
-          : 'transparent';
-  const marker = cell.type === 'added' ? '+' : cell.type === 'removed' ? '-' : ' ';
-  const markerColor =
-    cell.type === 'added' ? '#22c55e' : cell.type === 'removed' ? '#f87171' : 'var(--text-dim)';
-
-  return (
-    <div
-      style={{
-        display: 'flex',
-        minWidth: 0,
-        background: bg,
-        borderRight: side === 'left' ? CARD_RULE : 'none'
-      }}
-    >
-      <span
-        style={{
-          width: 42,
-          padding: '0 6px',
-          textAlign: 'right',
-          color: 'var(--text-dim)',
-          userSelect: 'none',
-          background: 'var(--bg-panel)',
-          borderRight: CARD_RULE,
-          flexShrink: 0
-        }}
-      >
-        {cell.lineNo ?? ''}
-      </span>
-      <span
-        style={{
-          width: 18,
-          padding: '0 5px',
-          color: markerColor,
-          userSelect: 'none',
-          fontWeight: cell.type === 'context' || cell.type === 'empty' ? 400 : 700,
-          flexShrink: 0
-        }}
-      >
-        {marker}
-      </span>
-      <span
-        style={{
-          flex: 1,
-          minWidth: 0,
-          padding: '0 10px 0 0',
-          color: cell.type === 'empty' ? 'var(--text-dim)' : 'var(--text)',
-          whiteSpace: 'pre-wrap',
-          overflowWrap: 'anywhere'
-        }}
-      >
-        {cell.text ? <ToolCodeTokens text={cell.text} budget={false} /> : '\u00a0'}
-      </span>
-    </div>
-  );
-}
-
-function PatchTextView({ text }: { text: string }) {
-  const lines = text.split(/\r?\n/);
-
-  return (
-    <div
-      className="tool-card-pane"
-      style={{
-        maxHeight: 520,
-        overflowY: 'auto',
-        overflowX: 'hidden',
-        fontFamily: 'var(--font-mono)',
-        fontWeight: 'var(--font-mono-weight)',
-        fontSize: 'var(--font-mono-size, 15px)',
-        lineHeight: 1.55,
-        minWidth: 0,
-        background: 'var(--tool-card-pane)'
-      }}
-    >
-      {lines.map((line, i) => {
-        const kind = line.startsWith('@@')
-          ? 'hunk'
-          : line.startsWith('+') && !line.startsWith('+++')
-            ? 'added'
-            : line.startsWith('-') && !line.startsWith('---')
-              ? 'removed'
-              : 'context';
-        const bg =
-          kind === 'added'
-            ? 'rgba(34,197,94,0.12)'
-            : kind === 'removed'
-              ? 'rgba(248,113,113,0.13)'
-              : kind === 'hunk'
-                ? 'rgba(96,165,250,0.12)'
-                : 'transparent';
-        const color =
-          kind === 'added'
-            ? '#22c55e'
-            : kind === 'removed'
-              ? '#f87171'
-              : kind === 'hunk'
-                ? 'var(--accent)'
-                : 'var(--text)';
-
-        return (
-          <div
-            key={i}
-            style={{
-              display: 'flex',
-              background: bg,
-              borderLeft:
-                kind === 'added'
-                  ? '3px solid #22c55e'
-                  : kind === 'removed'
-                    ? '3px solid #f87171'
-                    : kind === 'hunk'
-                      ? '3px solid var(--accent)'
-                      : '3px solid transparent'
-            }}
-          >
-            <span
-              style={{
-                width: 48,
-                padding: '0 8px',
-                color: 'var(--text-dim)',
-                background: 'var(--bg-panel)',
-                borderRight: CARD_RULE,
-                textAlign: 'right',
-                userSelect: 'none',
-                flexShrink: 0
-              }}
-            >
-              {i + 1}
-            </span>
-            <span
-              style={{ padding: '0 10px', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', color }}
-            >
-              {line || '\u00a0'}
-            </span>
-          </div>
-        );
-      })}
     </div>
   );
 }

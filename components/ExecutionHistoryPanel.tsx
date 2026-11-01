@@ -12,6 +12,7 @@ import {
 } from '@/lib/execution-history';
 import { ToolCodeLanguageProvider, ToolCodeTokens } from './ToolCode';
 import { CodemodeCallList } from './CodemodeToolView';
+import { PatchDiffFiles } from './PatchDiffView';
 import type { GoalFacts } from '@/lib/goal-driver';
 import type { CompactResultInfo } from '@/hooks/useAgentSession';
 
@@ -223,6 +224,11 @@ function RunEntry({
           <div className="tool-card-body-inner">
             {showBody && (
               <div className="run-history-body">
+                {entry.diffFiles && (
+                  <div className="run-history-diff">
+                    <PatchDiffFiles files={entry.diffFiles} layout="stacked" />
+                  </div>
+                )}
                 {entry.kind === 'codemode' && callCount > 0 && (
                   <CodemodeCallList calls={entry.calls ?? []} omitted={entry.omittedCalls ?? 0} />
                 )}

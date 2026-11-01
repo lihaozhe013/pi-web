@@ -13,12 +13,12 @@ const { renderToStaticMarkup } = await jiti.import('react-dom/server');
 const {
   CompactionSummaryDetails,
   MessageView,
-  PatchDiffFiles,
   ThinkingBlock,
   formatToolDuration,
   getToolCallInputText,
   replaceUserMessageText
 } = await jiti.import('./MessageView.tsx');
+const { PatchDiffFiles } = await jiti.import('./PatchDiffView.tsx');
 const { getTokenEstimateText } = await jiti.import('@/lib/token-estimate');
 const { I18nProvider } = await jiti.import('@/hooks/useI18n');
 const { splitFinalAssistantBlocks } = await jiti.import('@/lib/message-display');
@@ -1188,16 +1188,18 @@ test("one column names a file section by the file's own path, not by Before and 
   );
 });
 
-test("the layout is the viewport's choice, taken once for both the patch input and the patch result", () => {
-  const source = readFileSync(new URL('./MessageView.tsx', import.meta.url), 'utf8');
+test("the layout is the viewport's choice, taken once for the patch input and the patch result", () => {
+  const shared = readFileSync(new URL('./PatchDiffView.tsx', import.meta.url), 'utf8');
+  const messageView = readFileSync(new URL('./MessageView.tsx', import.meta.url), 'utf8');
 
   // Both the applied-patch card and a result's patch render through SplitFilesView,
-  // so a phone never gets one of each.
+  // so a phone never gets one of each. The view itself lives in PatchDiffView.
   assert.match(
-    source,
+    shared,
     /const layout: PatchDiffLayout = useIsMobile\(\) \? ['"]stacked['"] : ['"]split['"];/
   );
-  assert.equal(countIn(source, '<SplitFilesView'), 2);
+  assert.equal(countIn(messageView, '<SplitFilesView'), 1);
+  assert.equal(countIn(shared, '<SplitFilesView'), 1);
 });
 
 test('one column numbers a removed line by the old file and every other line by the new one', () => {

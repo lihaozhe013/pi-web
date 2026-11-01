@@ -1,6 +1,7 @@
 'use client';
 
 import { setEnterSendMode, useEnterSendMode } from '@/hooks/useEnterSendMode';
+import { setTranscriptToolDisplay, useTranscriptToolDisplay } from '@/hooks/useTranscriptMode';
 import { useI18n } from '@/hooks/useI18n';
 import { sendAgentCommand } from '@/lib/agent-client';
 import type { ProjectTrustStatus, ToolSettingsResponse } from '@/lib/api-types';
@@ -132,6 +133,7 @@ function GeneralSettings({
 >) {
   const { locale, setLocale, supportedLocales, t } = useI18n();
   const enterSendMode = useEnterSendMode();
+  const toolDisplay = useTranscriptToolDisplay();
   const [shellSettings, setShellSettings] = useState<ToolSettingsResponse | null>(null);
   const [shellSaving, setShellSaving] = useState(false);
   const [shellError, setShellError] = useState<string | null>(null);
@@ -276,6 +278,18 @@ function GeneralSettings({
         <h3 className="settings-general-heading">{t('settings.chat')}</h3>
         <div className="settings-chat-options">
           <div
+            id="settings-transcript-tool-cards"
+            className="settings-chat-option settings-chat-switch-option"
+          >
+            <span>{t('settings.transcriptToolCards')}</span>
+            <ConfigSwitch
+              checked={toolDisplay === 'cards'}
+              label={t('settings.transcriptToolCards')}
+              describedBy="settings-transcript-tool-cards-description"
+              onChange={(enabled) => setTranscriptToolDisplay(enabled ? 'cards' : 'conversation')}
+            />
+          </div>
+          <div
             id="settings-quote-selection"
             className="settings-chat-option settings-chat-switch-option"
           >
@@ -336,6 +350,9 @@ function GeneralSettings({
             />
           </div>
         </div>
+        <p id="settings-transcript-tool-cards-description" className="settings-general-description">
+          {t('settings.transcriptToolCardsDescription')}
+        </p>
         <p id="settings-cache-miss-notices-description" className="settings-general-description">
           {t('settings.cacheMissNoticesDescription')}
         </p>

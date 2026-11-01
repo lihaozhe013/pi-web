@@ -89,16 +89,22 @@ migration layer. Cleanup removes code, not user files.
 3. Agent events stream to the browser over SSE. Client state reconciles live events with saved
    history.
 4. The transcript renders replies, tool activity, and errors. Display filtering is separate from
-   persisted history and model context. Every tool call except a write, an edit, or a patch is
-   filtered out of the transcript and collected by the Runs panel from the loaded messages plus live
-   execution state; `hooks/useRetainedExecutionHistory.ts` keeps a finished call in place while its
-   stored result arrives. `AppShell` treats that panel as part of the default docked page: it is
+   persisted history and model context. In the default display every tool call except a write, an
+   edit, or a patch is filtered out of the transcript and collected by the Runs panel from the
+   loaded messages plus live execution state; `hooks/useRetainedExecutionHistory.ts` keeps a
+   finished call in place while its stored result arrives. Settings › General can set the transcript
+   to conversation only (`hooks/useTranscriptMode.ts`, a browser preference):
+   `lib/quiet-activity.ts` then filters out every call, and `lib/execution-history.ts` collects the
+   kept cards too, carrying the diff a card would have shown (`diffFiles`) instead of the arguments
+   that hold a whole file. `AppShell` treats the panel as part of the default docked page: it is
    open unless the user collapsed it, closed where it would overlay the conversation until the user
    asks for it, and hidden by Settings without being collapsed. `components/SessionInfoSidebar.tsx`
    skips focus for a panel the user did not ask for. A hidden `lib/write-diff-extension.ts`
    snapshots a write target before execution and attaches a unified patch to the result, so a
-   write's transcript card shows the change instead of the whole file; `apply_patch` already carries
-   its own patch.
+   write's card, in the transcript or in the Runs panel, shows the change instead of the whole file;
+   `apply_patch` already carries its own patch. The turn's own record of what it wrote is one
+   counted line under its answer (`components/TurnWrittenFiles.tsx`); the names and diffs belong to
+   the panel.
 
 ## Session output speed
 

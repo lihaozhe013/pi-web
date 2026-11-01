@@ -89,6 +89,14 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
   },
   {
     section: 'general',
+    label: 'settings.transcriptToolCards',
+    description: 'settings.transcriptToolCardsDescription',
+    target: 'settings-transcript-tool-cards',
+    keywords:
+      'tool card transcript conversation runs diff write edit patch 工具卡片 写入 编辑 編輯 补丁 補丁 对话记录 對話紀錄 执行历史 執行歷史 模式'
+  },
+  {
+    section: 'general',
     label: 'settings.enterSendMode',
     target: 'settings-send-key',
     keywords: 'enter ctrl cmd send keyboard 发送 回车 傳送 換行 快捷键'

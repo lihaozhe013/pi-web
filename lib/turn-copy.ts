@@ -19,10 +19,10 @@ import type {
  * What a turn copy keeps.
  *
  * - `answers`: the conversation alone, for a document or a fresh chat.
- * - `transcript`: what the transcript still shows after the run, so every run
- *   in the Runs panel stays out, as its folded card does.
+ * - `transcript`: the replies plus the writes, edits, and patches the kept
+ *   transcript cards show, so every run the Runs panel lists stays out.
  * - `execution`: every tool call the turn made, including the runs the
- *   transcript folds away.
+ *   transcript and the panel keep as history.
  *
  * Thinking stays out of every mode: it is how the agent worked, not what it
  * did. Exploration calls appear only in the execution log, where they are runs
@@ -91,9 +91,10 @@ function toolResultText(result: ToolResultMessage): string {
 }
 
 /**
- * Whether a call belongs in the copy. The transcript keeps cards only for
- * writes and edits, so the kept record follows it; the execution log is where
- * every other run belongs.
+ * Whether a call belongs in the copy. The kept record is defined by the calls
+ * the default transcript shows, not by the display mode in effect: a reader
+ * copies the same record whether the tool cards are on screen or not. The
+ * execution log is where every other run belongs.
  */
 function keepsToolCall(
   call: ToolCallContent,

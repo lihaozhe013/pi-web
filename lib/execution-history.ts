@@ -1,6 +1,7 @@
 /**
- * The runs of a conversation, for the Runs panel. A run is any tool call except
- * a write or an edit.
+ * The runs of a conversation, for the Runs panel. A run is any tool call, plus
+ * the writes and edits whose diff the transcript keeps in the default display
+ * mode.
  *
  * The transcript no longer carries these calls: a command's live output and its
  * final result belong to one history that stays readable after the run ends,
@@ -16,7 +17,19 @@ import {
   stripCodemodeHeader,
   type CodemodeCallView
 } from './codemode-view';
-import { isRunsPanelToolName, isShellToolName } from './tool-names';
+import { isRunsPanelToolName, isShellToolName, isApplyPatchToolName } from './tool-names';
+import {
+  belongsToRunsPanel,
+  TRANSCRIPT_TOOL_DISPLAY_DEFAULT,
+  type TranscriptToolDisplay
+} from './quiet-activity';
+import {
+  applyPatchPreviewToFiles,
+  extractApplyPatchPaths,
+  getApplyPatchInputText,
+  parseApplyPatchInput
+} from './apply-patch';
+import { parseUnifiedPatch, type SplitDiffFile } from './patch';
 import type {
   AgentMessage,
   AssistantMessage,
@@ -31,7 +44,10 @@ export interface ExecutionHistoryEntry {
   id: string;
   kind: 'shell' | 'codemode' | 'tool';
   toolName: string;
-  /** The full command, script, or input JSON. */
+  /**
+   * The full command, script, or input JSON. Empty for a write-like call, whose
+   * `diffFiles` is the input that matters.
+   */
   command: string;
   /** One line for the collapsed row. */
   preview: string;
@@ -48,6 +64,8 @@ export interface ExecutionHistoryEntry {
   omittedCalls?: number;
   /** A `!` command the user ran in the composer. */
   userInitiated?: boolean;
+  /** The change a write, an edit, or a patch made, for the panel's diff pane. */
+  diffFiles?: SplitDiffFile[];
   timestamp?: number;
   durationMs?: number;
   /** A shell result whose full output was written elsewhere. */
@@ -235,6 +253,63 @@ function toolEntry(
   };
 }
 
+/** The change a write, an edit, or a patch made, when the result records one. */
+function runDiffFiles(
+  block: ToolCallContent,
+  result: ToolResultMessage | undefined
+): SplitDiffFile[] | undefined {
+  if (isApplyPatchToolName(block.toolName)) {
+    const fromInput = parseApplyPatchInput(getApplyPatchInputText(block.input, block.rawInput));
+    if (fromInput) return fromInput;
+    const details = result && !result.isError ? result.details : undefined;
+    return (isRecord(details) && applyPatchPreviewToFiles(details.preview)) || undefined;
+  }
+
+  const details = result?.details;
+  if (!isRecord(details)) return undefined;
+  const text =
+    typeof details.patch === 'string'
+      ? details.patch
+      : typeof details.diff === 'string'
+        ? details.diff
+        : null;
+  return (text && parseUnifiedPatch(text)) || undefined;
+}
+
+/** The one line naming what a kept-card call touched. */
+function keptCardSummary(block: ToolCallContent): string {
+  if (isApplyPatchToolName(block.toolName)) {
+    const paths = extractApplyPatchPaths(getApplyPatchInputText(block.input, block.rawInput));
+    if (paths.length > 0) return limitPreview(paths.join(', '));
+  }
+  return toolInputPreview(block.input);
+}
+
+/**
+ * A write, an edit, or a patch: its diff is the work, so the panel shows the
+ * change rather than the call's arguments, which for a write is the whole file.
+ */
+function keptCardEntry(
+  message: AssistantMessage,
+  block: ToolCallContent,
+  result: ToolResultMessage | undefined,
+  live: boolean
+): ExecutionHistoryEntry {
+  const diffFiles = runDiffFiles(block, result);
+  return {
+    id: block.toolCallId,
+    kind: 'tool',
+    toolName: block.toolName,
+    command: '',
+    preview: keptCardSummary(block),
+    status: live ? 'running' : runStatus(result),
+    output: resultText(result?.content),
+    ...(diffFiles ? { diffFiles } : {}),
+    timestamp: message.timestamp,
+    durationMs: entryDuration(message, result)
+  };
+}
+
 function userBashEntry(message: BashExecutionMessage, index: number): ExecutionHistoryEntry {
   const status = bashExecutionStatus(message);
   const toolName = message.excludeFromContext ? 'bash (local)' : 'bash';
@@ -266,9 +341,12 @@ export function buildExecutionHistory(
   running: ReadonlySet<string>,
   options: {
     pendingBash?: { command: string; excludeFromContext?: boolean } | null;
+    /** `conversation` collects the transcript's kept cards here too. */
+    toolDisplay?: TranscriptToolDisplay;
   } = {}
 ): ExecutionHistoryEntry[] {
   const entries: ExecutionHistoryEntry[] = [];
+  const toolDisplay = options.toolDisplay ?? TRANSCRIPT_TOOL_DISPLAY_DEFAULT;
 
   for (const [index, message] of messages.entries()) {
     if (message.role === 'bashExecution') {
@@ -279,19 +357,22 @@ export function buildExecutionHistory(
 
     for (const block of message.content) {
       if (block.type !== 'toolCall') continue;
-      if (!isRunsPanelToolName(block.toolName)) continue;
+      if (!belongsToRunsPanel(block.toolName, toolDisplay)) continue;
 
       const result = results.get(block.toolCallId);
       const live = running.has(block.toolCallId);
       if (!result && !live) continue;
 
+      const keptCard = !isRunsPanelToolName(block.toolName);
       const codemode = block.toolName === CODEMODE_TOOL_NAME;
       entries.push(
-        codemode
-          ? codemodeEntry(message, block, result, live)
-          : isShellToolName(block.toolName)
-            ? shellEntry(message, block, result, live)
-            : toolEntry(message, block, result, live)
+        keptCard
+          ? keptCardEntry(message, block, result, live)
+          : codemode
+            ? codemodeEntry(message, block, result, live)
+            : isShellToolName(block.toolName)
+              ? shellEntry(message, block, result, live)
+              : toolEntry(message, block, result, live)
       );
     }
   }

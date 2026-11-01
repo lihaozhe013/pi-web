@@ -485,6 +485,13 @@
   padding: 0 12px 12px;
 }
 
+/* A write's or an edit's change: the same rows a transcript card draws. */
+.run-history-diff {
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 6px;
+}
+
 .run-history-label {
   color: var(--text-dim);
   font-family: var(--font-mono);
