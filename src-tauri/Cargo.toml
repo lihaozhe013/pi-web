@@ -31,4 +31,5 @@ codegen-units = 1
 lto = true
 opt-level = "s"
 panic = "abort"
-strip = true
+# Stripping proc-macro dylibs causes dyld mis-aligned LINKEDIT errors on macOS.
+strip = false
