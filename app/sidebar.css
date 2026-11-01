@@ -1010,12 +1010,15 @@ a.session-tree-main {
   cursor: pointer;
 }
 
-/* The app icon, square like its file, in the button's fixed box. Block: no
-   baseline gap below it in the button. */
-.sidebar-brand-icon {
+/* The wordmark: the app's name in the button's box. Never cut or wrapped —
+   New's label gives way first. */
+.sidebar-brand-text {
   display: block;
-  width: 20px;
-  height: 20px;
+  font-size: calc(13px + var(--ui-font-size-offset, 0px));
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.25;
+  white-space: nowrap;
 }
 
 .sidebar-brand:hover {

@@ -5,15 +5,13 @@ import { useI18n } from '@/hooks/useI18n';
 import { AboutDialog } from './AboutDialog';
 
 /**
- * The sidebar's brand, at the top of the sessions panel: the app's pi mark, and
- * the way into About — the logo, the build's version with the commit it came
- * from, and the Pi release it runs.
+ * The sidebar's brand, at the top of the sessions panel: the app's name, and
+ * the way into About — the build's version with the commit it came from, and
+ * the Pi release it runs.
  */
 
-/** The mark the brand shows (the app icon). */
-export const BRAND_ICON_SRC = '/icons/icon-192.png';
-/** The mark's box, square like the file. */
-export const BRAND_ICON_SIZE = 20;
+/** The wordmark the brand shows. A name, so the same in every language. */
+export const BRAND_TEXT = 'Pie';
 
 export function PieTitle() {
   const { t } = useI18n();
@@ -31,15 +29,7 @@ export function PieTitle() {
         aria-expanded={aboutOpen}
         onClick={() => setAboutOpen(true)}
       >
-        {/* A fixed 20px brand mark, not content: next/image buys nothing here. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          className="sidebar-brand-icon"
-          src={BRAND_ICON_SRC}
-          alt=""
-          width={BRAND_ICON_SIZE}
-          height={BRAND_ICON_SIZE}
-        />
+        <span className="sidebar-brand-text">{BRAND_TEXT}</span>
       </button>
       {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
     </>
