@@ -8,6 +8,8 @@
 mod browser;
 mod config;
 mod http_probe;
+#[cfg(target_os = "macos")]
+mod menu;
 mod node_locator;
 mod payload;
 mod server;
@@ -86,7 +88,7 @@ pub fn run() {
     let startup_shared = shared.clone();
     let state = DesktopState(shared.clone());
 
-    let app = tauri::Builder::default()
+    let builder = tauri::Builder::default()
         // Must be registered first: a second launch focuses the existing window
         // instead of starting a second server.
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
@@ -96,7 +98,21 @@ pub fn run() {
                 let _ = window.set_focus();
             }
         }))
-        .manage(state)
+        .manage(state);
+
+    // macOS replaces the default menu so About opens the page's own dialog. The
+    // shell only evaluates a DOM event: the page gains nothing to call back.
+    #[cfg(target_os = "macos")]
+    let builder = builder.menu(menu::app_menu).on_menu_event(|app, event| {
+        if event.id() == menu::ABOUT_MENU_ID {
+            if let Some(window) = app.get_webview_window("main") {
+                // A page that has not loaded yet ignores it.
+                let _ = window.eval(menu::SHOW_ABOUT_SCRIPT);
+            }
+        }
+    });
+
+    let app = builder
         .setup(move |app| {
             let handle = app.handle().clone();
             let origin: Arc<Mutex<Option<tauri::Url>>> = Arc::new(Mutex::new(None));

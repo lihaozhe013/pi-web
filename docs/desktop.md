@@ -32,6 +32,10 @@ The payload is the portable archive except for unrelated metadata: `.next` plus 
 `node_modules`, run by the same `bin/pie.js` launcher. Run records, `pie status`, `pie stop`, signal
 forwarding, and preview-secret rotation keep working because the launcher is unchanged.
 
+On macOS the shell replaces Tauri's default menu so its About item opens the interface's own About
+dialog instead of the native panel. The rest of that menu is the default one, so editing shortcuts,
+Hide, and Quit keep working; the item only evaluates an event in the page (see Security).
+
 ## Paths
 
 | Purpose           | Location                                                                        |
@@ -111,7 +115,10 @@ saying so, instead of showing an empty frame.
   configured by the shell, so it is never reachable from the network.
 - No Tauri IPC. `withGlobalTauri` is off, the shell defines no commands, and there is no
   capabilities directory, so the page has nothing to call even if it tried. The only plugin is
-  single-instance, which is used from Rust only.
+  single-instance, which is used from Rust only. The macOS menu's About item is the one message the
+  shell sends into the page: it evaluates `window.dispatchEvent(new CustomEvent('pie:show-about'))`,
+  which the interface turns into its own About dialog (`lib/about-request.ts`). It carries no data
+  and opens no path back into Rust; a page that has not loaded yet ignores it.
 - Navigation is guarded. Loopback pages of the running server stay in the window; `/api` paths,
   external links, OAuth sign-in pages, and anything else open in the system browser and are blocked
   in the window. A small initialization script routes `window.open` and `target="_blank"` anchors
