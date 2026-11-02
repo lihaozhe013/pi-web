@@ -1,7 +1,7 @@
 # Task Manager: an agent that drives the queue
 
 **Status: approved design, in progress.** This document specifies a management surface for the
-serial task queue described in [Tasks](tasks.md). Phase 1 (the event layer) is implemented; the
+serial task queue described in [Tasks](tasks.md). The event layer and the tools are implemented; the
 sections below describe the whole design, and the implementation status table says what exists.
 
 ## What it is
