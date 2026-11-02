@@ -911,9 +911,24 @@
   gap: 6px;
 }
 
-.queue-settings-timeout > input[type='number'] {
+.queue-settings-timeout > input[type='number'],
+.queue-settings-infinity {
   width: 92px;
   flex-shrink: 0;
+}
+
+/* "No limit" replaces the number, so the state is visible at a glance. */
+.queue-settings-infinity {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 10px;
+  border: 1px solid var(--workspace-line, var(--border));
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--accent);
+  font-size: calc(17px + var(--ui-font-size-offset, 0px));
+  line-height: 1;
 }
 
 .queue-settings-timeout > select {
@@ -930,6 +945,23 @@
   font-size: 12px;
   white-space: nowrap;
   cursor: pointer;
+  padding: 5px 9px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  transition:
+    border-color var(--workspace-motion, 120ms ease),
+    background-color var(--workspace-motion, 120ms ease),
+    color var(--workspace-motion, 120ms ease);
+}
+
+.queue-settings-unlimited:hover {
+  color: var(--text);
+}
+
+.queue-settings-unlimited.is-active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--text);
 }
 
 .queue-settings-unlimited input {

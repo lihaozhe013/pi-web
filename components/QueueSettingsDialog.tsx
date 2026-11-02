@@ -146,16 +146,23 @@ export function QueueSettingsDialog({
     <div className="task-field">
       <span id={`${id}-label`}>{label}</span>
       <div className="queue-settings-timeout" role="group" aria-labelledby={`${id}-label`}>
-        <input
-          type="number"
-          min="1"
-          step="1"
-          inputMode="decimal"
-          aria-label={label}
-          value={draft.amount}
-          disabled={draft.unlimited}
-          onChange={(event) => onChange({ ...draft, amount: event.target.value })}
-        />
+        {draft.unlimited ? (
+          // The number is meaningless without a limit; showing the symbol where
+          // the value lives makes the choice visible without reading the chip.
+          <span className="queue-settings-infinity" aria-hidden="true">
+            ∞
+          </span>
+        ) : (
+          <input
+            type="number"
+            min="1"
+            step="1"
+            inputMode="decimal"
+            aria-label={label}
+            value={draft.amount}
+            onChange={(event) => onChange({ ...draft, amount: event.target.value })}
+          />
+        )}
         <select
           aria-label={t('tasks.timeoutUnit')}
           value={draft.unit}
@@ -182,7 +189,7 @@ export function QueueSettingsDialog({
           <option value="minutes">{t('tasks.minutes')}</option>
           <option value="hours">{t('tasks.hours')}</option>
         </select>
-        <label className="queue-settings-unlimited">
+        <label className={`queue-settings-unlimited${draft.unlimited ? ' is-active' : ''}`}>
           <input
             type="checkbox"
             checked={draft.unlimited}

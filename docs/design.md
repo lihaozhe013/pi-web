@@ -88,9 +88,9 @@ strong control while tasks exist; New task is strong only when the queue is empt
 beside the model chip opens the queue's own defaults — model, timeouts, verification commands,
 question policy, and the standing task instructions — in the app's standard dialog shell, with its
 actions (including "Restore defaults") pinned to the bottom while the body scrolls. A timeout is a
-number plus a unit, or an explicit "No limit"; the unit converts the number, and the form never
-relies on a browser tooltip for a bad value. Every "use queue default" in a task's form names the
-value it would inherit.
+number plus a unit, or an explicit "No limit" chip that replaces the number with `∞`; the unit
+converts the number, and the form never relies on a browser tooltip for a bad value. Every "use
+queue default" in a task's form names the value it would inherit.
 
 The work surface reads one task: its title, a status line with attempts and elapsed time, the
 description, and a facts sheet for the working directory, result, verification output, verification

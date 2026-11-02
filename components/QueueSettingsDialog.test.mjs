@@ -91,10 +91,12 @@ test('the dialog opens with the stored defaults, in the unit the person chose', 
   assert.equal((markup.match(/>No limit</g) ?? []).length, 2);
 });
 
-test('a null timeout renders as no limit with its number disabled', () => {
+test('a null timeout replaces the number with an explicit infinity', () => {
   const markup = render({ config: { ...CONFIG, taskTimeoutMs: null } });
-  assert.match(markup, /disabled="" value="1"/);
+  assert.match(markup, /class="queue-settings-infinity" aria-hidden="true">∞<\/span>/);
+  assert.match(markup, /class="queue-settings-unlimited is-active"/);
   assert.match(markup, /<input type="checkbox" checked=""\/>/);
+  assert.doesNotMatch(markup, /input type="number"[^>]*aria-label="Task timeout"/);
 });
 
 test('the question default reads as a plain on/off choice', () => {
