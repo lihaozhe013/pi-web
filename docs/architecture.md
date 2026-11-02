@@ -23,6 +23,7 @@ sessions in process; Bun manages dependencies and script invocation.
 | Agent runtime            | `lib/rpc-manager.ts`                                               |
 | Saved session reading    | `lib/session-reader.ts`                                            |
 | Shared types             | `lib/types.ts`, `lib/pi-types.ts`                                  |
+| Task queue               | `lib/tasks/`, `app/api/tasks/`, `components/TaskWorkspace.tsx`     |
 | HTTP APIs                | `app/api/`                                                         |
 | Local launcher           | `bin/pie.js`                                                       |
 | Portable packaging       | `packaging/`                                                       |
@@ -66,10 +67,31 @@ model is selected again. Pi CLI sharing the agent directory does not apply the c
 
 ## Product boundary
 
-Pie hosts ordinary Pi SDK sessions. It does not register subagent control tools, run child-session
-queues, maintain agent profiles, or create Git worktrees. There are no subagent HTTP routes or
-specialized transcript viewers. Installed extensions follow Pi's normal loading semantics and render
-through generic tool and extension UI paths.
+Pie hosts ordinary Pi SDK sessions. It does not register subagent control tools, maintain agent
+profiles, or create Git worktrees. There are no subagent HTTP routes or specialized transcript
+viewers. Installed extensions follow Pi's normal loading semantics and render through generic tool
+and extension UI paths.
+
+One scheduled surface exists: the serial task queue in [Tasks](tasks.md). It never runs two tasks at
+once, never reuses a session between tasks, and speaks only Pi's RPC records to a Pi CLI child
+process. It imports nothing from `lib/rpc-manager.ts`, so deleting `lib/tasks`, `app/api/tasks`, and
+the task workspace leaves chat behavior unchanged. A task's session is an ordinary Pi session and
+renders through the normal transcript; while its process runs, that session is read-only in chat so
+two writers never share one session file.
+
+## Serial task queue
+
+The queue stores tasks in SQLite (`<agentDir>/pie-tasks.db`, `node:sqlite`, WAL) and claims one
+`PENDING` row per transaction, asserting that no other row is `IN_PROGRESS`. Each attempt starts a
+new `pi --mode rpc` child in the task's working directory with a new session id; the loop waits for
+`agent_settled`, runs the configured verification commands, optionally commits the run's own
+changes, and settles the task. `FAILED` and `BLOCKED` both pause the loop until a person resumes it,
+and a restart settles any row left `IN_PROGRESS` as `BLOCKED`.
+
+Run controls travel as RPC commands (`abort`), and `ask_user` reaches the browser through Pi's
+extension UI sub-protocol, so the tool keeps one implementation for both the in-process chat session
+and a task child. The queue owns no model behavior: prompts, tools, models, and extensions are Pi's,
+resolved from the same agent directory chat uses.
 
 Session catalog entries are grouped by their recorded working directory. Directory validation and
 model lookup do not inspect Git or infer a replacement directory for a missing checkout. A missing
@@ -209,6 +231,8 @@ version that supports lockfile version 3.
   data.
 - Session forking and in-session branch navigation are different operations.
 - Closing a runtime must release resources and allow extensions to shut down.
+- The task queue keeps its claim atomic, its single-child rule, and its independence from the chat
+  runtime; a task's session is never reused for a second attempt.
 - Shared file APIs still support attachments, inline media, uploads, and references. A removed file
   browser does not make every file helper unused.
 - Path authorization, origin validation, and credential handling remain security boundaries.

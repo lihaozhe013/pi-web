@@ -24,9 +24,12 @@ them. Directory selection, attachments, inline media, and file references serve 
 they are not a file manager.
 
 Do not build an IDE, file workspace, Git/worktree manager, embedded terminal, multi-panel dashboard,
-multi-agent orchestrator, or comprehensive configuration center. Pie does not implement or manage
-subagents; installed Pi extensions remain Pi's responsibility. Prefer a good default over
-speculative settings.
+or comprehensive configuration center. Pie does not implement or manage subagents; installed Pi
+extensions remain Pi's responsibility. Prefer a good default over speculative settings.
+
+The one exception is a single serial task queue, described in [Tasks](tasks.md): one active task at
+a time, each executed by a fresh Pi CLI child process over Pi's own RPC protocol. It adds no second
+agent protocol and no parallelism, and the chat experience must keep working without it.
 
 Historical management pages, settings, and project-specific style layers remain in the code. They
 are not product commitments. Review them individually and leave configuration to Pi or its CLI when
@@ -45,15 +48,16 @@ pipeline, or automated update commitment is maintained.
 
 All project documentation is maintained in English, without translated copies.
 
-| Document                            | Purpose                              |
-| ----------------------------------- | ------------------------------------ |
-| [README](../README.md)              | Usage, security, and attribution     |
-| [Agent instructions](../AGENTS.md)  | Rules for coding assistants          |
-| [Interface principles](design.md)   | Presentation and interaction         |
-| [Architecture](architecture.md)     | Current entry points and boundaries  |
-| [Desktop shell](desktop.md)         | Tauri 2 window and desktop packaging |
-| [Packaging](../packaging/README.md) | Local portable builds                |
-| [Browser tests](../e2e/README.md)   | Local browser regression testing     |
+| Document                            | Purpose                               |
+| ----------------------------------- | ------------------------------------- |
+| [README](../README.md)              | Usage, security, and attribution      |
+| [Agent instructions](../AGENTS.md)  | Rules for coding assistants           |
+| [Interface principles](design.md)   | Presentation and interaction          |
+| [Architecture](architecture.md)     | Current entry points and boundaries   |
+| [Desktop shell](desktop.md)         | Tauri 2 window and desktop packaging  |
+| [Tasks](tasks.md)                   | Serial task queue, execution boundary |
+| [Packaging](../packaging/README.md) | Local portable builds                 |
+| [Browser tests](../e2e/README.md)   | Local browser regression testing      |
 
 These documents replace the upstream snapshot, fork-specific design guide, translated guides,
 historical ADRs, and release instructions. Use Git history for historical context rather than
