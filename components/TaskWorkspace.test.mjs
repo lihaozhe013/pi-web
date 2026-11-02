@@ -8,8 +8,15 @@ const React = await jiti.import('react');
 const { renderToStaticMarkup } = await jiti.import('react-dom/server');
 const { I18nProvider } = await jiti.import('@/hooks/useI18n');
 const { TaskWorkspace } = await jiti.import('./TaskWorkspace.tsx');
-const { detailPlacement, groupTasks, reorderPending, questionRequestFor, isTaskLocked } =
-  await jiti.import('@/lib/tasks/board.ts');
+const {
+  completedTaskIds,
+  detailPlacement,
+  groupTasks,
+  rangeSelection,
+  reorderPending,
+  questionRequestFor,
+  isTaskLocked
+} = await jiti.import('@/lib/tasks/board.ts');
 
 const CONFIG = {
   verifyCommands: [],
@@ -175,6 +182,34 @@ test('every row offers its actions from a menu button', () => {
   assert.equal((markup.match(/aria-haspopup="menu"/g) ?? []).length, 4);
   assert.match(markup, /aria-label="Task actions"/);
   assert.match(markup, /class="task-row-shell"/);
+});
+
+test('a shift range covers the rows between the anchor and the target', () => {
+  const order = [4, 7, 2, 9];
+  assert.deepEqual(rangeSelection(order, 7, 9), [7, 2, 9]);
+  assert.deepEqual(rangeSelection(order, 9, 7), [7, 2, 9]);
+  assert.deepEqual(rangeSelection(order, 7, 7), [7]);
+  // A row that is no longer in the list selects only itself.
+  assert.deepEqual(rangeSelection(order, 7, 99), [99]);
+});
+
+test('remove completed only collects DONE tasks', () => {
+  const tasks = [
+    task(),
+    task({ id: 2, status: 'DONE' }),
+    task({ id: 3, status: 'BLOCKED' }),
+    task({ id: 4, status: 'DONE' })
+  ];
+  assert.deepEqual(completedTaskIds(tasks), [2, 4]);
+  assert.deepEqual(completedTaskIds([task()]), []);
+});
+
+test('completed tasks get one action that removes them together', () => {
+  const markup = render(payload([task(), task({ id: 2, status: 'DONE' }), task({ id: 3, status: 'DONE', rank: 20 })]));
+  assert.match(markup, /data-task-action="clear-completed"/);
+  assert.match(markup, /aria-label="2 completed"/);
+  // Nothing to sweep: the action stays out of the header.
+  assert.doesNotMatch(render(payload([task()])), /clear-completed/);
 });
 
 test('a draft opens a detail pane even before the first task exists', () => {

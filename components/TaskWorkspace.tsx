@@ -31,11 +31,13 @@ import {
 } from './SidebarMenu';
 import { MoreIcon } from './SidebarIcons';
 import {
+  completedTaskIds,
   detailPlacement,
   groupTasks,
   hasVerification,
   isTaskLocked,
   questionRequestFor,
+  rangeSelection,
   reorderPending,
   taskElapsedMs,
   type TaskQueuePayload
@@ -135,6 +137,18 @@ function menuIcon(children: ReactNode) {
 }
 
 const MENU_ICON = {
+  select: menuIcon(
+    <>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <path d="m8 12 3 3 5-6" />
+    </>
+  ),
+  close: menuIcon(
+    <>
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </>
+  ),
   edit: menuIcon(
     <>
       <path d="M12 20h9" />
@@ -242,6 +256,15 @@ export function TaskWorkspace({
   );
   const [modelBusy, setModelBusy] = useState(false);
   const [queueSettingsOpen, setQueueSettingsOpen] = useState(false);
+  // Ids selected on top of the anchor (`selectedId`); together they are the
+  // selection a batch action works on.
+  const [extraSelectedIds, setExtraSelectedIds] = useState<number[]>([]);
+  const [confirm, setConfirm] = useState<{
+    anchor: SidebarMenuAnchor;
+    kind: 'selection' | 'completed';
+    ids: number[];
+    opener: HTMLElement;
+  } | null>(null);
   const [clipboard, setClipboard] = useState<TaskClipboard | null>(null);
   const [menu, setMenu] = useState<{ anchor: SidebarMenuAnchor; taskId: number | null } | null>(
     null
@@ -392,6 +415,51 @@ export function TaskWorkspace({
     [runningTask, selectedId, tasks]
   );
   const questionRequest = selected ? questionRequestFor(selected) : null;
+  const selection = useMemo(() => {
+    const ids = new Set<number>();
+    if (selectedId !== null) ids.add(selectedId);
+    for (const id of extraSelectedIds) ids.add(id);
+    return ids;
+  }, [extraSelectedIds, selectedId]);
+  const selectedTasks = useMemo(
+    () => tasks.filter((task) => selection.has(task.id)),
+    [selection, tasks]
+  );
+  const multiSelected = selection.size > 1;
+  const doneTasks = useMemo(() => tasks.filter((task) => task.status === 'DONE'), [tasks]);
+  // The board's reading order, which is also the order a shift range follows.
+  const boardOrder = useMemo(
+    () =>
+      tasks
+        .slice()
+        .sort(
+          (a, b) =>
+            STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || a.rank - b.rank || a.id - b.id
+        )
+        .map((task) => task.id),
+    [tasks]
+  );
+
+  // A poll can remove a selected task; the selection must not keep its id.
+  useEffect(() => {
+    setExtraSelectedIds((current) => {
+      const alive = current.filter((id) => tasks.some((task) => task.id === id));
+      return alive.length === current.length ? current : alive;
+    });
+  }, [tasks]);
+
+  // Escape drops a multi-selection before anything else takes the key.
+  useEffect(() => {
+    if (selection.size < 2 || pickerOpen || draft) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      setExtraSelectedIds([]);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [draft, pickerOpen, selection.size]);
+
   // A draft must place the pane even with an empty board, and on a phone the
   // sheet opens only when asked, so closing it does not reopen on the fallback.
   const placement = detailPlacement({
@@ -600,28 +668,26 @@ export function TaskWorkspace({
     [call, draft, selectedId]
   );
 
-  const createTaskFrom = useCallback(
+  const postTask = useCallback(
     async (copy: TaskClipboard, title: string): Promise<TaskRecord | null> => {
       const result = (await call('/api/tasks', {
         method: 'POST',
         body: JSON.stringify(taskBody(copy, title))
       })) as { task?: TaskRecord } | null;
-      if (!result?.task) return null;
-      setSelectedId(result.task.id);
-      return result.task;
+      return result?.task ?? null;
     },
     [call]
   );
 
-  const duplicateTask = useCallback(
-    async (task: TaskRecord) => {
-      const created = await createTaskFrom(
-        clipboardFromTask(task),
-        `${task.title} ${t('tasks.copySuffix')}`
-      );
-      if (created) setNotice(t('tasks.duplicated'));
+  const createTaskFrom = useCallback(
+    async (copy: TaskClipboard, title: string): Promise<TaskRecord | null> => {
+      const created = await postTask(copy, title);
+      if (!created) return null;
+      setSelectedId(created.id);
+      setExtraSelectedIds([]);
+      return created;
     },
-    [createTaskFrom, t]
+    [postTask]
   );
 
   const copyTask = useCallback(
@@ -643,6 +709,148 @@ export function TaskWorkspace({
     const created = await createTaskFrom(clipboard, `${clipboard.title} ${t('tasks.copySuffix')}`);
     if (created) setNotice(t('tasks.pasted'));
   }, [clipboard, createTaskFrom, t]);
+
+  /** Drop the whole selection, anchor included: the detail falls back to its default. */
+  const clearSelection = useCallback(() => {
+    setSelectedId(null);
+    setExtraSelectedIds([]);
+  }, []);
+
+  const toggleSelection = useCallback(
+    (taskId: number) => {
+      if (selectedId === null) {
+        setSelectedId(taskId);
+        return;
+      }
+      if (taskId === selectedId) {
+        const [next, ...rest] = extraSelectedIds;
+        setSelectedId(next ?? null);
+        setExtraSelectedIds(rest);
+        return;
+      }
+      const extra = extraSelectedIds.includes(taskId)
+        ? extraSelectedIds.filter((id) => id !== taskId)
+        : [...extraSelectedIds, taskId];
+      setExtraSelectedIds(extra);
+      // A phone keeps its batch actions in the sheet; show them as soon as a
+      // second row joins the selection.
+      if (extra.length + 1 > 1) openSheet();
+    },
+    [extraSelectedIds, openSheet, selectedId]
+  );
+
+  const selectRange = useCallback(
+    (order: number[], taskId: number) => {
+      const anchor = selectedId ?? taskId;
+      const ids = rangeSelection(order, anchor, taskId);
+      setSelectedId(anchor);
+      setExtraSelectedIds(ids.filter((id) => id !== anchor));
+    },
+    [selectedId]
+  );
+
+  const selectAll = useCallback(() => {
+    if (boardOrder.length === 0) return;
+    setSelectedId(boardOrder[0]);
+    setExtraSelectedIds(boardOrder.slice(1));
+  }, [boardOrder]);
+
+  /** Shift+Arrow extends from the focused row to its neighbour in `order`. */
+  const extendSelection = useCallback(
+    (order: number[], taskId: number, delta: -1 | 1) => {
+      const index = order.indexOf(taskId);
+      const next = order[index + delta];
+      if (index < 0 || next === undefined) return;
+      // The row under the keyboard anchors the range when nothing was selected yet.
+      const anchor = selectedId ?? taskId;
+      const ids = rangeSelection(order, anchor, next);
+      setSelectedId(anchor);
+      setExtraSelectedIds(ids.filter((id) => id !== anchor));
+      // Focus the row now: the next Shift+Arrow must start from here, not from
+      // wherever the range began.
+      rowRefs.current.get(next)?.focus();
+    },
+    [selectedId]
+  );
+
+  const duplicateTasks = useCallback(
+    async (list: TaskRecord[]) => {
+      const created: number[] = [];
+      for (const task of list) {
+        const copy = await postTask(
+          clipboardFromTask(task),
+          `${task.title} ${t('tasks.copySuffix')}`
+        );
+        if (copy) created.push(copy.id);
+      }
+      if (created.length === 0) return;
+      setSelectedId(created[0]);
+      setExtraSelectedIds(created.slice(1));
+      setNotice(t('tasks.duplicatedCount', { count: created.length }));
+    },
+    [postTask, t]
+  );
+
+  /**
+   * Delete several tasks at once. The queue refuses a running one, so the
+   * caller offers only tasks it may remove; a failure still reports why.
+   */
+  const deleteTasks = useCallback(
+    async (ids: number[]) => {
+      if (ids.length === 0) return;
+      setBusy(true);
+      setError(null);
+      const removed: number[] = [];
+      const failures: string[] = [];
+      await Promise.all(
+        ids.map(async (id) => {
+          try {
+            const response = await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+            if (response.ok) removed.push(id);
+            else {
+              const data = (await response.json().catch(() => ({}))) as { error?: string };
+              failures.push(data.error ?? `HTTP ${response.status}`);
+            }
+          } catch (deleteError) {
+            failures.push(deleteError instanceof Error ? deleteError.message : String(deleteError));
+          }
+        })
+      );
+      await refresh();
+      if (removed.length > 0) {
+        setSelectedId((current) => (current !== null && removed.includes(current) ? null : current));
+        setExtraSelectedIds((current) => current.filter((id) => !removed.includes(id)));
+        setNotice(t('tasks.removedCount', { count: removed.length }));
+      }
+      if (failures.length > 0) setError(failures[0]);
+      setBusy(false);
+    },
+    [refresh, t]
+  );
+
+  const openConfirm = useCallback(
+    (kind: 'selection' | 'completed', ids: number[], opener: HTMLElement) => {
+      const rect = opener.getBoundingClientRect();
+      setConfirm({
+        kind,
+        ids,
+        opener,
+        anchor: {
+          kind: 'rect',
+          align: 'end',
+          rect: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom }
+        }
+      });
+    },
+    []
+  );
+
+  const confirmRemoval = useCallback(async () => {
+    if (!confirm) return;
+    const ids = confirm.ids;
+    setConfirm(null);
+    await deleteTasks(ids);
+  }, [confirm, deleteTasks]);
 
   const saveModel = useCallback(
     async (model: { provider: string; modelId: string } | null) => {
@@ -673,10 +881,19 @@ export function TaskWorkspace({
 
   // A right-click or the row's menu button act on that row, not on the
   // selection, so the board never guesses which task was meant.
-  const openRowMenu = useCallback((task: TaskRecord, anchor: SidebarMenuAnchor, opener: HTMLElement) => {
-    menuOpenerRef.current = opener;
-    setMenu({ anchor, taskId: task.id });
-  }, []);
+  const openRowMenu = useCallback(
+    (task: TaskRecord, anchor: SidebarMenuAnchor, opener: HTMLElement) => {
+      // Opening a row's menu outside a multi-selection re-anchors it there, so the
+      // highlighted rows and the menu's targets never disagree.
+      if (selection.size > 1 && !selection.has(task.id)) {
+        setSelectedId(task.id);
+        setExtraSelectedIds([]);
+      }
+      menuOpenerRef.current = opener;
+      setMenu({ anchor, taskId: task.id });
+    },
+    [selection]
+  );
 
   const openBoardMenu = useCallback((anchor: SidebarMenuAnchor, opener: HTMLElement) => {
     menuOpenerRef.current = opener;
@@ -739,8 +956,19 @@ export function TaskWorkspace({
   );
 
   const onRowKeyDown = useCallback(
-    (event: ReactKeyboardEvent<HTMLButtonElement>, task: TaskRecord) => {
+    (event: ReactKeyboardEvent<HTMLButtonElement>, task: TaskRecord, order: number[]) => {
       if (event.nativeEvent.isComposing) return;
+      // Cmd/Ctrl+A takes the whole queue; Shift+Arrow grows the selection.
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'a') {
+        event.preventDefault();
+        selectAll();
+        return;
+      }
+      if (event.shiftKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+        event.preventDefault();
+        extendSelection(order, task.id, event.key === 'ArrowUp' ? -1 : 1);
+        return;
+      }
       // The keyboard's own context-menu gesture, at the row like a right-click.
       if ((event.key === 'F10' && event.shiftKey) || event.key === 'ContextMenu') {
         event.preventDefault();
@@ -770,24 +998,38 @@ export function TaskWorkspace({
         void removeTask(task);
       }
     },
-    [moveTask, openRowMenu, removeTask, startEdit]
+    [extendSelection, moveTask, openRowMenu, removeTask, selectAll, startEdit]
   );
 
-  /** One row's menu: edit, move, duplicate, copy/paste, open, delete. */
+  /**
+   * One row's menu. Right-clicking a row inside a multi-selection acts on the
+   * whole selection, the way a file list does; anything else acts on that row.
+   */
   const menuItemsFor = (task: TaskRecord): SidebarMenuItem[] => {
+    const targets = multiSelected && selection.has(task.id) ? selectedTasks : [task];
+    const single = targets.length === 1;
     const locked = isTaskLocked(task);
+    const removable = targets.filter((entry) => !isTaskLocked(entry));
     const pending = groups.queued.findIndex((entry) => entry.id === task.id);
-    const canMoveUp = pending > 0;
-    const canMoveDown = pending >= 0 && pending < groups.queued.length - 1;
+    const canMoveUp = single && pending > 0;
+    const canMoveDown = single && pending >= 0 && pending < groups.queued.length - 1;
     const lockedReason = locked ? t('tasks.lockedExplanation') : undefined;
     const items: SidebarMenuItem[] = [
+      {
+        type: 'item',
+        id: 'select',
+        label: selection.has(task.id) ? t('tasks.deselect') : t('tasks.select'),
+        icon: MENU_ICON.select,
+        onSelect: () => toggleSelection(task.id)
+      },
+      { type: 'separator', id: 'sep-edit' },
       {
         type: 'item',
         id: 'edit',
         label: t('tasks.edit'),
         icon: MENU_ICON.edit,
-        disabled: locked,
-        disabledReason: lockedReason,
+        disabled: !single || locked,
+        disabledReason: locked ? lockedReason : undefined,
         onSelect: () => startEdit(task)
       },
       { type: 'separator', id: 'sep-move' },
@@ -813,15 +1055,16 @@ export function TaskWorkspace({
       {
         type: 'item',
         id: 'duplicate',
-        label: t('tasks.duplicate'),
+        label: single ? t('tasks.duplicate') : t('tasks.duplicateCount', { count: targets.length }),
         icon: MENU_ICON.duplicate,
-        onSelect: () => void duplicateTask(task)
+        onSelect: () => void duplicateTasks(targets)
       },
       {
         type: 'item',
         id: 'copy',
         label: t('tasks.copy'),
         icon: MENU_ICON.copy,
+        disabled: !single,
         onSelect: () => copyTask(task)
       },
       {
@@ -834,7 +1077,7 @@ export function TaskWorkspace({
         onSelect: () => void pasteTask()
       }
     ];
-    if (task.sessionId) {
+    if (single && task.sessionId) {
       items.push(
         { type: 'separator', id: 'sep-session' },
         {
@@ -851,12 +1094,25 @@ export function TaskWorkspace({
       {
         type: 'item',
         id: 'delete',
-        label: t('tasks.delete'),
+        label: single ? t('tasks.delete') : t('tasks.deleteCount', { count: removable.length }),
         icon: MENU_ICON.delete,
         danger: true,
-        disabled: locked,
-        disabledReason: lockedReason,
-        onSelect: () => void removeTask(task)
+        disabled: removable.length === 0,
+        disabledReason: removable.length === 0 ? lockedReason : undefined,
+        onSelect: () => {
+          if (single) {
+            void removeTask(task);
+            return;
+          }
+          const opener = menuOpenerRef.current;
+          if (opener) {
+            openConfirm(
+              'selection',
+              removable.map((entry) => entry.id),
+              opener
+            );
+          }
+        }
       }
     );
     return items;
@@ -878,6 +1134,35 @@ export function TaskWorkspace({
       disabled: !clipboard,
       disabledReason: clipboard ? undefined : t('tasks.nothingToPaste'),
       onSelect: () => void pasteTask()
+    },
+    { type: 'separator', id: 'sep-select' },
+    {
+      type: 'item',
+      id: 'select-all',
+      label: t('tasks.selectAll'),
+      icon: MENU_ICON.select,
+      disabled: tasks.length === 0,
+      onSelect: selectAll
+    },
+    {
+      type: 'item',
+      id: 'clear-selection',
+      label: t('tasks.clearSelection'),
+      icon: MENU_ICON.close,
+      disabled: selection.size === 0,
+      onSelect: clearSelection
+    },
+    {
+      type: 'item',
+      id: 'remove-completed',
+      label: t('tasks.clearCompletedCount', { count: doneTasks.length }),
+      icon: MENU_ICON.delete,
+      danger: true,
+      disabled: doneTasks.length === 0,
+      onSelect: () => {
+        const opener = menuOpenerRef.current;
+        if (opener) openConfirm('completed', completedTaskIds(tasks), opener);
+      }
     }
   ];
 
@@ -897,15 +1182,17 @@ export function TaskWorkspace({
       (status.activity.detail ? ` · ${status.activity.detail}` : '')
     : null;
 
-  const renderRow = (task: TaskRecord) => {
+  const renderRow = (task: TaskRecord, order: number[]) => {
     const locked = isTaskLocked(task);
     const active = selected?.id === task.id;
+    const selectedHere = selection.has(task.id);
     const menuOpen = menu?.taskId === task.id;
     return (
       <div
         key={task.id}
         className="task-row-shell"
         data-active={active}
+        data-selected={selectedHere ? 'true' : undefined}
         data-menu-open={menuOpen ? 'true' : undefined}
         onContextMenu={(event) => {
           event.preventDefault();
@@ -922,19 +1209,29 @@ export function TaskWorkspace({
           data-active={active}
           data-status={task.status}
           aria-current={active ? 'true' : undefined}
-          aria-label={`${statusLabel(task.status)}: ${task.title}`}
+          aria-label={`${selectedHere && multiSelected ? `${t('tasks.selectedPrefix')} ` : ''}${statusLabel(task.status)}: ${task.title}`}
           title={
             locked
               ? t('tasks.lockedExplanation')
               : `${t('tasks.reorderHint')} · ${t('tasks.editHint')}`
           }
-          onClick={() => {
-            setSelectedId(task.id);
+          onClick={(event) => {
             setDraft(null);
+            if (event.shiftKey) {
+              selectRange(order, task.id);
+              openSheet();
+              return;
+            }
+            if (event.metaKey || event.ctrlKey) {
+              toggleSelection(task.id);
+              return;
+            }
+            setSelectedId(task.id);
+            setExtraSelectedIds([]);
             openSheet();
           }}
           onDoubleClick={() => startEdit(task)}
-          onKeyDown={(event) => onRowKeyDown(event, task)}
+          onKeyDown={(event) => onRowKeyDown(event, task, order)}
         >
           <span
             className="task-row-marker"
@@ -987,7 +1284,9 @@ export function TaskWorkspace({
           {t(`tasks.group.${key}`)}
           <span className="task-group-count">{list.length}</span>
         </h3>
-        <div className="task-group-list">{list.map(renderRow)}</div>
+        <div className="task-group-list">
+          {list.map((task) => renderRow(task, list.map((entry) => entry.id)))}
+        </div>
       </section>
     );
   };
@@ -1033,6 +1332,38 @@ export function TaskWorkspace({
                 placement="auto"
               />
             </span>
+          )}
+          {doneTasks.length > 0 && (
+            <button
+              type="button"
+              className="task-queue-settings"
+              data-task-action="clear-completed"
+              aria-label={t('tasks.clearCompletedCount', { count: doneTasks.length })}
+              title={t('tasks.clearCompletedCount', { count: doneTasks.length })}
+              aria-haspopup="dialog"
+              onClick={(event) =>
+                openConfirm('completed', completedTaskIds(tasks), event.currentTarget)
+              }
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M3 6h18" />
+                <path d="M8 6V4h8v2" />
+                <path d="M19 6l-1 14H6L5 6" />
+              </svg>
+              <span className="task-clear-count" aria-hidden="true">
+                {doneTasks.length}
+              </span>
+            </button>
           )}
           <button
             type="button"
@@ -1180,7 +1511,7 @@ export function TaskWorkspace({
                 (a, b) =>
                   STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || a.rank - b.rank || a.id - b.id
               )
-              .map(renderRow)
+              .map((task) => renderRow(task, boardOrder))
           )}
           <p className="task-keyboard-hint">{t('tasks.reorderHint')}</p>
         </main>
@@ -1213,6 +1544,44 @@ export function TaskWorkspace({
           }}
         />
       )}
+
+      <SidebarMenu
+        open={confirm !== null}
+        anchor={confirm?.anchor ?? null}
+        sheet={isMobile}
+        ariaLabel={t('tasks.removeConfirm')}
+        title={confirm?.kind === 'completed' ? t('tasks.clearCompleted') : t('tasks.removeConfirm')}
+        cancelLabel={t('i18n.cancel')}
+        onClose={() => setConfirm(null)}
+        returnFocusTo={confirm?.opener ?? null}
+        width={280}
+      >
+        <div className="task-confirm">
+          <p className="task-confirm-title" role="status">
+            {confirm?.kind === 'completed'
+              ? t('tasks.removeCompletedTitle', { count: confirm?.ids.length ?? 0 })
+              : t('tasks.removeSelectionTitle', { count: confirm?.ids.length ?? 0 })}
+          </p>
+          <p className="task-confirm-text">{t('tasks.removeCannotUndo')}</p>
+          <div className="task-confirm-actions">
+            <button
+              type="button"
+              className="task-control is-danger"
+              onClick={() => void confirmRemoval()}
+            >
+              {t('tasks.remove', { count: confirm?.ids.length ?? 0 })}
+            </button>
+            <button
+              type="button"
+              className="task-control"
+              data-sidebar-menu-autofocus={isMobile ? undefined : ''}
+              onClick={() => setConfirm(null)}
+            >
+              {t('tasks.cancel')}
+            </button>
+          </div>
+        </div>
+      </SidebarMenu>
 
       <SidebarMenu
         open={menu !== null}
@@ -1257,9 +1626,55 @@ export function TaskWorkspace({
     </div>
   );
 
+  function renderSelection() {
+    const removable = selectedTasks.filter((task) => !isTaskLocked(task));
+    return (
+      <div className="task-selection">
+        <h2 className="task-detail-title">
+          {t('tasks.selectedCount', { count: selection.size })}
+        </h2>
+        {/* Keyboard modifiers mean nothing on a phone, where rows are picked from
+            their menus and this panel covers them. */}
+        <p className="task-hint">
+          {t(overlayDetail ? 'tasks.selectionHintPhone' : 'tasks.selectionHint')}
+        </p>
+        <div className="task-detail-actions">
+          <button
+            type="button"
+            className="task-control"
+            disabled={busy}
+            onClick={() => void duplicateTasks(selectedTasks)}
+          >
+            {t('tasks.duplicateCount', { count: selectedTasks.length })}
+          </button>
+          <button
+            type="button"
+            className="task-control is-danger"
+            data-task-action="delete-selection"
+            disabled={busy || removable.length === 0}
+            title={removable.length === 0 ? t('tasks.lockedExplanation') : undefined}
+            onClick={(event) =>
+              openConfirm(
+                'selection',
+                removable.map((task) => task.id),
+                event.currentTarget
+              )
+            }
+          >
+            {t('tasks.deleteCount', { count: removable.length })}
+          </button>
+          <button type="button" className="task-control" onClick={clearSelection} disabled={busy}>
+            {t('tasks.clearSelection')}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   function renderDetail() {
     // The new-task form is the one detail pane that exists before a task does.
     if (draft) return renderForm();
+    if (multiSelected) return renderSelection();
     if (!selected) return null;
     const locked = isTaskLocked(selected);
     return (

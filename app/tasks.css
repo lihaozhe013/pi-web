@@ -295,6 +295,55 @@
   background: var(--bg-selected);
 }
 
+/* Selected in a multi-selection: a tint, while the anchor keeps the ring. */
+.task-row[data-selected='true'] {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-panel));
+}
+
+.task-row[data-selected='true'][data-active='true'] {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+}
+
+/* The right column while several tasks are selected. */
+.task-selection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.task-selection .task-detail-actions {
+  margin-top: 4px;
+}
+
+/* A destructive bulk action asks first, in the same popover pattern. */
+.task-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+}
+
+.task-confirm-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.task-confirm-text {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.task-confirm-actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 4px;
+}
+
 .task-row-marker {
   width: 7px;
   height: 7px;
@@ -669,6 +718,20 @@
 .task-queue-settings:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
+}
+
+/* The completed count lives in the button, so the icon alone is not a riddle. */
+.task-queue-settings .task-clear-count {
+  margin-left: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.task-queue-settings:has(.task-clear-count) {
+  width: auto;
+  padding: 0 8px;
+  gap: 2px;
 }
 
 /* The sheet is the overlay; a fixed detail inside it would cover the close

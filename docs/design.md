@@ -71,9 +71,15 @@ form never relies on a browser tooltip for a bad value. Every "use queue default
 form names the value it would inherit.
 
 Each row ends in a quiet `⋯` menu button; the same menu opens on right-click at the pointer and from
-`Shift+F10`, and becomes a bottom sheet on a phone. It offers edit, move up/down (only inside the
-queued segment), duplicate, copy, paste, open session, and delete — the actions a list this small
+`Shift+F10`, and becomes a bottom sheet on a phone. It offers select, edit, move up/down (only inside
+the queued segment), duplicate, copy, paste, open session, and delete — the actions a list this small
 deserves before it needs drag handles or a second toolbar.
+
+Shift+click extends a selection, Command/Ctrl+click adds one row, so bulk work does not require a
+checkbox column that would compete with the status marker. A multi-selection swaps the detail column
+for the batch actions and names the count in the header and in the header of the pane, because a tint
+alone is not a state. Removing several tasks, completed ones included, asks once in the same popover
+the row menu uses: the queue has no undo, but the sessions themselves are only linked, never deleted.
 
 The board polls: once a second while a task runs or a question waits, otherwise every five seconds,
 never while the page is hidden, and once when it returns. A waiting `ask_user` question renders

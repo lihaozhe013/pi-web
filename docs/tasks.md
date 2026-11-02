@@ -432,8 +432,19 @@ delivered in two steps so the chat surface is never destabilized by a navigation
 - The board: one row per task with a status marker, title, working directory, attempts, and elapsed
   time. Reordering by drag or by the arrow keys. Keyboard: `↑`/`↓` move within the queue, `Enter`
   edits, `Delete` removes, all disabled with an explanation while a row is running.
+- Several tasks can be acted on at once. Shift+click selects the range between the anchor and the
+  row clicked, Command/Ctrl+click adds or removes one row, `Command/Ctrl+A` selects the queue and
+  `Shift+↑`/`↓` extends the selection, so no pointer modifier is the only way in. On a phone, where
+  there is no modifier, a row's menu offers "Select". A multi-selection replaces the detail column
+  with the batch actions (duplicate, delete, clear) and the header states how many tasks are
+  selected, so the count is never color-only. Duplicating a selection appends the copies and selects
+  them; deleting several asks once in the same popover the row menu uses, because there is no undo.
+- Completed tasks have one action of their own: a trash button in the header, carrying the count,
+  that removes every `DONE` record in a single confirmation. It is the answer to a queue that
+  accumulates finished work; the tasks that are still queued, running, or waiting on a person are
+  never part of it.
 - Every row also carries a menu (`⋯`, right-click, or the keyboard's `Shift+F10`/menu key) with
-  edit, move up/down, duplicate, copy, paste, open session, and delete. Move is offered only inside
+  select/deselect, edit, move up/down, duplicate, copy, paste, open session, and delete. Move is offered only inside
   the queued segment; duplicate and paste append a copy at the end and select it; copy keeps the
   editable fields in `localStorage`, so the clipboard survives a reload. On a phone the same menu is
   a bottom sheet, and an empty board's right-click offers "New task" and "Paste".
@@ -531,7 +542,7 @@ Only the relevant file per change, per `AGENTS.md`.
 | `lib/tasks/orchestrator.test.mjs`   | Claim → done → next, gate failure → blocked → paused, empty queue → notice, restart recovery.                                                               |
 | `lib/tasks/git.test.mjs`            | Not a repository, no changes, baseline-dirty files untouched, commit failure recorded.                                                                      |
 | `app/api/tasks/route.test.mjs`      | Status codes, `task_locked`, answer routing.                                                                                                                |
-| `components/TaskWorkspace.test.mjs` | Reorder by keyboard, disabled controls while running, question rendering.                                                                                   |
+| `components/TaskWorkspace.test.mjs` | Reorder by keyboard, disabled controls while running, question rendering, shift ranges, which tasks a sweep collects.                                        |
 
 `store.test.mjs` and `queue.test.mjs` use a temporary directory; no test touches the real agent
 directory or a real repository.

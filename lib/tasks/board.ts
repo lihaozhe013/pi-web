@@ -108,6 +108,22 @@ export function detailPlacement(options: {
   return options.sheetOpen || options.hasDraft ? 'sheet' : 'none';
 }
 
+/**
+ * The ids between two rows, inclusive, in the order they are shown. A target
+ * that is not in the list (a filtered or removed row) selects only itself.
+ */
+export function rangeSelection(order: number[], fromId: number, toId: number): number[] {
+  const from = order.indexOf(fromId);
+  const to = order.indexOf(toId);
+  if (from < 0 || to < 0) return [toId];
+  return order.slice(Math.min(from, to), Math.max(from, to) + 1);
+}
+
+/** Ids of the tasks a "remove completed" action would delete. */
+export function completedTaskIds(tasks: Pick<TaskRecord, 'id' | 'status'>[]): number[] {
+  return tasks.filter((task) => task.status === 'DONE').map((task) => task.id);
+}
+
 export function taskElapsedMs(task: TaskRecord, now = Date.now()): number | null {
   const start = task.runStartedAt ?? task.updatedAt;
   const end = task.finishedAt ?? (task.status === 'IN_PROGRESS' ? null : task.updatedAt);
