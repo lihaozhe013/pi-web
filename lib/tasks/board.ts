@@ -4,13 +4,21 @@
  */
 import { ASK_USER_OTHER_LABEL } from '../ask-user-labels';
 import type { ExtensionUiRequest } from '../types';
-import type { OrchestratorStatus, TaskConfig, TaskRecord, TaskRunRecord } from './types';
+import type {
+  OrchestratorStatus,
+  TaskConfig,
+  TaskRecord,
+  TaskRunRecord,
+  TaskWatchRecord
+} from './types';
 
 export interface TaskQueuePayload {
   tasks: TaskRecord[];
   runs: TaskRunRecord[];
   orchestrator: OrchestratorStatus;
   config: TaskConfig;
+  /** The session watching the queue, when one is. */
+  watch?: TaskWatchRecord | null;
 }
 
 export interface TaskGroups {

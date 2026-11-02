@@ -180,6 +180,7 @@ function taskSummary(task: TaskRecord): Record<string, unknown> {
     title: task.title,
     status: task.status,
     cwd: task.cwd,
+    createdBy: task.createdBy,
     attempts: task.attempts,
     resultSummary: task.resultSummary ? clipOutputTail(task.resultSummary, 500) : null,
     pendingQuestion: task.pendingQuestion?.question ?? null
@@ -269,7 +270,8 @@ export class TaskTools {
         description: params.description ?? null,
         cwd: params.cwd,
         allowAskUser: params.allowAskUser ?? null,
-        verifyCommands: params.verifyCommands ?? null
+        verifyCommands: params.verifyCommands ?? null,
+        createdBy: this.sessionId
       });
       return { task: taskSummary(task) };
     });

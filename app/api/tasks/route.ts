@@ -16,7 +16,9 @@ export async function GET(req: Request) {
         tasks: orchestrator.queue.listTasks(),
         runs: orchestrator.queue.listRuns(),
         orchestrator: orchestrator.status(),
-        config: readTaskConfig()
+        config: readTaskConfig(),
+        // The one watch row, so the board can say a session is listening.
+        watch: orchestrator.queue.store.getWatch()
       },
       noStore()
     );

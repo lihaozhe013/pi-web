@@ -452,6 +452,16 @@
   white-space: nowrap;
 }
 
+.task-row-actor {
+  padding: 0 5px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: 10px;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
 .task-row-status {
   flex-shrink: 0;
   color: var(--text-muted);

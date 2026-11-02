@@ -934,6 +934,28 @@ export function AppShell() {
     [activeCwd, invalidateWorkspaceRestore, isMobile, newSessionCwd, router, selectedSession]
   );
 
+  /**
+   * The task board's way into the orchestrator: ensure the project, then open
+   * the newest conversation in it, or a fresh composer when it has none.
+   */
+  const handleOpenTaskManager = useCallback(async () => {
+    const response = await fetch('/api/tasks/manager', { method: 'POST' });
+    if (!response.ok) throw new Error('the task manager project could not be opened');
+    const project = (await response.json()) as { cwd: string; projectKey: string };
+    const existing = sessionCatalog
+      .filter((entry) => workspaceKeyOf(entry) === project.projectKey)
+      .sort((a, b) => Date.parse(b.modified) - Date.parse(a.modified))[0];
+    if (existing) {
+      handleSelectSession(existing);
+      return;
+    }
+    const draftId =
+      typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `${Date.now().toString(36)}-orchestrator`;
+    handleNewSession(draftId, project.cwd, project.projectKey);
+  }, [handleNewSession, handleSelectSession, sessionCatalog]);
+
   // Global keyboard shortcuts (handles Esc, Ctrl+Alt+N etc.)
   useGlobalKeyboardShortcuts({
     onNewSession: (cwd: string) => handleNewSession(`kb-${Date.now()}`, cwd),
@@ -1923,6 +1945,7 @@ export function AppShell() {
                 queuePanelOpen={taskQueuePanelOpen}
                 queuePanelSlot={taskQueuePanelSlot}
                 onToggleQueuePanel={toggleTaskQueuePanel}
+                onOpenTaskManager={handleOpenTaskManager}
                 onOpenSession={(sessionId) => {
                   // The sidebar already lists the conversation when the task's
                   // project is open; use it so the switch is a client-side

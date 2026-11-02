@@ -253,3 +253,24 @@ test('the queue state and pause reason are visible', () => {
   assert.match(markup, /Verification failed/);
   assert.match(markup, /data-state="PAUSED"/);
 });
+
+test('the board offers a way into the orchestrator when the shell can open it', () => {
+  const without = render(payload([task()]), { onOpenTaskManager: undefined });
+  assert.doesNotMatch(without, /data-task-action="open-orchestrator"/);
+
+  const withAction = render(payload([task()]), { onOpenTaskManager() {} });
+  assert.match(withAction, /data-task-action="open-orchestrator"/);
+  assert.match(withAction, /Task manager/);
+});
+
+test('a watching session and an orchestrator-queued task are both marked', () => {
+  const data = payload([
+    task({ createdBy: 'session-1' }),
+    task({ id: 2, title: 'By hand', createdBy: null })
+  ]);
+  data.watch = { sessionId: 'session-1', startedAt: '2024-01-01T00:00:00.000Z', wakes: 2 };
+  const markup = render(data);
+  assert.match(markup, /data-task-watch="session-1"/);
+  assert.match(markup, /A chat session is watching this queue/);
+  assert.equal(markup.match(/Queued by a chat session/g)?.length, 1);
+});

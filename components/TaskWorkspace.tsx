@@ -44,6 +44,8 @@ import type { TaskRecord, TaskStatus } from '@/lib/tasks/types';
 export interface TaskWorkspaceProps {
   /** Opens the task's ordinary Pi session in the chat view. */
   onOpenSession?: (sessionId: string) => void;
+  /** Ensures the task manager project and opens its chat session. */
+  onOpenTaskManager?: () => Promise<void> | void;
   /** `?task=<id>`: the task a deep link opens. */
   initialTaskId?: number | null;
   /** Test seam and first paint: the payload the first poll would return. */
@@ -221,6 +223,7 @@ function statusTone(status: TaskStatus): string {
 
 export function TaskWorkspace({
   onOpenSession,
+  onOpenTaskManager,
   initialTaskId = null,
   initialData = null,
   polling = true,
@@ -566,6 +569,19 @@ export function TaskWorkspace({
     sheetReturnFocus.current = null;
     if (target?.isConnected) requestAnimationFrame(() => target.focus());
   }, []);
+
+  const [orchestratorBusy, setOrchestratorBusy] = useState(false);
+  const openOrchestrator = useCallback(async () => {
+    if (!onOpenTaskManager || orchestratorBusy) return;
+    setOrchestratorBusy(true);
+    try {
+      await onOpenTaskManager();
+    } catch {
+      setError(t('tasks.orchestratorFailed'));
+    } finally {
+      setOrchestratorBusy(false);
+    }
+  }, [onOpenTaskManager, orchestratorBusy, t]);
 
   const startNewTask = useCallback(() => {
     const cwd = selected?.cwd ?? runningTask?.cwd ?? '';
@@ -1236,6 +1252,11 @@ export function TaskWorkspace({
             <span className="task-row-title">{task.title}</span>
             <span className="task-row-meta">
               <span className="task-row-cwd">{task.cwd}</span>
+              {task.createdBy && (
+                <span className="task-row-actor" title={t('tasks.queuedByOrchestrator')}>
+                  {t('tasks.queuedByOrchestratorShort')}
+                </span>
+              )}
               {(task.attempts > 0 || task.runStartedAt) && (
                 <span>
                   {task.attempts > 0 ? t('tasks.attempts', { count: task.attempts }) : null}
@@ -1502,6 +1523,18 @@ export function TaskWorkspace({
             >
               {t('tasks.abort')}
             </button>
+            {onOpenTaskManager && (
+              <button
+                type="button"
+                className="task-control"
+                data-task-action="open-orchestrator"
+                title={t('tasks.orchestratorHint')}
+                disabled={busy || orchestratorBusy}
+                onClick={() => void openOrchestrator()}
+              >
+                {t('tasks.orchestrator')}
+              </button>
+            )}
             <button
               type="button"
               className={tasks.length === 0 ? 'task-control is-primary' : 'task-control'}
@@ -1517,6 +1550,11 @@ export function TaskWorkspace({
       {status?.pausedReason && status.state === 'PAUSED' && (
         <div className="task-banner" role="status">
           {t('tasks.pausedReason')}: {status.pausedReason}
+        </div>
+      )}
+      {payload?.watch && (
+        <div className="task-banner" role="status" data-task-watch={payload.watch.sessionId}>
+          {t('tasks.watching')}
         </div>
       )}
       {error && (

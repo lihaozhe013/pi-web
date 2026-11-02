@@ -200,6 +200,7 @@ export class TaskQueue {
       rank: this.store.nextRank(),
       allowAskUser: cleanOptionalBoolean(input?.allowAskUser, 'allow_ask_user'),
       verifyCommands: cleanCommands(input?.verifyCommands),
+      createdBy: input?.createdBy ?? null,
       now: this.timestamp()
     });
   }

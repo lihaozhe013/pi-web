@@ -40,6 +40,8 @@ export interface TaskRecord {
   exitCode: number | null;
   verifyOutput: string | null;
   runStartedAt: string | null;
+  /** The session that queued it, when an orchestrator did; null for the board. */
+  createdBy: string | null;
   createdAt: string;
   updatedAt: string;
   finishedAt: string | null;
@@ -147,6 +149,8 @@ export interface TaskCreateInput {
   cwd: string;
   allowAskUser?: boolean | null;
   verifyCommands?: string[] | null;
+  /** Set by the orchestrator's tool, so the board can mark who queued the work. */
+  createdBy?: string | null;
 }
 
 export interface TaskUpdateInput {

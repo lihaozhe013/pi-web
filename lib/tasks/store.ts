@@ -48,6 +48,7 @@ interface TaskRowInsert {
   rank: number;
   allowAskUser: boolean | null;
   verifyCommands: string[] | null;
+  createdBy?: string | null;
   now: string;
 }
 
@@ -134,6 +135,7 @@ function taskFromRow(row: Row): TaskRecord {
     exitCode: row.exit_code === null ? null : Number(row.exit_code),
     verifyOutput: row.verify_output === null ? null : String(row.verify_output),
     runStartedAt: row.run_started_at === null ? null : String(row.run_started_at),
+    createdBy: row.created_by === null || row.created_by === undefined ? null : String(row.created_by),
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
     finishedAt: row.finished_at === null ? null : String(row.finished_at)
@@ -251,6 +253,16 @@ const MIGRATIONS: Array<(db: DatabaseSync) => void> = [
       ALTER TABLE tasks DROP COLUMN commit_sha;
       ALTER TABLE task_runs DROP COLUMN commit_sha;
     `);
+  },
+  // A task queued from a chat session is marked, so the board can say who asked
+  // for the work without parsing the description.
+  (db) => {
+    // A database restored from a newer backup may already carry it; adding a
+    // duplicate column would fail the whole migration.
+    const columns = db.prepare('PRAGMA table_info(tasks)').all() as Array<{ name?: unknown }>;
+    if (!columns.some((column) => column.name === 'created_by')) {
+      db.exec('ALTER TABLE tasks ADD COLUMN created_by TEXT;');
+    }
   },
   // Status changes outlive the process that made them, so an operator session
   // can catch up after a reload or a restart.
@@ -554,8 +566,8 @@ export class TaskStore {
     const result = this.db
       .prepare(
         `INSERT INTO tasks (title, description, status, rank, cwd, allow_ask_user,
-                            verify_commands, created_at, updated_at)
-         VALUES (?, ?, 'PENDING', ?, ?, ?, ?, ?, ?)`
+                            verify_commands, created_by, created_at, updated_at)
+         VALUES (?, ?, 'PENDING', ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         input.title,
@@ -564,6 +576,7 @@ export class TaskStore {
         input.cwd,
         booleanOrNull(input.allowAskUser),
         serialize(input.verifyCommands),
+        input.createdBy ?? null,
         input.now,
         input.now
       );

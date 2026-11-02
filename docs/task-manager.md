@@ -129,7 +129,8 @@ Rules attached to the tool definitions, in `promptGuidelines` and in `AGENTS.md`
 
 Status changes need durable storage, not an in-process callback: a session may be closed, the server
 may restart, and the agent must be able to catch up. `lib/tasks/store.ts` gains schema step
-`user_version = 3`:
+`user_version = 3` for the events, plus a fourth step that adds `tasks.created_by` so the board can
+mark work a chat queued:
 
 ```sql
 CREATE TABLE task_events (
@@ -181,7 +182,7 @@ Only a real transition is an event. A write that changes nothing appends nothing
 
 | Phase | State       | What exists                                                                                    |
 | ----- | ----------- | ---------------------------------------------------------------------------------------------- |
-| 1     | Done        | Schema `user_version = 3`, events in the existing transactions, per-session cursors, watch row |
+| 1     | Done        | Schema `user_version = 4`, events in the existing transactions, per-session cursors, watch row |
 | 2     | Not started | The tools over the queue controller                                                            |
 | 3     | Not started | The project directory and `POST /api/tasks/manager`                                            |
 | 4     | Not started | The extension factory and its conditional injection                                            |
@@ -266,19 +267,20 @@ Policy, decided and recorded here:
 
 ## Interface
 
-- **Entry point.** The task bar in `components/TaskWorkspace.tsx` gains an "Orchestrator" action
-  that ensures the project directory, opens the newest session in it (or starts one), and navigates
-  to `?session=<id>`. The project also appears in the sidebar under its alias.
-- **Locked tool entry.** In that project the composer's tool selector shows one locked entry, "Task
-  manager: full tools + queue", replacing "Chat only". Other presets stay available; they change
-  only the coding tools.
-- **Watch state.** The composer's status row shows the "Watching" chip while a watch is active, with
-  Stop. It is derived from an extension status key, like the goal bridge, not from a new route.
-- **Event cards.** `pie:task-event` custom messages render through the generic custom-message card
-  at first. A dedicated compact renderer (task id, title, status, verification) can follow without
-  touching the delivery path.
-- **Origin marker.** Task rows gain a small "queued by the orchestrator" mark. It comes from a
-  `created_by` column written by `task_create`, not from parsing descriptions.
+- **Entry point.** The task bar in `components/TaskWorkspace.tsx` has a "Task manager" action. It
+  calls `POST /api/tasks/manager`, opens the newest conversation in that project, or a fresh
+  composer when there is none. The project also appears in the sidebar under its alias.
+- **Forced loadout.** The composer's tool selector stays as it is, but in that project the server
+  ignores the selection for the loadout: any coding preset changes only the coding tools, and Chat
+  only has no effect. The queue tools ride beside whatever the person picks.
+- **Watch state.** `GET /api/tasks` includes the one watch row, so the board shows "A chat session
+  is watching this queue" while a wake budget is being spent. A wake also lands in the transcript as
+  a `pie-task-event` message, so the chat itself is never silently active.
+- **Event cards.** `pie-task-event` custom messages render through the generic custom-message card.
+  A dedicated compact renderer (task id, title, status, verification) can follow without touching
+  the delivery path.
+- **Origin marker.** A task row shows a small "Chat" mark when a session queued it. It comes from
+  the `created_by` column `task_create` writes, not from parsing descriptions.
 - **No new mode.** The manager is a chat session, so `?mode=tasks` and the queue board are
   untouched. The board remains the place to look at the queue; chat is the place to talk about it.
 
@@ -302,14 +304,14 @@ Policy, decided and recorded here:
 
 One relevant file per change, per `AGENTS.md`.
 
-| File                                        | Covers                                                                                                |
-| ------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `lib/tasks/store.test.mjs`                  | Migration to `user_version = 3`, event rows written in the same transaction as claim/settle/question. |
-| `lib/tasks/agent-tools.test.mjs` (new)      | Each tool against a temporary database: create/update/move/delete, `task_locked`, cursor advance.     |
-| `lib/task-manager-extension.test.mjs` (new) | Watch on/off, digest coalescing, origin filter, budget, single watcher, `sendMessage` arguments.      |
-| `lib/rpc-manager-tool-exposure.test.mjs`    | The extension is loaded only for the manager cwd, and the tool set is forced non-chat-only there.     |
-| `app/api/tasks/route.test.mjs`              | `POST /api/tasks/manager`, directory creation, default `AGENTS.md` never overwritten.                 |
-| `components/TaskWorkspace.test.mjs`         | The Orchestrator action and the watching chip's states.                                               |
+| File                                        | Covers                                                                                             |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `lib/tasks/store.test.mjs`                  | Migrations to `user_version = 4`, events written in the same transaction as claim/settle/question. |
+| `lib/tasks/agent-tools.test.mjs` (new)      | Each tool against a temporary database: create/update/move/delete, `task_locked`, cursor advance.  |
+| `lib/task-manager-extension.test.mjs` (new) | Watch on/off, digest coalescing, origin filter, budget, single watcher, `sendMessage` arguments.   |
+| `lib/rpc-manager-tool-exposure.test.mjs`    | The extension is loaded only for the manager cwd, and the tool set is forced non-chat-only there.  |
+| `app/api/tasks/route.test.mjs`              | `POST /api/tasks/manager`, directory creation, default `AGENTS.md` never overwritten.              |
+| `components/TaskWorkspace.test.mjs`         | The Orchestrator action and the watching chip's states.                                            |
 
 ## Implementation phases
 
