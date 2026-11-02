@@ -23,8 +23,7 @@ const CONFIG = {
   verifyTimeoutMs: 600000,
   taskTimeoutMs: 3600000,
   allowAskUser: false,
-  autoCommit: false,
-  commitMessage: 'chore(task): #{id} {title}'
+  instructions: ''
 };
 
 function task(overrides = {}) {
@@ -37,7 +36,6 @@ function task(overrides = {}) {
     cwd: '/repo',
     allowAskUser: null,
     verifyCommands: null,
-    autoCommit: null,
     sessionId: null,
     claimedToken: null,
     pendingQuestion: null,
@@ -45,7 +43,6 @@ function task(overrides = {}) {
     resultSummary: null,
     exitCode: null,
     verifyOutput: null,
-    commitSha: null,
     runStartedAt: null,
     createdAt: '2024-01-01T00:00:00.000Z',
     updatedAt: '2024-01-01T00:00:00.000Z',

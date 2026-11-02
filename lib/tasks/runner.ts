@@ -8,11 +8,7 @@
  */
 import type { spawn } from 'node:child_process';
 import { ASK_USER_OTHER_LABEL } from '../ask-user-labels';
-import {
-  buildTaskChildCommand,
-  TaskRpcSession,
-  type TaskChildCommand
-} from './rpc-session';
+import { buildTaskChildCommand, TaskRpcSession, type TaskChildCommand } from './rpc-session';
 import type { TaskActivity, TaskActivityKind, TaskAnswerInput, PendingQuestion } from './types';
 
 export type TaskRunStatus = 'succeeded' | 'failed' | 'timeout' | 'aborted';
@@ -35,6 +31,8 @@ export interface TaskRunRequest {
   sessionId: string;
   sessionName: string;
   projectTrusted: boolean;
+  /** Appended to the child's system prompt; empty adds nothing. */
+  systemPromptAppend?: string | null;
   askUserExtensionPath?: string | null;
   /** `null` leaves the run without a watchdog. */
   timeoutMs: number | null;
@@ -117,6 +115,7 @@ export function startTaskRun(request: TaskRunRequest): TaskRunHandle {
       sessionName: request.sessionName,
       projectTrusted: request.projectTrusted,
       model: request.model ?? null,
+      systemPromptAppend: request.systemPromptAppend ?? null,
       askUserExtensionPath: request.askUserExtensionPath ?? null
     });
 
@@ -235,10 +234,8 @@ export function startTaskRun(request: TaskRunRequest): TaskRunHandle {
     }
     if (type === 'message_update') {
       const update = record.assistantMessageEvent as
-        | { type?: unknown; delta?: unknown; toolCall?: { toolName?: unknown } }
-        | undefined;
-      const updateType =
-        update && typeof update.type === 'string' ? update.type : undefined;
+        { type?: unknown; delta?: unknown; toolCall?: { toolName?: unknown } } | undefined;
+      const updateType = update && typeof update.type === 'string' ? update.type : undefined;
       if (updateType && updateType.startsWith('thinking')) {
         setActivity('thinking', null);
       } else if (updateType && updateType.startsWith('text')) {
@@ -326,10 +323,7 @@ export function startTaskRun(request: TaskRunRequest): TaskRunHandle {
         timer = setTimeout(() => resolve(TIMEOUT), Math.max(request.timeoutMs as number, 0));
         timer.unref?.();
       });
-      settled = await Promise.race([
-        session.waitForSettled().catch((error) => error),
-        timeout
-      ]);
+      settled = await Promise.race([session.waitForSettled().catch((error) => error), timeout]);
       if (timer) clearTimeout(timer);
     }
 

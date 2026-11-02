@@ -21,9 +21,6 @@ function updateFromBody(body: Record<string, unknown>): TaskUpdateInput {
       ? body.verify_commands.filter((entry): entry is string => typeof entry === 'string')
       : null;
   }
-  if ('auto_commit' in body) {
-    update.autoCommit = typeof body.auto_commit === 'boolean' ? body.auto_commit : null;
-  }
   return update;
 }
 

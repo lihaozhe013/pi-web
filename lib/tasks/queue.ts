@@ -199,7 +199,6 @@ export class TaskQueue {
       rank: this.store.nextRank(),
       allowAskUser: cleanOptionalBoolean(input?.allowAskUser, 'allow_ask_user'),
       verifyCommands: cleanCommands(input?.verifyCommands),
-      autoCommit: cleanOptionalBoolean(input?.autoCommit, 'auto_commit'),
       now: this.timestamp()
     });
   }
@@ -219,9 +218,6 @@ export class TaskQueue {
     }
     if (input?.verifyCommands !== undefined) {
       fields.verifyCommands = cleanCommands(input.verifyCommands);
-    }
-    if (input?.autoCommit !== undefined) {
-      fields.autoCommit = cleanOptionalBoolean(input.autoCommit, 'auto_commit');
     }
     const updated = this.store.updateTaskFields(id, fields);
     if (!updated) {

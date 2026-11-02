@@ -32,6 +32,8 @@ export interface TaskChildCommandInput {
   projectTrusted: boolean;
   /** The queue's model for the next run; omitted, the CLI keeps its own default. */
   model?: { provider: string; modelId: string } | null;
+  /** Standing task instructions, appended to this child's system prompt. */
+  systemPromptAppend?: string | null;
   askUserExtensionPath?: string | null;
 }
 
@@ -87,6 +89,12 @@ export function buildTaskChildCommand(input: TaskChildCommandInput): TaskChildCo
     input.projectTrusted ? '--approve' : '--no-approve'
   ];
   if (input.model) args.push('--model', `${input.model.provider}/${input.model.modelId}`);
+  const standing = input.systemPromptAppend?.trim();
+  if (standing) {
+    // A labelled block, so the value is never mistaken for a path to a file Pi
+    // should read instead of the instructions themselves.
+    args.push('--append-system-prompt', `Pie task queue instructions:\n${standing}`);
+  }
   if (input.askUserExtensionPath) args.push('-e', input.askUserExtensionPath);
   return { command: execPath, args };
 }
@@ -121,7 +129,9 @@ export class TaskRpcSession {
   private buffer = '';
   private readonly pending = new Map<string, PendingCommand>();
   private readonly recordListeners = new Set<RpcRecordListener>();
-  private readonly exitListeners = new Set<(info: { code: number | null; signal: string | null }) => void>();
+  private readonly exitListeners = new Set<
+    (info: { code: number | null; signal: string | null }) => void
+  >();
   private settledWaiters: Array<{
     resolve: (value: { aborted: boolean }) => void;
     reject: (error: Error) => void;

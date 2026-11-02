@@ -16,8 +16,7 @@ const CONFIG = {
   verifyTimeoutMs: 600_000,
   taskTimeoutMs: 3_600_000,
   allowAskUser: true,
-  autoCommit: false,
-  commitMessage: 'chore(task): #{id} {title}'
+  instructions: 'Commit when the task is done.'
 };
 
 const MODELS = [
@@ -78,7 +77,7 @@ test('no limit is a null timeout, and an empty amount is not one', () => {
 test('the dialog opens with the stored defaults, in the unit the person chose', () => {
   const markup = render();
   assert.match(markup, /Queue defaults/);
-  // One hour, ten minutes, and the stored commands and commit template.
+  // One hour, ten minutes, and the stored commands and instructions.
   assert.match(markup, /value="1"/);
   assert.match(markup, /value="10"/);
   assert.match(markup, /<option value="hours" selected="">hours<\/option>/);
@@ -86,7 +85,8 @@ test('the dialog opens with the stored defaults, in the unit the person chose', 
   assert.match(markup, />Task timeout</);
   assert.doesNotMatch(markup, /Task timeout \(minutes\)/);
   assert.match(markup, /bun run typecheck/);
-  assert.match(markup, /chore\(task\): #\{id\} \{title\}/);
+  assert.match(markup, /Commit when the task is done\./);
+  assert.match(markup, /<h3>Task instructions<\/h3>/);
   assert.match(markup, /Restore defaults/);
   assert.equal((markup.match(/>No limit</g) ?? []).length, 2);
 });
@@ -97,10 +97,10 @@ test('a null timeout renders as no limit with its number disabled', () => {
   assert.match(markup, /<input type="checkbox" checked=""\/>/);
 });
 
-test('the question and commit defaults read as plain on/off choices', () => {
+test('the question default reads as a plain on/off choice', () => {
   const markup = render();
   assert.match(markup, /<option value="yes" selected="">Enabled<\/option>/);
-  assert.match(markup, /<option value="no" selected="">Disabled<\/option>/);
+  assert.doesNotMatch(markup, /<option value="no" selected="">Disabled<\/option>/);
 });
 
 test('no models is stated, not rendered as an empty selector', () => {

@@ -32,7 +32,6 @@ export interface TaskRecord {
   /** Null means "use the queue default". */
   allowAskUser: boolean | null;
   verifyCommands: string[] | null;
-  autoCommit: boolean | null;
   sessionId: string | null;
   claimedToken: string | null;
   pendingQuestion: PendingQuestion | null;
@@ -40,7 +39,6 @@ export interface TaskRecord {
   resultSummary: string | null;
   exitCode: number | null;
   verifyOutput: string | null;
-  commitSha: string | null;
   runStartedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -56,7 +54,6 @@ export interface TaskRunRecord {
   exitCode: number | null;
   verifyExit: number | null;
   outputTail: string | null;
-  commitSha: string | null;
   startedAt: string;
   finishedAt: string | null;
 }
@@ -83,12 +80,13 @@ export interface TaskConfig {
   /** `null` runs a task with no watchdog; only an abort or the child's own end stops it. */
   taskTimeoutMs: number | null;
   allowAskUser: boolean;
-  autoCommit: boolean;
-  commitMessage: string;
+  /** Standing instructions injected into every task prompt; empty for none. */
+  instructions: string;
 }
 
 /** The activity vocabulary the board shows; the browser translates it. */
-export type TaskActivityKind = 'starting' | 'waiting' | 'thinking' | 'reading' | 'writing' | 'running';
+export type TaskActivityKind =
+  'starting' | 'waiting' | 'thinking' | 'reading' | 'writing' | 'running';
 
 export interface TaskActivity {
   taskId: number;
@@ -113,7 +111,6 @@ export interface TaskCreateInput {
   cwd: string;
   allowAskUser?: boolean | null;
   verifyCommands?: string[] | null;
-  autoCommit?: boolean | null;
 }
 
 export interface TaskUpdateInput {
@@ -122,7 +119,6 @@ export interface TaskUpdateInput {
   cwd?: string;
   allowAskUser?: boolean | null;
   verifyCommands?: string[] | null;
-  autoCommit?: boolean | null;
 }
 
 export interface TaskMoveAction {
@@ -142,7 +138,6 @@ export interface TaskSettleInput {
   sessionId: string | null;
   verifyOutput?: string | null;
   verifyExit?: number | null;
-  commitSha?: string | null;
   outputTail?: string | null;
   queueState?: Partial<Pick<QueueStateRecord, 'state' | 'pausedReason' | 'activeTaskId'>>;
 }

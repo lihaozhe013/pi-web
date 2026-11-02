@@ -38,7 +38,6 @@ interface TaskRowInsert {
   rank: number;
   allowAskUser: boolean | null;
   verifyCommands: string[] | null;
-  autoCommit: boolean | null;
   now: string;
 }
 
@@ -48,7 +47,6 @@ export interface TaskFieldUpdate {
   cwd?: string;
   allowAskUser?: boolean | null;
   verifyCommands?: string[] | null;
-  autoCommit?: boolean | null;
   sessionId?: string | null;
   claimedToken?: string | null;
   pendingQuestion?: PendingQuestion | null;
@@ -106,7 +104,6 @@ function taskFromRow(row: Row): TaskRecord {
     cwd: String(row.cwd),
     allowAskUser: nullableBoolean(row.allow_ask_user),
     verifyCommands: parseCommands(row.verify_commands),
-    autoCommit: nullableBoolean(row.auto_commit),
     sessionId: row.session_id === null ? null : String(row.session_id),
     claimedToken: row.claimed_token === null ? null : String(row.claimed_token),
     pendingQuestion: parseQuestion(row.pending_question),
@@ -114,7 +111,6 @@ function taskFromRow(row: Row): TaskRecord {
     resultSummary: row.result_summary === null ? null : String(row.result_summary),
     exitCode: row.exit_code === null ? null : Number(row.exit_code),
     verifyOutput: row.verify_output === null ? null : String(row.verify_output),
-    commitSha: row.commit_sha === null ? null : String(row.commit_sha),
     runStartedAt: row.run_started_at === null ? null : String(row.run_started_at),
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
@@ -132,7 +128,6 @@ function runFromRow(row: Row): TaskRunRecord {
     exitCode: row.exit_code === null ? null : Number(row.exit_code),
     verifyExit: row.verify_exit === null ? null : Number(row.verify_exit),
     outputTail: row.output_tail === null ? null : String(row.output_tail),
-    commitSha: row.commit_sha === null ? null : String(row.commit_sha),
     startedAt: String(row.started_at),
     finishedAt: row.finished_at === null ? null : String(row.finished_at)
   };
@@ -204,6 +199,16 @@ const MIGRATIONS: Array<(db: DatabaseSync) => void> = [
        VALUES (1, 'IDLE', NULL, NULL, ?)
        ON CONFLICT(id) DO NOTHING`
     ).run(nowIso());
+  },
+  // Committing belongs to the agent prompt, not to the queue. The columns were
+  // never optional data: the queue wrote them, so dropping them loses nothing a
+  // person entered.
+  (db) => {
+    db.exec(`
+      ALTER TABLE tasks DROP COLUMN auto_commit;
+      ALTER TABLE tasks DROP COLUMN commit_sha;
+      ALTER TABLE task_runs DROP COLUMN commit_sha;
+    `);
   }
 ];
 
@@ -356,8 +361,8 @@ export class TaskStore {
     const result = this.db
       .prepare(
         `INSERT INTO tasks (title, description, status, rank, cwd, allow_ask_user,
-                            verify_commands, auto_commit, created_at, updated_at)
-         VALUES (?, ?, 'PENDING', ?, ?, ?, ?, ?, ?, ?)`
+                            verify_commands, created_at, updated_at)
+         VALUES (?, ?, 'PENDING', ?, ?, ?, ?, ?, ?)`
       )
       .run(
         input.title,
@@ -366,7 +371,6 @@ export class TaskStore {
         input.cwd,
         booleanOrNull(input.allowAskUser),
         serialize(input.verifyCommands),
-        booleanOrNull(input.autoCommit),
         input.now,
         input.now
       );
@@ -394,10 +398,10 @@ export class TaskStore {
     if (fields.title !== undefined) push('title', fields.title);
     if (fields.description !== undefined) push('description', fields.description);
     if (fields.cwd !== undefined) push('cwd', fields.cwd);
-    if (fields.allowAskUser !== undefined) push('allow_ask_user', booleanOrNull(fields.allowAskUser));
+    if (fields.allowAskUser !== undefined)
+      push('allow_ask_user', booleanOrNull(fields.allowAskUser));
     if (fields.verifyCommands !== undefined)
       push('verify_commands', serialize(fields.verifyCommands));
-    if (fields.autoCommit !== undefined) push('auto_commit', booleanOrNull(fields.autoCommit));
     if (fields.rank !== undefined) push('rank', fields.rank);
     if (assignments.length === 0) return this.getTask(id);
 
@@ -460,9 +464,7 @@ export class TaskStore {
       if (running) throw new Error(`task ${String(running.id)} is already in progress`);
 
       const candidate = this.db
-        .prepare(
-          `SELECT id FROM tasks WHERE status = 'PENDING' ORDER BY rank, id LIMIT 1`
-        )
+        .prepare(`SELECT id FROM tasks WHERE status = 'PENDING' ORDER BY rank, id LIMIT 1`)
         .get() as Row | undefined;
       if (!candidate) return null;
 
@@ -473,7 +475,7 @@ export class TaskStore {
           `UPDATE tasks
               SET status = 'IN_PROGRESS', claimed_token = ?, session_id = ?, attempts = attempts + 1,
                   pending_question = NULL, result_summary = NULL, exit_code = NULL,
-                  verify_output = NULL, commit_sha = NULL, finished_at = NULL,
+                  verify_output = NULL, finished_at = NULL,
                   run_started_at = ?, updated_at = ?
             WHERE id = ? AND status = 'PENDING'`
         )
@@ -501,7 +503,7 @@ export class TaskStore {
         .prepare(
           `UPDATE tasks
               SET status = ?, result_summary = ?, exit_code = ?, verify_output = ?,
-                  commit_sha = ?, claimed_token = NULL, pending_question = NULL,
+                  claimed_token = NULL, pending_question = NULL,
                   finished_at = ?, updated_at = ?
             WHERE id = ? AND status = 'IN_PROGRESS' AND claimed_token = ?`
         )
@@ -510,7 +512,6 @@ export class TaskStore {
           input.resultSummary,
           input.exitCode,
           input.verifyOutput ?? null,
-          input.commitSha ?? null,
           now,
           now,
           id,
@@ -521,8 +522,8 @@ export class TaskStore {
       this.db
         .prepare(
           `INSERT INTO task_runs (task_id, attempt, status, session_id, exit_code, verify_exit,
-                                 output_tail, commit_sha, started_at, finished_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                                 output_tail, started_at, finished_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
         .run(
           id,
@@ -532,7 +533,6 @@ export class TaskStore {
           input.exitCode,
           input.verifyExit ?? null,
           input.outputTail ?? null,
-          input.commitSha ?? null,
           current.runStartedAt ?? now,
           now
         );
@@ -575,7 +575,7 @@ export class TaskStore {
     const result = this.db
       .prepare(
         `UPDATE tasks SET status = 'PENDING', result_summary = NULL, exit_code = NULL,
-                          verify_output = NULL, commit_sha = NULL, finished_at = NULL,
+                          verify_output = NULL, finished_at = NULL,
                           claimed_token = NULL, pending_question = NULL, updated_at = ?
           WHERE id = ? AND status IN ('BLOCKED','FAILED')`
       )
@@ -589,9 +589,7 @@ export class TaskStore {
    */
   recoverInterrupted(summary: string): TaskRecord[] {
     const now = nowIso();
-    const rows = this.db
-      .prepare(`SELECT * FROM tasks WHERE status = 'IN_PROGRESS'`)
-      .all() as Row[];
+    const rows = this.db.prepare(`SELECT * FROM tasks WHERE status = 'IN_PROGRESS'`).all() as Row[];
     if (rows.length === 0) return [];
     this.transaction(() => {
       this.db
@@ -602,7 +600,9 @@ export class TaskStore {
         )
         .run(summary, now, now);
       this.db
-        .prepare(`UPDATE queue_state SET state = 'PAUSED', paused_reason = ?, active_task_id = NULL, updated_at = ? WHERE id = 1`)
+        .prepare(
+          `UPDATE queue_state SET state = 'PAUSED', paused_reason = ?, active_task_id = NULL, updated_at = ? WHERE id = 1`
+        )
         .run(summary, now);
     });
     return rows.map(taskFromRow);
@@ -636,11 +636,7 @@ declare global {
  * to one database.
  */
 export function getTaskStore(path: string = defaultTaskDatabasePath()): TaskStore {
-  if (
-    globalThis.__pieTaskStore &&
-    globalThis.__pieTaskStorePath === path &&
-    existsSync(path)
-  ) {
+  if (globalThis.__pieTaskStore && globalThis.__pieTaskStorePath === path && existsSync(path)) {
     return globalThis.__pieTaskStore;
   }
   globalThis.__pieTaskStore?.close();

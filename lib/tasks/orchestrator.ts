@@ -1,5 +1,5 @@
 /**
- * The one loop that drives the queue: claim → run → gate → commit → settle.
+ * The one loop that drives the queue: claim → run → gate → settle.
  *
  * A per-process singleton (a `globalThis` key) plus one `proper-lockfile` lock at
  * `<agentDir>/pie-tasks.lock` keeps two servers, a second checkout, or a stale
@@ -15,8 +15,7 @@ import lockfile from 'proper-lockfile';
 import { getAgentDir } from '../session-reader';
 import { getProjectTrustStatus } from '../project-trust';
 import { markTaskSessionActive, clearTaskSessionActive } from './active-sessions';
-import { commitMessageFor, readTaskConfig, resolveTaskPolicy } from './config';
-import { captureGitBaseline, commitRunChanges } from './git';
+import { readTaskConfig, resolveTaskPolicy } from './config';
 import { runVerificationGate } from './gate';
 import { buildTaskPrompt } from './prompt';
 import { TaskQueue, clipOutputTail, TaskLockedError } from './queue';
@@ -300,7 +299,6 @@ export class TaskOrchestrator {
 
     markTaskSessionActive(sessionId);
     this.currentActivity = null;
-    const baseline = policy.autoCommit ? await captureGitBaseline(task.cwd) : null;
 
     const handle = startTaskRun({
       taskId: task.id,
@@ -314,6 +312,7 @@ export class TaskOrchestrator {
       model: policy.model,
       sessionName: `T${task.id} ${task.title}`.replace(/\s+/g, ' ').slice(0, 160),
       projectTrusted: trust.requiresTrust && trust.trusted,
+      systemPromptAppend: policy.instructions,
       askUserExtensionPath,
       timeoutMs: policy.taskTimeoutMs,
       childCommand: this.options.childCommand,
@@ -420,31 +419,13 @@ export class TaskOrchestrator {
       return 'stopped';
     }
 
-    let commitNote: string | null = null;
-    let commitSha: string | null = null;
-    if (policy.autoCommit && baseline) {
-      const commit = await commitRunChanges(
-        task.cwd,
-        baseline,
-        commitMessageFor(policy.commitMessage, task),
-        { spawnFn: this.options.spawnFn, env: this.options.env }
-      );
-      if (commit.status === 'committed') {
-        commitSha = commit.sha ?? null;
-        commitNote = commitSha ? `Committed ${commitSha.slice(0, 7)}` : 'Committed';
-      } else if (commit.status === 'failed') {
-        commitNote = `Verified, not committed: ${commit.reason ?? 'git failed'}`;
-      } else {
-        commitNote = 'Verified, no changes to commit';
-      }
-    }
     const verifiedNote =
       policy.verifyCommands.length > 0
         ? `Verification passed (${policy.verifyCommands.length} command${
             policy.verifyCommands.length === 1 ? '' : 's'
           })`
         : null;
-    const summary = [outcome.summary, verifiedNote, commitNote].filter(Boolean).join('\n\n');
+    const summary = [outcome.summary, verifiedNote].filter(Boolean).join('\n\n');
 
     settle({
       status: 'DONE',
@@ -452,13 +433,12 @@ export class TaskOrchestrator {
       exitCode: outcome.exitCode,
       sessionId,
       verifyExit: 0,
-      commitSha,
       outputTail: clipOutputTail(outcome.outputTail),
       // State is left as it is: a pause requested during the run must survive
       // the settle, and the loop's next iteration is what reads it.
       queueState: { activeTaskId: null }
     });
-    this.notify({ kind: 'done', task, reason: commitNote ?? verifiedNote ?? undefined });
+    this.notify({ kind: 'done', task, reason: verifiedNote ?? undefined });
     return 'done';
   }
 
@@ -507,7 +487,10 @@ export class TaskOrchestrator {
     const active = this.activeRun;
     const task = this.queue.getTask(taskId);
     if (!active || active.taskId !== taskId || !task.pendingQuestion) {
-      throw new OrchestratorConflictError('no_pending_question', 'The task has no pending question');
+      throw new OrchestratorConflictError(
+        'no_pending_question',
+        'The task has no pending question'
+      );
     }
     await active.handle.answer(input);
   }

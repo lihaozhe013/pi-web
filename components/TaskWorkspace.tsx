@@ -68,7 +68,6 @@ interface TaskFormState {
   cwd: string;
   verifyCommands: string;
   allowAskUser: 'default' | 'yes' | 'no';
-  autoCommit: 'default' | 'yes' | 'no';
 }
 
 const EMPTY_FORM: TaskFormState = {
@@ -76,8 +75,7 @@ const EMPTY_FORM: TaskFormState = {
   description: '',
   cwd: '',
   verifyCommands: '',
-  allowAskUser: 'default',
-  autoCommit: 'default'
+  allowAskUser: 'default'
 };
 
 function taskForm(task: TaskRecord): TaskFormState {
@@ -90,12 +88,6 @@ function taskForm(task: TaskRecord): TaskFormState {
       task.allowAskUser === null || task.allowAskUser === undefined
         ? 'default'
         : task.allowAskUser
-          ? 'yes'
-          : 'no',
-    autoCommit:
-      task.autoCommit === null || task.autoCommit === undefined
-        ? 'default'
-        : task.autoCommit
           ? 'yes'
           : 'no'
   };
@@ -195,7 +187,6 @@ interface TaskClipboard {
   cwd: string;
   verifyCommands: string[] | null;
   allowAskUser: boolean | null;
-  autoCommit: boolean | null;
 }
 
 const TASK_CLIPBOARD_KEY = 'pie:task-clipboard';
@@ -206,8 +197,7 @@ function clipboardFromTask(task: TaskRecord): TaskClipboard {
     description: task.description,
     cwd: task.cwd,
     verifyCommands: task.verifyCommands,
-    allowAskUser: task.allowAskUser,
-    autoCommit: task.autoCommit
+    allowAskUser: task.allowAskUser
   };
 }
 
@@ -217,8 +207,7 @@ function taskBody(clipboard: TaskClipboard, title: string): Record<string, unkno
     description: clipboard.description,
     cwd: clipboard.cwd,
     verify_commands: clipboard.verifyCommands,
-    allow_ask_user: clipboard.allowAskUser,
-    auto_commit: clipboard.autoCommit
+    allow_ask_user: clipboard.allowAskUser
   };
 }
 
@@ -630,8 +619,7 @@ export function TaskWorkspace({
       description: form.description || null,
       cwd,
       verify_commands: verifyCommands,
-      allow_ask_user: form.allowAskUser === 'default' ? null : form.allowAskUser === 'yes',
-      auto_commit: form.autoCommit === 'default' ? null : form.autoCommit === 'yes'
+      allow_ask_user: form.allowAskUser === 'default' ? null : form.allowAskUser === 'yes'
     };
     if (draft?.mode === 'new') {
       const result = (await call('/api/tasks', {
@@ -1782,12 +1770,6 @@ export function TaskWorkspace({
               <dd className="task-mono task-summary">{selected.verifyOutput}</dd>
             </>
           )}
-          {selected.commitSha && (
-            <>
-              <dt>{t('tasks.commit')}</dt>
-              <dd className="task-mono">{selected.commitSha.slice(0, 12)}</dd>
-            </>
-          )}
           <dt>{t('tasks.verification')}</dt>
           <dd>
             {payload && hasVerification(selected, payload.config)
@@ -1983,21 +1965,6 @@ export function TaskWorkspace({
           >
             <option value="default">
               {`${t('tasks.inherit')} (${payload?.config.allowAskUser ? t('tasks.enabled') : t('tasks.disabled')})`}
-            </option>
-            <option value="yes">{t('tasks.enabled')}</option>
-            <option value="no">{t('tasks.disabled')}</option>
-          </select>
-        </label>
-        <label className="task-field">
-          <span>{t('tasks.autoCommit')}</span>
-          <select
-            value={form.autoCommit}
-            onChange={(event) =>
-              setForm({ ...form, autoCommit: event.target.value as TaskFormState['autoCommit'] })
-            }
-          >
-            <option value="default">
-              {`${t('tasks.inherit')} (${payload?.config.autoCommit ? t('tasks.enabled') : t('tasks.disabled')})`}
             </option>
             <option value="yes">{t('tasks.enabled')}</option>
             <option value="no">{t('tasks.disabled')}</option>

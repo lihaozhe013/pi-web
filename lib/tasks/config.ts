@@ -3,8 +3,8 @@
  *
  * Every field is optional. The file is written by the app or edited by the
  * person, never by a task, so the values are trusted configuration rather than
- * an input-validation boundary. Verification commands and auto-commit are the
- * only fields a single task may override.
+ * an input-validation boundary. Verification commands and the question policy
+ * are the only fields a single task may override.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -12,7 +12,8 @@ import { getAgentDir } from '../session-reader';
 import {
   DEFAULT_TASK_TIMEOUT_MS,
   DEFAULT_VERIFY_TIMEOUT_MS,
-  TASK_CONFIG_DEFAULTS
+  TASK_CONFIG_DEFAULTS,
+  TASK_INSTRUCTIONS_MAX_LENGTH
 } from './defaults';
 import type { TaskConfig, TaskModelSelection } from './types';
 
@@ -49,6 +50,16 @@ function boolean(value: unknown, fallback: boolean): boolean {
   return typeof value === 'boolean' ? value : fallback;
 }
 
+/**
+ * Free-form standing instructions; malformed values fall back to none. The text
+ * travels as one child argument, so a manual edit is clamped rather than allowed
+ * to exceed the platform's command-line limit.
+ */
+function instructions(value: unknown): string {
+  if (typeof value !== 'string') return DEFAULT_TASK_CONFIG.instructions;
+  return value.replaceAll('\0', '').trim().slice(0, TASK_INSTRUCTIONS_MAX_LENGTH);
+}
+
 /** A model is a provider and an id, both non-empty; anything else means "default". */
 function modelSelection(value: unknown): TaskModelSelection | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
@@ -63,19 +74,15 @@ function modelSelection(value: unknown): TaskModelSelection | null {
  * malformed field falls back to its default instead of failing the queue.
  */
 export function normalizeTaskConfig(raw: unknown): TaskConfig {
-  const record = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
-  const commitMessage =
-    typeof record.commitMessage === 'string' && record.commitMessage.trim()
-      ? record.commitMessage
-      : DEFAULT_TASK_CONFIG.commitMessage;
+  const record =
+    raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
   return {
     model: modelSelection(record.model),
     verifyCommands: commandList(record.verifyCommands, DEFAULT_TASK_CONFIG.verifyCommands),
     verifyTimeoutMs: timeoutOrNull(record.verifyTimeoutMs, DEFAULT_VERIFY_TIMEOUT_MS),
     taskTimeoutMs: timeoutOrNull(record.taskTimeoutMs, DEFAULT_TASK_TIMEOUT_MS),
     allowAskUser: boolean(record.allowAskUser, DEFAULT_TASK_CONFIG.allowAskUser),
-    autoCommit: boolean(record.autoCommit, DEFAULT_TASK_CONFIG.autoCommit),
-    commitMessage
+    instructions: instructions(record.instructions)
   };
 }
 
@@ -110,18 +117,11 @@ export function resolveTaskPolicy(
   task: {
     allowAskUser: boolean | null;
     verifyCommands: string[] | null;
-    autoCommit: boolean | null;
   }
 ): TaskConfig {
   return {
     ...config,
     allowAskUser: task.allowAskUser ?? config.allowAskUser,
-    verifyCommands: task.verifyCommands ?? config.verifyCommands,
-    autoCommit: task.autoCommit ?? config.autoCommit
+    verifyCommands: task.verifyCommands ?? config.verifyCommands
   };
-}
-
-/** Expand the commit message template with the task's id and title. */
-export function commitMessageFor(template: string, task: { id: number; title: string }): string {
-  return template.replaceAll('{id}', String(task.id)).replaceAll('{title}', task.title);
 }

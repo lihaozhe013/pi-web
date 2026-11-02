@@ -4,6 +4,8 @@
  * A task runs in a fresh process with nobody at the keyboard, so the prompt
  * carries the rules that a chat session gets from the person: where to work,
  * whether a question is available, and what the final message must report.
+ * Standing instructions are not here: the child receives them through Pi's
+ * `--append-system-prompt` flag, so they live in the system prompt.
  */
 import type { TaskRecord } from './types';
 

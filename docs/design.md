@@ -86,19 +86,18 @@ default: <model>" when unset), the clear-completed action, the queue-defaults op
 start/pause/resume/stop controls, and New task. The action that moves the queue is the bar's one
 strong control while tasks exist; New task is strong only when the queue is empty. A slider button
 beside the model chip opens the queue's own defaults — model, timeouts, verification commands,
-question policy, commit choice, and commit message — in the app's standard dialog shell, with its
+question policy, and the standing task instructions — in the app's standard dialog shell, with its
 actions (including "Restore defaults") pinned to the bottom while the body scrolls. A timeout is a
 number plus a unit, or an explicit "No limit"; the unit converts the number, and the form never
 relies on a browser tooltip for a bad value. Every "use queue default" in a task's form names the
 value it would inherit.
 
 The work surface reads one task: its title, a status line with attempts and elapsed time, the
-description, and a facts sheet for the working directory, result, verification output, commit,
-verification commands, and the linked session. The pending question, the running activity line, and
-the collapsed live tail sit in the same surface. The task's actions follow that content in a footer
-that sticks to the bottom edge while a long tail scrolls. When nothing is selected — including an
-empty queue — the surface explains what it shows and offers New task, rather than leaving a blank
-column.
+description, and a facts sheet for the working directory, result, verification output, verification
+commands, and the linked session. The pending question, the running activity line, and the collapsed
+live tail sit in the same surface. The task's actions follow that content in a footer that sticks to
+the bottom edge while a long tail scrolls. When nothing is selected — including an empty queue — the
+surface explains what it shows and offers New task, rather than leaving a blank column.
 
 Shift+click extends a selection, Command/Ctrl+click adds one row, so bulk work does not require a
 checkbox column that would compete with the status marker. A multi-selection replaces the task

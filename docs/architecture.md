@@ -92,9 +92,11 @@ two writers never share one session file.
 The queue stores tasks in SQLite (`<agentDir>/pie-tasks.db`, `node:sqlite`, WAL) and claims one
 `PENDING` row per transaction, asserting that no other row is `IN_PROGRESS`. Each attempt starts a
 new `pi --mode rpc` child in the task's working directory with a new session id; the loop waits for
-`agent_settled`, runs the configured verification commands, optionally commits the run's own
-changes, and settles the task. `FAILED` and `BLOCKED` both pause the loop until a person resumes it,
-and a restart settles any row left `IN_PROGRESS` as `BLOCKED`.
+`agent_settled`, runs the configured verification commands, and settles the task. Standing
+instructions from the queue defaults are appended to every task prompt, so rules such as committing
+when the work is done are soft constraints the agent follows rather than queue code. `FAILED` and
+`BLOCKED` both pause the loop until a person resumes it, and a restart settles any row left
+`IN_PROGRESS` as `BLOCKED`.
 
 Run controls travel as RPC commands (`abort`), and `ask_user` reaches the browser through Pi's
 extension UI sub-protocol, so the tool keeps one implementation for both the in-process chat session
@@ -107,9 +109,10 @@ Configuration, the queue lock, and the only chat-side contact point stay small:
 and `lib/tasks/active-sessions.ts` is an in-memory set of session ids. `GET /api/agent/running` and
 `GET /api/sessions` include those ids so the composer in chat mode can disable itself, and the agent
 route refuses a prompt for a session in the set. `lib/tasks/config.ts` owns the defaults,
-`lib/tasks/gate.ts` the verification commands, `lib/tasks/git.ts` the optional commit, and
-`lib/tasks/request.ts` the route validation and error mapping. `instrumentation-node.ts` uses the
-same shutdown signal to abort the active child and settle its task.
+`lib/tasks/prompt.ts` the task prompt and standing instructions, `lib/tasks/gate.ts` the
+verification commands, and `lib/tasks/request.ts` the route validation and error mapping.
+`instrumentation-node.ts` uses the same shutdown signal to abort the active child and settle its
+task.
 
 Session catalog entries are grouped by their recorded working directory. Directory validation and
 model lookup do not inspect Git or infer a replacement directory for a missing checkout. A missing

@@ -1939,7 +1939,6 @@ export const enLocale: LocalePlugin = {
     'tasks.verifyCommandsLabel': 'Verification commands',
     'tasks.verifyCommandsHint': 'One command per line, run after the task exits.',
     'tasks.allowAskUser': 'Questions during the task',
-    'tasks.autoCommit': 'Commit the run changes',
     'tasks.inherit': 'Use queue default',
     'tasks.enabled': 'Enabled',
     'tasks.disabled': 'Disabled',
@@ -2013,28 +2012,28 @@ export const enLocale: LocalePlugin = {
     'tasks.verificationDefaults': 'Verification commands',
     'tasks.verificationDefaultsHint':
       'Run after a task exits, unless the task lists its own. One command per line.',
+    'tasks.instructions': 'Task instructions',
+    'tasks.instructionsPlaceholder':
+      'For example: commit your changes when the task is done and leave the working tree clean.',
+    'tasks.instructionsHint':
+      'Appended to every task prompt as standing instructions. Use it for soft rules the queue does not enforce itself.',
     'tasks.defaults': 'Run behaviour',
-    'tasks.commitMessage': 'Commit message',
-    'tasks.commitMessageHint': 'Used when a run commits. {id} and {title} are filled in.',
     'tasks.timeoutInvalid': 'A timeout needs a positive number, or choose "No limit".',
     'tasks.timeoutUnit': 'Timeout unit',
     'tasks.minutes': 'minutes',
     'tasks.hours': 'hours',
     'tasks.noLimit': 'No limit',
     'tasks.restoreDefaults': 'Restore defaults',
-    'tasks.commitMessageRequired': 'A commit message is required.',
     'tasks.defaultsSaved': 'Queue defaults saved',
     'tasks.saving': 'Saving',
     'tasks.sessionReadOnly':
       'A task is writing this session. The transcript stays readable, but the composer is disabled until the task finishes.',
     'tasks.result': 'Result',
     'tasks.verifyOutput': 'Verification output',
-    'tasks.commit': 'Commit',
     'tasks.verification': 'Verification',
     'tasks.noVerification': 'No verification commands: a clean exit counts as done.',
     'tasks.session': 'Session',
     'tasks.openSession': 'Open session',
-    'tasks.liveTail': 'Live activity',
-    'tasks.verifiedNotCommitted': 'Verified, not committed'
+    'tasks.liveTail': 'Live activity'
   }
 };

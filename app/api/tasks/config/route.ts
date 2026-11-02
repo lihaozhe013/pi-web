@@ -1,5 +1,6 @@
 import { jsonResponse } from '@/lib/json-response';
 import { readTaskConfig, writeTaskConfig } from '@/lib/tasks/config';
+import { TASK_INSTRUCTIONS_MAX_LENGTH } from '@/lib/tasks/defaults';
 import { noStore, readTaskBody, taskErrorResponse } from '@/lib/tasks/request';
 import { TaskInputError } from '@/lib/tasks/queue';
 import type { TaskConfig } from '@/lib/tasks/types';
@@ -18,6 +19,16 @@ function timeoutMs(value: unknown, field: string): number | null {
 function booleanField(value: unknown, field: string): boolean {
   if (typeof value !== 'boolean') throw new TaskInputError(`${field} must be a boolean`);
   return value;
+}
+
+/** Standing instructions are free text; an empty string clears them. */
+function instructionsField(value: unknown, field: string): string {
+  if (typeof value !== 'string') throw new TaskInputError(`${field} must be a string`);
+  const instructions = value.replaceAll('\0', '').trim();
+  if (instructions.length > TASK_INSTRUCTIONS_MAX_LENGTH) {
+    throw new TaskInputError(`${field} is limited to ${TASK_INSTRUCTIONS_MAX_LENGTH} characters`);
+  }
+  return instructions;
 }
 
 function commandListField(value: unknown, field: string): string[] {
@@ -66,16 +77,8 @@ export async function PUT(req: Request) {
     if ('allowAskUser' in body) {
       patch.allowAskUser = booleanField(body.allowAskUser, 'allowAskUser');
     }
-    if ('autoCommit' in body) {
-      patch.autoCommit = booleanField(body.autoCommit, 'autoCommit');
-    }
-    if ('commitMessage' in body) {
-      const template = typeof body.commitMessage === 'string' ? body.commitMessage.trim() : '';
-      if (!template) throw new TaskInputError('commitMessage must not be empty');
-      if (template.length > 200) {
-        throw new TaskInputError('commitMessage is limited to 200 characters');
-      }
-      patch.commitMessage = template;
+    if ('instructions' in body) {
+      patch.instructions = instructionsField(body.instructions, 'instructions');
     }
     if (Object.keys(patch).length === 0) {
       throw new TaskInputError('No queue default to change');

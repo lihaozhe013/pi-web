@@ -35,8 +35,7 @@ export async function POST(req: Request) {
       allowAskUser: typeof body.allow_ask_user === 'boolean' ? body.allow_ask_user : null,
       verifyCommands: Array.isArray(body.verify_commands)
         ? body.verify_commands.filter((entry): entry is string => typeof entry === 'string')
-        : null,
-      autoCommit: typeof body.auto_commit === 'boolean' ? body.auto_commit : null
+        : null
     };
     const orchestrator = getTaskOrchestrator();
     const task = await orchestrator.queue.createTask(input);

@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { useI18n } from '@/hooks/useI18n';
-import { TASK_CONFIG_DEFAULTS } from '@/lib/tasks/defaults';
+import { TASK_CONFIG_DEFAULTS, TASK_INSTRUCTIONS_MAX_LENGTH } from '@/lib/tasks/defaults';
 import type { TaskConfig } from '@/lib/tasks/types';
 import { ModelSelector, type ModelSelectorOption } from './ModelSelector';
 import { SessionModal } from './SessionModal';
@@ -54,9 +54,10 @@ export function timeoutMsFrom(draft: TimeoutDraft): number | null {
 
 /**
  * One page for the defaults a task inherits: the model, the two timeouts, the
- * verification commands, the question policy, and the commit choice. The same
- * values appear as "use queue default" in a task's form, so they have to be
- * readable and editable somewhere the board already opens.
+ * verification commands, the question policy, and the standing instructions
+ * every task prompt carries. The same values appear as "use queue default" in a
+ * task's form, so they have to be readable and editable somewhere the board
+ * already opens.
  */
 export function QueueSettingsDialog({
   config,
@@ -75,8 +76,7 @@ export function QueueSettingsDialog({
   );
   const [commands, setCommands] = useState(() => config.verifyCommands.join('\n'));
   const [allowAskUser, setAllowAskUser] = useState(config.allowAskUser);
-  const [autoCommit, setAutoCommit] = useState(config.autoCommit);
-  const [commitMessage, setCommitMessage] = useState(config.commitMessage);
+  const [instructions, setInstructions] = useState(config.instructions);
   const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
 
@@ -89,11 +89,6 @@ export function QueueSettingsDialog({
     const verifyTimeoutMs = timeoutMsFrom(verifyTimeout);
     if (!timeoutValid(taskTimeout) || !timeoutValid(verifyTimeout)) {
       setProblem(t('tasks.timeoutInvalid'));
-      return;
-    }
-    const template = commitMessage.trim();
-    if (!template) {
-      setProblem(t('tasks.commitMessageRequired'));
       return;
     }
     setSaving(true);
@@ -111,8 +106,7 @@ export function QueueSettingsDialog({
             .map((line) => line.trim())
             .filter(Boolean),
           allowAskUser,
-          autoCommit,
-          commitMessage: template
+          instructions: instructions.trim()
         })
       });
       const data = (await response.json().catch(() => ({}))) as { error?: string };
@@ -138,8 +132,7 @@ export function QueueSettingsDialog({
     );
     setCommands(TASK_CONFIG_DEFAULTS.verifyCommands.join('\n'));
     setAllowAskUser(TASK_CONFIG_DEFAULTS.allowAskUser);
-    setAutoCommit(TASK_CONFIG_DEFAULTS.autoCommit);
-    setCommitMessage(TASK_CONFIG_DEFAULTS.commitMessage);
+    setInstructions(TASK_CONFIG_DEFAULTS.instructions);
     setProblem(null);
   };
 
@@ -276,6 +269,21 @@ export function QueueSettingsDialog({
         </section>
 
         <section className="queue-settings-section">
+          <h3>{t('tasks.instructions')}</h3>
+          <label className="task-field">
+            <span className="sr-only">{t('tasks.instructions')}</span>
+            <textarea
+              rows={7}
+              maxLength={TASK_INSTRUCTIONS_MAX_LENGTH}
+              placeholder={t('tasks.instructionsPlaceholder')}
+              value={instructions}
+              onChange={(event) => setInstructions(event.target.value)}
+            />
+            <span className="task-hint">{t('tasks.instructionsHint')}</span>
+          </label>
+        </section>
+
+        <section className="queue-settings-section">
           <h3>{t('tasks.verificationDefaults')}</h3>
           <label className="task-field">
             <span className="sr-only">{t('tasks.verifyCommandsLabel')}</span>
@@ -301,25 +309,6 @@ export function QueueSettingsDialog({
               <option value="no">{t('tasks.disabled')}</option>
               <option value="yes">{t('tasks.enabled')}</option>
             </select>
-          </label>
-          <label className="task-field">
-            <span>{t('tasks.autoCommit')}</span>
-            <select
-              value={autoCommit ? 'yes' : 'no'}
-              onChange={(event) => setAutoCommit(event.target.value === 'yes')}
-            >
-              <option value="no">{t('tasks.disabled')}</option>
-              <option value="yes">{t('tasks.enabled')}</option>
-            </select>
-          </label>
-          <label className="task-field">
-            <span>{t('tasks.commitMessage')}</span>
-            <input
-              className="task-mono"
-              value={commitMessage}
-              onChange={(event) => setCommitMessage(event.target.value)}
-            />
-            <span className="task-hint">{t('tasks.commitMessageHint')}</span>
           </label>
         </section>
 

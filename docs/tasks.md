@@ -34,12 +34,13 @@ starts the installed Pi CLI and speaks Pi's documented RPC records. Deleting `li
 - **Human interruption.** The running task can be stopped for real (process tree killed), and a task
   may ask a question when the user allowed it.
 - **Reviewable work.** Each task leaves an ordinary Pi session that the chat view can render, plus a
-  verification result and, when enabled, a commit.
+  verification result and a final report.
 
 ## Non-goals
 
 - Parallelism, worker pools, priorities beyond manual rank, dependencies between tasks.
-- Pull requests, branches, worktrees, or pushes. The queue may commit; it never publishes.
+- Pull requests, branches, worktrees, or pushes. The queue never publishes; whether a run commits is
+  a standing instruction the person writes into the task prompt.
 - Multi-user operation, remote execution, or a hosted service.
 - Per-task model or tool configuration in the first version (the Pi settings decide).
 - Providing a task-specific rendering of agent output. The transcript is Pi's.
@@ -51,14 +52,13 @@ components/TaskWorkspace*          view: queue board, task editor, live activity
         │ HTTP (polling)
 app/api/tasks/**                   thin routes: validation, delegation, no logic
         │
-lib/tasks/orchestrator.ts          the only loop: claim → run → gate → commit → settle
+lib/tasks/orchestrator.ts          the only loop: claim → run → gate → settle
         ├── lib/tasks/queue.ts     QueueController: CRUD, ordering, state guards
         ├── lib/tasks/store.ts     SQLite (WAL), migrations, the only module with SQL
         ├── lib/tasks/runner.ts    one task → one RPC child → one outcome
-        ├── lib/tasks/rpc-session.ts  spawn/read/write/kill the child, record dispatch
+        ├── lib/tasks/rpc-session.ts  spawn/read/write/kill the child, append standing instructions
         ├── lib/tasks/prompt.ts    the task prompt and the unattended rules
-        ├── lib/tasks/gate.ts      verification commands
-        └── lib/tasks/git.ts       auto-commit
+        └── lib/tasks/gate.ts      verification commands
 ```
 
 | Boundary                             | Cost                                                                                                                                                                                                                                   |
@@ -160,7 +160,6 @@ CREATE TABLE tasks (
   cwd              TEXT NOT NULL,
   allow_ask_user   INTEGER,              -- NULL: use the queue default
   verify_commands  TEXT,                 -- JSON array; NULL: use the queue default
-  auto_commit      INTEGER,              -- NULL: use the queue default
   session_id       TEXT,                 -- the Pi session of the current attempt
   claimed_token    TEXT,                 -- fencing token for the active claim
   pending_question TEXT,                 -- JSON { id, question, options, asked_at } while waiting
@@ -168,7 +167,6 @@ CREATE TABLE tasks (
   result_summary   TEXT,
   exit_code        INTEGER,
   verify_output    TEXT,                 -- tail, bounded
-  commit_sha       TEXT,
   run_started_at   DATETIME,
   created_at       DATETIME NOT NULL,
   updated_at       DATETIME NOT NULL,
@@ -186,7 +184,6 @@ CREATE TABLE task_runs (                 -- one row per attempt; retries keep th
   exit_code      INTEGER,
   verify_exit    INTEGER,
   output_tail    TEXT,
-  commit_sha     TEXT,
   started_at     DATETIME NOT NULL,
   finished_at    DATETIME
 );
@@ -224,7 +221,7 @@ a stale caller cannot win a race it lost.
 ### State machine
 
 ```
-PENDING ──claim──► IN_PROGRESS ──gate passed, commit ok──► DONE
+PENDING ──claim──► IN_PROGRESS ──gate passed──► DONE
                         │
                         ├── non-zero exit / crash / timeout ──► FAILED
                         ├── verification command failed ─────► BLOCKED
@@ -265,14 +262,14 @@ start()
    working directory, and the unattended rules. The rules forbid asking when `ask_user` is off,
    require the work to happen in this directory, and require the final message to state what
    changed, what was verified, and what is left.
-2. Start the child (`lib/tasks/rpc-session.ts`) with a new session id and the task name.
+2. Start the child (`lib/tasks/rpc-session.ts`) with a new session id, the task name, and the
+   queue's standing instructions as `--append-system-prompt`.
 3. Send `prompt` and wait for `agent_settled`. Events update `last_activity` for the board and fill
    a bounded in-memory ring buffer (64 KiB) for the live tail. A watchdog settles the task as
    `FAILED` after the task timeout (60 min default).
 4. `lib/tasks/gate.ts` runs the verification commands in the task's `cwd`. Non-zero or timeout means
    `BLOCKED`, with the tail of the output as the summary.
-5. `lib/tasks/git.ts` optionally commits. A failure here does not fail the task; it is recorded.
-6. `settle`, including the session id, exit code, and a short summary.
+5. `settle`, including the session id, exit code, and a short summary.
 
 Control operations:
 
@@ -337,7 +334,7 @@ means nothing else is running anyway.
 ## Verification gate
 
 Defaults live in `<agentDir>/pie-task-orchestrator.json`; every field is optional and a task may
-override `verify_commands` and `auto_commit`.
+override `verify_commands` and `allowAskUser`.
 
 ```json
 {
@@ -347,8 +344,7 @@ override `verify_commands` and `auto_commit`.
   "taskTimeoutMs": 3600000,
   "// timeouts": "a positive number of milliseconds, or null for no limit",
   "allowAskUser": false,
-  "autoCommit": false,
-  "commitMessage": "chore(task): #{id} {title}"
+  "instructions": ""
 }
 ```
 
@@ -358,11 +354,10 @@ override `verify_commands` and `auto_commit`.
   run already in flight keeps the model it started with.
 - The board's **Queue defaults** dialog (`components/QueueSettingsDialog.tsx`, opened from the
   slider button beside the model chip) edits every default a task can inherit: the model, both
-  timeouts, the verification commands, `allowAskUser`, `autoCommit`, and the commit message
-  template. The route validates each field and writes only the ones it was sent, so a patch never
-  rewrites a field the dialog did not touch. A task form's "Use queue default" option names the
-  effective value (`Use queue default (Enabled)`), so the choice is readable without opening the
-  dialog.
+  timeouts, the standing task instructions, the verification commands, and `allowAskUser`. The route
+  validates each field and writes only the ones it was sent, so a patch never rewrites a field the
+  dialog did not touch. A task form's "Use queue default" option names the effective value
+  (`Use queue default (Enabled)`), so the choice is readable without opening the dialog.
 - A timeout is one number plus a unit (minutes or hours; switching converts the number so the
   duration survives), or **No limit**, which stores `null`. `null` means the watchdog is absent, not
   zero: `runTask` races no timer and the gate spawns each command without a kill timer, so the child
@@ -379,19 +374,24 @@ override `verify_commands` and `auto_commit`.
 - Reading verification commands from a project's `.pi/` directory is not part of the first version:
   an unattended run must not be configured by files inside the repository it is changing.
 
-## Auto-commit
+## Task instructions
 
-Off by default. When enabled:
+The queue does not commit, branch, push, or otherwise interpret Git. A person who wants a run to
+commit writes that rule as a standing instruction in the queue defaults; the agent sees it in every
+task prompt and decides how to follow it.
 
-- The repository is located with `git -C <cwd> rev-parse --is-inside-work-tree`. Not a repository,
-  or no changes, means "skip" and is recorded, never an error.
-- Only what this run changed is committed. The baseline is captured before the agent starts
-  (`git status --porcelain -z -uall`), and the commit stages the paths that are dirty now and were
-  clean at the baseline. A path that was already dirty stays exactly as the person left it, even
-  when the run also touched it: the queue cannot separate their edits from the agent's.
-- Commit only, never push, never amend, never touch branches or the index beyond staging those
-  paths. A commit failure is recorded in `result_summary` and does not turn a verified task into a
-  failure; the board shows "verified, not committed" instead.
+- `instructions` is free text (up to 20,000 characters) stored in
+  `<agentDir>/pie-task-orchestrator.json` and edited in the **Queue defaults** dialog. An absent or
+  malformed value means no instructions.
+- `lib/tasks/rpc-session.ts` passes it to every task child as `--append-system-prompt`, prefixed
+  with a `Pie task queue instructions:` label. An empty value adds no flag, so the child's system
+  prompt is exactly Pi's own. The task prompt in `lib/tasks/prompt.ts` stays task-specific.
+- It is a soft constraint by design: the queue still verifies with `verifyCommands` and settles from
+  the child's exit, but it never inspects `.git`, stages files, or creates commits. Examples:
+  "commit your changes when the task is done", "leave the working tree clean", "run the tests before
+  you report".
+- The built-in prompt still forbids branches, worktrees, pull requests, and pushes. Instructions
+  narrow behavior; they do not grant a publish workflow.
 
 ## HTTP API
 
@@ -401,7 +401,7 @@ web password, and `lib/json-response.ts`.
 | Route                         | Purpose                                                                                     |
 | ----------------------------- | ------------------------------------------------------------------------------------------- |
 | `GET /api/tasks`              | `{ tasks, runs, orchestrator, config }`; `no-store`. Polled by the board.                   |
-| `POST /api/tasks`             | Create. Body: title, description, cwd, allow_ask_user, verify_commands, auto_commit.        |
+| `POST /api/tasks`             | Create. Body: title, description, cwd, allow_ask_user, verify_commands.                     |
 | `PATCH /api/tasks/[id]`       | `{ action: 'update' \| 'move' \| 'retry' \| 'markDone' }`. `409 task_locked` while running. |
 | `DELETE /api/tasks/[id]`      | Same guard, same error.                                                                     |
 | `POST /api/tasks/control`     | `{ action: 'start' \| 'pause' \| 'resume' \| 'abort' }`.                                    |
@@ -459,8 +459,8 @@ delivered in two steps so the chat surface is never destabilized by a navigation
   phone the same menu is a bottom sheet, and an empty queue's right-click offers "New task" and
   "Paste".
 - The queue defaults the form inherits from are edited in one dialog opened from the queue's own
-  bar, next to the model chip: model, timeouts, verification commands, the question policy, the
-  commit choice, and the commit message template, with Save pinned while the body scrolls.
+  bar, next to the model chip: model, timeouts, the standing task instructions, verification
+  commands, and the question policy, with Save pinned while the body scrolls.
 - The working-directory field in that form is the chat shell's `DirectoryPicker` behind a "Choose
   folder" button, with the same validation call the composer uses. Typing a path works too: Save
   validates first, and a rejected directory leaves the form open with the reason under the field
@@ -548,19 +548,18 @@ disabled composer instead of breaking.
 
 Only the relevant file per change, per `AGENTS.md`.
 
-| File                                | Covers                                                                                                                                                      |
-| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `lib/tasks/store.test.mjs`          | Temp-database creation, WAL selection, migration idempotence, rank rebalancing.                                                                             |
-| `lib/tasks/queue.test.mjs`          | Atomic claim, the "no second IN_PROGRESS" assertion, lock guards returning `TaskLockedError`, ordering, recovery of an interrupted task.                    |
-| `lib/tasks/rpc-session.test.mjs`    | A fixture child emitting scripted records: LF-only framing with U+2028 inside a string, request correlation, question round-trip, orderly close, tree kill. |
-| `lib/tasks/runner.test.mjs`         | Success, non-zero exit, timeout, abort, and a question answered or dismissed.                                                                               |
-| `lib/tasks/orchestrator.test.mjs`   | Claim → done → next, gate failure → blocked → paused, empty queue → notice, restart recovery.                                                               |
-| `lib/tasks/git.test.mjs`            | Not a repository, no changes, baseline-dirty files untouched, commit failure recorded.                                                                      |
-| `app/api/tasks/route.test.mjs`      | Status codes, `task_locked`, answer routing.                                                                                                                |
-| `components/TaskWorkspace.test.mjs` | Reorder by keyboard, disabled controls while running, question rendering, shift ranges, which tasks a sweep collects.                                       |
+| File                                | Covers                                                                                                                                                               |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lib/tasks/store.test.mjs`          | Temp-database creation, WAL selection, migration idempotence, rank rebalancing.                                                                                      |
+| `lib/tasks/queue.test.mjs`          | Atomic claim, the "no second IN_PROGRESS" assertion, lock guards returning `TaskLockedError`, ordering, recovery of an interrupted task.                             |
+| `lib/tasks/rpc-session.test.mjs`    | Child arguments including `--append-system-prompt`; LF-only framing with U+2028 inside a string, request correlation, question round-trip, orderly close, tree kill. |
+| `lib/tasks/runner.test.mjs`         | Success, non-zero exit, timeout, abort, and a question answered or dismissed.                                                                                        |
+| `lib/tasks/orchestrator.test.mjs`   | Claim → done → next, gate failure → blocked → paused, empty queue → notice, restart recovery.                                                                        |
+| `app/api/tasks/route.test.mjs`      | Status codes, `task_locked`, answer routing.                                                                                                                         |
+| `components/TaskWorkspace.test.mjs` | Reorder by keyboard, disabled controls while running, question rendering, shift ranges, which tasks a sweep collects.                                                |
 
 `store.test.mjs` and `queue.test.mjs` use a temporary directory; no test touches the real agent
-directory or a real repository.
+directory.
 
 ## Implementation phases
 
@@ -568,7 +567,7 @@ directory or a real repository.
 | ------------ | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | 1            | `store` + `queue` + tests                                   | Guards and ordering verified without any process involved.                                      |
 | 2            | `rpc-session` + `runner` + `prompt` + fixture child + tests | A real CLI child runs one prompt to `agent_settled`, asks a question, and dies on request.      |
-| 3            | `gate` + `git` + `orchestrator` + lifecycle wiring + routes | A queue drains unattended; a failed gate pauses it; a restart leaves nothing running.           |
+| 3            | `gate` + `orchestrator` + lifecycle wiring + routes         | A queue drains unattended; a failed gate pauses it; a restart leaves nothing running.           |
 | 4            | `TaskWorkspace` + `?mode=tasks` + i18n + docs               | The queue is fully operable from the browser, keyboard included.                                |
 | 5 (optional) | Mode switch, toolbar migration, inspector panel             | Chat is unchanged in behavior, with the moved actions still reachable when the panel is hidden. |
 
@@ -576,9 +575,9 @@ directory or a real repository.
 
 | Phase        | What exists now                                                                                                                                                                                                                                                    |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1            | `lib/tasks/store.ts`, `lib/tasks/queue.ts`, and their tests. Schema `user_version = 1`, WAL, per-process singleton, SQL guards for claim/update/delete/rank.                                                                                                       |
+| 1            | `lib/tasks/store.ts`, `lib/tasks/queue.ts`, and their tests. Schema `user_version = 2`, WAL, per-process singleton, SQL guards for claim/update/delete/rank.                                                                                                       |
 | 2            | `lib/ask-user-cli-extension.ts`, `lib/tasks/rpc-session.ts`, `lib/tasks/runner.ts`, `lib/tasks/prompt.ts`, and a scripted child fixture (`lib/tasks/__fixtures__/rpc-child.mjs`). LF framing, U+2028 inside a string, correlation, tree kill, question round-trip. |
-| 3            | `lib/tasks/gate.ts`, `lib/tasks/git.ts`, `lib/tasks/orchestrator.ts`, `instrumentation-node.ts` shutdown, and the seven `/api/tasks` routes. `lib/project-trust.ts` decides `--approve`; `lib/tasks/active-sessions.ts` is the only module chat imports.           |
+| 3            | `lib/tasks/gate.ts`, `lib/tasks/orchestrator.ts`, `instrumentation-node.ts` shutdown, and the seven `/api/tasks` routes. `lib/project-trust.ts` decides `--approve`; `lib/tasks/active-sessions.ts` is the only module chat imports.                               |
 | 4            | `components/TaskWorkspace.tsx`, `?mode=tasks`/`?task=` in `AppShell`, `app/tasks.css`, and task keys in all three locales.                                                                                                                                         |
 | 5 (optional) | The `Chat                                                                                                                                                                                                                                                          | Tasks` switch in both page headers, and the session actions moved into the Runs panel (`components/SessionPanelActions.tsx`). Not built: the mode-specific inspector and the per-tab mode memory. |
 
@@ -606,6 +605,6 @@ imports, so a portable install can start the same child.
 | Abort outcome          | `BLOCKED`, loop paused                                                                            |
 | `ask_user`             | Queue default off, per-task override, wait indefinitely when enabled, Web Push, abort as the exit |
 | Verification commands  | Global config plus per-task override; no project-local config                                     |
-| Auto-commit            | Off by default; stages only this run's changes; never pushes                                      |
+| Task instructions      | Free text in the queue defaults, appended to every task prompt; soft constraints only             |
 | Storage                | `node:sqlite` database in the agent directory                                                     |
 | Interface roll-out     | Task workspace first, two-mode top bar second                                                     |

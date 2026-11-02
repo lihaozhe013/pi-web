@@ -61,7 +61,6 @@ function insertTask(overrides = {}) {
     rank: store.nextRank(),
     allowAskUser: null,
     verifyCommands: null,
-    autoCommit: null,
     now: new Date().toISOString()
   });
 }
@@ -89,15 +88,13 @@ test('POST validates the body and keeps a valid task', async () => {
       title: 'Write the queue',
       description: 'docs',
       cwd: process.cwd(),
-      verify_commands: ['true'],
-      auto_commit: false
+      verify_commands: ['true']
     })
   );
   assert.equal(created.status, 201);
   const body = await created.json();
   assert.equal(body.task.title, 'Write the queue');
   assert.deepEqual(body.task.verifyCommands, ['true']);
-  assert.equal(body.task.autoCommit, false);
 });
 
 test('PATCH update and DELETE are refused with task_locked while running', async () => {
@@ -180,16 +177,16 @@ test('answering without a pending question is a conflict', async () => {
 
 test('the output route serves the in-memory tail and 404s an unknown task', async () => {
   const task = insertTask({ title: 'Idle task' });
-  const idle = await output(new Request(`http://local/api/tasks/${task.id}/output`), params(task.id));
+  const idle = await output(
+    new Request(`http://local/api/tasks/${task.id}/output`),
+    params(task.id)
+  );
   assert.equal(idle.status, 200);
   const body = await idle.json();
   assert.equal(body.running, false);
   assert.equal(body.output, '');
 
-  const missing = await output(
-    new Request('http://local/api/tasks/99999/output'),
-    params(99999)
-  );
+  const missing = await output(new Request('http://local/api/tasks/99999/output'), params(99999));
   assert.equal(missing.status, 404);
 });
 
@@ -242,8 +239,7 @@ test('the config route accepts the rest of the queue defaults and rejects bad nu
         verifyTimeoutMs: 120_000,
         taskTimeoutMs: 1_800_000,
         allowAskUser: true,
-        autoCommit: true,
-        commitMessage: 'chore(task): #{id} {title}'
+        instructions: '  Commit when the task is done.  '
       },
       'PUT'
     )
@@ -254,20 +250,18 @@ test('the config route accepts the rest of the queue defaults and rejects bad nu
   assert.equal(savedConfig.verifyTimeoutMs, 120_000);
   assert.equal(savedConfig.taskTimeoutMs, 1_800_000);
   assert.equal(savedConfig.allowAskUser, true);
-  assert.equal(savedConfig.autoCommit, true);
+  assert.equal(savedConfig.instructions, 'Commit when the task is done.');
   // A field the board did not send keeps its stored value.
   assert.deepEqual(savedConfig.model, null);
 
-  const badTimeout = await config(
-    jsonRequest('/api/tasks/config', { taskTimeoutMs: 0 }, 'PUT')
-  );
+  const badTimeout = await config(jsonRequest('/api/tasks/config', { taskTimeoutMs: 0 }, 'PUT'));
   assert.equal(badTimeout.status, 400);
   assert.equal((await badTimeout.json()).code, 'invalid_input');
 
-  const emptyMessage = await config(
-    jsonRequest('/api/tasks/config', { commitMessage: '   ' }, 'PUT')
+  const badInstructions = await config(
+    jsonRequest('/api/tasks/config', { instructions: 42 }, 'PUT')
   );
-  assert.equal(emptyMessage.status, 400);
+  assert.equal(badInstructions.status, 400);
 
   // "No limit" is a stored null, not a missing field.
   const unlimited = await config(
