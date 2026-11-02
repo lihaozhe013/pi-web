@@ -216,8 +216,14 @@ test('applyCompactedUsage immediately updates context usage with estimated token
   });
   const applyCompactedUsage = callback('applyCompactedUsage').runInContext(context);
   applyCompactedUsage(20_000);
-  assert.deepEqual(JSON.parse(JSON.stringify(writes)), [{ tokens: 20_000, contextWindow: 200_000, percent: 10 }]);
-  assert.deepEqual(JSON.parse(JSON.stringify(contextUsageRef.current)), { tokens: 20_000, contextWindow: 200_000, percent: 10 });
+  assert.deepEqual(JSON.parse(JSON.stringify(writes)), [
+    { tokens: 20_000, contextWindow: 200_000, percent: 10 }
+  ]);
+  assert.deepEqual(JSON.parse(JSON.stringify(contextUsageRef.current)), {
+    tokens: 20_000,
+    contextWindow: 200_000,
+    percent: 10
+  });
 });
 
 test('applyLiveUsage preserves compacted tokens when post-compaction status has null tokens', () => {
@@ -235,10 +241,26 @@ test('applyLiveUsage preserves compacted tokens when post-compaction status has 
   });
   const applyLiveUsage = callback('applyLiveUsage').runInContext(context);
   // Post-compaction state where SDK returns tokens: null, percent: null
-  applyLiveUsage({ contextUsage: { contextWindow: 200_000, percent: null, tokens: null } }, 'a', 1, 1);
-  assert.deepEqual(JSON.parse(JSON.stringify(writes)), [{ tokens: 20_000, contextWindow: 200_000, percent: 10 }]);
+  applyLiveUsage(
+    { contextUsage: { contextWindow: 200_000, percent: null, tokens: null } },
+    'a',
+    1,
+    1
+  );
+  assert.deepEqual(JSON.parse(JSON.stringify(writes)), [
+    { tokens: 20_000, contextWindow: 200_000, percent: 10 }
+  ]);
 
   // Subsequent normal response with actual tokens updates as usual
-  applyLiveUsage({ contextUsage: { contextWindow: 200_000, percent: 12.5, tokens: 25_000 } }, 'a', 1, 2);
-  assert.deepEqual(JSON.parse(JSON.stringify(writes[1])), { tokens: 25_000, contextWindow: 200_000, percent: 12.5 });
+  applyLiveUsage(
+    { contextUsage: { contextWindow: 200_000, percent: 12.5, tokens: 25_000 } },
+    'a',
+    1,
+    2
+  );
+  assert.deepEqual(JSON.parse(JSON.stringify(writes[1])), {
+    tokens: 25_000,
+    contextWindow: 200_000,
+    percent: 12.5
+  });
 });

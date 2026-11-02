@@ -1,10 +1,7 @@
 'use client';
 
 import { useI18n } from '@/hooks/useI18n';
-import {
-  formatCompactCount,
-  formatCostShort
-} from '@/lib/session-stats-format';
+import { formatCompactCount, formatCostShort } from '@/lib/session-stats-format';
 
 /** The generate-title control reports its own progress in place. */
 export interface SessionPanelNameAction {
@@ -191,7 +188,14 @@ export function SessionPanelActions({
                 fill="none"
                 aria-hidden="true"
               >
-                <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" opacity="0.25" />
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="9"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  opacity="0.25"
+                />
                 <path
                   d="M21 12a9 9 0 0 0-9-9"
                   stroke="currentColor"
@@ -316,7 +320,9 @@ export function SessionPanelActions({
               <>
                 <span className="panel-stats-cell">
                   <span className="panel-stats-label">{t('session.input')}</span>
-                  <span className="panel-stats-value">{formatCompactCount(stats.tokens.input)}</span>
+                  <span className="panel-stats-value">
+                    {formatCompactCount(stats.tokens.input)}
+                  </span>
                 </span>
                 <span className="panel-stats-cell">
                   <span className="panel-stats-label">{t('session.output')}</span>

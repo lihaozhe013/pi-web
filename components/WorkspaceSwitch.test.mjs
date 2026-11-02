@@ -10,11 +10,7 @@ const { WorkspaceSwitch } = await jiti.import('./WorkspaceSwitch.tsx');
 
 function render(mode) {
   return renderToStaticMarkup(
-    React.createElement(
-      I18nProvider,
-      null,
-      React.createElement(WorkspaceSwitch, { mode })
-    )
+    React.createElement(I18nProvider, null, React.createElement(WorkspaceSwitch, { mode }))
   );
 }
 

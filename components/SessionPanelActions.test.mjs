@@ -50,8 +50,15 @@ test('the session actions live in one labelled group, in the panel order', () =>
   const order = ['history', 'name', 'system', 'tools'].map((action) =>
     html.indexOf(`data-panel-action="${action}"`)
   );
-  assert.ok(order.every((index) => index >= 0), 'every action is present');
-  assert.deepEqual([...order].sort((a, b) => a - b), order, 'actions keep their order');
+  assert.ok(
+    order.every((index) => index >= 0),
+    'every action is present'
+  );
+  assert.deepEqual(
+    [...order].sort((a, b) => a - b),
+    order,
+    'actions keep their order'
+  );
 });
 
 test('the title action reports progress and failure in place', () => {
@@ -103,10 +110,7 @@ test('a dialog with content shows its icon in the accent color', () => {
 
 test('branches appear only when the session has them', () => {
   assert.doesNotMatch(render(), /data-panel-action="branches"/);
-  assert.match(
-    render({ onOpenBranches() {} }),
-    /data-panel-action="branches" title="Branches"/
-  );
+  assert.match(render({ onOpenBranches() {} }), /data-panel-action="branches" title="Branches"/);
 });
 
 test('the session numbers stay one quiet card that opens the details', () => {

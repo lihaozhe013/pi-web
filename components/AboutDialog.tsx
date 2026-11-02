@@ -77,7 +77,10 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
           <span className="about-version-label">{t('about.version')}</span>{' '}
           <span className="about-version-value">{BUILD_VERSION}</span>
           {commit !== 'unknown' && (
-            <> (<span className="about-version-commit">{commit}</span>)</>
+            <>
+              {' '}
+              (<span className="about-version-commit">{commit}</span>)
+            </>
           )}
         </p>
 

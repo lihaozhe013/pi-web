@@ -844,8 +844,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
           nextUsage = {
             tokens: currentUsage.tokens,
             contextWindow: window,
-            percent:
-              window > 0 ? (currentUsage.tokens / window) * 100 : currentUsage.percent
+            percent: window > 0 ? (currentUsage.tokens / window) * 100 : currentUsage.percent
           };
         }
         if (typeof contextUsageRef !== 'undefined') {
@@ -860,8 +859,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   );
 
   const applyCompactedUsage = useCallback((estimatedTokensAfter: number) => {
-    const current =
-      typeof contextUsageRef !== 'undefined' ? contextUsageRef.current : null;
+    const current = typeof contextUsageRef !== 'undefined' ? contextUsageRef.current : null;
     const window = current?.contextWindow ?? 0;
     const nextUsage = {
       tokens: estimatedTokensAfter,

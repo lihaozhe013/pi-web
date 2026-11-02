@@ -108,12 +108,15 @@ function runCommand(command: string, options: GateOptions): Promise<CommandOutco
     const timer =
       options.timeoutMs === null
         ? null
-        : setTimeout(() => {
-            timedOut = true;
-            killTree(child, platform, spawnFn);
-            // A killed tree may still take a moment to close; do not wait forever.
-            setTimeout(() => finish(null), 2_000).unref?.();
-          }, Math.max(options.timeoutMs, 0));
+        : setTimeout(
+            () => {
+              timedOut = true;
+              killTree(child, platform, spawnFn);
+              // A killed tree may still take a moment to close; do not wait forever.
+              setTimeout(() => finish(null), 2_000).unref?.();
+            },
+            Math.max(options.timeoutMs, 0)
+          );
     timer?.unref?.();
     child.on('error', (error) => {
       collect(`${error.message}\n`);

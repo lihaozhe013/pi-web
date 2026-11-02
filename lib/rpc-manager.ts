@@ -514,7 +514,10 @@ export class AgentSessionWrapper {
         invalidateSessionListCache();
         // Every tool call of the run has finished; nothing is left to replay.
         this.activeToolEvents.clear();
-        if (this.inner.getContextUsage()?.tokens !== null && this.inner.getContextUsage()?.tokens !== undefined) {
+        if (
+          this.inner.getContextUsage()?.tokens !== null &&
+          this.inner.getContextUsage()?.tokens !== undefined
+        ) {
           this.lastCompactedTokens = null;
         }
       }
@@ -523,9 +526,8 @@ export class AgentSessionWrapper {
         !event.aborted &&
         !event.errorMessage
       ) {
-        const estimated = (
-          event.result as { estimatedTokensAfter?: unknown } | null | undefined
-        )?.estimatedTokensAfter;
+        const estimated = (event.result as { estimatedTokensAfter?: unknown } | null | undefined)
+          ?.estimatedTokensAfter;
         if (typeof estimated === 'number') {
           this.lastCompactedTokens = estimated;
         }
@@ -1414,9 +1416,8 @@ export class AgentSessionWrapper {
             const result = await this.withFinalIdleReset(() =>
               this.inner.compact(command.customInstructions as string | undefined)
             );
-            const estimated = (
-              result as { estimatedTokensAfter?: unknown } | null | undefined
-            )?.estimatedTokensAfter;
+            const estimated = (result as { estimatedTokensAfter?: unknown } | null | undefined)
+              ?.estimatedTokensAfter;
             if (typeof estimated === 'number') {
               this.lastCompactedTokens = estimated;
             }

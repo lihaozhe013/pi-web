@@ -29,7 +29,8 @@ test('the Runs panel resizes through the shared panel hook', () => {
 
   const maxWidth = nodes.find(
     (node) =>
-      node.type === 'VariableDeclarator' && declarationName(node) === 'getResponsiveRunsPanelMaxWidth'
+      node.type === 'VariableDeclarator' &&
+      declarationName(node) === 'getResponsiveRunsPanelMaxWidth'
   );
   assert.ok(maxWidth, 'the responsive maximum was not found');
   assert.match(nodeText(source, maxWidth.init), /getRightPanelMaxWidth\(/);

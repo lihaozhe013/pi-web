@@ -94,9 +94,6 @@ export function getRightPanelMaxWidth(options: {
   // A docked panel always leaves the conversation its minimum width.
   return Math.min(
     RIGHT_PANEL_MAX_WIDTH,
-    Math.max(
-      RIGHT_PANEL_MIN_WIDTH,
-      viewportWidth - DESKTOP_CHAT_MIN_WIDTH - visibleSidebarWidth
-    )
+    Math.max(RIGHT_PANEL_MIN_WIDTH, viewportWidth - DESKTOP_CHAT_MIN_WIDTH - visibleSidebarWidth)
   );
 }

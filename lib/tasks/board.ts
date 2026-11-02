@@ -64,9 +64,7 @@ export function reorderPending(
  * What the queue does next, in one sentence the board can show beside the
  * controls. Derived from stored state only; nothing is inferred from timing.
  */
-export function queueControl(
-  status: OrchestratorStatus
-): 'start' | 'pause' | 'resume' | 'abort' {
+export function queueControl(status: OrchestratorStatus): 'start' | 'pause' | 'resume' | 'abort' {
   if (status.state === 'RUNNING') {
     return status.activeTaskId === null ? 'pause' : 'abort';
   }
@@ -86,8 +84,7 @@ export function questionRequestFor(task: TaskRecord): ExtensionUiRequest | null 
     id: `task-${task.id}-${question.requestId}`,
     method: question.options.length > 0 ? 'select' : 'input',
     title: question.question,
-    options:
-      question.options.length > 0 ? [...question.options, ASK_USER_OTHER_LABEL] : undefined,
+    options: question.options.length > 0 ? [...question.options, ASK_USER_OTHER_LABEL] : undefined,
     question: { options: question.options }
   } as ExtensionUiRequest;
 }
