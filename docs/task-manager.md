@@ -86,8 +86,8 @@ Decisions behind that shape:
 | Chat only is coerced                    | An empty selection makes the session `chatOnly`, which skips all extensions, so the tools would vanish and a persisted empty selection would strand the session. The server forces the full loadout in this project, and the composer shows a locked "Task manager" entry instead of "Chat only". |
 
 Deletion stays clean: removing `lib/task-manager-extension.ts`, `lib/tasks/manager-project.ts` and
-`lib/tasks/agent-tools.ts`, plus the two lines in `rpc-manager.ts` and the composer's locked entry,
-leaves chat behaving as before. `lib/tasks/active-sessions.ts` keeps its existing read-only role.
+`lib/tasks/agent-tools.ts`, plus the handful of lines in `rpc-manager.ts` that name them, leaves
+chat behaving as before. `lib/tasks/active-sessions.ts` keeps its existing read-only role.
 
 ## The tools
 
@@ -101,10 +101,10 @@ allow-list the board uses.
 | `task_create`  | `title`, `description`, `cwd`, `allowAskUser?`, `verifyCommands?` | `queue.createTask`                                         |
 | `task_update`  | `id`, the create fields                                           | `queue.updateTask`                                         |
 | `task_move`    | `id`, `direction` or `position`                                   | `queue.moveTask`                                           |
-| `task_delete`  | `id` \| `ids` \| `completedOnly`, `confirm`                       | `queue.deleteTask`, `completedTaskIds`                     |
+| `task_delete`  | `id` \| `ids` \| `completed`, `confirm`                           | `queue.deleteTask`, `completedTaskIds`                     |
 | `task_control` | `action`, `id?`, `note?`                                          | `start`, `pause`, `resume`, `abort`, `retry`, `markDone`   |
 | `task_answer`  | `answer?`, `cancelled?`                                           | `orchestrator.answer`                                      |
-| `task_config`  | `get` \| `update` fields                                          | `lib/tasks/config.ts`, the Queue defaults dialog's data    |
+| `task_config`  | `update?`: the queue-default fields                               | `lib/tasks/config.ts`, the Queue defaults dialog's data    |
 | `task_watch`   | `action`: `on` \| `off` \| `status`                               | the extension's watch state                                |
 | `task_events`  | `afterId?`, `waitMs?` (at most 50 s)                              | `store.listEventsSince`                                    |
 

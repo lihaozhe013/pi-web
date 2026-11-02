@@ -24,7 +24,7 @@ sessions in process; Bun manages dependencies and script invocation.
 | Saved session reading    | `lib/session-reader.ts`                                                                     |
 | Shared types             | `lib/types.ts`, `lib/pi-types.ts`                                                           |
 | Task queue               | `lib/tasks/`, `app/api/tasks/`, `components/TaskWorkspace.tsx`                              |
-| Task manager (planned)   | `lib/task-manager-extension.ts`, `lib/tasks/agent-tools.ts`, `lib/tasks/manager-project.ts` |
+| Task manager             | `lib/task-manager-extension.ts`, `lib/tasks/agent-tools.ts`, `lib/tasks/manager-project.ts` |
 | HTTP APIs                | `app/api/`                                                                                  |
 | Local launcher           | `bin/pie.js`                                                                                |
 | Portable packaging       | `packaging/`                                                                                |
@@ -116,8 +116,8 @@ verification commands, and `lib/tasks/request.ts` the route validation and error
 `instrumentation-node.ts` uses the same shutdown signal to abort the active child and settle its
 task.
 
-The planned [task manager](task-manager.md) adds a third contact point: `lib/rpc-manager.ts` loads
-one extension factory when the session's working directory is `<agentDir>/task-manager`, so that
+The [task manager](task-manager.md) adds a third contact point: `lib/rpc-manager.ts` loads one
+extension factory when the session's working directory is `<agentDir>/task-manager`, so that
 project's chat sessions get the queue tools. The tools call the same controller the board uses, and
 the extension reads the queue's event table through the same polling design. Nothing else in the
 runtime learns that the feature exists.

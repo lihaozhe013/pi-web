@@ -603,8 +603,7 @@ imports, so a portable install can start the same child.
 ## Agent orchestration
 
 The queue is operated by a person from `?mode=tasks`. [Task manager](task-manager.md) adds the
-second operator: a chat session in a dedicated project with queue tools and a durable event feed. It
-is planned, not built.
+second operator: a chat session in a dedicated project with queue tools and a durable event feed.
 
 What it does not change here:
 

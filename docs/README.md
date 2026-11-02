@@ -59,7 +59,7 @@ All project documentation is maintained in English, without translated copies.
 | [Architecture](architecture.md)     | Current entry points and boundaries   |
 | [Desktop shell](desktop.md)         | Tauri 2 window and desktop packaging  |
 | [Tasks](tasks.md)                   | Serial task queue, execution boundary |
-| [Task manager](task-manager.md)     | Agent-driven queue control (planned)  |
+| [Task manager](task-manager.md)     | Agent-driven queue control            |
 | [Packaging](../packaging/README.md) | Local portable builds                 |
 | [Browser tests](../e2e/README.md)   | Local browser regression testing      |
 
