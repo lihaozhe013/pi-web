@@ -9,25 +9,28 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { getAgentDir } from '../session-reader';
+import {
+  DEFAULT_TASK_TIMEOUT_MS,
+  DEFAULT_VERIFY_TIMEOUT_MS,
+  TASK_CONFIG_DEFAULTS
+} from './defaults';
 import type { TaskConfig, TaskModelSelection } from './types';
 
 export const TASK_CONFIG_FILE = 'pie-task-orchestrator.json';
 
-export const DEFAULT_TASK_CONFIG: TaskConfig = {
-  model: null,
-  verifyCommands: [],
-  verifyTimeoutMs: 600_000,
-  taskTimeoutMs: 3_600_000,
-  allowAskUser: false,
-  autoCommit: false,
-  commitMessage: 'chore(task): #{id} {title}'
-};
+export const DEFAULT_TASK_CONFIG: TaskConfig = TASK_CONFIG_DEFAULTS;
 
 export function taskConfigPath(agentDir: string = getAgentDir()): string {
   return join(agentDir, TASK_CONFIG_FILE);
 }
 
-function positiveInteger(value: unknown, fallback: number): number {
+/**
+ * A timeout is a positive number of milliseconds, or `null` for "no limit".
+ * A missing or malformed value falls back to the default rather than to null,
+ * so a typo cannot silently remove the watchdog.
+ */
+function timeoutOrNull(value: unknown, fallback: number): number | null {
+  if (value === null) return null;
   return typeof value === 'number' && Number.isFinite(value) && value > 0
     ? Math.round(value)
     : fallback;
@@ -68,11 +71,8 @@ export function normalizeTaskConfig(raw: unknown): TaskConfig {
   return {
     model: modelSelection(record.model),
     verifyCommands: commandList(record.verifyCommands, DEFAULT_TASK_CONFIG.verifyCommands),
-    verifyTimeoutMs: positiveInteger(
-      record.verifyTimeoutMs,
-      DEFAULT_TASK_CONFIG.verifyTimeoutMs
-    ),
-    taskTimeoutMs: positiveInteger(record.taskTimeoutMs, DEFAULT_TASK_CONFIG.taskTimeoutMs),
+    verifyTimeoutMs: timeoutOrNull(record.verifyTimeoutMs, DEFAULT_VERIFY_TIMEOUT_MS),
+    taskTimeoutMs: timeoutOrNull(record.taskTimeoutMs, DEFAULT_TASK_TIMEOUT_MS),
     allowAskUser: boolean(record.allowAskUser, DEFAULT_TASK_CONFIG.allowAskUser),
     autoCommit: boolean(record.autoCommit, DEFAULT_TASK_CONFIG.autoCommit),
     commitMessage

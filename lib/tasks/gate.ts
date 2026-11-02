@@ -22,7 +22,8 @@ export interface GateResult {
 
 export interface GateOptions {
   cwd: string;
-  timeoutMs: number;
+  /** `null` runs the command without a timeout. */
+  timeoutMs: number | null;
   platform?: NodeJS.Platform;
   spawnFn?: typeof spawn;
   env?: NodeJS.ProcessEnv;
@@ -101,16 +102,19 @@ function runCommand(command: string, options: GateOptions): Promise<CommandOutco
     const finish = (exitCode: number | null) => {
       if (settled) return;
       settled = true;
-      clearTimeout(timer);
+      if (timer) clearTimeout(timer);
       resolve({ exitCode, timedOut, output });
     };
-    const timer = setTimeout(() => {
-      timedOut = true;
-      killTree(child, platform, spawnFn);
-      // A killed tree may still take a moment to close; do not wait forever.
-      setTimeout(() => finish(null), 2_000).unref?.();
-    }, Math.max(options.timeoutMs, 0));
-    timer.unref?.();
+    const timer =
+      options.timeoutMs === null
+        ? null
+        : setTimeout(() => {
+            timedOut = true;
+            killTree(child, platform, spawnFn);
+            // A killed tree may still take a moment to close; do not wait forever.
+            setTimeout(() => finish(null), 2_000).unref?.();
+          }, Math.max(options.timeoutMs, 0));
+    timer?.unref?.();
     child.on('error', (error) => {
       collect(`${error.message}\n`);
       finish(null);

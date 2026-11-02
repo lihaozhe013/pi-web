@@ -268,4 +268,13 @@ test('the config route accepts the rest of the queue defaults and rejects bad nu
     jsonRequest('/api/tasks/config', { commitMessage: '   ' }, 'PUT')
   );
   assert.equal(emptyMessage.status, 400);
+
+  // "No limit" is a stored null, not a missing field.
+  const unlimited = await config(
+    jsonRequest('/api/tasks/config', { taskTimeoutMs: null, verifyTimeoutMs: null }, 'PUT')
+  );
+  assert.equal(unlimited.status, 200);
+  const unlimitedConfig = (await unlimited.json()).config;
+  assert.equal(unlimitedConfig.taskTimeoutMs, null);
+  assert.equal(unlimitedConfig.verifyTimeoutMs, null);
 });

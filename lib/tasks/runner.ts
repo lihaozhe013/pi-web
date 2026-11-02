@@ -36,7 +36,8 @@ export interface TaskRunRequest {
   sessionName: string;
   projectTrusted: boolean;
   askUserExtensionPath?: string | null;
-  timeoutMs: number;
+  /** `null` leaves the run without a watchdog. */
+  timeoutMs: number | null;
   /** Tests supply a fixture child instead of the installed CLI. */
   childCommand?: TaskChildCommand;
   env?: NodeJS.ProcessEnv;
@@ -316,19 +317,28 @@ export function startTaskRun(request: TaskRunRequest): TaskRunHandle {
     }
 
     let timer: NodeJS.Timeout | undefined;
-    const timeout = new Promise<typeof TIMEOUT>((resolve) => {
-      timer = setTimeout(() => resolve(TIMEOUT), Math.max(request.timeoutMs, 0));
-      timer.unref?.();
-    });
-    const settled = await Promise.race([session.waitForSettled().catch((error) => error), timeout]);
-    if (timer) clearTimeout(timer);
+    let settled: typeof TIMEOUT | Error | { aborted: boolean };
+    if (request.timeoutMs === null) {
+      // No watchdog: only an abort or the child's own end settles the run.
+      settled = await session.waitForSettled().catch((error) => error);
+    } else {
+      const timeout = new Promise<typeof TIMEOUT>((resolve) => {
+        timer = setTimeout(() => resolve(TIMEOUT), Math.max(request.timeoutMs as number, 0));
+        timer.unref?.();
+      });
+      settled = await Promise.race([
+        session.waitForSettled().catch((error) => error),
+        timeout
+      ]);
+      if (timer) clearTimeout(timer);
+    }
 
     if (settled === TIMEOUT) {
       await session.abort();
       return {
         status: 'timeout',
         exitCode: session.exitCode,
-        summary: `The task did not finish within ${Math.round(request.timeoutMs / 60000)} minutes`,
+        summary: `The task did not finish within ${Math.round((request.timeoutMs ?? 0) / 60000)} minutes`,
         outputTail,
         sessionId: request.sessionId
       };

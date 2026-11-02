@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { useI18n } from '@/hooks/useI18n';
+import { TASK_CONFIG_DEFAULTS } from '@/lib/tasks/defaults';
 import type { TaskConfig } from '@/lib/tasks/types';
 import { ModelSelector, type ModelSelectorOption } from './ModelSelector';
 import { SessionModal } from './SessionModal';
@@ -17,10 +18,38 @@ export interface QueueSettingsDialogProps {
 }
 
 const MINUTE_MS = 60_000;
+const HOUR_MS = 3_600_000;
 
-function minutesFrom(ms: number): string {
-  const minutes = ms / MINUTE_MS;
-  return String(Number.isInteger(minutes) ? minutes : Number(minutes.toFixed(2)));
+type TimeoutUnit = 'minutes' | 'hours';
+
+interface TimeoutDraft {
+  amount: string;
+  unit: TimeoutUnit;
+  unlimited: boolean;
+}
+
+/** A stored millisecond value as the person last saw it: the largest unit that divides it. */
+export function timeoutDraftFrom(ms: number | null, fallbackMs: number): TimeoutDraft {
+  if (ms === null) {
+    const fallback = timeoutDraftFrom(fallbackMs, fallbackMs);
+    return { ...fallback, unlimited: true };
+  }
+  const unit: TimeoutUnit = ms % HOUR_MS === 0 ? 'hours' : 'minutes';
+  const divisor = unit === 'hours' ? HOUR_MS : MINUTE_MS;
+  const amount = ms / divisor;
+  return {
+    amount: String(Number.isInteger(amount) ? amount : Number(amount.toFixed(2))),
+    unit,
+    unlimited: false
+  };
+}
+
+/** The draft as milliseconds, or null when the person asked for no limit. */
+export function timeoutMsFrom(draft: TimeoutDraft): number | null {
+  if (draft.unlimited) return null;
+  const amount = Number(draft.amount.trim());
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+  return Math.round(amount * (draft.unit === 'hours' ? HOUR_MS : MINUTE_MS));
 }
 
 /**
@@ -38,8 +67,12 @@ export function QueueSettingsDialog({
 }: QueueSettingsDialogProps) {
   const { t } = useI18n();
   const [model, setModel] = useState<{ provider: string; modelId: string } | null>(config.model);
-  const [taskMinutes, setTaskMinutes] = useState(() => minutesFrom(config.taskTimeoutMs));
-  const [verifyMinutes, setVerifyMinutes] = useState(() => minutesFrom(config.verifyTimeoutMs));
+  const [taskTimeout, setTaskTimeout] = useState(() =>
+    timeoutDraftFrom(config.taskTimeoutMs, TASK_CONFIG_DEFAULTS.taskTimeoutMs ?? 3_600_000)
+  );
+  const [verifyTimeout, setVerifyTimeout] = useState(() =>
+    timeoutDraftFrom(config.verifyTimeoutMs, TASK_CONFIG_DEFAULTS.verifyTimeoutMs ?? 600_000)
+  );
   const [commands, setCommands] = useState(() => config.verifyCommands.join('\n'));
   const [allowAskUser, setAllowAskUser] = useState(config.allowAskUser);
   const [autoCommit, setAutoCommit] = useState(config.autoCommit);
@@ -47,18 +80,14 @@ export function QueueSettingsDialog({
   const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
 
-  const parseMinutes = (value: string): number | null => {
-    const minutes = Number(value.trim());
-    if (!Number.isFinite(minutes) || minutes <= 0) return null;
-    return Math.round(minutes * MINUTE_MS);
-  };
+  const timeoutValid = (draft: TimeoutDraft) => draft.unlimited || timeoutMsFrom(draft) !== null;
 
   const save = async (event: FormEvent) => {
     event.preventDefault();
     if (saving) return;
-    const taskTimeoutMs = parseMinutes(taskMinutes);
-    const verifyTimeoutMs = parseMinutes(verifyMinutes);
-    if (taskTimeoutMs === null || verifyTimeoutMs === null) {
+    const taskTimeoutMs = timeoutMsFrom(taskTimeout);
+    const verifyTimeoutMs = timeoutMsFrom(verifyTimeout);
+    if (!timeoutValid(taskTimeout) || !timeoutValid(verifyTimeout)) {
       setProblem(t('tasks.timeoutInvalid'));
       return;
     }
@@ -94,6 +123,84 @@ export function QueueSettingsDialog({
       setSaving(false);
     }
   };
+
+  /** Only fills the form: Save still decides, and Cancel leaves the stored defaults alone. */
+  const restoreDefaults = () => {
+    setModel(TASK_CONFIG_DEFAULTS.model);
+    setTaskTimeout(
+      timeoutDraftFrom(TASK_CONFIG_DEFAULTS.taskTimeoutMs, TASK_CONFIG_DEFAULTS.taskTimeoutMs ?? 0)
+    );
+    setVerifyTimeout(
+      timeoutDraftFrom(
+        TASK_CONFIG_DEFAULTS.verifyTimeoutMs,
+        TASK_CONFIG_DEFAULTS.verifyTimeoutMs ?? 0
+      )
+    );
+    setCommands(TASK_CONFIG_DEFAULTS.verifyCommands.join('\n'));
+    setAllowAskUser(TASK_CONFIG_DEFAULTS.allowAskUser);
+    setAutoCommit(TASK_CONFIG_DEFAULTS.autoCommit);
+    setCommitMessage(TASK_CONFIG_DEFAULTS.commitMessage);
+    setProblem(null);
+  };
+
+  const renderTimeout = (
+    id: string,
+    draft: TimeoutDraft,
+    onChange: (next: TimeoutDraft) => void,
+    label: string,
+    hint: string
+  ) => (
+    <div className="task-field">
+      <span id={`${id}-label`}>{label}</span>
+      <div className="queue-settings-timeout" role="group" aria-labelledby={`${id}-label`}>
+        <input
+          type="number"
+          min="1"
+          step="1"
+          inputMode="decimal"
+          aria-label={label}
+          value={draft.amount}
+          disabled={draft.unlimited}
+          onChange={(event) => onChange({ ...draft, amount: event.target.value })}
+        />
+        <select
+          aria-label={t('tasks.timeoutUnit')}
+          value={draft.unit}
+          disabled={draft.unlimited}
+          onChange={(event) => {
+            // Switching the unit converts the number, so the duration survives.
+            const unit = event.target.value as TimeoutUnit;
+            const amount = Number(draft.amount.trim());
+            const converted =
+              Number.isFinite(amount) && amount > 0
+                ? unit === 'hours'
+                  ? amount / 60
+                  : amount * 60
+                : amount;
+            onChange({
+              ...draft,
+              unit,
+              amount: Number.isFinite(converted)
+                ? String(Number.isInteger(converted) ? converted : Number(converted.toFixed(2)))
+                : draft.amount
+            });
+          }}
+        >
+          <option value="minutes">{t('tasks.minutes')}</option>
+          <option value="hours">{t('tasks.hours')}</option>
+        </select>
+        <label className="queue-settings-unlimited">
+          <input
+            type="checkbox"
+            checked={draft.unlimited}
+            onChange={(event) => onChange({ ...draft, unlimited: event.target.checked })}
+          />
+          <span>{t('tasks.noLimit')}</span>
+        </label>
+      </div>
+      <span className="task-hint">{hint}</span>
+    </div>
+  );
 
   return (
     <SessionModal
@@ -152,30 +259,20 @@ export function QueueSettingsDialog({
 
         <section className="queue-settings-section">
           <h3>{t('tasks.limits')}</h3>
-          <label className="task-field">
-            <span>{t('tasks.taskTimeout')}</span>
-            <input
-              type="number"
-              min="1"
-              step="1"
-              inputMode="numeric"
-              value={taskMinutes}
-              onChange={(event) => setTaskMinutes(event.target.value)}
-            />
-            <span className="task-hint">{t('tasks.taskTimeoutHint')}</span>
-          </label>
-          <label className="task-field">
-            <span>{t('tasks.verifyTimeout')}</span>
-            <input
-              type="number"
-              min="1"
-              step="1"
-              inputMode="numeric"
-              value={verifyMinutes}
-              onChange={(event) => setVerifyMinutes(event.target.value)}
-            />
-            <span className="task-hint">{t('tasks.verifyTimeoutHint')}</span>
-          </label>
+          {renderTimeout(
+            'task-timeout',
+            taskTimeout,
+            setTaskTimeout,
+            t('tasks.taskTimeout'),
+            t('tasks.taskTimeoutHint')
+          )}
+          {renderTimeout(
+            'verify-timeout',
+            verifyTimeout,
+            setVerifyTimeout,
+            t('tasks.verifyTimeout'),
+            t('tasks.verifyTimeoutHint')
+          )}
         </section>
 
         <section className="queue-settings-section">
@@ -233,6 +330,14 @@ export function QueueSettingsDialog({
         )}
 
         <div className="queue-settings-actions">
+          <button
+            type="button"
+            className="task-control queue-settings-restore"
+            onClick={restoreDefaults}
+            disabled={saving}
+          >
+            {t('tasks.restoreDefaults')}
+          </button>
           <button type="submit" className="task-control is-primary" disabled={saving}>
             {saving ? t('tasks.saving') : t('tasks.save')}
           </button>

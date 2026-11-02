@@ -345,6 +345,7 @@ override `verify_commands` and `auto_commit`.
   "verifyCommands": [],
   "verifyTimeoutMs": 600000,
   "taskTimeoutMs": 3600000,
+  "// timeouts": "a positive number of milliseconds, or null for no limit",
   "allowAskUser": false,
   "autoCommit": false,
   "commitMessage": "chore(task): #{id} {title}"
@@ -356,12 +357,17 @@ override `verify_commands` and `auto_commit`.
   selector inside the queue defaults dialog), the child receives it as `--model provider/id`, and a
   run already in flight keeps the model it started with.
 - The board's **Queue defaults** dialog (`components/QueueSettingsDialog.tsx`, opened from the slider
-  button beside the model chip) edits every default a task can inherit: the model, both timeouts (in
-  minutes, stored in milliseconds), the verification commands, `allowAskUser`, `autoCommit`, and the
-  commit message template. The route validates each field and writes only the ones it was sent, so a
-  patch never rewrites a field the dialog did not touch. A task form's "Use queue default" option
-  names the effective value (`Use queue default (Enabled)`), so the choice is readable without
-  opening the dialog.
+  button beside the model chip) edits every default a task can inherit: the model, both timeouts, the
+  verification commands, `allowAskUser`, `autoCommit`, and the commit message template. The route
+  validates each field and writes only the ones it was sent, so a patch never rewrites a field the
+  dialog did not touch. A task form's "Use queue default" option names the effective value
+  (`Use queue default (Enabled)`), so the choice is readable without opening the dialog.
+- A timeout is one number plus a unit (minutes or hours; switching converts the number so the
+  duration survives), or **No limit**, which stores `null`. `null` means the watchdog is absent, not
+  zero: `runTask` races no timer and the gate spawns each command without a kill timer, so the child
+  runs until it ends or is aborted. A malformed value in the file still falls back to the built-in
+  number, so a typo cannot silently remove a limit. **Restore defaults** fills the dialog from
+  `lib/tasks/defaults.ts` without saving; Save still decides, Cancel leaves the stored values alone.
 - Each command runs in the task's `cwd` through the platform shell (`cmd /c` on Windows, `sh -c`
   elsewhere), with the process tree killed on timeout. The timeout applies per command. Commands are the user's own configuration, so
   this is not an input-validation boundary; the file is written by the app or edited by the user,

@@ -78,8 +78,10 @@ export interface TaskConfig {
   /** Applies to the next task the queue starts, never to one already running. */
   model: TaskModelSelection | null;
   verifyCommands: string[];
-  verifyTimeoutMs: number;
-  taskTimeoutMs: number;
+  /** `null` runs each verification command without a timeout. */
+  verifyTimeoutMs: number | null;
+  /** `null` runs a task with no watchdog; only an abort or the child's own end stops it. */
+  taskTimeoutMs: number | null;
   allowAskUser: boolean;
   autoCommit: boolean;
   commitMessage: string;

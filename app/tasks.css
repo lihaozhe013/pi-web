@@ -589,6 +589,38 @@
   text-transform: uppercase;
 }
 
+/* A timeout is one number, one unit, and one way to say "no limit". */
+.queue-settings-timeout {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.queue-settings-timeout > input[type='number'] {
+  width: 92px;
+  flex-shrink: 0;
+}
+
+.queue-settings-timeout > select {
+  width: auto;
+  flex-shrink: 0;
+}
+
+.queue-settings-unlimited {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.queue-settings-unlimited input {
+  accent-color: var(--accent);
+}
+
 .queue-settings-field {
   display: flex;
   flex-direction: column;
@@ -600,13 +632,17 @@
 /* Save and Cancel stay reachable while the body scrolls on a short screen. */
 .queue-settings-actions {
   position: sticky;
-  bottom: -16px;
+  bottom: 0;
   display: flex;
   gap: 8px;
   margin: 0 -16px -16px;
   padding: 12px 16px;
   border-top: 1px solid var(--border);
   background: var(--bg);
+}
+
+.queue-settings-restore {
+  margin-right: auto;
 }
 
 /* The queue's own settings live beside its controls, not in the app bar. */

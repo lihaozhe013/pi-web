@@ -65,7 +65,9 @@ plan/stop controls, and New task. The page's top row carries the workspace switc
 shell's Settings entry on the right, so the task view never strands the person away from Settings.
 A slider button beside the model chip opens the queue's own defaults — model, timeouts, verification
 commands, question policy, commit choice, and commit message — in the app's standard dialog shell,
-with its actions pinned to the bottom while the body scrolls. Every "use queue default" in a task's
+with its actions (including "Restore defaults") pinned to the bottom while the body scrolls. A
+timeout is a number plus a unit, or an explicit "No limit"; the unit converts the number, and the
+form never relies on a browser tooltip for a bad value. Every "use queue default" in a task's
 form names the value it would inherit.
 
 Each row ends in a quiet `⋯` menu button; the same menu opens on right-click at the pointer and from

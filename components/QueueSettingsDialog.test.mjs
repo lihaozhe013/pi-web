@@ -6,7 +6,9 @@ const jiti = createJiti(import.meta.url, { jsx: { runtime: 'automatic' }, tsconf
 const React = await jiti.import('react');
 const { renderToStaticMarkup } = await jiti.import('react-dom/server');
 const { I18nProvider } = await jiti.import('@/hooks/useI18n');
-const { QueueSettingsDialog } = await jiti.import('./QueueSettingsDialog.tsx');
+const { QueueSettingsDialog, timeoutDraftFrom, timeoutMsFrom } = await jiti.import(
+  './QueueSettingsDialog.tsx'
+);
 
 const CONFIG = {
   model: { provider: 'anthropic', modelId: 'claude-sonnet-4' },
@@ -40,20 +42,63 @@ function render(overrides = {}) {
   );
 }
 
-test('the dialog opens with the stored defaults, in the units the form shows', () => {
+test('a stored timeout shows in the largest unit that divides it', () => {
+  assert.deepEqual(timeoutDraftFrom(3_600_000, 0), {
+    amount: '1',
+    unit: 'hours',
+    unlimited: false
+  });
+  assert.deepEqual(timeoutDraftFrom(600_000, 0), {
+    amount: '10',
+    unit: 'minutes',
+    unlimited: false
+  });
+  assert.deepEqual(timeoutDraftFrom(5_400_000, 0), {
+    amount: '90',
+    unit: 'minutes',
+    unlimited: false
+  });
+  // Milliseconds convert to minutes when no whole hour fits.
+  assert.deepEqual(timeoutDraftFrom(90_000, 0), {
+    amount: '1.5',
+    unit: 'minutes',
+    unlimited: false
+  });
+});
+
+test('no limit is a null timeout, and an empty amount is not one', () => {
+  assert.equal(timeoutDraftFrom(null, 2_400_000).unlimited, true);
+  assert.equal(timeoutMsFrom({ amount: '60', unit: 'minutes', unlimited: false }), 3_600_000);
+  assert.equal(timeoutMsFrom({ amount: '2', unit: 'hours', unlimited: false }), 7_200_000);
+  assert.equal(timeoutMsFrom({ amount: '0', unit: 'minutes', unlimited: false }), null);
+  assert.equal(timeoutMsFrom({ amount: 'abc', unit: 'minutes', unlimited: false }), null);
+  assert.equal(timeoutMsFrom({ amount: '60', unit: 'minutes', unlimited: true }), null);
+});
+
+test('the dialog opens with the stored defaults, in the unit the person chose', () => {
   const markup = render();
   assert.match(markup, /Queue defaults/);
-  // Milliseconds become minutes, and the command list keeps its line breaks.
-  assert.match(markup, /value="60"/);
+  // One hour, ten minutes, and the stored commands and commit template.
+  assert.match(markup, /value="1"/);
   assert.match(markup, /value="10"/);
+  assert.match(markup, /<option value="hours" selected="">hours<\/option>/);
+  // The unit lives in the select, so the label stays unit-free.
+  assert.match(markup, />Task timeout</);
+  assert.doesNotMatch(markup, /Task timeout \(minutes\)/);
   assert.match(markup, /bun run typecheck/);
   assert.match(markup, /chore\(task\): #\{id\} \{title\}/);
-  assert.match(markup, /Claude Sonnet 4/);
+  assert.match(markup, /Restore defaults/);
+  assert.equal((markup.match(/>No limit</g) ?? []).length, 2);
+});
+
+test('a null timeout renders as no limit with its number disabled', () => {
+  const markup = render({ config: { ...CONFIG, taskTimeoutMs: null } });
+  assert.match(markup, /disabled="" value="1"/);
+  assert.match(markup, /<input type="checkbox" checked=""\/>/);
 });
 
 test('the question and commit defaults read as plain on/off choices', () => {
   const markup = render();
-  // Questions: enabled in the config, so "yes" is the selected option.
   assert.match(markup, /<option value="yes" selected="">Enabled<\/option>/);
   assert.match(markup, /<option value="no" selected="">Disabled<\/option>/);
 });

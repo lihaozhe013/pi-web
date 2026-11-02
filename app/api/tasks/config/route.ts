@@ -6,10 +6,11 @@ import type { TaskConfig } from '@/lib/tasks/types';
 
 export const dynamic = 'force-dynamic';
 
-/** Milliseconds for a numeric field; the board sends minutes, so it may be large. */
-function timeoutMs(value: unknown, field: string): number {
+/** Milliseconds for a numeric field; `null` means "no limit". */
+function timeoutMs(value: unknown, field: string): number | null {
+  if (value === null) return null;
   if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
-    throw new TaskInputError(`${field} must be a positive number of milliseconds`);
+    throw new TaskInputError(`${field} must be a positive number of milliseconds, or null`);
   }
   return Math.round(value);
 }
