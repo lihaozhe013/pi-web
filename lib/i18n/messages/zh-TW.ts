@@ -1828,7 +1828,7 @@ export const zhTWLocale: LocalePlugin = {
     'tasks.chooseFolderTitle': '選擇工作目錄',
     'tasks.chooseFolderDescription': '任務及其驗證指令都在這個目錄中執行。',
     'tasks.verifyCommandsLabel': '驗證指令',
-    'tasks.verifyCommandsHint': '每行一條指令，在任務結束後執行。',
+    'tasks.verifyCommandsHint': '每行一條指令，在任務結束後執行。Windows 上由 cmd.exe 執行，其它平台由 /bin/sh 執行；請使用 echo、node -e 這類跨 shell 可用的指令。',
     'tasks.allowAskUser': '任務中允許提問',
     'tasks.inherit': '使用佇列預設值',
     'tasks.enabled': '開啟',

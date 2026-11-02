@@ -258,8 +258,7 @@ export function createTaskManagerExtension(
         const sessionId = ctx.sessionManager.getSessionId();
         const row = store().getWatch();
         if (row && row.sessionId !== sessionId) {
-          const stale =
-            now() - Date.parse(row.startedAt) >= maxDurationMs || row.wakes >= maxWakes;
+          const stale = now() - Date.parse(row.startedAt) >= maxDurationMs || row.wakes >= maxWakes;
           if (!stale) {
             return {
               ok: false,

@@ -234,8 +234,12 @@ export class TaskTools {
    * the mechanism the watcher uses.
    */
   async events(params: TaskEventsParams = {}): Promise<TaskToolResult> {
-    const limit = Math.min(Math.max(params.limit ?? TASK_EVENT_PAGE_LIMIT, 1), TASK_EVENT_PAGE_LIMIT);
-    const deadline = Date.now() + Math.min(Math.max(params.waitMs ?? 0, 0), TASK_EVENTS_MAX_WAIT_MS);
+    const limit = Math.min(
+      Math.max(params.limit ?? TASK_EVENT_PAGE_LIMIT, 1),
+      TASK_EVENT_PAGE_LIMIT
+    );
+    const deadline =
+      Date.now() + Math.min(Math.max(params.waitMs ?? 0, 0), TASK_EVENTS_MAX_WAIT_MS);
     const afterId = params.afterId;
     let events: TaskEvent[] = [];
 
@@ -372,7 +376,10 @@ export class TaskTools {
             )
           };
         default:
-          return refusal('invalid_input', 'action must be start, pause, resume, abort, retry, or markDone');
+          return refusal(
+            'invalid_input',
+            'action must be start, pause, resume, abort, retry, or markDone'
+          );
       }
     });
   }
@@ -473,7 +480,11 @@ export function eventSummary(event: TaskEvent): Record<string, unknown> {
  */
 export function formatTaskToolResult(result: TaskToolResult): string {
   const lines: string[] = [];
-  lines.push(result.ok ? 'ok' : `refused (${result.code ?? 'internal_error'}): ${result.error ?? 'unknown error'}`);
+  lines.push(
+    result.ok
+      ? 'ok'
+      : `refused (${result.code ?? 'internal_error'}): ${result.error ?? 'unknown error'}`
+  );
 
   const state = [
     `queue ${result.queue.state}`,

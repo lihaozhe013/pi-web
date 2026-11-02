@@ -1823,7 +1823,7 @@ export const zhCNLocale: LocalePlugin = {
     'tasks.chooseFolderTitle': '选择工作目录',
     'tasks.chooseFolderDescription': '任务及其验证命令都在这个目录中运行。',
     'tasks.verifyCommandsLabel': '验证命令',
-    'tasks.verifyCommandsHint': '每行一条命令，在任务退出后执行。',
+    'tasks.verifyCommandsHint': '每行一条命令，在任务退出后执行。Windows 上由 cmd.exe 执行，其它平台由 /bin/sh 执行；请使用 echo、node -e 这类跨 shell 可用的命令。',
     'tasks.allowAskUser': '任务中允许提问',
     'tasks.inherit': '使用队列默认值',
     'tasks.enabled': '开启',

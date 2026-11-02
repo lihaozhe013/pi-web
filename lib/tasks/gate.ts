@@ -39,14 +39,30 @@ function clip(text: string, limit = GATE_OUTPUT_LIMIT): string {
   return text.length <= limit ? text : `…${text.slice(text.length - limit)}`;
 }
 
+/**
+ * The shell verification commands run in. Named here so the run prompt can tell
+ * the agent the truth: on Windows it is cmd.exe even when the session's own bash
+ * tool uses Git Bash.
+ */
+export function verificationShellName(platform: NodeJS.Platform = processPlatform): string {
+  return platform === 'win32' ? 'cmd.exe' : '/bin/sh';
+}
+
 function shellInvocation(
   command: string,
   platform: NodeJS.Platform
-): { file: string; args: string[] } {
+): { file: string; args: string[]; windowsVerbatimArguments: boolean } {
   if (platform === 'win32') {
-    return { file: process.env.ComSpec || 'cmd.exe', args: ['/d', '/s', '/c', command] };
+    // cmd.exe strips the first and last quote of `/s /c`, so the command needs
+    // one pair around it and verbatim arguments: without both, every quoted
+    // argument in a verification command (`node -e "..."`) loses its quotes.
+    return {
+      file: process.env.ComSpec || 'cmd.exe',
+      args: ['/d', '/s', '/c', `"${command}"`],
+      windowsVerbatimArguments: true
+    };
   }
-  return { file: '/bin/sh', args: ['-c', command] };
+  return { file: '/bin/sh', args: ['-c', command], windowsVerbatimArguments: false };
 }
 
 function killTree(child: ChildProcess, platform: NodeJS.Platform, spawnFn: typeof spawn): void {
@@ -80,13 +96,14 @@ function killTree(child: ChildProcess, platform: NodeJS.Platform, spawnFn: typeo
 function runCommand(command: string, options: GateOptions): Promise<CommandOutcome> {
   const platform = options.platform ?? processPlatform;
   const spawnFn = options.spawnFn ?? spawn;
-  const { file, args } = shellInvocation(command, platform);
+  const { file, args, windowsVerbatimArguments } = shellInvocation(command, platform);
   return new Promise((resolve) => {
     let output = '';
     let timedOut = false;
     let settled = false;
     const child = spawnFn(file, args, {
       cwd: options.cwd,
+      windowsVerbatimArguments,
       env: options.env ?? process.env,
       stdio: ['ignore', 'pipe', 'pipe'],
       detached: platform !== 'win32',

@@ -271,7 +271,10 @@ start()
    a bounded in-memory ring buffer (64 KiB) for the live tail. A watchdog settles the task as
    `FAILED` after the task timeout (60 min default).
 4. `lib/tasks/gate.ts` runs the verification commands in the task's `cwd`. Non-zero or timeout means
-   `BLOCKED`, with the tail of the output as the summary.
+   `BLOCKED`, with the tail of the output as the summary. Each command is one command line for
+   `cmd.exe` on Windows and `/bin/sh` elsewhere — not the session's own bash — so quoted arguments
+   and `&&` chains work everywhere, while POSIX-only tools (`sleep`, `bc`) do not. The run prompt
+   says so, and the queue defaults dialog repeats it.
 5. `settle`, including the session id, exit code, and a short summary.
 
 Control operations:
@@ -547,6 +550,8 @@ disabled composer instead of breaking.
 - The queue writes only inside its own database, its lock file, its agent sessions, and — when
   explicitly enabled — the task's repository index.
 - A verified task never becomes `DONE` because of a crashed process; a crash is always `FAILED`.
+- Verification is a separate process with its own shell. It inherits the environment, so a command
+  cannot borrow the task session's shell configuration or its working state.
 - Nothing in the queue calls an LLM to decide anything. Every transition is mechanical.
 - The child runs with the same credentials as the user's own CLI. The queue must not be exposed to
   an untrusted network: it starts agents that can edit files on the machine.

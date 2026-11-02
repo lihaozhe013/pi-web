@@ -1943,7 +1943,7 @@ export const enLocale: LocalePlugin = {
     'tasks.chooseFolderTitle': 'Choose a working directory',
     'tasks.chooseFolderDescription': 'The task and its verification commands run in this folder.',
     'tasks.verifyCommandsLabel': 'Verification commands',
-    'tasks.verifyCommandsHint': 'One command per line, run after the task exits.',
+    'tasks.verifyCommandsHint': 'One command per line, run after the task exits, in cmd.exe on Windows and /bin/sh elsewhere. Use portable commands such as echo or node -e.',
     'tasks.allowAskUser': 'Questions during the task',
     'tasks.inherit': 'Use queue default',
     'tasks.enabled': 'Enabled',
