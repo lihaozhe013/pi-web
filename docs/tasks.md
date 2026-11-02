@@ -356,12 +356,13 @@ override `verify_commands` and `auto_commit`.
   default. The board writes it through `PUT /api/tasks/config` (the chip in its header, and the same
   selector inside the queue defaults dialog), the child receives it as `--model provider/id`, and a
   run already in flight keeps the model it started with.
-- The board's **Queue defaults** dialog (`components/QueueSettingsDialog.tsx`, opened from the slider
-  button beside the model chip) edits every default a task can inherit: the model, both timeouts, the
-  verification commands, `allowAskUser`, `autoCommit`, and the commit message template. The route
-  validates each field and writes only the ones it was sent, so a patch never rewrites a field the
-  dialog did not touch. A task form's "Use queue default" option names the effective value
-  (`Use queue default (Enabled)`), so the choice is readable without opening the dialog.
+- The board's **Queue defaults** dialog (`components/QueueSettingsDialog.tsx`, opened from the
+  slider button beside the model chip) edits every default a task can inherit: the model, both
+  timeouts, the verification commands, `allowAskUser`, `autoCommit`, and the commit message
+  template. The route validates each field and writes only the ones it was sent, so a patch never
+  rewrites a field the dialog did not touch. A task form's "Use queue default" option names the
+  effective value (`Use queue default (Enabled)`), so the choice is readable without opening the
+  dialog.
 - A timeout is one number plus a unit (minutes or hours; switching converts the number so the
   duration survives), or **No limit**, which stores `null`. `null` means the watchdog is absent, not
   zero: `runTask` races no timer and the gate spawns each command without a kill timer, so the child
@@ -369,9 +370,9 @@ override `verify_commands` and `auto_commit`.
   number, so a typo cannot silently remove a limit. **Restore defaults** fills the dialog from
   `lib/tasks/defaults.ts` without saving; Save still decides, Cancel leaves the stored values alone.
 - Each command runs in the task's `cwd` through the platform shell (`cmd /c` on Windows, `sh -c`
-  elsewhere), with the process tree killed on timeout. The timeout applies per command. Commands are the user's own configuration, so
-  this is not an input-validation boundary; the file is written by the app or edited by the user,
-  never by a task.
+  elsewhere), with the process tree killed on timeout. The timeout applies per command. Commands are
+  the user's own configuration, so this is not an input-validation boundary; the file is written by
+  the app or edited by the user, never by a task.
 - An empty list means "no gate": the task is `DONE` when the agent exits cleanly, and the board says
   so plainly rather than implying verification happened.
 - A failure settles `BLOCKED` with the tail of the failing command's output.
@@ -425,69 +426,83 @@ delivered in two steps so the chat surface is never destabilized by a navigation
   route would have to repeat the provider tree. The parameter name is the one the tabs use in step
   2, so the URL never changes. `?task=<id>` opens one task directly, which is the URL a Web Push
   notification links to.
-- The workspace keeps the three-column language: the queue grouped by status (running, queued,
-  blocked, done) on the left, the board in the middle, and the task detail on the right. Step 2
-  later replaced the sidebar entry with the header switch, so the session sidebar keeps listing
-  conversations only.
-- The board: one row per task with a status marker, title, working directory, attempts, and elapsed
-  time. Reordering by drag or by the arrow keys. Keyboard: `↑`/`↓` move within the queue, `Enter`
-  edits, `Delete` removes, all disabled with an explanation while a row is running.
+- The workspace keeps the app's sidebar and toolbar. The center column is one work surface for the
+  task being read, and the queue grouped by status (running, queued, blocked, done) sits in the same
+  right-hand panel the Runs panel uses in chat. The queue is one list, not a board that repeats the
+  same rows. Step 2 later replaced the sidebar entry with the header switch, so the session sidebar
+  keeps listing conversations only.
+- The queue panel is docked on desktop, open until collapsed, and resizable from its left edge with
+  the same handle, limits and remembered width as the Runs panel; its own header closes it. A
+  `Queue` chip in the task bar shows the size and a running mark while the panel is closed and
+  reopens it. Settings hides the panel without collapsing it. Its collapse choice is independent of
+  the Runs panel's, so the two modes keep their own arrangements.
+- The queue list: one row per task with a status marker, title, working directory, and, once it has
+  run, its attempts and elapsed time. The group heading carries the status for queued, running, and
+  done rows; a failed row names its status because its group also holds blocked ones. The arrow keys
+  reorder. Keyboard: `↑`/`↓` move within the queue, `Enter` edits, `Delete` removes, all disabled
+  with an explanation while a row is running.
 - Several tasks can be acted on at once. Shift+click selects the range between the anchor and the
   row clicked, Command/Ctrl+click adds or removes one row, `Command/Ctrl+A` selects the queue and
   `Shift+↑`/`↓` extends the selection, so no pointer modifier is the only way in. On a phone, where
-  there is no modifier, a row's menu offers "Select". A multi-selection replaces the detail column
-  with the batch actions (duplicate, delete, clear) and the header states how many tasks are
-  selected, so the count is never color-only. Duplicating a selection appends the copies and selects
-  them; deleting several asks once in the same popover the row menu uses, because there is no undo.
+  there is no modifier, a row's menu offers "Select". A multi-selection replaces the work surface
+  with the batch actions (duplicate, delete, clear) and states how many tasks are selected, so the
+  count is never color-only. Duplicating a selection appends the copies and selects them; deleting
+  several asks once in the same popover the row menu uses, because there is no undo.
 - Completed tasks have one action of their own: a trash button in the header, carrying the count,
   that removes every `DONE` record in a single confirmation. It is the answer to a queue that
   accumulates finished work; the tasks that are still queued, running, or waiting on a person are
   never part of it.
 - Every row also carries a menu (`⋯`, right-click, or the keyboard's `Shift+F10`/menu key) with
-  select/deselect, edit, move up/down, duplicate, copy, paste, open session, and delete. Move is offered only inside
-  the queued segment; duplicate and paste append a copy at the end and select it; copy keeps the
-  editable fields in `localStorage`, so the clipboard survives a reload. On a phone the same menu is
-  a bottom sheet, and an empty board's right-click offers "New task" and "Paste".
-- The queue defaults the form inherits from are edited in one dialog opened from the board's own
+  select/deselect, edit, move up/down, duplicate, copy, paste, open session, and delete. Move is
+  offered only inside the queued segment; duplicate and paste append a copy at the end and select
+  it; copy keeps the editable fields in `localStorage`, so the clipboard survives a reload. On a
+  phone the same menu is a bottom sheet, and an empty queue's right-click offers "New task" and
+  "Paste".
+- The queue defaults the form inherits from are edited in one dialog opened from the queue's own
   bar, next to the model chip: model, timeouts, verification commands, the question policy, the
   commit choice, and the commit message template, with Save pinned while the body scrolls.
 - The working-directory field in that form is the chat shell's `DirectoryPicker` behind a "Choose
   folder" button, with the same validation call the composer uses. Typing a path works too: Save
   validates first, and a rejected directory leaves the form open with the reason under the field
   instead of failing the create request.
-- Editing opens the task in the workspace's right-hand detail column, which keeps the three columns
-  familiar: list on the left, work in the middle, detail on the right. The new-task form uses the
-  same column, so the first task can be created from an empty board; a phone opens that column as a
-  sheet only when asked, and Close or Escape returns to the board instead of reopening on the
-  fallback selection. The Runs panel and its
-  resizing rules are untouched, because the conversation is not mounted in this mode.
+- Editing opens the task in the center work surface: title, status, description, a facts sheet, the
+  pending question, the activity line, and the live tail, with the actions in a footer that sticks
+  while a long tail scrolls. The new-task form uses the same surface, so the first task can be
+  created from an empty queue. Where the queue panel cannot dock, the queue takes the center column
+  and the work surface becomes a full-height sheet; Close or Escape returns to the queue instead of
+  reopening on the fallback selection.
 - The running task shows one activity line (the same vocabulary as the chat composer: waiting,
   thinking, reading, running a command) plus a collapsed transcript tail. "Open session" navigates
   to `?session=<id>`, that is, into the ordinary conversation view, where the work can be read in
   full.
-- A pending question appears in two places, both already styled: above the composer within the task
-  view, and in the task's right-hand detail. It answers through `AskUserPanel`'s existing request
-  shape rather than a second component.
+- A pending question appears in two places, both already styled: above the work surface, and in the
+  task's pane. It answers through `AskUserPanel`'s existing request shape rather than a second
+  component.
 - Polling: 1 s while a task is running or a question is pending, 5 s otherwise, suspended while the
   page is hidden and refreshed once on return. No new SSE machinery.
 - Accessibility and responsiveness follow `docs/design.md`: semantic theme variables, visible focus,
-  keyboard-only operation, reduced-motion respect, and the phone layout collapses to a single column
-  with the detail becoming a full-height sheet.
+  keyboard-only operation, reduced-motion respect, and the narrow layout keeps the queue in the
+  center with the detail as a full-height sheet.
 
 ### Step 2 — two modes behind one top bar
 
-The built version is narrower than the original sketch: it covers the switch and the toolbar
-migration, and leaves the mode-specific inspector and the per-tab mode memory out.
+The built version is narrower than the original sketch: it covers the switch, the toolbar migration,
+and the queue's move into the right-hand inspector slot, and leaves the per-tab mode memory out.
 
-- The page header carries the sidebar toggle (chat only) and one segmented control, `Chat | Tasks`.
-  It is navigation, not a tab set with panels: each choice is a real URL (`/` and `/?mode=tasks`),
-  the active one carries `aria-current="page"`, and both are ordinary links, so reload, a new tab,
-  and a Web Push deep link all land in the right view.
-- The switch sits in the same place in both views. The chat view keeps its 44 px header row; the
-  task view adds a header row of the same height above the task workspace, because that view has no
-  sidebar toggle in front of it. That row also carries the shell's Settings entry (the same
-  `SettingsPanel` and trust dialog, rendered by `AppShell` in both views) and, in the queue's own
-  bar, the model chip that picks the next run's model.
+- The page header carries the sidebar toggle and one segmented control, `Chat | Tasks`. It is
+  navigation, not a tab set with panels: each choice is a real URL (`/` and `/?mode=tasks`), the
+  active one carries `aria-current="page"`, and both are ordinary links, so reload, a new tab, and a
+  Web Push deep link all land in the right view.
+- The switch and the shell never move between views: the session sidebar stays open and keeps
+  listing conversations, the toolbar keeps its row, the center column swaps the conversation for the
+  task work surface, and the right-hand inspector swaps Runs for the Queue. Settings stays in the
+  sidebar footer, so the task view has no second Settings entry. A sidebar session leaves the task
+  view for that conversation; the `Chat` segment returns to the conversation the active project last
+  had open.
+- The task bar, directly below the shell toolbar and the same height, carries the queue state, the
+  model chip, the queue-defaults opener, the clear-completed action, and the start/pause/resume/stop
+  controls plus New task. Its empty or unselected surface explains what it shows instead of leaving
+  the column blank.
 - The session actions that used to share the header (full history, generate title, branches, system
   prompt, tools, token statistics) moved into the Runs panel, above the runs: a two-column grid of
   quiet action rows and one statistics card that opens the session dialog. They describe the
@@ -542,7 +557,7 @@ Only the relevant file per change, per `AGENTS.md`.
 | `lib/tasks/orchestrator.test.mjs`   | Claim → done → next, gate failure → blocked → paused, empty queue → notice, restart recovery.                                                               |
 | `lib/tasks/git.test.mjs`            | Not a repository, no changes, baseline-dirty files untouched, commit failure recorded.                                                                      |
 | `app/api/tasks/route.test.mjs`      | Status codes, `task_locked`, answer routing.                                                                                                                |
-| `components/TaskWorkspace.test.mjs` | Reorder by keyboard, disabled controls while running, question rendering, shift ranges, which tasks a sweep collects.                                        |
+| `components/TaskWorkspace.test.mjs` | Reorder by keyboard, disabled controls while running, question rendering, shift ranges, which tasks a sweep collects.                                       |
 
 `store.test.mjs` and `queue.test.mjs` use a temporary directory; no test touches the real agent
 directory or a real repository.
@@ -559,13 +574,13 @@ directory or a real repository.
 
 ## Implementation status
 
-| Phase | What exists now |
-| ----- | --------------- |
-| 1 | `lib/tasks/store.ts`, `lib/tasks/queue.ts`, and their tests. Schema `user_version = 1`, WAL, per-process singleton, SQL guards for claim/update/delete/rank. |
-| 2 | `lib/ask-user-cli-extension.ts`, `lib/tasks/rpc-session.ts`, `lib/tasks/runner.ts`, `lib/tasks/prompt.ts`, and a scripted child fixture (`lib/tasks/__fixtures__/rpc-child.mjs`). LF framing, U+2028 inside a string, correlation, tree kill, question round-trip. |
-| 3 | `lib/tasks/gate.ts`, `lib/tasks/git.ts`, `lib/tasks/orchestrator.ts`, `instrumentation-node.ts` shutdown, and the seven `/api/tasks` routes. `lib/project-trust.ts` decides `--approve`; `lib/tasks/active-sessions.ts` is the only module chat imports. |
-| 4 | `components/TaskWorkspace.tsx`, `?mode=tasks`/`?task=` in `AppShell`, `app/tasks.css`, and task keys in all three locales. |
-| 5 (optional) | The `Chat | Tasks` switch in both page headers, and the session actions moved into the Runs panel (`components/SessionPanelActions.tsx`). Not built: the mode-specific inspector and the per-tab mode memory. |
+| Phase        | What exists now                                                                                                                                                                                                                                                    |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1            | `lib/tasks/store.ts`, `lib/tasks/queue.ts`, and their tests. Schema `user_version = 1`, WAL, per-process singleton, SQL guards for claim/update/delete/rank.                                                                                                       |
+| 2            | `lib/ask-user-cli-extension.ts`, `lib/tasks/rpc-session.ts`, `lib/tasks/runner.ts`, `lib/tasks/prompt.ts`, and a scripted child fixture (`lib/tasks/__fixtures__/rpc-child.mjs`). LF framing, U+2028 inside a string, correlation, tree kill, question round-trip. |
+| 3            | `lib/tasks/gate.ts`, `lib/tasks/git.ts`, `lib/tasks/orchestrator.ts`, `instrumentation-node.ts` shutdown, and the seven `/api/tasks` routes. `lib/project-trust.ts` decides `--approve`; `lib/tasks/active-sessions.ts` is the only module chat imports.           |
+| 4            | `components/TaskWorkspace.tsx`, `?mode=tasks`/`?task=` in `AppShell`, `app/tasks.css`, and task keys in all three locales.                                                                                                                                         |
+| 5 (optional) | The `Chat                                                                                                                                                                                                                                                          | Tasks` switch in both page headers, and the session actions moved into the Runs panel (`components/SessionPanelActions.tsx`). Not built: the mode-specific inspector and the per-tab mode memory. |
 
 Queue defaults live in `<agentDir>/pie-task-orchestrator.json`, read on every run so an edit applies
 to the next task. The queue lock is `<agentDir>/pie-tasks.lock`. The `ask_user` extension is loaded

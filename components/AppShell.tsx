@@ -498,6 +498,46 @@ export function AppShell() {
     );
   }, []);
 
+  // The task queue lives in the same right-hand slot as the Runs panel, so the
+  // two workspaces share one spatial language: sidebar, center, inspector. It
+  // keeps its own collapse choice (collapsing Runs does not hide the queue) but
+  // shares the resized width, so the center's edge does not move between modes.
+  // Where the panel cannot dock, the queue stays in the center column.
+  const [taskQueuePreference, setTaskQueuePreference] = useState<RunsPanelPreference>(
+    RUNS_PANEL_DEFAULT_PREFERENCE
+  );
+  const taskQueuePanelDocked = runsPanelViewportReady && !informationPanelOverlay;
+  const taskQueuePanelOpen =
+    taskMode &&
+    taskQueuePanelDocked &&
+    isRunsPanelOpen(taskQueuePreference, {
+      overlay: false,
+      settingsOpen: Boolean(settingsSection)
+    });
+  // The queue list is rendered by TaskWorkspace, which owns its state, and
+  // portaled into this slot so the panel spans the page height beside the
+  // center column instead of sitting inside it.
+  const [taskQueuePanelSlot, setTaskQueuePanelSlot] = useState<HTMLDivElement | null>(null);
+  const focusTaskQueuePanelRef = useRef(false);
+  useEffect(() => {
+    if (!taskQueuePanelOpen) focusTaskQueuePanelRef.current = false;
+  }, [taskQueuePanelOpen]);
+  const toggleTaskQueuePanel = useCallback(() => {
+    focusTaskQueuePanelRef.current = !taskQueuePanelOpen;
+    setTaskQueuePreference((preference) =>
+      toggleRunsPanelPreference(preference, { open: taskQueuePanelOpen, overlay: false })
+    );
+  }, [taskQueuePanelOpen]);
+  const closeTaskQueuePanel = useCallback(() => {
+    focusTaskQueuePanelRef.current = false;
+    setTaskQueuePreference({ collapsed: true, overlayRequested: false });
+    requestAnimationFrame(() => {
+      document
+        .querySelector<HTMLElement>('[data-task-queue-toggle="true"]')
+        ?.focus({ preventScroll: true });
+    });
+  }, []);
+
   const handleSystemInfoToggle = useCallback(
     (modal: 'system' | 'tools') => {
       const opening = activeModal !== modal;
@@ -598,7 +638,10 @@ export function AppShell() {
 
   useEffect(() => {
     const requestedCwd = initialNavigation.requestedCwd;
-    if (!requestedCwd || taskMode) return;
+    // A visible conversation wins over a requested directory that was already
+    // applied: the navigation snapshot only changes on mount and tab-memory
+    // restore, not when the workspace switch changes the visible view.
+    if (!requestedCwd || taskMode || selectedSession) return;
 
     const controller = new AbortController();
     setInitialCwdStatus('validating');
@@ -635,7 +678,7 @@ export function AppShell() {
       });
 
     return () => controller.abort();
-  }, [initialNavigation, router, taskMode]);
+  }, [initialNavigation, router, selectedSession, taskMode]);
 
   // Restore the workspace's last open session after switching to it. Called
   // from handleCwdChange once the outgoing context has been reset. The session
@@ -744,11 +787,13 @@ export function AppShell() {
       setSystemPrompt(null);
       setSystemTools(null);
       setSystemInfoLoading(false);
-      if (currentProject !== newProject) {
+      if (currentProject !== newProject && !taskMode) {
         // Restore the workspace we switched to: its last open session, or keep
-        // the default welcome page when none is remembered.
+        // the default welcome page when none is remembered. The task view has
+        // no conversation to restore and owns its own URL.
         if (!skipWorkspaceRestore) restoreWorkspaceContext(newProject, cwd);
       }
+      if (taskMode) return;
       router.replace(typeof window !== 'undefined' ? window.location.pathname : '/', {
         scroll: false
       });
@@ -759,7 +804,8 @@ export function AppShell() {
       newSessionCwd,
       router,
       selectedSession,
-      restoreWorkspaceContext
+      restoreWorkspaceContext,
+      taskMode
     ]
   );
 
@@ -788,7 +834,10 @@ export function AppShell() {
       // the full re-select flow.
       if (!isRestore && selectedSession) {
         const sameProject = workspaceKeyOf(selectedSession) === workspaceKeyOf(session);
-        if (selectedSession.id === session.id && sameProject) {
+        // The task workspace can sit on the conversation it already has in
+        // state; choosing that row is still how the person returns to it, so
+        // only skip the remount when the conversation is the visible view.
+        if (selectedSession.id === session.id && sameProject && !taskMode) {
           if (isMobile) setSidebarOpen(false);
           return;
         }
@@ -820,7 +869,15 @@ export function AppShell() {
         router.replace(`?session=${encodeURIComponent(session.id)}`, { scroll: false });
       }
     },
-    [activeCwd, invalidateWorkspaceRestore, router, isMobile, newSessionCwd, selectedSession]
+    [
+      activeCwd,
+      invalidateWorkspaceRestore,
+      router,
+      isMobile,
+      newSessionCwd,
+      selectedSession,
+      taskMode
+    ]
   );
 
   const handleNewSession = useCallback(
@@ -895,6 +952,26 @@ export function AppShell() {
       })
       .catch(() => {});
   }, []);
+
+  // Leaving the task workspace for Chat returns to the conversation this
+  // project last had open: the sidebar and the switch stay where they are, so
+  // the two views read as one workspace. An explicit pick or the tab's parked
+  // new-session composer already decided what to show and wins over memory.
+  const wasTaskModeRef = useRef(taskMode);
+  useEffect(() => {
+    const wasTaskMode = wasTaskModeRef.current;
+    wasTaskModeRef.current = taskMode;
+    if (!wasTaskMode || taskMode) return;
+    // The task view owned the URL, so there is no pending ?session= restore to
+    // wait for once the conversation is visible again.
+    setInitialSessionRestored(true);
+    if (selectedSession || newSessionCwd) return;
+    // The initial-navigation effect mounts the tab's own fresh composer; a
+    // restored session would take its place.
+    if (getTabOpen()?.kind === 'new') return;
+    if (!activeProjectKeyRef.current || !activeCwd) return;
+    restoreWorkspaceContext(activeProjectKeyRef.current, activeCwd);
+  }, [activeCwd, newSessionCwd, restoreWorkspaceContext, selectedSession, taskMode]);
 
   // Called by ChatWindow when a new session gets its real id from pi
   const handleSessionCreated = useCallback(
@@ -1481,8 +1558,7 @@ export function AppShell() {
     return parts.join('  |  ');
   })();
   const titleHasMessages = Boolean(
-    selectedSession &&
-    ((sessionStats?.userMessages ?? 0) > 0 || selectedSession.messageCount > 0)
+    selectedSession && ((sessionStats?.userMessages ?? 0) > 0 || selectedSession.messageCount > 0)
   );
   const titleDisabled =
     !selectedSession ||
@@ -1590,39 +1666,6 @@ export function AppShell() {
       )}
     </>
   );
-
-  // The task workspace is the page's other view: it keeps the mode switch and
-  // the app's own settings entry in the same place, drops the Runs panel, and
-  // renders only the queue.
-  if (taskMode) {
-    return (
-      <div className="app-task-mode">
-        <div className="task-mode-bar">
-          <WorkspaceSwitch mode="tasks" />
-          <button
-            type="button"
-            className="task-mode-settings"
-            onClick={() => setSettingsSection(getLastSettingsSection(projectTrustCwd))}
-            title={translate('common.settings')}
-            aria-label={translate('common.settings')}
-            aria-haspopup="dialog"
-          >
-            <SettingsSectionIcon section="general" size={14} strokeWidth={2} />
-            <span>{translate('common.settings')}</span>
-          </button>
-        </div>
-        <TaskWorkspace
-          initialTaskId={Number(searchParams.get('task')) || null}
-          onOpenSession={(sessionId) => {
-            // A full navigation, not a client route: the chat view restores its
-            // linked session when AppShell mounts, not when the query changes.
-            window.location.assign(`/?session=${encodeURIComponent(sessionId)}`);
-          }}
-        />
-        {settingsOverlays}
-      </div>
-    );
-  }
 
   return (
     <>
@@ -1855,252 +1898,322 @@ export function AppShell() {
                 )}
               </button>
               <div className="workspace-toolbar-mode">
-                <WorkspaceSwitch mode="chat" />
+                <WorkspaceSwitch mode={taskMode ? 'tasks' : 'chat'} />
               </div>
               {!isMobile && renderProjectTrustWarning(false)}
             </div>
             {isMobile && renderProjectTrustWarning(true)}
           </div>
 
-          {/* Chat content */}
-          <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-            {!runsPanelOpen && (
-              <button
-                ref={runsPanelToggleRef}
-                type="button"
-                onClick={toggleRunsPanel}
-                className="runs-panel-toggle-btn is-collapsed"
-                data-runs-panel-toggle="true"
-                title={`${translate('runs.title')}: ${translate('sidebar.show')}`}
-                aria-label={`${translate('runs.title')}: ${translate('sidebar.show')}`}
-                aria-expanded={false}
-                aria-controls="session-information"
-              >
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                  style={{
-                    color: runInProgress ? 'var(--accent)' : 'currentColor',
-                    flexShrink: 0
-                  }}
-                >
-                  <polyline points="15 18 9 12 15 6" />
-                </svg>
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                  style={{
-                    color:
-                      runInProgress || sessionCompaction.isCompacting
-                        ? 'var(--accent)'
-                        : 'currentColor',
-                    flexShrink: 0
-                  }}
-                >
-                  <path d="m4 17 6-6-6-6" />
-                  <line x1="12" y1="19" x2="20" y2="19" />
-                </svg>
-                <span className="runs-toggle-label">{translate('runs.label')}</span>
-                {(runInProgress || sessionCompaction.isCompacting) && (
-                  <span className="runs-toggle-dot" aria-label="Running" />
-                )}
-              </button>
-            )}
-            {showChat ? (
-              <ChatWindow
-                key={sessionKey}
-                session={selectedSession}
-                searchTarget={searchTarget?.sessionId === selectedSession?.id ? searchTarget : null}
-                onSearchTargetHandled={handleSearchTargetHandled}
-                initialScrollPosition={
-                  selectedSession
-                    ? (sessionScrollPositionsRef.current.get(selectedSession.id) ?? null)
-                    : null
-                }
-                onScrollPositionChange={handleSessionScrollPositionChange}
-                sessionRunning={Boolean(
-                  selectedSession && runningSessionIds.has(selectedSession.id)
-                )}
-                taskSessionRunning={Boolean(
-                  selectedSession && taskSessionIds.has(selectedSession.id)
-                )}
-                newSessionCwd={effectiveNewSessionCwd}
-                newSessionDraftKey={newSessionDraftKey}
-                newSessionContextBar={newSessionContextBar}
-                initialNewSessionChoices={
-                  selectedSession === null ? carriedNewSessionChoices : null
-                }
-                onNewSessionChoicesChange={handleNewSessionChoicesChange}
-                onAgentEnd={handleAgentEnd}
-                onAttentionNeeded={handleAttentionNeeded}
-                onSessionCreated={handleSessionCreated}
-                onSessionForked={handleSessionForked}
-                modelsRefreshKey={modelsRefreshKey}
-                toolPresetsRefreshKey={toolPresetsRefreshKey}
-                chatInputRef={chatInputRef}
-                onBranchDataChange={handleBranchDataChange}
-                onSystemPromptChange={handleSystemPromptChange}
-                onSystemToolsChange={handleSystemToolsChange}
-                onSystemInfoLoaderChange={handleSystemInfoLoaderChange}
-                onExecutionHistoryChange={handleExecutionHistoryChange}
-                onGoalChange={handleGoalChange}
-                onCompactionChange={handleCompactionChange}
-                onSessionStatsChange={handleSessionStatsChange}
-                onSessionStatsPanelOpen={openSessionStatsPanel}
-                onOpenSettings={openSettingsSection}
-                onContextUsageChange={handleContextUsageChange}
-                onAskInNewChat={handleAskInNewChat}
-                quoteSelectionEnabled={quoteSelectionEnabled}
-                initialPrompt={
-                  pendingQuotePrompt?.sessionId === selectedSession?.id
-                    ? pendingQuotePrompt?.text
-                    : undefined
-                }
-                onInitialPromptConsumed={() => setPendingQuotePrompt(null)}
-                soundEnabled={soundEnabled}
-                onSoundToggle={onSoundToggle}
-                playDoneSound={playDoneSound}
-                unlockAudio={unlockAudio}
-                holdAudio={holdAudio}
+          {/* The conversation and the task queue are two views of the same
+              page: the sidebar and this toolbar stay in place, and only this
+              area changes. */}
+          {taskMode ? (
+            <div className="workspace-task-view">
+              <TaskWorkspace
+                initialTaskId={Number(searchParams.get('task')) || null}
+                queuePanelDocked={taskQueuePanelDocked}
+                queuePanelOpen={taskQueuePanelOpen}
+                queuePanelSlot={taskQueuePanelSlot}
+                onToggleQueuePanel={toggleTaskQueuePanel}
+                onOpenSession={(sessionId) => {
+                  // The sidebar already lists the conversation when the task's
+                  // project is open; use it so the switch is a client-side
+                  // change. A session outside that list falls back to a full
+                  // navigation, which restores it on mount.
+                  const session = sessionCatalog.find((entry) => entry.id === sessionId);
+                  if (session) {
+                    handleSelectSession(session);
+                    return;
+                  }
+                  window.location.assign(`/?session=${encodeURIComponent(sessionId)}`);
+                }}
               />
-            ) : initialCwdStatus === 'validating' ? (
-              <div
-                role="status"
-                style={{
-                  height: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  padding: 24,
-                  color: 'var(--text-muted)',
-                  textAlign: 'center'
-                }}
-              >
-                <div style={{ fontSize: 14, color: 'var(--text)' }}>
-                  {translate('workspace.opening')}
-                </div>
-                <div
-                  style={{
-                    maxWidth: 'min(720px, 100%)',
-                    overflowWrap: 'anywhere',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: 12
-                  }}
+            </div>
+          ) : (
+            <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+              {!runsPanelOpen && (
+                <button
+                  ref={runsPanelToggleRef}
+                  type="button"
+                  onClick={toggleRunsPanel}
+                  className="runs-panel-toggle-btn is-collapsed"
+                  data-runs-panel-toggle="true"
+                  title={`${translate('runs.title')}: ${translate('sidebar.show')}`}
+                  aria-label={`${translate('runs.title')}: ${translate('sidebar.show')}`}
+                  aria-expanded={false}
+                  aria-controls="session-information"
                 >
-                  {initialNavigation.requestedCwd}
-                </div>
-              </div>
-            ) : initialCwdStatus === 'error' ? (
-              <div
-                role="alert"
-                style={{
-                  height: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  padding: 24,
-                  color: 'var(--text-muted)',
-                  textAlign: 'center'
-                }}
-              >
-                <div style={{ fontSize: 14, color: '#dc2626' }}>
-                  {translate('workspace.unable')}
-                </div>
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                    style={{
+                      color: runInProgress ? 'var(--accent)' : 'currentColor',
+                      flexShrink: 0
+                    }}
+                  >
+                    <polyline points="15 18 9 12 15 6" />
+                  </svg>
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                    style={{
+                      color:
+                        runInProgress || sessionCompaction.isCompacting
+                          ? 'var(--accent)'
+                          : 'currentColor',
+                      flexShrink: 0
+                    }}
+                  >
+                    <path d="m4 17 6-6-6-6" />
+                    <line x1="12" y1="19" x2="20" y2="19" />
+                  </svg>
+                  <span className="runs-toggle-label">{translate('runs.label')}</span>
+                  {(runInProgress || sessionCompaction.isCompacting) && (
+                    <span className="runs-toggle-dot" aria-label="Running" />
+                  )}
+                </button>
+              )}
+              {showChat ? (
+                <ChatWindow
+                  key={sessionKey}
+                  session={selectedSession}
+                  searchTarget={
+                    searchTarget?.sessionId === selectedSession?.id ? searchTarget : null
+                  }
+                  onSearchTargetHandled={handleSearchTargetHandled}
+                  initialScrollPosition={
+                    selectedSession
+                      ? (sessionScrollPositionsRef.current.get(selectedSession.id) ?? null)
+                      : null
+                  }
+                  onScrollPositionChange={handleSessionScrollPositionChange}
+                  sessionRunning={Boolean(
+                    selectedSession && runningSessionIds.has(selectedSession.id)
+                  )}
+                  taskSessionRunning={Boolean(
+                    selectedSession && taskSessionIds.has(selectedSession.id)
+                  )}
+                  newSessionCwd={effectiveNewSessionCwd}
+                  newSessionDraftKey={newSessionDraftKey}
+                  newSessionContextBar={newSessionContextBar}
+                  initialNewSessionChoices={
+                    selectedSession === null ? carriedNewSessionChoices : null
+                  }
+                  onNewSessionChoicesChange={handleNewSessionChoicesChange}
+                  onAgentEnd={handleAgentEnd}
+                  onAttentionNeeded={handleAttentionNeeded}
+                  onSessionCreated={handleSessionCreated}
+                  onSessionForked={handleSessionForked}
+                  modelsRefreshKey={modelsRefreshKey}
+                  toolPresetsRefreshKey={toolPresetsRefreshKey}
+                  chatInputRef={chatInputRef}
+                  onBranchDataChange={handleBranchDataChange}
+                  onSystemPromptChange={handleSystemPromptChange}
+                  onSystemToolsChange={handleSystemToolsChange}
+                  onSystemInfoLoaderChange={handleSystemInfoLoaderChange}
+                  onExecutionHistoryChange={handleExecutionHistoryChange}
+                  onGoalChange={handleGoalChange}
+                  onCompactionChange={handleCompactionChange}
+                  onSessionStatsChange={handleSessionStatsChange}
+                  onSessionStatsPanelOpen={openSessionStatsPanel}
+                  onOpenSettings={openSettingsSection}
+                  onContextUsageChange={handleContextUsageChange}
+                  onAskInNewChat={handleAskInNewChat}
+                  quoteSelectionEnabled={quoteSelectionEnabled}
+                  initialPrompt={
+                    pendingQuotePrompt?.sessionId === selectedSession?.id
+                      ? pendingQuotePrompt?.text
+                      : undefined
+                  }
+                  onInitialPromptConsumed={() => setPendingQuotePrompt(null)}
+                  soundEnabled={soundEnabled}
+                  onSoundToggle={onSoundToggle}
+                  playDoneSound={playDoneSound}
+                  unlockAudio={unlockAudio}
+                  holdAudio={holdAudio}
+                />
+              ) : initialCwdStatus === 'validating' ? (
                 <div
-                  style={{
-                    maxWidth: 'min(720px, 100%)',
-                    overflowWrap: 'anywhere',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: 12
-                  }}
-                >
-                  {initialNavigation.requestedCwd}
-                </div>
-                <div style={{ maxWidth: 720, fontSize: 12 }}>{initialCwdError}</div>
-              </div>
-            ) : showPlaceholder ? (
-              activeCwd ? (
-                <div
+                  role="status"
                   style={{
                     height: '100%',
                     display: 'flex',
+                    flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: 'var(--text-muted)',
-                    fontSize: 15
-                  }}
-                >
-                  {translate('workspace.selectSession')}
-                </div>
-              ) : (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: 12,
-                    left: 12,
-                    display: 'flex',
-                    alignItems: 'flex-start',
                     gap: 8,
-                    userSelect: 'none',
-                    pointerEvents: 'none'
+                    padding: 24,
+                    color: 'var(--text-muted)',
+                    textAlign: 'center'
                   }}
                 >
-                  <svg
-                    width="44"
-                    height="44"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="var(--accent)"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    style={{ opacity: 0.7, flexShrink: 0 }}
+                  <div style={{ fontSize: 14, color: 'var(--text)' }}>
+                    {translate('workspace.opening')}
+                  </div>
+                  <div
+                    style={{
+                      maxWidth: 'min(720px, 100%)',
+                      overflowWrap: 'anywhere',
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: 12
+                    }}
                   >
-                    <line x1="20" y1="12" x2="4" y2="12" />
-                    <polyline points="10 6 4 12 10 18" />
-                  </svg>
-                  <div>
-                    <div
-                      style={{
-                        fontSize: 18,
-                        fontWeight: 600,
-                        color: 'var(--text)',
-                        marginBottom: 8
-                      }}
-                    >
-                      {translate('workspace.getStarted')}
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.8 }}>
-                      <span style={{ color: 'var(--text-dim)', marginRight: 6 }}>1.</span>
-                      {translate('workspace.selectProject')}
-                      <br />
-                      <span style={{ color: 'var(--text-dim)', marginRight: 6 }}>2.</span>
-                      {translate('workspace.addModels')}
-                    </div>
+                    {initialNavigation.requestedCwd}
                   </div>
                 </div>
-              )
-            ) : null}
-          </div>
+              ) : initialCwdStatus === 'error' ? (
+                <div
+                  role="alert"
+                  style={{
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    padding: 24,
+                    color: 'var(--text-muted)',
+                    textAlign: 'center'
+                  }}
+                >
+                  <div style={{ fontSize: 14, color: '#dc2626' }}>
+                    {translate('workspace.unable')}
+                  </div>
+                  <div
+                    style={{
+                      maxWidth: 'min(720px, 100%)',
+                      overflowWrap: 'anywhere',
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: 12
+                    }}
+                  >
+                    {initialNavigation.requestedCwd}
+                  </div>
+                  <div style={{ maxWidth: 720, fontSize: 12 }}>{initialCwdError}</div>
+                </div>
+              ) : showPlaceholder ? (
+                activeCwd ? (
+                  <div
+                    style={{
+                      height: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--text-muted)',
+                      fontSize: 15
+                    }}
+                  >
+                    {translate('workspace.selectSession')}
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 12,
+                      left: 12,
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: 8,
+                      userSelect: 'none',
+                      pointerEvents: 'none'
+                    }}
+                  >
+                    <svg
+                      width="44"
+                      height="44"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="var(--accent)"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{ opacity: 0.7, flexShrink: 0 }}
+                    >
+                      <line x1="20" y1="12" x2="4" y2="12" />
+                      <polyline points="10 6 4 12 10 18" />
+                    </svg>
+                    <div>
+                      <div
+                        style={{
+                          fontSize: 18,
+                          fontWeight: 600,
+                          color: 'var(--text)',
+                          marginBottom: 8
+                        }}
+                      >
+                        {translate('workspace.getStarted')}
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.8 }}>
+                        <span style={{ color: 'var(--text-dim)', marginRight: 6 }}>1.</span>
+                        {translate('workspace.selectProject')}
+                        <br />
+                        <span style={{ color: 'var(--text-dim)', marginRight: 6 }}>2.</span>
+                        {translate('workspace.addModels')}
+                      </div>
+                    </div>
+                  </div>
+                )
+              ) : null}
+            </div>
+          )}
         </div>
+
+        {taskQueuePanelOpen && (
+          <>
+            {/* The same resize handle as the Runs panel: one right-hand edge. */}
+            <div
+              {...runsPanelResizer.separatorProps}
+              aria-controls="task-queue-panel"
+              className={`panel-resize-handle runs-panel-resize-handle${runsPanelResizer.isResizing ? ' is-resizing' : ''}`}
+              data-resize-handle="task-queue-panel"
+              title={`${translate('layout.resizeRunsPanel')}: ${translate('layout.resizeHint')}`}
+            />
+            <SessionInfoSidebar
+              panelId="task-queue-panel"
+              title={translate('tasks.queue')}
+              toggleSelector='[data-task-queue-toggle="true"]'
+              contentClassName="task-queue-panel-content"
+              icon={
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ color: 'var(--accent)', flexShrink: 0 }}
+                  aria-hidden="true"
+                >
+                  <path d="M4 6h9M4 12h15M4 18h6" />
+                  <circle cx="18" cy="6" r="2" />
+                  <circle cx="15" cy="18" r="2" />
+                </svg>
+              }
+              sidebarWidth={sidebarOpen ? sidebarResizer.width : 0}
+              onClose={closeTaskQueuePanel}
+              focusOnMount={focusTaskQueuePanelRef.current}
+            >
+              <div ref={setTaskQueuePanelSlot} className="task-queue-panel-slot" />
+            </SessionInfoSidebar>
+          </>
+        )}
 
         {runsPanelOpen && !taskMode && (
           <>

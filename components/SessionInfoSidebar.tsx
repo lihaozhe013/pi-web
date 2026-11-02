@@ -25,6 +25,10 @@ export function SessionInfoSidebar({
   sidebarWidth,
   onClose,
   focusOnMount = true,
+  panelId = 'session-information',
+  toggleSelector = '[data-runs-panel-toggle="true"]',
+  contentClassName,
+  icon,
   children
 }: {
   title: string;
@@ -32,6 +36,14 @@ export function SessionInfoSidebar({
   onClose: () => void;
   /** False for a surface opened on the user's behalf: it must not take focus. */
   focusOnMount?: boolean;
+  /** The panel's DOM id, for the toggle's `aria-controls`. */
+  panelId?: string;
+  /** Where focus returns when the panel closes and the opener is gone. */
+  toggleSelector?: string;
+  /** Extra class on the scrolling content area (e.g. to replace its scroll). */
+  contentClassName?: string;
+  /** The mark before the title; the Runs panel's chevron by default. */
+  icon?: ReactNode;
   children: ReactNode;
 }) {
   const { t } = useI18n();
@@ -69,10 +81,10 @@ export function SessionInfoSidebar({
         // A dialog that opened above the panel keeps the focus it just took.
         if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
         if (opener?.isConnected && opener.getClientRects().length > 0) opener.focus();
-        else document.querySelector<HTMLElement>('[data-runs-panel-toggle="true"]')?.focus();
+        else document.querySelector<HTMLElement>(toggleSelector)?.focus();
       });
     };
-  }, []);
+  }, [toggleSelector]);
   useEffect(() => {
     if (!overlay) return;
     const panel = panelRef.current;
@@ -96,7 +108,7 @@ export function SessionInfoSidebar({
       {overlay && <div className="session-info-backdrop" aria-hidden="true" onClick={onClose} />}
       <aside
         ref={panelRef}
-        id="session-information"
+        id={panelId}
         tabIndex={-1}
         role={overlay ? 'dialog' : 'complementary'}
         aria-modal={overlay || undefined}
@@ -125,21 +137,23 @@ export function SessionInfoSidebar({
       >
         <header className="session-info-header">
           <div className="session-info-header-title">
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{ color: 'var(--accent)', flexShrink: 0 }}
-              aria-hidden="true"
-            >
-              <path d="m4 17 6-6-6-6" />
-              <line x1="12" y1="19" x2="20" y2="19" />
-            </svg>
+            {icon ?? (
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{ color: 'var(--accent)', flexShrink: 0 }}
+                aria-hidden="true"
+              >
+                <path d="m4 17 6-6-6-6" />
+                <line x1="12" y1="19" x2="20" y2="19" />
+              </svg>
+            )}
             <span>{title}</span>
           </div>
           <button
@@ -164,7 +178,9 @@ export function SessionInfoSidebar({
             </svg>
           </button>
         </header>
-        <div className="session-info-content">{children}</div>
+        <div className={`session-info-content${contentClassName ? ` ${contentClassName}` : ''}`}>
+          {children}
+        </div>
       </aside>
     </>
   );

@@ -1,13 +1,13 @@
 'use client';
 
 /**
- * The task workspace: the queue board, the task editor, and the live activity of
- * the running task.
+ * The task workspace: one queue rail and one work surface that reads the
+ * selected task, the task editor, and the live activity of the running task.
  *
- * It is one workspace of the app, reachable with `?mode=tasks`. Nothing here is
- * imported by the conversation; the workspace reads and writes the queue through
- * the seven `/api/tasks` routes and renders a task's session as an ordinary Pi
- * session.
+ * It is the center column of the app in `?mode=tasks`; the shell keeps the
+ * sidebar and toolbar. Nothing here is imported by the conversation; the
+ * workspace reads and writes the queue through the seven `/api/tasks` routes
+ * and renders a task's session as an ordinary Pi session.
  */
 import {
   useCallback,
@@ -18,17 +18,14 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode
 } from 'react';
+import { createPortal } from 'react-dom';
 import { useI18n } from '@/hooks/useI18n';
-import { useIsMobile, useMediaQuery } from '@/hooks/useIsMobile';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { AskUserPanel } from './AskUserPanel';
 import { DirectoryPicker } from './DirectoryPicker';
 import { ModelSelector, type ModelSelectorOption } from './ModelSelector';
 import { QueueSettingsDialog } from './QueueSettingsDialog';
-import {
-  SidebarMenu,
-  type SidebarMenuAnchor,
-  type SidebarMenuItem
-} from './SidebarMenu';
+import { SidebarMenu, type SidebarMenuAnchor, type SidebarMenuItem } from './SidebarMenu';
 import { MoreIcon } from './SidebarIcons';
 import {
   completedTaskIds,
@@ -53,12 +50,17 @@ export interface TaskWorkspaceProps {
   initialData?: TaskQueuePayload | null;
   /** Test seam: suspended polling. */
   polling?: boolean;
+  /** Desktop: the queue is docked in the shell's right panel instead of the center. */
+  queuePanelDocked?: boolean;
+  /** The docked queue panel is open. */
+  queuePanelOpen?: boolean;
+  /** The shell's slot for the docked queue list. */
+  queuePanelSlot?: HTMLElement | null;
+  /** Opens or collapses the docked queue panel. */
+  onToggleQueuePanel?: () => void;
 }
 
-type Draft =
-  | { mode: 'new' }
-  | { mode: 'edit'; taskId: number }
-  | null;
+type Draft = { mode: 'new' } | { mode: 'edit'; taskId: number } | null;
 
 interface TaskFormState {
   title: string;
@@ -176,9 +178,7 @@ const MENU_ICON = {
       <rect x="8" y="2" width="8" height="4" rx="1" />
     </>
   ),
-  session: menuIcon(
-    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z" />
-  ),
+  session: menuIcon(<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z" />),
   delete: menuIcon(
     <>
       <path d="M3 6h18" />
@@ -234,12 +234,14 @@ export function TaskWorkspace({
   onOpenSession,
   initialTaskId = null,
   initialData = null,
-  polling = true
+  polling = true,
+  queuePanelDocked = false,
+  queuePanelOpen = false,
+  queuePanelSlot = null,
+  onToggleQueuePanel
 }: TaskWorkspaceProps) {
   const { t } = useI18n();
   const isMobile = useIsMobile();
-  // Matches the stylesheet: at or below 900px the detail covers the board.
-  const overlayDetail = useMediaQuery('(max-width: 900px)');
   const [payload, setPayload] = useState<TaskQueuePayload | null>(initialData);
   const [selectedId, setSelectedId] = useState<number | null>(initialTaskId);
   const [sheetOpen, setSheetOpen] = useState(initialTaskId !== null);
@@ -427,7 +429,7 @@ export function TaskWorkspace({
   );
   const multiSelected = selection.size > 1;
   const doneTasks = useMemo(() => tasks.filter((task) => task.status === 'DONE'), [tasks]);
-  // The board's reading order, which is also the order a shift range follows.
+  // The rail's reading order, which is also the order a shift range follows.
   const boardOrder = useMemo(
     () =>
       tasks
@@ -460,10 +462,13 @@ export function TaskWorkspace({
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [draft, pickerOpen, selection.size]);
 
-  // A draft must place the pane even with an empty board, and on a phone the
-  // sheet opens only when asked, so closing it does not reopen on the fallback.
+  // With the queue docked on the right, the center is the work surface. Where
+  // the queue takes the center (narrow windows, phones), the detail is a sheet
+  // the person opens explicitly, so closing it does not reopen on the fallback.
+  const queueDocked = Boolean(queuePanelDocked);
+  const detailIsSheet = !queueDocked;
   const placement = detailPlacement({
-    overlay: overlayDetail,
+    overlay: detailIsSheet,
     hasTask: selected !== null,
     hasDraft: draft !== null,
     sheetOpen
@@ -818,7 +823,9 @@ export function TaskWorkspace({
       );
       await refresh();
       if (removed.length > 0) {
-        setSelectedId((current) => (current !== null && removed.includes(current) ? null : current));
+        setSelectedId((current) =>
+          current !== null && removed.includes(current) ? null : current
+        );
         setExtraSelectedIds((current) => current.filter((id) => !removed.includes(id)));
         setNotice(t('tasks.removedCount', { count: removed.length }));
       }
@@ -926,15 +933,11 @@ export function TaskWorkspace({
   );
 
   const answerQuestion = useCallback(
-    async (
-      response: { value: string } | { cancelled: true }
-    ): Promise<void> => {
+    async (response: { value: string } | { cancelled: true }): Promise<void> => {
       if (!selected) return;
       const result = await call(`/api/tasks/${selected.id}/answer`, {
         method: 'POST',
-        body: JSON.stringify(
-          'value' in response ? { answer: response.value } : { cancelled: true }
-        )
+        body: JSON.stringify('value' in response ? { answer: response.value } : { cancelled: true })
       });
       if (!result) throw new Error('the answer was not accepted');
     },
@@ -946,9 +949,7 @@ export function TaskWorkspace({
     async (task: TaskRecord, response: { value: string } | { cancelled: true }): Promise<void> => {
       const result = await call(`/api/tasks/${task.id}/answer`, {
         method: 'POST',
-        body: JSON.stringify(
-          'value' in response ? { answer: response.value } : { cancelled: true }
-        )
+        body: JSON.stringify('value' in response ? { answer: response.value } : { cancelled: true })
       });
       if (!result) throw new Error('the answer was not accepted');
     },
@@ -1166,7 +1167,8 @@ export function TaskWorkspace({
     }
   ];
 
-  const menuTask = menu?.taskId == null ? null : (tasks.find((task) => task.id === menu.taskId) ?? null);
+  const menuTask =
+    menu?.taskId == null ? null : (tasks.find((task) => task.id === menu.taskId) ?? null);
   const menuItems = menu ? (menuTask ? menuItemsFor(menuTask) : boardMenuItems()) : [];
 
   const statusLabel = (value: TaskStatus): string => {
@@ -1196,7 +1198,11 @@ export function TaskWorkspace({
         data-menu-open={menuOpen ? 'true' : undefined}
         onContextMenu={(event) => {
           event.preventDefault();
-          openRowMenu(task, { kind: 'point', x: event.clientX, y: event.clientY }, event.currentTarget);
+          openRowMenu(
+            task,
+            { kind: 'point', x: event.clientX, y: event.clientY },
+            event.currentTarget
+          );
         }}
       >
         <button
@@ -1242,13 +1248,20 @@ export function TaskWorkspace({
             <span className="task-row-title">{task.title}</span>
             <span className="task-row-meta">
               <span className="task-row-cwd">{task.cwd}</span>
-              <span>
-                {t('tasks.attempts', { count: task.attempts })} ·{' '}
-                {elapsedText(taskElapsedMs(task))}
-              </span>
+              {(task.attempts > 0 || task.runStartedAt) && (
+                <span>
+                  {task.attempts > 0 ? t('tasks.attempts', { count: task.attempts }) : null}
+                  {task.attempts > 0 && task.runStartedAt ? ' · ' : null}
+                  {task.runStartedAt ? elapsedText(taskElapsedMs(task)) : null}
+                </span>
+              )}
             </span>
           </span>
-          <span className="task-row-status">{statusLabel(task.status)}</span>
+          {/* The group heading already names queued, running, and done rows;
+              a failed row says so, because its group also holds blocked ones. */}
+          {task.status === 'FAILED' && (
+            <span className="task-row-status">{statusLabel(task.status)}</span>
+          )}
         </button>
         <button
           type="button"
@@ -1284,30 +1297,96 @@ export function TaskWorkspace({
           {t(`tasks.group.${key}`)}
           <span className="task-group-count">{list.length}</span>
         </h3>
-        <div className="task-group-list">
-          {list.map((task) => renderRow(task, list.map((entry) => entry.id)))}
-        </div>
+        <div className="task-group-list">{list.map((task) => renderRow(task, boardOrder))}</div>
       </section>
     );
   };
 
+  /** The one queue list: the center column where the panel cannot dock, or the
+   * shell's right panel through a portal. Both read the same state. */
+  const renderQueueList = (showHeading: boolean) => (
+    <div
+      className="task-queue-body"
+      onContextMenu={(event) => {
+        // A right-click on a row belongs to that row's menu; the empty
+        // queue offers the two things that need no task.
+        if ((event.target as HTMLElement).closest('.task-row-shell')) return;
+        event.preventDefault();
+        openBoardMenu({ kind: 'point', x: event.clientX, y: event.clientY }, event.currentTarget);
+      }}
+    >
+      {showHeading && (
+        <div className="task-queue-heading">
+          <span>{t('tasks.queue')}</span>
+          <span className="task-group-count">{tasks.length}</span>
+        </div>
+      )}
+      <div className="task-queue-scroll">
+        {tasks.length === 0 ? (
+          <p className="task-empty">{t('tasks.empty')}</p>
+        ) : (
+          <>
+            {groupSection('running', groups.running)}
+            {groupSection('queued', groups.queued)}
+            {groupSection('blocked', groups.blocked)}
+            {groupSection('done', groups.done)}
+          </>
+        )}
+      </div>
+      <p className="task-queue-hint">{t('tasks.reorderHint')}</p>
+    </div>
+  );
+
   return (
     <div className="task-workspace">
-      <div className="task-topbar">
-        <div className="task-topbar-main">
-          <span className="task-topbar-title">{t('tasks.board')}</span>
+      {/* The queue's own bar. The page's Chat | Tasks switch lives one row
+          above it, in the shell toolbar, so this row carries only what the
+          queue itself needs. */}
+      <div className="task-header">
+        <div className="task-header-summary">
           {status && (
-            <span className="task-topbar-state" data-state={status.state}>
+            <span className="task-header-state" data-state={status.state}>
               {t(`tasks.queueState.${status.state.toLowerCase()}`)}
             </span>
           )}
+          {queueDocked && !queuePanelOpen && onToggleQueuePanel && (
+            <button
+              type="button"
+              className="task-queue-toggle"
+              data-task-queue-toggle="true"
+              data-open={queuePanelOpen ? 'true' : undefined}
+              aria-expanded={queuePanelOpen}
+              aria-controls="task-queue-panel"
+              title={queuePanelOpen ? t('tasks.hideQueue') : t('tasks.showQueue')}
+              onClick={onToggleQueuePanel}
+            >
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M4 6h9M4 12h15M4 18h6" />
+                <circle cx="18" cy="6" r="2" />
+                <circle cx="15" cy="18" r="2" />
+              </svg>
+              <span>{t('tasks.queue')}</span>
+              <span className="task-group-count">{tasks.length}</span>
+              {runningTask && <span className="task-queue-toggle-dot" aria-hidden="true" />}
+            </button>
+          )}
           {notice && (
-            <span className="task-topbar-notice" role="status">
+            <span className="task-header-notice" role="status">
               {notice}
             </span>
           )}
         </div>
-        <div className="task-topbar-tools">
+        <div className="task-header-tools">
           {modelOptions.length > 0 && (
             <span className="task-model" title={t('tasks.modelHint')}>
               <ModelSelector
@@ -1390,11 +1469,11 @@ export function TaskWorkspace({
               <circle cx="14" cy="18" r="2" />
             </svg>
           </button>
-          <div className="task-topbar-actions">
+          <div className="task-header-actions">
             {status?.state === 'RUNNING' ? (
               <button
                 type="button"
-                className="task-control"
+                className={tasks.length > 0 ? 'task-control is-primary' : 'task-control'}
                 disabled={busy}
                 onClick={() => void control('pause')}
               >
@@ -1403,7 +1482,11 @@ export function TaskWorkspace({
             ) : (
               <button
                 type="button"
-                className="task-control is-primary"
+                className={
+                  tasks.length > 0 && status?.state !== 'PAUSED'
+                    ? 'task-control is-primary'
+                    : 'task-control'
+                }
                 disabled={busy || status?.state === 'PAUSED'}
                 onClick={() => void control('start')}
               >
@@ -1412,7 +1495,11 @@ export function TaskWorkspace({
             )}
             <button
               type="button"
-              className="task-control"
+              className={
+                tasks.length > 0 && status?.state === 'PAUSED'
+                  ? 'task-control is-primary'
+                  : 'task-control'
+              }
               data-task-action="resume"
               disabled={busy || status?.state !== 'PAUSED'}
               onClick={() => void control('resume')}
@@ -1429,7 +1516,7 @@ export function TaskWorkspace({
             </button>
             <button
               type="button"
-              className="task-control is-primary"
+              className={tasks.length === 0 ? 'task-control is-primary' : 'task-control'}
               disabled={busy}
               onClick={startNewTask}
             >
@@ -1450,7 +1537,7 @@ export function TaskWorkspace({
         </div>
       )}
       {/* The same panel the chat composer uses: a waiting question is answered
-          from here without opening the detail column. */}
+          from here without opening the task's surface. */}
       {runningTask?.pendingQuestion && questionRequestFor(runningTask) && (
         <div className="task-question-strip">
           <AskUserPanel
@@ -1464,64 +1551,20 @@ export function TaskWorkspace({
       )}
 
       <div className="task-body">
-        <div className="task-list-column">
-          <div className="task-list-heading">
-            <span>{t('tasks.group.queued')}</span>
-            <span className="task-group-count">{groups.queued.length}</span>
-          </div>
-          <div className="task-list-scroll">
-            {tasks.length === 0 ? (
-              <p className="task-empty">{t('tasks.empty')}</p>
-            ) : (
-              <>
-                {groupSection('running', groups.running)}
-                {groupSection('queued', groups.queued)}
-                {groupSection('blocked', groups.blocked)}
-                {groupSection('done', groups.done)}
-              </>
-            )}
-          </div>
-        </div>
-
-        <main
-          className="task-board"
-          aria-label={t('tasks.board')}
-          onContextMenu={(event) => {
-            // A right-click on a row belongs to that row's menu; the empty
-            // board offers the two things that need no task.
-            if ((event.target as HTMLElement).closest('.task-row-shell')) return;
-            event.preventDefault();
-            openBoardMenu(
-              { kind: 'point', x: event.clientX, y: event.clientY },
-              event.currentTarget
-            );
-          }}
-        >
-          {tasks.length === 0 ? (
-            <div className="task-board-empty">
-              <p>{t('tasks.empty')}</p>
-              <button type="button" className="task-control is-primary" onClick={startNewTask}>
-                {t('tasks.new')}
-              </button>
-            </div>
-          ) : (
-            tasks
-              .slice()
-              .sort(
-                (a, b) =>
-                  STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || a.rank - b.rank || a.id - b.id
-              )
-              .map((task) => renderRow(task, boardOrder))
-          )}
-          <p className="task-keyboard-hint">{t('tasks.reorderHint')}</p>
-        </main>
-
-        {placement === 'side' && (
-          <aside className="task-detail" aria-label={t('tasks.detail')}>
-            {renderDetail()}
+        {queueDocked ? (
+          <section className="task-detail" aria-label={t('tasks.detail')}>
+            {renderDetail() ?? renderEmptyDetail()}
+          </section>
+        ) : (
+          <aside className="task-queue" aria-label={t('tasks.queue')}>
+            {renderQueueList(true)}
           </aside>
         )}
       </div>
+
+      {/* The docked list lives beside the center column, so it spans the page
+          height like the Runs panel rather than sitting inside the surface. */}
+      {queueDocked && queuePanelSlot ? createPortal(renderQueueList(false), queuePanelSlot) : null}
 
       {queueSettingsOpen && payload && (
         <QueueSettingsDialog
@@ -1617,9 +1660,12 @@ export function TaskWorkspace({
           aria-modal="true"
           aria-label={t('tasks.detail')}
         >
-          <button type="button" className="task-sheet-close" onClick={closeSheet}>
-            {t('tasks.close')}
-          </button>
+          <div className="task-sheet-bar">
+            <span className="task-sheet-title">{t('tasks.detail')}</span>
+            <button type="button" className="task-sheet-close" onClick={closeSheet}>
+              {t('tasks.close')}
+            </button>
+          </div>
           <div className="task-detail">{renderDetail()}</div>
         </div>
       )}
@@ -1630,13 +1676,11 @@ export function TaskWorkspace({
     const removable = selectedTasks.filter((task) => !isTaskLocked(task));
     return (
       <div className="task-selection">
-        <h2 className="task-detail-title">
-          {t('tasks.selectedCount', { count: selection.size })}
-        </h2>
+        <h2 className="task-detail-title">{t('tasks.selectedCount', { count: selection.size })}</h2>
         {/* Keyboard modifiers mean nothing on a phone, where rows are picked from
             their menus and this panel covers them. */}
         <p className="task-hint">
-          {t(overlayDetail ? 'tasks.selectionHintPhone' : 'tasks.selectionHint')}
+          {t(detailIsSheet ? 'tasks.selectionHintPhone' : 'tasks.selectionHint')}
         </p>
         <div className="task-detail-actions">
           <button
@@ -1671,6 +1715,34 @@ export function TaskWorkspace({
     );
   }
 
+  function renderEmptyDetail() {
+    return (
+      <div className="task-detail-empty">
+        <svg
+          className="task-detail-empty-mark"
+          width="28"
+          height="28"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M4 6h10M4 12h16M4 18h7" />
+          <circle cx="18" cy="6" r="2" />
+          <circle cx="15" cy="18" r="2" />
+        </svg>
+        <h2 className="task-detail-empty-title">{t('tasks.detailEmptyTitle')}</h2>
+        <p className="task-detail-empty-text">{t('tasks.detailEmptyText')}</p>
+        <button type="button" className="task-control is-primary" onClick={startNewTask}>
+          {t('tasks.new')}
+        </button>
+      </div>
+    );
+  }
+
   function renderDetail() {
     // The new-task form is the one detail pane that exists before a task does.
     if (draft) return renderForm();
@@ -1679,13 +1751,22 @@ export function TaskWorkspace({
     const locked = isTaskLocked(selected);
     return (
       <>
-        <h2 className="task-detail-title">{selected.title}</h2>
-        <p className="task-detail-status" data-status={selected.status}>
-          <span className="task-row-marker" style={{ background: statusTone(selected.status) }} />
-          {statusLabel(selected.status)}
-          {selected.attempts > 0 && ` · ${t('tasks.attempts', { count: selected.attempts })}`}
-        </p>
-        {selected.description && <p className="task-detail-text">{selected.description}</p>}
+        <header className="task-detail-head">
+          <h2 className="task-detail-title">{selected.title}</h2>
+          <p className="task-detail-status" data-status={selected.status}>
+            <span className="task-row-marker" style={{ background: statusTone(selected.status) }} />
+            <span>{statusLabel(selected.status)}</span>
+            {selected.attempts > 0 && (
+              <span className="task-detail-fact">
+                {t('tasks.attempts', { count: selected.attempts })}
+              </span>
+            )}
+            <span className="task-detail-fact task-detail-elapsed">
+              {selected.runStartedAt ? elapsedText(taskElapsedMs(selected)) : null}
+            </span>
+          </p>
+          {selected.description && <p className="task-detail-text">{selected.description}</p>}
+        </header>
         <dl className="task-facts">
           <dt>{t('tasks.cwdLabel')}</dt>
           <dd className="task-mono">{selected.cwd}</dd>
@@ -1894,7 +1975,10 @@ export function TaskWorkspace({
           <select
             value={form.allowAskUser}
             onChange={(event) =>
-              setForm({ ...form, allowAskUser: event.target.value as TaskFormState['allowAskUser'] })
+              setForm({
+                ...form,
+                allowAskUser: event.target.value as TaskFormState['allowAskUser']
+              })
             }
           >
             <option value="default">

@@ -29,6 +29,14 @@ sessions in process; Bun manages dependencies and script invocation.
 | Portable packaging       | `packaging/`                                                       |
 | Desktop shell            | `src-tauri/`, `packaging/desktop.mjs`                              |
 
+`AppShell` owns the page frame for both views: the session sidebar, the toolbar with the
+`Chat | Tasks` switch, the center column, and one resizable right-hand panel. The center renders the
+conversation or the task work surface from `components/TaskWorkspace.tsx`; the right panel renders
+Runs in chat and the task Queue in `?mode=tasks`. The sidebar and toolbar are not rebuilt, so the
+task view keeps the session list and the Settings entry in place. `TaskWorkspace` owns the queue
+state and portals its list into the right panel, which keeps that panel full height beside the
+center instead of nesting it in the work surface.
+
 ## Browser appearance and settings
 
 `components/SettingsPanel.tsx` owns modal navigation and result focus; `AppearanceSettings.tsx` owns

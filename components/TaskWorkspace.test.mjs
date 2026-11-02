@@ -70,7 +70,7 @@ function payload(tasks, overrides = {}) {
   };
 }
 
-function render(data) {
+function render(data, options = {}) {
   return renderToStaticMarkup(
     React.createElement(
       I18nProvider,
@@ -78,7 +78,8 @@ function render(data) {
       React.createElement(TaskWorkspace, {
         initialData: data,
         polling: false,
-        onOpenSession() {}
+        onOpenSession() {},
+        ...options
       })
     )
   );
@@ -126,7 +127,11 @@ test('keyboard reorder only rewrites the pending segment and stops at the ends',
 test('a running task is locked and its controls are disabled', () => {
   const running = task({ status: 'IN_PROGRESS', attempts: 1 });
   assert.equal(isTaskLocked(running), true);
-  const markup = render(payload([running], { state: 'RUNNING', activeTaskId: 1 }));
+  // The detail is a sheet when the queue takes the center, so name the task to
+  // open it: the list and the detail are both in the markup.
+  const markup = render(payload([running], { state: 'RUNNING', activeTaskId: 1 }), {
+    initialTaskId: 1
+  });
   assert.match(markup, /aria-label="Running: Fix the gate"/);
   assert.match(markup, /data-task-action="edit" disabled=""/);
   assert.match(markup, /data-task-action="delete" disabled=""/);
@@ -134,7 +139,7 @@ test('a running task is locked and its controls are disabled', () => {
 });
 
 test('a pending task keeps its edit and delete controls usable', () => {
-  const markup = render(payload([task()], { state: 'IDLE' }));
+  const markup = render(payload([task()], { state: 'IDLE' }), { initialTaskId: 1 });
   assert.doesNotMatch(markup, /data-task-action="edit" disabled=""/);
   assert.doesNotMatch(markup, /data-task-action="delete" disabled=""/);
   assert.match(markup, /data-task-action="resume" disabled=""/);
@@ -177,9 +182,9 @@ test('the queue defaults are reachable from the board', () => {
 
 test('every row offers its actions from a menu button', () => {
   const markup = render(payload([task(), task({ id: 2, title: 'Second', rank: 20 })]));
-  // Each task renders once in the queue list and once on the board.
-  assert.equal((markup.match(/class="task-row"/g) ?? []).length, 4);
-  assert.equal((markup.match(/aria-haspopup="menu"/g) ?? []).length, 4);
+  // The queue is one list, so each task renders once.
+  assert.equal((markup.match(/class="task-row"/g) ?? []).length, 2);
+  assert.equal((markup.match(/aria-haspopup="menu"/g) ?? []).length, 2);
   assert.match(markup, /aria-label="Task actions"/);
   assert.match(markup, /class="task-row-shell"/);
 });
@@ -205,7 +210,9 @@ test('remove completed only collects DONE tasks', () => {
 });
 
 test('completed tasks get one action that removes them together', () => {
-  const markup = render(payload([task(), task({ id: 2, status: 'DONE' }), task({ id: 3, status: 'DONE', rank: 20 })]));
+  const markup = render(
+    payload([task(), task({ id: 2, status: 'DONE' }), task({ id: 3, status: 'DONE', rank: 20 })])
+  );
   assert.match(markup, /data-task-action="clear-completed"/);
   assert.match(markup, /aria-label="2 completed"/);
   // Nothing to sweep: the action stays out of the header.
@@ -224,14 +231,19 @@ test('a closed sheet stays closed while the selection falls back', () => {
   const phone = { overlay: true, hasTask: true, hasDraft: false, sheetOpen: false };
   assert.equal(detailPlacement(phone), 'none', 'the board stays readable on a phone');
   assert.equal(detailPlacement({ ...phone, sheetOpen: true }), 'sheet');
-  assert.equal(detailPlacement({ ...phone, overlay: false }), 'side', 'the desktop column is always there');
+  assert.equal(
+    detailPlacement({ ...phone, overlay: false }),
+    'side',
+    'the desktop column is always there'
+  );
 });
 
 test('the detail renders a draft before it looks for a selected task', () => {
   const source = readFileSync(new URL('./TaskWorkspace.tsx', import.meta.url), 'utf8');
   const detail = source.slice(source.indexOf('function renderDetail()'));
   assert.ok(
-    detail.indexOf('if (draft) return renderForm();') < detail.indexOf('if (!selected) return null;'),
+    detail.indexOf('if (draft) return renderForm();') <
+      detail.indexOf('if (!selected) return null;'),
     'a new-task draft has no selected task yet'
   );
 });

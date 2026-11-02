@@ -11,39 +11,46 @@ groups help locate conversations; they are not project management. A new session
 directory; Git repository relationships do not change its identity.
 
 The right panel is dedicated exclusively to Runs and execution context (including Goal and
-Compaction status) and opens 400px wide. It is part of the default desktop page: it is open
-on load, before any command runs, and only the user's own collapse in that page closes it. It
-overlays the conversation when space is limited and fills phone widths; there it starts closed so
-the conversation stays visible, and opens only when the user asks for it. Docked, its left edge is
-a resize handle: the panel stretches between 300px and the width that still leaves the conversation
+Compaction status) and opens 400px wide. It is part of the default desktop page: it is open on load,
+before any command runs, and only the user's own collapse in that page closes it. It overlays the
+conversation when space is limited and fills phone widths; there it starts closed so the
+conversation stays visible, and opens only when the user asks for it. Docked, its left edge is a
+resize handle: the panel stretches between 300px and the width that still leaves the conversation
 420px, and it gives way to a sidebar that grows, returning to the size the user chose when there is
 room again. That size is remembered in the browser and kept while a smaller window shows less. The
 separator takes keyboard focus: the arrow keys resize, `Home` and `End` reach the limits, and Enter
-or a double click restores the default. Settings hides the panel
-without collapsing it, so closing Settings brings it back. A docked collapse/expand toggle on the
-right side reopens a closed panel; the panel header also includes a collapse button. A surface that
-belongs to the default page — the Runs panel — never takes focus; one the user opens does.
+or a double click restores the default. Settings hides the panel without collapsing it, so closing
+Settings brings it back. A docked collapse/expand toggle on the right side reopens a closed panel;
+the panel header also includes a collapse button. A surface that belongs to the default page — the
+Runs panel — never takes focus; one the user opens does.
 
 The panel also carries the session actions, as one quiet group above the runs: full history,
 generate title, branches when the session has them, system prompt, and tool definitions, plus a
-statistics card with input, output, cache read, cost, and the context bar. They describe the
-session rather than the next message, and every one of them opens a focused dialog above the
-conversation: the dialog is still the place to read, not the panel. The card's tooltip keeps the
-full breakdown; the panel keeps only what fits. Collapsing the panel, or opening the conversation on
-a phone where the panel starts closed, leaves the actions one click away behind the edge toggle.
-Active goals and compaction state report inside the Runs panel rather than below the chat input,
-keeping the main composer clean. The composer options button (`...`) sits in the right toolbar
-between the tools preset selector and the sound toggle.
+statistics card with input, output, cache read, cost, and the context bar. They describe the session
+rather than the next message, and every one of them opens a focused dialog above the conversation:
+the dialog is still the place to read, not the panel. The card's tooltip keeps the full breakdown;
+the panel keeps only what fits. Collapsing the panel, or opening the conversation on a phone where
+the panel starts closed, leaves the actions one click away behind the edge toggle. Active goals and
+compaction state report inside the Runs panel rather than below the chat input, keeping the main
+composer clean. The composer options button (`...`) sits in the right toolbar between the tools
+preset selector and the sound toggle.
 
-## Two workspaces, one switch
+## Two workspaces, one shell
 
 The page header carries one segmented control, `Chat | Tasks`, after the sidebar toggle. It is the
 only place the two workspaces are chosen: a single choice is active at a time, the active segment is
 marked by surface, weight, and accent icon as well as by `aria-current`, and each segment is an
 ordinary link to a real URL (`/` and `/?mode=tasks`). Reload, open in new tab, and the Web Push deep
-links all land in the right workspace. The switch keeps the same shape, height, and position on both
-pages; the task workspace adds its own header row of the same height because it has no sidebar
-toggle in front of it. Phones keep the same control with shorter padding.
+links all land in the right workspace.
+
+The shell does not move between the views. The session sidebar keeps its place and keeps listing
+conversations, the sidebar toggle and the switch keep their position in the toolbar, and the
+right-hand inspector swaps its content: Runs in chat, the Queue in tasks. Both use the same docked
+column, width and collapse language, so the center's edge does not move when the workspace changes.
+A conversation picked in the sidebar leaves the task view for that conversation; the `Chat` segment
+returns to the conversation the active project last had open. Settings stays where it always is, in
+the sidebar's footer, so the task view has no second Settings entry and no second header row of its
+own. Phones keep the same control with shorter padding.
 
 The sidebar's wordmark opens About in a modal over the conversation: the logo, the build's version
 and commit, the Pi release in use, the license, and links to the source and to Pi. The wordmark is
@@ -53,46 +60,63 @@ links, without cards, frames or gradients.
 
 ## The task workspace
 
-`?mode=tasks` replaces the conversation with the serial task queue described in
-[Tasks](tasks.md), chosen from the page's `Chat | Tasks` switch. The task workspace keeps the same
-three-column language as the chat page: the queue grouped by status on the left, the board in the
-middle, and the task detail on the right, where the Runs panel sits in chat mode. A task row carries its status marker, title, working directory, attempts, and elapsed
-time; the arrow keys reorder it inside the pending segment, Enter edits, and Delete removes it. A
-running task is locked, and the controls say why.
+`?mode=tasks` replaces the conversation with the serial task queue described in [Tasks](tasks.md),
+chosen from the page's `Chat | Tasks` switch. It keeps the app's sidebar and toolbar: the center
+column is the work surface that reads the selected task, and the same right-hand column that carries
+Runs in chat carries the Queue here, grouped by status. The result mirrors the chat page — sidebar,
+center, inspector — and the queue is the only task list, so the same row never appears twice.
 
-The queue's own bar holds one model chip (the queue default, "Pi default: <model>" when unset), the
-plan/stop controls, and New task. The page's top row carries the workspace switch on the left and the
-shell's Settings entry on the right, so the task view never strands the person away from Settings.
-A slider button beside the model chip opens the queue's own defaults — model, timeouts, verification
-commands, question policy, commit choice, and commit message — in the app's standard dialog shell,
-with its actions (including "Restore defaults") pinned to the bottom while the body scrolls. A
-timeout is a number plus a unit, or an explicit "No limit"; the unit converts the number, and the
-form never relies on a browser tooltip for a bad value. Every "use queue default" in a task's
-form names the value it would inherit.
+The queue panel is docked on desktop, open until the person collapses it, and resizable from its
+left edge with the same handle, limits and remembered width as the Runs panel. Its own header closes
+it. A `Queue` chip in the task bar shows its size and running mark while the panel is closed, and
+reopens it; the chip is not repeated while the panel is open, exactly like the Runs edge toggle.
+Settings hides the panel without collapsing it, so closing Settings brings it back, and the queue's
+own collapse choice is independent of the Runs panel's.
 
-Each row ends in a quiet `⋯` menu button; the same menu opens on right-click at the pointer and from
-`Shift+F10`, and becomes a bottom sheet on a phone. It offers select, edit, move up/down (only inside
-the queued segment), duplicate, copy, paste, open session, and delete — the actions a list this small
-deserves before it needs drag handles or a second toolbar.
+A queue row carries its status marker, title, working directory, and — once it has run — its
+attempts and elapsed time. The group heading already names queued, running, and done rows; a failed
+row names its status too, because its group also holds blocked ones. The row the surface is reading
+carries a tint and an accent bar at its left edge; its `⋯` menu appears on hover, focus, and on the
+active row, and also opens on right-click at the pointer and from `Shift+F10`. The arrow keys
+reorder it inside the pending segment, Enter edits, and Delete removes it. A running task is locked,
+and the controls say why.
+
+The task bar above the work surface holds the queue state, one model chip (the queue default, "Pi
+default: <model>" when unset), the clear-completed action, the queue-defaults opener, the
+start/pause/resume/stop controls, and New task. The action that moves the queue is the bar's one
+strong control while tasks exist; New task is strong only when the queue is empty. A slider button
+beside the model chip opens the queue's own defaults — model, timeouts, verification commands,
+question policy, commit choice, and commit message — in the app's standard dialog shell, with its
+actions (including "Restore defaults") pinned to the bottom while the body scrolls. A timeout is a
+number plus a unit, or an explicit "No limit"; the unit converts the number, and the form never
+relies on a browser tooltip for a bad value. Every "use queue default" in a task's form names the
+value it would inherit.
+
+The work surface reads one task: its title, a status line with attempts and elapsed time, the
+description, and a facts sheet for the working directory, result, verification output, commit,
+verification commands, and the linked session. The pending question, the running activity line, and
+the collapsed live tail sit in the same surface. The task's actions follow that content in a footer
+that sticks to the bottom edge while a long tail scrolls. When nothing is selected — including an
+empty queue — the surface explains what it shows and offers New task, rather than leaving a blank
+column.
 
 Shift+click extends a selection, Command/Ctrl+click adds one row, so bulk work does not require a
-checkbox column that would compete with the status marker. A multi-selection swaps the detail column
-for the batch actions and names the count in the header and in the header of the pane, because a tint
-alone is not a state. Removing several tasks, completed ones included, asks once in the same popover
-the row menu uses: the queue has no undo, but the sessions themselves are only linked, never deleted.
+checkbox column that would compete with the status marker. A multi-selection replaces the task
+reading with the batch actions and names the count in the surface, because a tint alone is not a
+state. Removing several tasks, completed ones included, asks once in the same popover the row menu
+uses: the queue has no undo, but the sessions themselves are only linked, never deleted.
 
-The board polls: once a second while a task runs or a question waits, otherwise every five seconds,
+The queue polls: once a second while a task runs or a question waits, otherwise every five seconds,
 never while the page is hidden, and once when it returns. A waiting `ask_user` question renders
-through the same panel the composer uses, above the board and in the task detail, so a reload or a
-Web Push notification still finds it. The running task shows one activity line in the chat
-composer's vocabulary and a collapsed tail of what the child printed. Opening the task's session
-leaves the workspace for the ordinary conversation view, where the transcript is read-only until the
-task finishes. The phone layout is one column, and the task detail becomes a full-height sheet.
+through the same panel the composer uses, above the work surface and inside the task's pane, so a
+reload or a Web Push notification still finds it. Opening the task's session leaves the workspace
+for the ordinary conversation view, where the transcript is read-only until the task finishes. Where
+the panel cannot dock, the queue takes the center column and the work surface becomes a full-height
+sheet with its own bar and Close button, so the queue stays the page's navigator.
 
-Nothing about this workspace changes the chat view when the parameter is absent. The switch is the
-implemented part of the two-mode header; the mode-specific inspector (task detail in the panel) and
-the per-tab mode memory remain unbuilt, and `?mode=tasks` deliberately skips the remembered-session
-restore so a reload stays in the task workspace.
+Nothing about this workspace changes the chat view when the parameter is absent. `?mode=tasks`
+deliberately skips the remembered-session restore so a reload stays in the task workspace, while
+`?task=<id>` opens one task directly. The per-tab mode memory remains unbuilt.
 
 ## Quiet, clear, polished
 
@@ -177,9 +201,9 @@ Current main-transcript behavior:
   active runs from history, with independent scrolling and newest first in each. History starts
   collapsed into a compact footer, leaving the active area more room; its heading toggles the
   section, and the choice stays in effect when the panel is closed and reopened. An expanded history
-  is resizable from its top edge, which is a separator like the panel's: the history keeps the height
-  the user drags to, between 120px and the room that leaves the active list its title and a card, the
-  active list takes the rest, and the height is remembered in the browser. Active cards
+  is resizable from its top edge, which is a separator like the panel's: the history keeps the
+  height the user drags to, between 120px and the room that leaves the active list its title and a
+  card, the active list takes the rest, and the height is remembered in the browser. Active cards
   default open; completed cards remain in the active section for two seconds, showing their final
   status, then move to history and default closed. Multiple runs can remain active at once. Active
   and historical cards use blue for running, green for success, and red for errors, alongside status
@@ -188,14 +212,14 @@ Current main-transcript behavior:
   anything.
 - Write/edit/patch cards default to expanded. A write that replaces a file shows the changed lines
   as a diff; its final content is not repeated.
-- Settings › General can move those cards to the Runs panel too (`Show write and edit cards in
-  the conversation`, on by default). With it off the transcript carries the user's messages and the
-  agent's replies and nothing else, so a reader who never inspects the agent's code sees only the
-  conversation. The panel then keeps the writes and edits like any other run, showing the diff a
-  card would have shown, opened while the run is active and through its two-second reading hold,
-  then folded into history. Such a run names the file it touched instead of repeating the whole
-  file as arguments. The choice is a browser preference, like the other chat options; it changes
-  display only, never stored history, exports, or agent context.
+- Settings › General can move those cards to the Runs panel too
+  (`Show write and edit cards in the conversation`, on by default). With it off the transcript
+  carries the user's messages and the agent's replies and nothing else, so a reader who never
+  inspects the agent's code sees only the conversation. The panel then keeps the writes and edits
+  like any other run, showing the diff a card would have shown, opened while the run is active and
+  through its two-second reading hold, then folded into history. Such a run names the file it
+  touched instead of repeating the whole file as arguments. The choice is a browser preference, like
+  the other chat options; it changes display only, never stored history, exports, or agent context.
 - A turn that wrote files says so in one line (`3 files changed`) under its answer instead of
   listing them as chips: the Runs panel already names the files and carries their diffs.
 - A command the user ran themselves (`!`) keeps its live card in the transcript, because its
