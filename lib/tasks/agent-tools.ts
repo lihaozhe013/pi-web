@@ -453,3 +453,39 @@ export function eventSummary(event: TaskEvent): Record<string, unknown> {
     createdAt: event.createdAt
   };
 }
+
+/**
+ * A tool result as text: the outcome first, then the queue, then the data, then
+ * the news. The model reads this before deciding what to do next, so the first
+ * line has to answer "did it work".
+ */
+export function formatTaskToolResult(result: TaskToolResult): string {
+  const lines: string[] = [];
+  lines.push(result.ok ? 'ok' : `refused (${result.code ?? 'internal_error'}): ${result.error ?? 'unknown error'}`);
+
+  const state = [
+    `queue ${result.queue.state}`,
+    result.queue.running ? 'loop running' : null,
+    result.queue.activeTaskId !== null ? `active task ${result.queue.activeTaskId}` : null,
+    result.queue.pausedReason ? `paused: ${result.queue.pausedReason}` : null
+  ].filter(Boolean);
+  lines.push(state.join(', '));
+
+  if (result.data !== undefined) lines.push(JSON.stringify(result.data));
+
+  if (result.events.length > 0) {
+    lines.push('events:');
+    for (const event of result.events) {
+      lines.push(`- ${describeEvent(event)}`);
+    }
+  }
+  return lines.join('\n');
+}
+
+function describeEvent(event: TaskEvent): string {
+  const parts: string[] = [event.kind];
+  if (event.taskId !== null) parts.push(`task ${event.taskId}`);
+  if (event.status) parts.push(event.status);
+  const head = parts.join(' ');
+  return event.summary ? `${head}: ${clipOutputTail(event.summary, 300)}` : head;
+}

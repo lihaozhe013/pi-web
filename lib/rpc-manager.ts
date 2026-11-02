@@ -46,6 +46,7 @@ import { STREAM_SPEED_ENTRY, StreamSpeedTracker } from './session-stream-speed';
 import { getProjectTrustStatus, projectTrustReloadOptions } from './project-trust';
 import { notifySessionComplete } from './web-push';
 import { hasActiveSessionLivenessProvider } from './session-liveness';
+import { isTaskManagerProject } from './tasks/manager-project';
 import type { SlashCommandInfo } from '@earendil-works/pi-coding-agent';
 import type { AgentSessionLike, ExtensionUiContextLike, ToolInfo } from './pi-types';
 import type {
@@ -79,6 +80,7 @@ import {
   type GoalBridge
 } from './goal-driver';
 import { createPieBuiltinExtensions } from './builtin-extensions';
+import { createTaskManagerExtension } from './task-manager-extension';
 import { goalExtensionPaths } from './goal-package';
 import type { McpHost } from './mcp-host';
 import { mcpPromptPreparation, type McpCommandCandidate } from './mcp-command';
@@ -2802,6 +2804,11 @@ export async function startRpcSession(
   if (persistedToolNames === undefined && requestedToolNames !== undefined) {
     appendSessionToolSelection(sessionManager, requestedToolNames);
   }
+  // The task manager project always runs with the full loadout. Its queue tools are
+  // injected by the server and cannot be selected, so a Chat-only choice would load no
+  // extension at all and silently remove them (docs/task-manager.md).
+  const managerProject = isTaskManagerProject(sessionCwd);
+  const activeToolNames = managerProject ? undefined : selectedToolNames;
   // A new session starts in the mode the caller asked for. A session file's own entry stays
   // authoritative, because reopening it must not repeat the choice that created it.
   if (options.mode !== undefined) {
@@ -2811,7 +2818,7 @@ export async function startRpcSession(
       validateWorkMode(options.mode)
     );
   }
-  const chatOnly = selectedToolNames?.length === 0;
+  const chatOnly = activeToolNames?.length === 0;
   const finishStartingSession = trackStartingSession(sessionCwd);
   const starting = (async () => {
     // Some extensions access the SDK's global theme even outside the terminal UI.
@@ -2819,8 +2826,8 @@ export async function startRpcSession(
     const agentDir = getAgentDir();
 
     let toolsOption: string[] | undefined;
-    if (selectedToolNames !== undefined) {
-      toolsOption = selectedToolNames.length === 0 ? [] : undefined;
+    if (activeToolNames !== undefined) {
+      toolsOption = activeToolNames.length === 0 ? [] : undefined;
     }
 
     // Build services first so extension-registered providers are available
@@ -2863,7 +2870,9 @@ export async function startRpcSession(
               createProjectCommandBashExtension({
                 cwd: sessionCwd,
                 settings: settingsManager
-              })
+              }),
+              // Only this project's sessions get the queue tools; the browser cannot ask for them.
+              ...(managerProject ? [createTaskManagerExtension()] : [])
             ],
             ...(goalPaths.length > 0 ? { additionalExtensionPaths: goalPaths } : {}),
             extensionsOverride: (base) => preferUserBashExtension(base)
@@ -3000,7 +3009,7 @@ export async function startRpcSession(
     if (!chatOnly) {
       const initialToolNames = inner.getActiveToolNames();
       inner.setActiveToolsByName(
-        resolveActiveToolNames(inner, selectedToolNames ?? initialToolNames, initialToolNames)
+        resolveActiveToolNames(inner, activeToolNames ?? initialToolNames, initialToolNames)
       );
     }
 
