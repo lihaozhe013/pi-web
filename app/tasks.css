@@ -559,6 +559,82 @@
   cursor: pointer;
 }
 
+/* Queue defaults: one dialog, grouped like the task form it feeds. */
+.queue-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 16px;
+}
+
+.queue-settings-intro {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.queue-settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.queue-settings-section > h3 {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.queue-settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Save and Cancel stay reachable while the body scrolls on a short screen. */
+.queue-settings-actions {
+  position: sticky;
+  bottom: -16px;
+  display: flex;
+  gap: 8px;
+  margin: 0 -16px -16px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+}
+
+/* The queue's own settings live beside its controls, not in the app bar. */
+.task-queue-settings {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--ui-radius-sm, 8px);
+  background: var(--bg-panel);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.task-queue-settings:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.task-queue-settings:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
 /* The sheet is the overlay; a fixed detail inside it would cover the close
  * button. Below this width the queue list merges into the board instead. */
 @media (max-width: 900px) {

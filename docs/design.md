@@ -63,6 +63,11 @@ running task is locked, and the controls say why.
 The queue's own bar holds one model chip (the queue default, "Pi default: <model>" when unset), the
 plan/stop controls, and New task. The page's top row carries the workspace switch on the left and the
 shell's Settings entry on the right, so the task view never strands the person away from Settings.
+A slider button beside the model chip opens the queue's own defaults — model, timeouts, verification
+commands, question policy, commit choice, and commit message — in the app's standard dialog shell,
+with its actions pinned to the bottom while the body scrolls. Every "use queue default" in a task's
+form names the value it would inherit.
+
 Each row ends in a quiet `⋯` menu button; the same menu opens on right-click at the pointer and from
 `Shift+F10`, and becomes a bottom sheet on a phone. It offers edit, move up/down (only inside the
 queued segment), duplicate, copy, paste, open session, and delete — the actions a list this small

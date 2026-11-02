@@ -23,6 +23,7 @@ import { useIsMobile, useMediaQuery } from '@/hooks/useIsMobile';
 import { AskUserPanel } from './AskUserPanel';
 import { DirectoryPicker } from './DirectoryPicker';
 import { ModelSelector, type ModelSelectorOption } from './ModelSelector';
+import { QueueSettingsDialog } from './QueueSettingsDialog';
 import {
   SidebarMenu,
   type SidebarMenuAnchor,
@@ -240,6 +241,7 @@ export function TaskWorkspace({
     null
   );
   const [modelBusy, setModelBusy] = useState(false);
+  const [queueSettingsOpen, setQueueSettingsOpen] = useState(false);
   const [clipboard, setClipboard] = useState<TaskClipboard | null>(null);
   const [menu, setMenu] = useState<{ anchor: SidebarMenuAnchor; taskId: number | null } | null>(
     null
@@ -1032,6 +1034,31 @@ export function TaskWorkspace({
               />
             </span>
           )}
+          <button
+            type="button"
+            className="task-queue-settings"
+            aria-label={t('tasks.queueSettings')}
+            title={t('tasks.queueSettings')}
+            aria-haspopup="dialog"
+            onClick={() => setQueueSettingsOpen(true)}
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h8M16 18h4" />
+              <circle cx="16" cy="6" r="2" />
+              <circle cx="10" cy="12" r="2" />
+              <circle cx="14" cy="18" r="2" />
+            </svg>
+          </button>
           <div className="task-topbar-actions">
             {status?.state === 'RUNNING' ? (
               <button
@@ -1164,6 +1191,28 @@ export function TaskWorkspace({
           </aside>
         )}
       </div>
+
+      {queueSettingsOpen && payload && (
+        <QueueSettingsDialog
+          config={payload.config}
+          modelOptions={modelOptions}
+          defaultModelLabel={
+            defaultModel
+              ? (modelOptions.find(
+                  (option) =>
+                    option.provider === defaultModel.provider &&
+                    option.modelId === defaultModel.modelId
+                )?.name ?? defaultModel.modelId)
+              : null
+          }
+          onClose={() => setQueueSettingsOpen(false)}
+          onSaved={() => {
+            setQueueSettingsOpen(false);
+            setNotice(t('tasks.defaultsSaved'));
+            void refresh();
+          }}
+        />
+      )}
 
       <SidebarMenu
         open={menu !== null}
@@ -1433,7 +1482,9 @@ export function TaskWorkspace({
               setForm({ ...form, allowAskUser: event.target.value as TaskFormState['allowAskUser'] })
             }
           >
-            <option value="default">{t('tasks.inherit')}</option>
+            <option value="default">
+              {`${t('tasks.inherit')} (${payload?.config.allowAskUser ? t('tasks.enabled') : t('tasks.disabled')})`}
+            </option>
             <option value="yes">{t('tasks.enabled')}</option>
             <option value="no">{t('tasks.disabled')}</option>
           </select>
@@ -1446,7 +1497,9 @@ export function TaskWorkspace({
               setForm({ ...form, autoCommit: event.target.value as TaskFormState['autoCommit'] })
             }
           >
-            <option value="default">{t('tasks.inherit')}</option>
+            <option value="default">
+              {`${t('tasks.inherit')} (${payload?.config.autoCommit ? t('tasks.enabled') : t('tasks.disabled')})`}
+            </option>
             <option value="yes">{t('tasks.enabled')}</option>
             <option value="no">{t('tasks.disabled')}</option>
           </select>

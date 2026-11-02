@@ -352,9 +352,16 @@ override `verify_commands` and `auto_commit`.
 ```
 
 - `model` is the queue's own model for the next run, `{ "provider", "modelId" }` or `null` for Pi's
-  default. The board writes it through `PUT /api/tasks/config` (the chip in its header), the child
-  receives it as `--model provider/id`, and a run already in flight keeps the model it started with.
-  Nothing else in the file is written by the app: a single-field patch keeps the rest as it was.
+  default. The board writes it through `PUT /api/tasks/config` (the chip in its header, and the same
+  selector inside the queue defaults dialog), the child receives it as `--model provider/id`, and a
+  run already in flight keeps the model it started with.
+- The board's **Queue defaults** dialog (`components/QueueSettingsDialog.tsx`, opened from the slider
+  button beside the model chip) edits every default a task can inherit: the model, both timeouts (in
+  minutes, stored in milliseconds), the verification commands, `allowAskUser`, `autoCommit`, and the
+  commit message template. The route validates each field and writes only the ones it was sent, so a
+  patch never rewrites a field the dialog did not touch. A task form's "Use queue default" option
+  names the effective value (`Use queue default (Enabled)`), so the choice is readable without
+  opening the dialog.
 - Each command runs in the task's `cwd` through the platform shell (`cmd /c` on Windows, `sh -c`
   elsewhere), with the process tree killed on timeout. The timeout applies per command. Commands are the user's own configuration, so
   this is not an input-validation boundary; the file is written by the app or edited by the user,
@@ -424,6 +431,9 @@ delivered in two steps so the chat surface is never destabilized by a navigation
   the queued segment; duplicate and paste append a copy at the end and select it; copy keeps the
   editable fields in `localStorage`, so the clipboard survives a reload. On a phone the same menu is
   a bottom sheet, and an empty board's right-click offers "New task" and "Paste".
+- The queue defaults the form inherits from are edited in one dialog opened from the board's own
+  bar, next to the model chip: model, timeouts, verification commands, the question policy, the
+  commit choice, and the commit message template, with Save pinned while the body scrolls.
 - The working-directory field in that form is the chat shell's `DirectoryPicker` behind a "Choose
   folder" button, with the same validation call the composer uses. Typing a path works too: Save
   validates first, and a rejected directory leaves the form open with the reason under the field

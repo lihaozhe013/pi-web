@@ -162,6 +162,12 @@ test('an empty queue still offers the new-task control', () => {
   assert.match(markup, /New task/);
 });
 
+test('the queue defaults are reachable from the board', () => {
+  const markup = render(payload([task()]));
+  assert.match(markup, /aria-label="Queue settings"/);
+  assert.match(markup, /aria-haspopup="dialog"/);
+});
+
 test('every row offers its actions from a menu button', () => {
   const markup = render(payload([task(), task({ id: 2, title: 'Second', rank: 20 })]));
   // Each task renders once in the queue list and once on the board.

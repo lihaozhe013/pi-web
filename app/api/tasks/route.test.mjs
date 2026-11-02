@@ -232,3 +232,40 @@ test('the config route stores the queue model and can clear it', async () => {
   );
   assert.equal(invalid.status, 400);
 });
+
+test('the config route accepts the rest of the queue defaults and rejects bad numbers', async () => {
+  const saved = await config(
+    jsonRequest(
+      '/api/tasks/config',
+      {
+        verifyCommands: [' bun run typecheck ', ''],
+        verifyTimeoutMs: 120_000,
+        taskTimeoutMs: 1_800_000,
+        allowAskUser: true,
+        autoCommit: true,
+        commitMessage: 'chore(task): #{id} {title}'
+      },
+      'PUT'
+    )
+  );
+  assert.equal(saved.status, 200);
+  const savedConfig = (await saved.json()).config;
+  assert.deepEqual(savedConfig.verifyCommands, ['bun run typecheck']);
+  assert.equal(savedConfig.verifyTimeoutMs, 120_000);
+  assert.equal(savedConfig.taskTimeoutMs, 1_800_000);
+  assert.equal(savedConfig.allowAskUser, true);
+  assert.equal(savedConfig.autoCommit, true);
+  // A field the board did not send keeps its stored value.
+  assert.deepEqual(savedConfig.model, null);
+
+  const badTimeout = await config(
+    jsonRequest('/api/tasks/config', { taskTimeoutMs: 0 }, 'PUT')
+  );
+  assert.equal(badTimeout.status, 400);
+  assert.equal((await badTimeout.json()).code, 'invalid_input');
+
+  const emptyMessage = await config(
+    jsonRequest('/api/tasks/config', { commitMessage: '   ' }, 'PUT')
+  );
+  assert.equal(emptyMessage.status, 400);
+});
