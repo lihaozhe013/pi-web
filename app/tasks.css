@@ -495,6 +495,32 @@
   background: var(--bg-panel);
 }
 
+/* The typed path and the picker that can fill it in share one row. */
+.task-cwd-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.task-cwd-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-cwd-row .task-control {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.task-field input[aria-invalid='true'] {
+  border-color: var(--danger, #dc2626);
+}
+
+.task-field-error {
+  font-size: 11px;
+  color: var(--danger, #dc2626);
+}
+
 .task-hint {
   font-size: 11px;
   color: var(--text-dim);

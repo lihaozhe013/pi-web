@@ -6,7 +6,7 @@
  * routes can answer with the documented HTTP codes.
  */
 import { statSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { normalizeCwd } from '../cwd-path';
 import { getAllowedFileRoots, isExistingFilePathAllowed } from '../file-access';
 import { newClaimToken, type TaskStore } from './store';
 import type {
@@ -145,7 +145,7 @@ export class TaskQueue {
     if (typeof cwd !== 'string' || !cwd.trim()) {
       throw new TaskInputError('A working directory is required');
     }
-    const target = resolve(cwd.trim());
+    const target = normalizeCwd(cwd.trim());
     let stats;
     try {
       stats = statSync(target);

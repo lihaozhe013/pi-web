@@ -414,6 +414,10 @@ delivered in two steps so the chat surface is never destabilized by a navigation
 - The board: one row per task with a status marker, title, working directory, attempts, and elapsed
   time. Reordering by drag or by the arrow keys. Keyboard: `↑`/`↓` move within the queue, `Enter`
   edits, `Delete` removes, all disabled with an explanation while a row is running.
+- The working-directory field in that form is the chat shell's `DirectoryPicker` behind a "Choose
+  folder" button, with the same validation call the composer uses. Typing a path works too: Save
+  validates first, and a rejected directory leaves the form open with the reason under the field
+  instead of failing the create request.
 - Editing opens the task in the workspace's right-hand detail column, which keeps the three columns
   familiar: list on the left, work in the middle, detail on the right. The new-task form uses the
   same column, so the first task can be created from an empty board; a phone opens that column as a
@@ -476,7 +480,9 @@ disabled composer instead of breaking.
 - An unattended run is never the first thing to trust a repository's local extensions:
   `--no-approve` unless the directory is already trusted.
 - A task's `cwd` is validated like any other working directory and stays inside the same allow-list
-  the file routes use.
+  the file routes use. The form resolves a candidate through `POST /api/cwd/validate`, the endpoint
+  the chat shell already trusts, so a picked folder joins that allow-list and `~`/relative paths
+  resolve the same way in both places; `lib/cwd-path.ts` is the one spelling of that resolution.
 - The queue writes only inside its own database, its lock file, its agent sessions, and — when
   explicitly enabled — the task's repository index.
 - A verified task never becomes `DONE` because of a crashed process; a crash is always `FAILED`.

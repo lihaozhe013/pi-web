@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useI18n } from '@/hooks/useI18n';
 import { useMediaQuery } from '@/hooks/useIsMobile';
 import { AskUserPanel } from './AskUserPanel';
+import { DirectoryPicker } from './DirectoryPicker';
 import {
   detailPlacement,
   groupTasks,
@@ -121,12 +122,16 @@ export function TaskWorkspace({
   const [draft, setDraft] = useState<Draft>(null);
   const [form, setForm] = useState<TaskFormState>(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
+  const [cwdError, setCwdError] = useState<string | null>(null);
+  const [cwdChecking, setCwdChecking] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [output, setOutput] = useState('');
   const rowRefs = useRef(new Map<number, HTMLButtonElement>());
   const pendingFocusId = useRef<number | null>(null);
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const sheetReturnFocus = useRef<HTMLElement | null>(null);
+  const folderButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -269,6 +274,50 @@ export function TaskWorkspace({
     [refresh]
   );
 
+  /**
+   * Chat's own rule for a directory: `/api/cwd/validate` resolves `~` and
+   * relative paths, refuses a path that is not an existing directory, and
+   * allows the root for the file routes. The queue records the resolved path,
+   * so a directory the user picks here behaves like one picked for a session.
+   */
+  const validateCwdPath = useCallback(async (candidate: string): Promise<string | null> => {
+    setCwdError(null);
+    setCwdChecking(true);
+    try {
+      const response = await fetch('/api/cwd/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cwd: candidate })
+      });
+      const data = (await response.json().catch(() => ({}))) as { cwd?: string; error?: string };
+      if (!response.ok || data.error || !data.cwd) {
+        setCwdError(data.error ?? `HTTP ${response.status}`);
+        return null;
+      }
+      setForm((current) => ({ ...current, cwd: data.cwd as string }));
+      return data.cwd;
+    } catch (validateError) {
+      setCwdError(validateError instanceof Error ? validateError.message : String(validateError));
+      return null;
+    } finally {
+      setCwdChecking(false);
+    }
+  }, []);
+
+  const closePicker = useCallback((refocus = true) => {
+    setPickerOpen(false);
+    setCwdError(null);
+    if (refocus) requestAnimationFrame(() => folderButtonRef.current?.focus());
+  }, []);
+
+  const pickDirectory = useCallback(
+    async (path: string) => {
+      if (!(await validateCwdPath(path))) return;
+      closePicker();
+    },
+    [closePicker, validateCwdPath]
+  );
+
   // The sheet covers the board, so it remembers the control that opened it and
   // hands focus back there; a phone keyboard user is never left on the body.
   const openSheet = useCallback(() => {
@@ -290,6 +339,7 @@ export function TaskWorkspace({
   const startNewTask = useCallback(() => {
     const cwd = selected?.cwd ?? runningTask?.cwd ?? '';
     setForm({ ...EMPTY_FORM, cwd });
+    setCwdError(null);
     setDraft({ mode: 'new' });
     openSheet();
   }, [openSheet, runningTask?.cwd, selected?.cwd]);
@@ -298,6 +348,7 @@ export function TaskWorkspace({
     (task: TaskRecord) => {
       if (isTaskLocked(task)) return;
       setForm(taskForm(task));
+      setCwdError(null);
       setDraft({ mode: 'edit', taskId: task.id });
       setSelectedId(task.id);
       openSheet();
@@ -325,6 +376,9 @@ export function TaskWorkspace({
   }, [closeSheet, draft, placement]);
 
   const saveDraft = useCallback(async () => {
+    // A typed directory is resolved and allowed exactly like a picked one.
+    const cwd = await validateCwdPath(form.cwd);
+    if (!cwd) return;
     const verifyCommands = form.verifyCommands
       .split('\n')
       .map((line) => line.trim())
@@ -332,7 +386,7 @@ export function TaskWorkspace({
     const body: Record<string, unknown> = {
       title: form.title,
       description: form.description || null,
-      cwd: form.cwd,
+      cwd,
       verify_commands: verifyCommands,
       allow_ask_user: form.allowAskUser === 'default' ? null : form.allowAskUser === 'yes',
       auto_commit: form.autoCommit === 'default' ? null : form.autoCommit === 'yes'
@@ -345,6 +399,7 @@ export function TaskWorkspace({
       if (result?.task) {
         setSelectedId(result.task.id);
         setDraft(null);
+        setCwdError(null);
         setSheetOpen(true);
       }
       return;
@@ -354,9 +409,12 @@ export function TaskWorkspace({
         method: 'PATCH',
         body: JSON.stringify({ action: 'update', ...body })
       })) as { task?: TaskRecord } | null;
-      if (result?.task) setDraft(null);
+      if (result?.task) {
+        setDraft(null);
+        setCwdError(null);
+      }
     }
-  }, [call, draft, form]);
+  }, [call, draft, form, validateCwdPath]);
 
   const removeTask = useCallback(
     async (task: TaskRecord) => {
@@ -651,6 +709,18 @@ export function TaskWorkspace({
         )}
       </div>
 
+      {pickerOpen && (
+        <DirectoryPicker
+          title={t('tasks.chooseFolderTitle')}
+          description={t('tasks.chooseFolderDescription')}
+          initialPath={form.cwd.trim() || undefined}
+          busy={cwdChecking || busy}
+          error={cwdError}
+          onCancel={() => closePicker()}
+          onSelect={(path) => void pickDirectory(path)}
+        />
+      )}
+
       {placement === 'sheet' && (
         <div
           ref={sheetRef}
@@ -837,16 +907,45 @@ export function TaskWorkspace({
             onChange={(event) => setForm({ ...form, description: event.target.value })}
           />
         </label>
-        <label className="task-field">
-          <span>{t('tasks.cwdLabel')}</span>
-          <input
-            className="task-mono"
-            value={form.cwd}
-            required
-            onChange={(event) => setForm({ ...form, cwd: event.target.value })}
-          />
-          <span className="task-hint">{t('tasks.cwdHint')}</span>
-        </label>
+        <div className="task-field">
+          <label htmlFor="task-cwd">{t('tasks.cwdLabel')}</label>
+          <div className="task-cwd-row">
+            <input
+              id="task-cwd"
+              className="task-mono"
+              value={form.cwd}
+              required
+              aria-invalid={cwdError ? true : undefined}
+              aria-describedby={cwdError ? 'task-cwd-error' : 'task-cwd-hint'}
+              onChange={(event) => {
+                setCwdError(null);
+                setForm({ ...form, cwd: event.target.value });
+              }}
+            />
+            <button
+              ref={folderButtonRef}
+              type="button"
+              className="task-control"
+              data-task-action="choose-folder"
+              disabled={busy || cwdChecking}
+              onClick={() => {
+                setCwdError(null);
+                setPickerOpen(true);
+              }}
+            >
+              {t('tasks.chooseFolder')}
+            </button>
+          </div>
+          {cwdError ? (
+            <span className="task-field-error" id="task-cwd-error" role="alert">
+              {cwdError}
+            </span>
+          ) : (
+            <span className="task-hint" id="task-cwd-hint">
+              {t('tasks.cwdHint')}
+            </span>
+          )}
+        </div>
         <label className="task-field">
           <span>{t('tasks.verifyCommandsLabel')}</span>
           <textarea
