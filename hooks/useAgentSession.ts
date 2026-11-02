@@ -495,6 +495,8 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     contextWindow: number;
     tokens: number | null;
   } | null>(null);
+  const contextUsageRef = useRef(contextUsage);
+  contextUsageRef.current = contextUsage;
   // Active time read from the live state, with the session it belongs to: the
   // panel's snapshot is older than the transcript on screen, and this is what
   // keeps the value current while a run appends entries (#1334).
@@ -828,12 +830,49 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       )
         return;
       contextUsageAppliedIdRef.current = requestId;
-      if (state?.contextUsage !== undefined) setContextUsage(state.contextUsage ?? null);
+      if (state?.contextUsage !== undefined) {
+        let nextUsage = state.contextUsage ?? null;
+        const currentUsage =
+          typeof contextUsageRef !== 'undefined' ? contextUsageRef.current : null;
+        if (
+          nextUsage &&
+          nextUsage.tokens === null &&
+          currentUsage?.tokens !== null &&
+          currentUsage?.tokens !== undefined
+        ) {
+          const window = nextUsage.contextWindow || currentUsage.contextWindow;
+          nextUsage = {
+            tokens: currentUsage.tokens,
+            contextWindow: window,
+            percent:
+              window > 0 ? (currentUsage.tokens / window) * 100 : currentUsage.percent
+          };
+        }
+        if (typeof contextUsageRef !== 'undefined') {
+          contextUsageRef.current = nextUsage;
+        }
+        setContextUsage(nextUsage);
+      }
       if (typeof state?.totalActiveMs === 'number')
         setLiveTotalActiveMs({ sessionId: sid, value: state.totalActiveMs });
     },
     []
   );
+
+  const applyCompactedUsage = useCallback((estimatedTokensAfter: number) => {
+    const current =
+      typeof contextUsageRef !== 'undefined' ? contextUsageRef.current : null;
+    const window = current?.contextWindow ?? 0;
+    const nextUsage = {
+      tokens: estimatedTokensAfter,
+      contextWindow: window,
+      percent: window > 0 ? (estimatedTokensAfter / window) * 100 : null
+    };
+    if (typeof contextUsageRef !== 'undefined') {
+      contextUsageRef.current = nextUsage;
+    }
+    setContextUsage(nextUsage);
+  }, []);
 
   const refreshContextUsage = useCallback(
     async (sid: string) => {
@@ -2129,9 +2168,14 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
             setCompactError(event.errorMessage as string);
             setCompactResult(null);
           } else if (!event.aborted) {
-            setCompactResult(
-              readCompactResult(event.result, (event.reason as string | undefined) ?? 'auto')
+            const compact = readCompactResult(
+              event.result,
+              (event.reason as string | undefined) ?? 'auto'
             );
+            setCompactResult(compact);
+            if (compact && typeof compact.estimatedTokensAfter === 'number') {
+              applyCompactedUsage(compact.estimatedTokensAfter);
+            }
             if (sessionIdRef.current) loadSession(sessionIdRef.current);
           }
           break;
@@ -2145,6 +2189,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     },
     [
       addNotice,
+      applyCompactedUsage,
       applyLiveUsage,
       cancelEventStreamGrace,
       dispatch,
@@ -2564,7 +2609,11 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     setCompactResult(null);
     try {
       const result = await sendAgentCommand<CompactCommandResult>(sid, { type: 'compact' });
-      setCompactResult(readCompactResult(result, 'manual'));
+      const compactInfo = readCompactResult(result, 'manual');
+      setCompactResult(compactInfo);
+      if (compactInfo && typeof compactInfo.estimatedTokensAfter === 'number') {
+        applyCompactedUsage(compactInfo.estimatedTokensAfter);
+      }
       await loadSession(sid, true);
     } catch (e) {
       setCompactError(e instanceof Error ? e.message : String(e));
@@ -2572,7 +2621,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     } finally {
       setIsCompacting(false);
     }
-  }, [isCompacting, loadSession]);
+  }, [applyCompactedUsage, isCompacting, loadSession]);
 
   // The banner otherwise stays until the next compaction, e.g. "Nothing to compact".
   const dismissCompactError = useCallback(() => setCompactError(null), []);
@@ -2757,7 +2806,11 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
               type: 'compact',
               ...(args ? { customInstructions: args } : {})
             });
-            setCompactResult(readCompactResult(result, 'manual'));
+            const compactInfo = readCompactResult(result, 'manual');
+            setCompactResult(compactInfo);
+            if (compactInfo && typeof compactInfo.estimatedTokensAfter === 'number') {
+              applyCompactedUsage(compactInfo.estimatedTokensAfter);
+            }
             if (await loadSession(sid, true)) promoteNewSession();
             return complete({ handled: true, message: 'Compacted context' });
           }
@@ -2874,6 +2927,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     [
       activeLeafId,
       addNotice,
+      applyCompactedUsage,
       ensureNewSession,
       isCompacting,
       loadModels,

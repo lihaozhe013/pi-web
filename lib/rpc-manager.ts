@@ -417,6 +417,7 @@ export class AgentSessionWrapper {
   // Set when shutdown() starts. The SDK session stays usable until destroy(),
   // but lookups must treat the wrapper as gone from this point on.
   private closing = false;
+  private lastCompactedTokens: number | null = null;
 
   constructor(
     public readonly inner: AgentSessionLike,
@@ -513,6 +514,21 @@ export class AgentSessionWrapper {
         invalidateSessionListCache();
         // Every tool call of the run has finished; nothing is left to replay.
         this.activeToolEvents.clear();
+        if (this.inner.getContextUsage()?.tokens !== null && this.inner.getContextUsage()?.tokens !== undefined) {
+          this.lastCompactedTokens = null;
+        }
+      }
+      if (
+        (event.type === 'compaction_end' || event.type === 'auto_compaction_end') &&
+        !event.aborted &&
+        !event.errorMessage
+      ) {
+        const estimated = (
+          event.result as { estimatedTokensAfter?: unknown } | null | undefined
+        )?.estimatedTokensAfter;
+        if (typeof estimated === 'number') {
+          this.lastCompactedTokens = estimated;
+        }
       }
       // A name from setSessionName(), an extension's included: a title generated
       // in the background lands after the run's agent_end, a command's with no
@@ -1160,6 +1176,15 @@ export class AgentSessionWrapper {
         case 'get_state': {
           const model = this.inner.model;
           const contextUsage = this.inner.getContextUsage();
+          let tokens = contextUsage?.tokens ?? null;
+          let percent = contextUsage?.percent ?? null;
+          const contextWindow = contextUsage?.contextWindow ?? model?.contextWindow ?? 0;
+          if (tokens === null && this.lastCompactedTokens !== null && contextWindow > 0) {
+            tokens = this.lastCompactedTokens;
+            percent = (tokens / contextWindow) * 100;
+          } else if (tokens !== null) {
+            this.lastCompactedTokens = null;
+          }
           return {
             sessionId: this.inner.sessionId,
             sessionFile: this.inner.sessionFile ?? '',
@@ -1176,13 +1201,14 @@ export class AgentSessionWrapper {
               steering: [...this.inner.getSteeringMessages()],
               followUp: [...this.inner.getFollowUpMessages()]
             },
-            contextUsage: contextUsage
-              ? {
-                  percent: contextUsage.percent,
-                  contextWindow: contextUsage.contextWindow,
-                  tokens: contextUsage.tokens
-                }
-              : null,
+            contextUsage:
+              contextUsage || this.lastCompactedTokens !== null
+                ? {
+                    percent,
+                    contextWindow,
+                    tokens
+                  }
+                : null,
             // Computed from the live entries on every read, like `GET /api/sessions/[id]`
             // does for a snapshot: the SDK's stats carry no active time, and a panel that
             // kept a snapshot while messages streamed in showed the pre-gap value for the
@@ -1385,9 +1411,16 @@ export class AgentSessionWrapper {
 
         case 'compact': {
           try {
-            return await this.withFinalIdleReset(() =>
+            const result = await this.withFinalIdleReset(() =>
               this.inner.compact(command.customInstructions as string | undefined)
             );
+            const estimated = (
+              result as { estimatedTokensAfter?: unknown } | null | undefined
+            )?.estimatedTokensAfter;
+            if (typeof estimated === 'number') {
+              this.lastCompactedTokens = estimated;
+            }
+            return result;
           } finally {
             invalidateSessionListCache();
           }

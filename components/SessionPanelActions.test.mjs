@@ -116,9 +116,22 @@ test('the session numbers stay one quiet card that opens the details', () => {
   assert.match(html, /1\.2k/);
   assert.match(html, /12k/);
   assert.match(html, />\$0\.04</);
-  assert.match(html, /42% \/ 200k/);
+  assert.match(html, /84k \/ 200k/);
   assert.match(html, /class="panel-stats-bar-fill"[^>]*style="width:42%"/);
   assert.doesNotMatch(render({ stats: null }), /data-panel-action="stats"/);
+
+  const withTokens = render({
+    stats: {
+      tokens: null,
+      cost: 0,
+      contextTokens: 12500,
+      contextPercent: null,
+      contextWindow: 200000,
+      tooltip: ''
+    }
+  });
+  assert.match(withTokens, /12\.5k \/ 200k/);
+  assert.match(withTokens, /class="panel-stats-bar-fill"[^>]*style="width:6\.25%"/);
 });
 
 test('an unreadable context reports no percentage instead of a fake bar', () => {

@@ -206,3 +206,39 @@ test('each event stream connection reads usage, since connecting resumes an idle
     assert.deepEqual(reads, sid ? [sid] : []);
   }
 });
+
+test('applyCompactedUsage immediately updates context usage with estimated tokens', () => {
+  const writes = [];
+  const contextUsageRef = { current: { contextWindow: 200_000, percent: 50, tokens: 100_000 } };
+  const context = createContext({
+    contextUsageRef,
+    setContextUsage: (value) => writes.push(value)
+  });
+  const applyCompactedUsage = callback('applyCompactedUsage').runInContext(context);
+  applyCompactedUsage(20_000);
+  assert.deepEqual(JSON.parse(JSON.stringify(writes)), [{ tokens: 20_000, contextWindow: 200_000, percent: 10 }]);
+  assert.deepEqual(JSON.parse(JSON.stringify(contextUsageRef.current)), { tokens: 20_000, contextWindow: 200_000, percent: 10 });
+});
+
+test('applyLiveUsage preserves compacted tokens when post-compaction status has null tokens', () => {
+  const writes = [];
+  const contextUsageRef = { current: { contextWindow: 200_000, percent: 10, tokens: 20_000 } };
+  const context = createContext({
+    sessionHookMountedRef: { current: true },
+    sessionIdRef: { current: 'a' },
+    promptRunIdRef: { current: 1 },
+    contextUsageRequestIdRef: { current: 0 },
+    contextUsageAppliedIdRef: { current: 0 },
+    contextUsageRef,
+    setContextUsage: (value) => writes.push(value),
+    setLiveTotalActiveMs() {}
+  });
+  const applyLiveUsage = callback('applyLiveUsage').runInContext(context);
+  // Post-compaction state where SDK returns tokens: null, percent: null
+  applyLiveUsage({ contextUsage: { contextWindow: 200_000, percent: null, tokens: null } }, 'a', 1, 1);
+  assert.deepEqual(JSON.parse(JSON.stringify(writes)), [{ tokens: 20_000, contextWindow: 200_000, percent: 10 }]);
+
+  // Subsequent normal response with actual tokens updates as usual
+  applyLiveUsage({ contextUsage: { contextWindow: 200_000, percent: 12.5, tokens: 25_000 } }, 'a', 1, 2);
+  assert.deepEqual(JSON.parse(JSON.stringify(writes[1])), { tokens: 25_000, contextWindow: 200_000, percent: 12.5 });
+});

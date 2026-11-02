@@ -1551,8 +1551,14 @@ export function AppShell() {
     }
     if (contextUsage?.contextWindow) {
       const percent = contextUsage.percent;
+      const contextText =
+        contextUsage.tokens !== null
+          ? `${contextUsage.tokens.toLocaleString(locale)}${percent !== null ? ` (${percent.toFixed(1)}%)` : ''}`
+          : percent !== null
+            ? `${percent.toFixed(1)}%`
+            : 'unknown';
       parts.push(
-        `context: ${percent !== null ? percent.toFixed(1) + '%' : 'unknown'} of ${contextUsage.contextWindow.toLocaleString()} tokens`
+        `context: ${contextText} of ${contextUsage.contextWindow.toLocaleString(locale)} tokens`
       );
     }
     return parts.join('  |  ');
@@ -1621,6 +1627,7 @@ export function AppShell() {
               cost: sessionCost,
               contextPercent: contextUsage?.percent ?? null,
               contextWindow: contextUsage?.contextWindow ?? null,
+              contextTokens: contextUsage?.tokens ?? null,
               tooltip: sessionStatsTooltip
             }
           : null

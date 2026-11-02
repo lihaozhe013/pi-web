@@ -20,6 +20,7 @@ export interface SessionPanelStats {
   cost: number;
   contextPercent: number | null;
   contextWindow: number | null;
+  contextTokens?: number | null;
   /** The full breakdown, kept in the tooltip so the panel stays quiet. */
   tooltip: string;
 }
@@ -130,12 +131,23 @@ export function SessionPanelActions({
 }: SessionPanelActionsProps) {
   const { t } = useI18n();
 
+  const contextTokens =
+    stats?.contextTokens ??
+    (stats?.contextPercent !== null && stats?.contextPercent !== undefined && stats?.contextWindow
+      ? Math.round((stats.contextPercent / 100) * stats.contextWindow)
+      : null);
+  const contextPercent =
+    stats?.contextPercent ??
+    (stats?.contextTokens !== null && stats?.contextTokens !== undefined && stats?.contextWindow
+      ? (stats.contextTokens / stats.contextWindow) * 100
+      : null);
+
   const contextLevel =
-    stats?.contextPercent === null || stats?.contextPercent === undefined
+    contextPercent === null || contextPercent === undefined
       ? null
-      : stats.contextPercent > 90
+      : contextPercent > 90
         ? 'danger'
-        : stats.contextPercent > 70
+        : contextPercent > 70
           ? 'warn'
           : 'ok';
   const costText = stats ? formatCostShort(stats.cost) : null;
@@ -327,19 +339,19 @@ export function SessionPanelActions({
               </span>
             </span>
           </span>
-          {stats.contextPercent !== null && stats.contextWindow !== null && (
+          {contextTokens !== null && stats.contextWindow !== null && (
             <span className="panel-stats-context">
               <span className="panel-stats-context-row">
                 <span className="panel-stats-label">{t('session.context')}</span>
                 <span className="panel-stats-value" data-tone={contextLevel ?? undefined}>
-                  {stats.contextPercent.toFixed(0)}% / {formatCompactCount(stats.contextWindow)}
+                  {formatCompactCount(contextTokens)} / {formatCompactCount(stats.contextWindow)}
                 </span>
               </span>
               <span className="panel-stats-bar" aria-hidden="true">
                 <span
                   className="panel-stats-bar-fill"
                   data-tone={contextLevel ?? undefined}
-                  style={{ width: `${Math.min(100, Math.max(0, stats.contextPercent))}%` }}
+                  style={{ width: `${Math.min(100, Math.max(0, contextPercent ?? 0))}%` }}
                 />
               </span>
             </span>
