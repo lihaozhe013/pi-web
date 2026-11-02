@@ -21,6 +21,7 @@ import type { TaskOrchestrator } from './orchestrator';
 import { clipOutputTail, TaskQueue } from './queue';
 import { TASK_EVENT_PAGE_LIMIT, type TaskStore } from './store';
 import type {
+  OrchestratorStatus,
   QueueState,
   TaskConfig,
   TaskEvent,
@@ -38,10 +39,21 @@ export const TASK_MANAGER_TOOL_NAMES = [
   'task_control',
   'task_answer',
   'task_config',
+  'task_watch',
   'task_events'
 ] as const;
 
 export type TaskManagerToolName = (typeof TASK_MANAGER_TOOL_NAMES)[number];
+
+/** The queue state every result and digest describes. */
+export function queueSnapshot(status: OrchestratorStatus): TaskQueueSnapshot {
+  return {
+    state: status.state,
+    activeTaskId: status.activeTaskId,
+    pausedReason: status.pausedReason,
+    running: status.running
+  };
+}
 
 /** `task_events` waits at most this long, inside one tool call. */
 export const TASK_EVENTS_MAX_WAIT_MS = 50_000;
@@ -403,13 +415,7 @@ export class TaskTools {
   }
 
   private snapshot(): TaskQueueSnapshot {
-    const status = this.orchestrator.status();
-    return {
-      state: status.state,
-      activeTaskId: status.activeTaskId,
-      pausedReason: status.pausedReason,
-      running: status.running
-    };
+    return queueSnapshot(this.orchestrator.status());
   }
 
   /** The cursor read is best effort: a failure here must not hide the outcome. */
@@ -479,6 +485,35 @@ export function formatTaskToolResult(result: TaskToolResult): string {
       lines.push(`- ${describeEvent(event)}`);
     }
   }
+  return lines.join('\n');
+}
+
+/** What a watch costs and has left, so the digest can say when it ends. */
+export interface TaskWatchBudget {
+  wakes: number;
+  maxWakes: number;
+  startedAt: string;
+  maxDurationMs: number;
+}
+
+/**
+ * The one message a wake delivers: what changed, then the queue it changed to.
+ * It stays short on purpose; a watch that narrated activity would spend the
+ * user's tokens on lines that decide nothing.
+ */
+export function formatTaskEventDigest(
+  events: TaskEvent[],
+  queue: TaskQueueSnapshot,
+  budget?: TaskWatchBudget
+): string {
+  const lines = events.map((event) => `- ${describeEvent(event)}`);
+  const queueLine = [
+    `queue ${queue.state}`,
+    queue.activeTaskId !== null ? `task ${queue.activeTaskId} running` : null,
+    queue.pausedReason ? `paused: ${queue.pausedReason}` : null
+  ].filter((part): part is string => Boolean(part));
+  if (budget) queueLine.push(`wake ${budget.wakes} of ${budget.maxWakes}`);
+  lines.push(queueLine.join(', '));
   return lines.join('\n');
 }
 

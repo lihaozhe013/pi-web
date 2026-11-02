@@ -105,7 +105,7 @@ allow-list the board uses.
 | `task_control` | `action`, `id?`, `note?`                                          | `start`, `pause`, `resume`, `abort`, `retry`, `markDone`   |
 | `task_answer`  | `answer?`, `cancelled?`                                           | `orchestrator.answer`                                      |
 | `task_config`  | `get` \| `update` fields                                          | `lib/tasks/config.ts`, the Queue defaults dialog's data    |
-| `task_watch`   | `on` \| `off` \| `status`                                         | the extension's watch state                                |
+| `task_watch`   | `action`: `on` \| `off` \| `status`                               | the extension's watch state                                |
 | `task_events`  | `afterId?`, `waitMs?` (at most 50 s)                              | `store.listEventsSince`                                    |
 
 `task_control` carries the remaining board actions rather than adding a tool per button; the actions
@@ -229,6 +229,7 @@ Activity lines and tool-stream noise never do.
 | Origin filter  | Events whose `origin_session_id` is this session are not re-delivered; the tool result already showed them.                              |
 | Single watcher | One row in `task_manager_watch`. A second `task_watch: 'on'` from a live session is refused with the watcher's session id.               |
 | Restart        | A restart drops the watch and the liveness provider. The next session start replays the backlog as one digest with no triggered turn.    |
+| Stale row      | A watch row past its time or wake budget no longer blocks a new watcher; the session that opens it reclaims the row.                     |
 | Visible        | A "Watching" chip with a Stop control names the watching session; stopping the queue or the page does not silently keep spending tokens. |
 | Shutdown       | `session_shutdown` clears the polling timer and releases the liveness provider.                                                          |
 
