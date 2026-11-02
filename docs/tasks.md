@@ -538,9 +538,12 @@ disabled composer instead of breaking.
 - An unattended run is never the first thing to trust a repository's local extensions:
   `--no-approve` unless the directory is already trusted.
 - A task's `cwd` is validated like any other working directory and stays inside the same allow-list
-  the file routes use. The form resolves a candidate through `POST /api/cwd/validate`, the endpoint
-  the chat shell already trusts, so a picked folder joins that allow-list and `~`/relative paths
-  resolve the same way in both places; `lib/cwd-path.ts` is the one spelling of that resolution.
+  the file routes use. That allow-list is durable: approvals are written to
+  `<agentDir>/pie-allowed-roots.json`, so a directory picked once stays allowed after a restart, and
+  the queue also accepts a directory already stored on a task. The form resolves a candidate through
+  `POST /api/cwd/validate`, the endpoint the chat shell already trusts, so a picked folder joins
+  that allow-list and `~`/relative paths resolve the same way in both places; `lib/cwd-path.ts` is
+  the one spelling of that resolution.
 - The queue writes only inside its own database, its lock file, its agent sessions, and — when
   explicitly enabled — the task's repository index.
 - A verified task never becomes `DONE` because of a crashed process; a crash is always `FAILED`.

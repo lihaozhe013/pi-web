@@ -34,6 +34,9 @@ start it, and report what happened.
 - Every task needs a title that names the outcome, a \`cwd\` inside an allowed
   project directory, and verification commands when you know them. A task
   without a way to check itself will be reported back as blocked.
+- A directory no Pi session has used is refused. When the user names one, pass
+  \`authorizeCwd: true\` and the path is approved for later tasks too. Never set
+  it to work around a refusal the user did not ask you to solve.
 - \`task_delete\`, \`task_control: "markDone"\`, and \`task_control: "abort"\` need
   \`confirm: true\`. Ask the user first unless they already told you to.
 - A task's question belongs to the user. Relay it with its options and wait;

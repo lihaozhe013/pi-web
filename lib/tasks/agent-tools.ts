@@ -103,6 +103,8 @@ export interface TaskCreateParams {
   cwd: string;
   allowAskUser?: boolean | null;
   verifyCommands?: string[] | null;
+  /** Approve a directory the person named, instead of requiring the board first. */
+  authorizeCwd?: boolean;
 }
 
 export interface TaskUpdateParams extends Partial<TaskCreateParams> {
@@ -271,7 +273,8 @@ export class TaskTools {
         cwd: params.cwd,
         allowAskUser: params.allowAskUser ?? null,
         verifyCommands: params.verifyCommands ?? null,
-        createdBy: this.sessionId
+        createdBy: this.sessionId,
+        authorizeCwd: params.authorizeCwd === true
       });
       return { task: taskSummary(task) };
     });
@@ -285,7 +288,8 @@ export class TaskTools {
         description: params.description,
         cwd: params.cwd,
         allowAskUser: params.allowAskUser,
-        verifyCommands: params.verifyCommands
+        verifyCommands: params.verifyCommands,
+        authorizeCwd: params.authorizeCwd === true
       });
       return { task: taskSummary(task) };
     });

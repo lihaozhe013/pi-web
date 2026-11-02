@@ -93,20 +93,22 @@ chat behaving as before. `lib/tasks/active-sessions.ts` keeps its existing read-
 
 Ten tools, each mapped onto an existing queue operation. No tool contains SQL, and no tool accepts a
 path other than a working directory, which goes through `normalizeCwd` and the same file-access
-allow-list the board uses.
+allow-list the board uses. A directory no session has used yet is refused with a message naming the
+remedy; `authorizeCwd: true` approves the one the person named, and the approval is written to
+`<agentDir>/pie-allowed-roots.json` so it outlives the process.
 
-| Tool           | Arguments                                                         | Backing code                                               |
-| -------------- | ----------------------------------------------------------------- | ---------------------------------------------------------- |
-| `task_list`    | `status?`, `includeRuns?`                                         | `queue.listTasks`, the runs table, `orchestrator.status()` |
-| `task_create`  | `title`, `description`, `cwd`, `allowAskUser?`, `verifyCommands?` | `queue.createTask`                                         |
-| `task_update`  | `id`, the create fields                                           | `queue.updateTask`                                         |
-| `task_move`    | `id`, `direction` or `position`                                   | `queue.moveTask`                                           |
-| `task_delete`  | `id` \| `ids` \| `completed`, `confirm`                           | `queue.deleteTask`, `completedTaskIds`                     |
-| `task_control` | `action`, `id?`, `note?`                                          | `start`, `pause`, `resume`, `abort`, `retry`, `markDone`   |
-| `task_answer`  | `answer?`, `cancelled?`                                           | `orchestrator.answer`                                      |
-| `task_config`  | `update?`: the queue-default fields                               | `lib/tasks/config.ts`, the Queue defaults dialog's data    |
-| `task_watch`   | `action`: `on` \| `off` \| `status`                               | the extension's watch state                                |
-| `task_events`  | `afterId?`, `waitMs?` (at most 50 s)                              | `store.listEventsSince`                                    |
+| Tool           | Arguments                                                                          | Backing code                                               |
+| -------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `task_list`    | `status?`, `includeRuns?`                                                          | `queue.listTasks`, the runs table, `orchestrator.status()` |
+| `task_create`  | `title`, `description`, `cwd`, `authorizeCwd?`, `allowAskUser?`, `verifyCommands?` | `queue.createTask`                                         |
+| `task_update`  | `id`, the create fields                                                            | `queue.updateTask`                                         |
+| `task_move`    | `id`, `direction` or `position`                                                    | `queue.moveTask`                                           |
+| `task_delete`  | `id` \| `ids` \| `completed`, `confirm`                                            | `queue.deleteTask`, `completedTaskIds`                     |
+| `task_control` | `action`, `id?`, `note?`                                                           | `start`, `pause`, `resume`, `abort`, `retry`, `markDone`   |
+| `task_answer`  | `answer?`, `cancelled?`                                                            | `orchestrator.answer`                                      |
+| `task_config`  | `update?`: the queue-default fields                                                | `lib/tasks/config.ts`, the Queue defaults dialog's data    |
+| `task_watch`   | `action`: `on` \| `off` \| `status`                                                | the extension's watch state                                |
+| `task_events`  | `afterId?`, `waitMs?` (at most 50 s)                                               | `store.listEventsSince`                                    |
 
 `task_control` carries the remaining board actions rather than adding a tool per button; the actions
 are the queue controller's, so errors map to the same codes the board already handles
@@ -290,6 +292,9 @@ Policy, decided and recorded here:
   a custom preset, from a task's child process, or from any other project.
 - The agent uses the queue controller, so `cwd` validation, command length bounds, the one-running
   claim and the fencing tokens apply unchanged. No raw SQL passes through a tool.
+- Approving a directory is the one decision the agent can make that widens its own reach, so it is
+  explicit (`authorizeCwd`, allowed on create and on update), it is the person's directory by the
+  rule in `AGENTS.md`, and it is recorded in durable storage rather than in a hidden process cache.
 - A task's child process never loads the task manager extension: injection happens in the in-process
   session path only, and task children are spawned CLI processes that load `ask_user` and nothing
   from Pie's own extension factories.

@@ -62,6 +62,7 @@ const TASK_CONTROL_SCHEMA = Type.Union([
 const GUIDELINES = [
   'The queue runs one task at a time. Each tool result ends with the queue state and the events that happened since your last call; read them before deciding what to do next.',
   'Every task needs a title that names the outcome and a cwd inside an allowed project directory. Add verification commands when you know them.',
+  'If a directory has never been used, queue the task with authorizeCwd: true only when the user named that directory themselves. The flag approves the path; never set it to get past a refusal on your own.',
   'Ask the user before deleting a task, aborting a run, or marking work done without a run, and pass confirm: true only after they agree.'
 ];
 
@@ -346,6 +347,12 @@ export function createTaskManagerExtension(
               Type.String({ description: 'What to do, and anything the agent must know.' })
             ),
             cwd: Type.String({ description: 'The project directory the task runs in.' }),
+            authorizeCwd: Type.Optional(
+              Type.Boolean({
+                description:
+                  'Approve this exact directory when the user named it. Without it a directory no Pi session has used is refused. Never set it on your own.'
+              })
+            ),
             allowAskUser: Type.Optional(
               Type.Union([Type.Boolean(), Type.Null()], {
                 description:
@@ -379,6 +386,12 @@ export function createTaskManagerExtension(
             title: Type.Optional(Type.String()),
             description: Type.Optional(Type.Union([Type.String(), Type.Null()])),
             cwd: Type.Optional(Type.String()),
+            authorizeCwd: Type.Optional(
+              Type.Boolean({
+                description:
+                  'Approve the new directory when the user named it. Same rule as on task_create.'
+              })
+            ),
             allowAskUser: Type.Optional(Type.Union([Type.Boolean(), Type.Null()])),
             verifyCommands: Type.Optional(Type.Union([Type.Array(Type.String()), Type.Null()]))
           }),

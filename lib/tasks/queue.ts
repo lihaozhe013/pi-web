@@ -5,9 +5,10 @@
  * `store.ts`; this module adds the human-facing rules and typed errors so the
  * routes can answer with the documented HTTP codes.
  */
-import { statSync } from 'node:fs';
+import { realpathSync, statSync } from 'node:fs';
 import { normalizeCwd } from '../cwd-path';
-import { getAllowedFileRoots, isExistingFilePathAllowed } from '../file-access';
+import { allowFileRoot, getAllowedFileRoots, isExistingFilePathAllowed } from '../file-access';
+import { isPathWithinRoots } from '../path-security';
 import { newClaimToken, type TaskStore } from './store';
 import type {
   OrchestratorStatus,
@@ -27,6 +28,23 @@ export const TASK_DESCRIPTION_MAX_LENGTH = 20_000;
 export const TASK_COMMAND_MAX_LENGTH = 2_000;
 export const TASK_COMMAND_MAX_COUNT = 20;
 export const TASK_OUTPUT_TAIL_MAX_LENGTH = 8_000;
+
+/**
+ * A refused directory names the way out. The board's picker and the tool's
+ * `authorizeCwd` are the only two ways in, and a caller that sees this message
+ * can use the second one without asking a person to click first.
+ */
+export const TASK_CWD_NOT_ALLOWED_MESSAGE =
+  'The working directory is not allowed. Open it once in the task board, or queue the task with authorizeCwd: true.';
+
+/** The canonical path, so an approval covers the directory links point at. */
+function realPathOf(target: string): string {
+  try {
+    return realpathSync(target);
+  } catch {
+    return target;
+  }
+}
 
 /** The requested task is running: edit, delete, and reorder are refused. */
 export class TaskLockedError extends Error {
@@ -140,8 +158,12 @@ export class TaskQueue {
   /**
    * A working directory must exist and stay inside the same allow-list the file
    * routes use. No other client-supplied path is accepted anywhere in the queue.
+   *
+   * `authorize` is only ever set from a tool call, after the person named the
+   * directory; it records the approval for the next process instead of asking
+   * the person to click through the board first.
    */
-  async validateCwd(cwd: unknown): Promise<string> {
+  async validateCwd(cwd: unknown, options: { authorize?: boolean } = {}): Promise<string> {
     if (typeof cwd !== 'string' || !cwd.trim()) {
       throw new TaskInputError('A working directory is required');
     }
@@ -154,10 +176,22 @@ export class TaskQueue {
     }
     if (!stats.isDirectory()) throw new TaskInputError('The working directory must be a directory');
     const roots = await this.allowedRoots();
-    if (!isExistingFilePathAllowed(target, roots)) {
-      throw new TaskInputError('The working directory is not an allowed project directory');
+    if (isExistingFilePathAllowed(target, roots) || this.usesOwnTaskCwd(target)) return target;
+    if (options.authorize === true) {
+      allowFileRoot(realPathOf(target));
+      return target;
     }
-    return target;
+    throw new TaskInputError(TASK_CWD_NOT_ALLOWED_MESSAGE);
+  }
+
+  /**
+   * A directory the queue already stores on a task was authorized when that task
+   * was queued, so it stays authorized after a restart, before any file route
+   * has looked at it. The trust is the queue's own durable rows.
+   */
+  private usesOwnTaskCwd(target: string): boolean {
+    const roots = new Set(this.store.listTasks().map((task) => task.cwd));
+    return roots.size > 0 && isPathWithinRoots(target, roots);
   }
 
   listTasks(): TaskRecord[] {
@@ -192,7 +226,7 @@ export class TaskQueue {
   async createTask(input: TaskCreateInput): Promise<TaskRecord> {
     const title = cleanTitle(input?.title);
     const description = cleanDescription(input?.description);
-    const cwd = await this.validateCwd(input?.cwd);
+    const cwd = await this.validateCwd(input?.cwd, { authorize: input?.authorizeCwd === true });
     return this.store.insertTask({
       title,
       description,
@@ -213,7 +247,7 @@ export class TaskQueue {
     if (input?.title !== undefined) fields.title = cleanTitle(input.title);
     if (input?.description !== undefined) fields.description = cleanDescription(input.description);
     if (input?.cwd !== undefined) {
-      fields.cwd = await this.validateCwd(input.cwd);
+      fields.cwd = await this.validateCwd(input.cwd, { authorize: input?.authorizeCwd === true });
     }
     if (input?.allowAskUser !== undefined) {
       fields.allowAskUser = cleanOptionalBoolean(input.allowAskUser, 'allow_ask_user');

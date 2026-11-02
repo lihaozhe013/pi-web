@@ -151,6 +151,11 @@ export interface TaskCreateInput {
   verifyCommands?: string[] | null;
   /** Set by the orchestrator's tool, so the board can mark who queued the work. */
   createdBy?: string | null;
+  /**
+   * Record the directory as approved instead of refusing it. Set only by a tool
+   * call, after the person named the directory; the board has its own picker.
+   */
+  authorizeCwd?: boolean;
 }
 
 export interface TaskUpdateInput {
@@ -159,6 +164,8 @@ export interface TaskUpdateInput {
   cwd?: string;
   allowAskUser?: boolean | null;
   verifyCommands?: string[] | null;
+  /** As on create: approve a directory the person named. */
+  authorizeCwd?: boolean;
 }
 
 export interface TaskMoveAction {
