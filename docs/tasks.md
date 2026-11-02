@@ -17,8 +17,11 @@ subagent/queue feature. This document replaces that part of the boundary with a 
 
 - **Allowed:** one serial queue, one active task at a time, executed as a Pi CLI child process
   driven over Pi's own RPC protocol.
+- **Allowed:** one management surface for that queue, described in [Task manager](task-manager.md):
+  an ordinary chat session in its own project whose tools read and change the queue. It controls the
+  queue, not agents.
 - **Still refused:** parallel execution, agent profiles, worktrees, a second agent protocol,
-  subagent control tools, and any orchestration of Pi internals.
+  subagent spawning or control, and any orchestration of Pi internals.
 
 The queue owns scheduling, persistence, and progress reporting. It owns no agent capability: it
 starts the installed Pi CLI and speaks Pi's documented RPC records. Deleting `lib/tasks`,
@@ -596,6 +599,21 @@ imports, so a portable install can start the same child.
 - A task's terminal state is written with its run record in one transaction.
 - Killing the server leaves no live child process.
 - The chat experience and the Pi agent runtime keep working if the queue is deleted.
+
+## Agent orchestration
+
+The queue is operated by a person from `?mode=tasks`. [Task manager](task-manager.md) adds the
+second operator: a chat session in a dedicated project with queue tools and a durable event feed. It
+is planned, not built.
+
+What it does not change here:
+
+- The queue still owns scheduling. The session's tools call the same `QueueController`, so the
+  guards in this document apply to both operators.
+- The interface stays two modes. The manager is a chat session, so `?mode=tasks` and the queue board
+  keep working unchanged, and a session in another project never sees the tools.
+- The queue remains deletable: the feature lives in one extension factory, one project module and
+  one tool module, plus the tool list's one entry point in `lib/rpc-manager.ts`.
 
 ## Open decisions already settled
 

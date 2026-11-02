@@ -10,24 +10,25 @@ sessions in process; Bun manages dependencies and script invocation.
 
 ## Main entry points
 
-| Area                     | Entry points                                                       |
-| ------------------------ | ------------------------------------------------------------------ |
-| Layout and navigation    | `components/AppShell.tsx`                                          |
-| Session list             | `components/SessionSidebar.tsx`                                    |
-| Conversation and input   | `components/ChatWindow.tsx`, `components/ChatInput.tsx`            |
-| Composer hub             | `components/ComposerHub.tsx`, `components/GoalToggle.tsx`          |
-| Transcript rendering     | `components/MessageView.tsx`, `components/MarkdownBody.tsx`        |
-| Run history              | `components/ExecutionHistoryPanel.tsx`, `lib/execution-history.ts` |
-| Turn copy                | `lib/turn-copy.ts`, `components/TurnCopy.tsx`                      |
-| Client session lifecycle | `hooks/useAgentSession.ts`                                         |
-| Agent runtime            | `lib/rpc-manager.ts`                                               |
-| Saved session reading    | `lib/session-reader.ts`                                            |
-| Shared types             | `lib/types.ts`, `lib/pi-types.ts`                                  |
-| Task queue               | `lib/tasks/`, `app/api/tasks/`, `components/TaskWorkspace.tsx`     |
-| HTTP APIs                | `app/api/`                                                         |
-| Local launcher           | `bin/pie.js`                                                       |
-| Portable packaging       | `packaging/`                                                       |
-| Desktop shell            | `src-tauri/`, `packaging/desktop.mjs`                              |
+| Area                     | Entry points                                                                                |
+| ------------------------ | ------------------------------------------------------------------------------------------- |
+| Layout and navigation    | `components/AppShell.tsx`                                                                   |
+| Session list             | `components/SessionSidebar.tsx`                                                             |
+| Conversation and input   | `components/ChatWindow.tsx`, `components/ChatInput.tsx`                                     |
+| Composer hub             | `components/ComposerHub.tsx`, `components/GoalToggle.tsx`                                   |
+| Transcript rendering     | `components/MessageView.tsx`, `components/MarkdownBody.tsx`                                 |
+| Run history              | `components/ExecutionHistoryPanel.tsx`, `lib/execution-history.ts`                          |
+| Turn copy                | `lib/turn-copy.ts`, `components/TurnCopy.tsx`                                               |
+| Client session lifecycle | `hooks/useAgentSession.ts`                                                                  |
+| Agent runtime            | `lib/rpc-manager.ts`                                                                        |
+| Saved session reading    | `lib/session-reader.ts`                                                                     |
+| Shared types             | `lib/types.ts`, `lib/pi-types.ts`                                                           |
+| Task queue               | `lib/tasks/`, `app/api/tasks/`, `components/TaskWorkspace.tsx`                              |
+| Task manager (planned)   | `lib/task-manager-extension.ts`, `lib/tasks/agent-tools.ts`, `lib/tasks/manager-project.ts` |
+| HTTP APIs                | `app/api/`                                                                                  |
+| Local launcher           | `bin/pie.js`                                                                                |
+| Portable packaging       | `packaging/`                                                                                |
+| Desktop shell            | `src-tauri/`, `packaging/desktop.mjs`                                                       |
 
 `AppShell` owns the page frame for both views: the session sidebar, the toolbar with the
 `Chat | Tasks` switch, the center column, and one resizable right-hand panel. The center renders the
@@ -75,10 +76,11 @@ model is selected again. Pi CLI sharing the agent directory does not apply the c
 
 ## Product boundary
 
-Pie hosts ordinary Pi SDK sessions. It does not register subagent control tools, maintain agent
-profiles, or create Git worktrees. There are no subagent HTTP routes or specialized transcript
-viewers. Installed extensions follow Pi's normal loading semantics and render through generic tool
-and extension UI paths.
+Pie hosts ordinary Pi SDK sessions. It does not spawn or control subagents, maintain agent profiles,
+or create Git worktrees. There are no subagent HTTP routes or specialized transcript viewers.
+Installed extensions follow Pi's normal loading semantics and render through generic tool and
+extension UI paths. The one tool surface Pie registers itself is the queue's management tools in
+[Task manager](task-manager.md); they act on the serial queue, not on agents.
 
 One scheduled surface exists: the serial task queue in [Tasks](tasks.md). It never runs two tasks at
 once, never reuses a session between tasks, and speaks only Pi's RPC records to a Pi CLI child
@@ -103,7 +105,7 @@ extension UI sub-protocol, so the tool keeps one implementation for both the in-
 and a task child. The queue owns no model behavior: prompts, tools, models, and extensions are Pi's,
 resolved from the same agent directory chat uses.
 
-Configuration, the queue lock, and the only chat-side contact point stay small:
+Configuration, the queue lock, and the chat-side contact points stay small:
 `<agentDir>/pie-task-orchestrator.json` holds the queue defaults and is re-read per run,
 `<agentDir>/pie-tasks.lock` is the `proper-lockfile` lock that keeps one process driving the queue,
 and `lib/tasks/active-sessions.ts` is an in-memory set of session ids. `GET /api/agent/running` and
@@ -113,6 +115,12 @@ route refuses a prompt for a session in the set. `lib/tasks/config.ts` owns the 
 verification commands, and `lib/tasks/request.ts` the route validation and error mapping.
 `instrumentation-node.ts` uses the same shutdown signal to abort the active child and settle its
 task.
+
+The planned [task manager](task-manager.md) adds a third contact point: `lib/rpc-manager.ts` loads
+one extension factory when the session's working directory is `<agentDir>/task-manager`, so that
+project's chat sessions get the queue tools. The tools call the same controller the board uses, and
+the extension reads the queue's event table through the same polling design. Nothing else in the
+runtime learns that the feature exists.
 
 Session catalog entries are grouped by their recorded working directory. Directory validation and
 model lookup do not inspect Git or infer a replacement directory for a missing checkout. A missing
