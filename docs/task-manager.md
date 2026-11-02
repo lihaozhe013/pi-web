@@ -203,23 +203,30 @@ transition the next time it acts.
 
 ### Push: `task_watch`
 
-`task_watch: 'on'` makes the extension do three things:
+`task_watch: 'on'` makes the extension do four things:
 
-1. Poll `task_events` every 1.5 s, the same polling design the board uses.
-2. Coalesce new events into one digest and deliver it with
+1. Poll `task_events` every 1.5 s, the same polling design the board uses, and **peek**: the cursor
+   only advances after a digest is actually sent.
+2. Send only while the session is idle. A digest delivered with `deliverAs: 'followUp'` to a session
+   that is mid-turn is parked in the agent's follow-up queue and arrives with the next prompt, hours
+   later and no longer true. The watch waits for the turn to end and the events are still unseen.
+3. Coalesce new events into one digest and deliver it with
    `pi.sendMessage({ customType: 'pie-task-event', content, display: true }, { triggerTurn: true, deliverAs: 'followUp' })`.
    The custom message is in the model's context and in the transcript, so the user can see what woke
    the agent.
-3. Register `registerSessionLivenessProvider({ name: 'task-manager-watch', isActive })` so the ten
+4. Register `registerSessionLivenessProvider({ name: 'task-manager-watch', isActive })` so the ten
    minute idle eviction does not end the watch.
 
-A digest is one short block, for example:
+A digest is one short block: the events, then the queue as it was when the digest was written.
 
 ```
-Task 7 "Add the login form" finished: DONE.
-Verification: bun run typecheck (exit 0).
-Queue: RUNNING, next task 8. Wake 3 of 100.
+- settled task 7 DONE: bun run typecheck passed
+queue RUNNING, task 8 running, wake 3 of 100, as of 2026-01-01T14:35:12.000Z
 ```
+
+The `as of` time is there because the queue state in a digest is a snapshot, and a late delivery
+must not read as current. The tools are ground truth: the tool guidelines tell the agent to call
+`task_list` before answering, and `task_events` with `afterId` always recovers a missed batch.
 
 Only decision points wake the agent: claim, settle, question, queue pause/resume/idle, abort.
 Activity lines and tool-stream noise never do.
@@ -227,14 +234,16 @@ Activity lines and tool-stream noise never do.
 | Guardrail      | Rule                                                                                                                                     |
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | Explicit start | Watch begins only through `task_watch: 'on'` or `task_control: 'start'`. Reopening a session never resumes it.                           |
-| Budget         | 100 wakes or 2 hours per watch, whichever comes first. Reaching it delivers a final "watch ended" digest and stops.                      |
-| Natural end    | When the queue is `IDLE` with no pending or running task, the final digest is delivered and the watch stops.                             |
+| Idle session   | A wake is only sent while the session is idle; a busy session keeps its events unseen until its turn ends.                               |
+| Budget         | 100 wakes or 2 hours per watch, whichever comes first. Reaching it leaves a "watch ended" note and stops.                                |
+| Natural end    | Once the watch has seen work, an `IDLE` queue with no pending or running task ends it at the next poll, even when nothing new happened.  |
 | Origin filter  | Events whose `origin_session_id` is this session are not re-delivered; the tool result already showed them.                              |
 | Single watcher | One row in `task_manager_watch`. A second `task_watch: 'on'` from a live session is refused with the watcher's session id.               |
 | Restart        | A restart drops the watch and the liveness provider. The next session start replays the backlog as one digest with no triggered turn.    |
 | Stale row      | A watch row past its time or wake budget no longer blocks a new watcher; the session that opens it reclaims the row.                     |
 | Visible        | A "Watching" chip with a Stop control names the watching session; stopping the queue or the page does not silently keep spending tokens. |
 | Shutdown       | `session_shutdown` clears the polling timer and releases the liveness provider.                                                          |
+| No extra turn  | Ending a watch appends a note without `triggerTurn`; only a wake spends a turn.                                                          |
 
 The rejected alternative was a long-poll-only design (`task_events` with `waitMs`) as the sole
 channel. It works inside one turn but costs a model round trip per wait and cannot do anything while

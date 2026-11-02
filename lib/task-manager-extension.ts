@@ -63,7 +63,8 @@ const GUIDELINES = [
   'The queue runs one task at a time. Each tool result ends with the queue state and the events that happened since your last call; read them before deciding what to do next.',
   'Every task needs a title that names the outcome and a cwd inside an allowed project directory. Add verification commands when you know them.',
   'If a directory has never been used, queue the task with authorizeCwd: true only when the user named that directory themselves. The flag approves the path; never set it to get past a refusal on your own.',
-  'Ask the user before deleting a task, aborting a run, or marking work done without a run, and pass confirm: true only after they agree.'
+  'Ask the user before deleting a task, aborting a run, or marking work done without a run, and pass confirm: true only after they agree.',
+  'A queue event digest is a snapshot, and a wake arrives when the turn allows it. Call task_list before you answer, and trust the tool over any text.'
 ];
 
 export interface TaskManagerExtensionOptions {
@@ -80,6 +81,10 @@ interface ActiveWatch {
   startedAt: number;
   timer: ReturnType<typeof setInterval>;
   releaseLiveness: () => void;
+  /** A wake only wakes an idle session; a busy one gets it at its next prompt. */
+  isIdle: () => boolean;
+  /** Whether this watch has seen the queue busy; only then does idle end it. */
+  sawWork: boolean;
 }
 
 interface WatchOutcome {
@@ -150,13 +155,13 @@ export function createTaskManagerExtension(
         };
       };
 
-      const queueIsIdle = (): boolean => {
-        const state = orchestrator().queue.getQueueState();
-        if (state.state !== 'IDLE') return false;
-        return orchestrator()
+      const queueHasWork = (): boolean =>
+        orchestrator()
           .queue.listTasks()
-          .every((task) => task.status !== 'PENDING' && task.status !== 'IN_PROGRESS');
-      };
+          .some((task) => task.status === 'PENDING' || task.status === 'IN_PROGRESS');
+
+      const queueIsIdle = (): boolean =>
+        orchestrator().queue.getQueueState().state === 'IDLE' && !queueHasWork();
 
       /** Release the timer and the liveness provider, then forget the row. */
       const stopWatch = (sessionId: string): void => {
@@ -169,21 +174,19 @@ export function createTaskManagerExtension(
       };
 
       /**
-       * Stop and tell the model why. Used for a budget or an idle queue, not for
-       * an explicit stop: a person who says stop does not need a turn to hear it.
+       * Stop and leave a note in the transcript. The note never starts a turn:
+       * ending a watch is bookkeeping, and the digest that came before it is
+       * what the model has to answer.
        */
       const endWatch = (sessionId: string, reason: string): void => {
         const row = store().getWatch();
         const wakes = row?.wakes ?? 0;
         stopWatch(sessionId);
-        pi.sendMessage(
-          {
-            customType: TASK_EVENT_CUSTOM_TYPE,
-            content: `Task watch ended (${reason}) after ${wakes} of ${maxWakes} wakes. Ask for it again with task_watch: "on".`,
-            display: true
-          },
-          { triggerTurn: true, deliverAs: 'followUp' }
-        );
+        pi.sendMessage({
+          customType: TASK_EVENT_CUSTOM_TYPE,
+          content: `Task watch ended (${reason}) after ${wakes} of ${maxWakes} wakes. Ask for it again with task_watch: "on".`,
+          display: true
+        });
       };
 
       /**
@@ -205,23 +208,40 @@ export function createTaskManagerExtension(
             endWatch(sessionId, 'time budget');
             return;
           }
-          const page = store().readSessionEvents(sessionId);
-          const events = page.events.filter((event) => event.originSessionId !== sessionId);
-          if (events.length === 0) return;
+          if (!queueIsIdle()) watch.sawWork = true;
 
-          if ((row?.wakes ?? 0) >= maxWakes) {
+          // Peek first: a wake that is not sent (busy session, spent budget) must
+          // not consume the events, or the agent's own tool call never sees them.
+          const events = store()
+            .peekSessionEvents(sessionId)
+            .filter((event) => event.originSessionId !== sessionId);
+          if (events.length === 0) {
+            // A queue that drained is not worth another poll, and a watch that has
+            // never seen work stays put instead of ending the moment it starts.
+            if (queueIsIdle() && watch.sawWork) endWatch(sessionId, 'queue idle');
+            return;
+          }
+
+          if (row.wakes >= maxWakes) {
             endWatch(sessionId, 'wake budget');
             return;
           }
 
+          // `followUp` on a streaming session parks the message in the agent's
+          // queue until the next prompt, so it arrives late and stale. Wait for
+          // the turn to end and this tick will find the events still unseen.
+          if (!watch.isIdle()) return;
+
           const digest = formatTaskEventDigest(events, snapshot(), {
             ...budget(),
-            wakes: (row?.wakes ?? 0) + 1
+            wakes: row.wakes + 1,
+            at: new Date(now()).toISOString()
           });
           pi.sendMessage(
             { customType: TASK_EVENT_CUSTOM_TYPE, content: digest, display: true },
             { triggerTurn: true, deliverAs: 'followUp' }
           );
+          store().setEventCursor(sessionId, events[events.length - 1].id);
           const bumped = store().bumpWatchWakes();
 
           if ((bumped?.wakes ?? 0) >= maxWakes) {
@@ -262,7 +282,15 @@ export function createTaskManagerExtension(
         });
         const timer = setInterval(() => tick(sessionId), pollMs);
         timer.unref?.();
-        watch = { sessionId, sessionFile: ctx.sessionManager.getSessionFile(), startedAt: now(), timer, releaseLiveness };
+        watch = {
+          sessionId,
+          sessionFile: ctx.sessionManager.getSessionFile(),
+          startedAt: now(),
+          timer,
+          releaseLiveness,
+          isIdle: () => ctx.isIdle(),
+          sawWork: !queueIsIdle()
+        };
         return {
           ok: true,
           watch: { sessionId, startedAt, wakes: 0, maxWakes, maxDurationMs }

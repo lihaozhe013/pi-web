@@ -500,6 +500,8 @@ export interface TaskWatchBudget {
   maxWakes: number;
   startedAt: string;
   maxDurationMs: number;
+  /** When the digest was written, so a late delivery cannot read as current. */
+  at?: string;
 }
 
 /**
@@ -519,6 +521,7 @@ export function formatTaskEventDigest(
     queue.pausedReason ? `paused: ${queue.pausedReason}` : null
   ].filter((part): part is string => Boolean(part));
   if (budget) queueLine.push(`wake ${budget.wakes} of ${budget.maxWakes}`);
+  if (budget?.at) queueLine.push(`as of ${budget.at}`);
   lines.push(queueLine.join(', '));
   return lines.join('\n');
 }

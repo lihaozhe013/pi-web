@@ -489,6 +489,14 @@ export class TaskStore {
   }
 
   /**
+   * The events a session has not seen, without moving its cursor. A watcher
+   * peeks first so a wake it decides not to send cannot consume an event.
+   */
+  peekSessionEvents(sessionId: string, limit = TASK_EVENT_PAGE_LIMIT): TaskEvent[] {
+    return this.listEventsSince(this.getEventCursor(sessionId), limit);
+  }
+
+  /**
    * Read what a session has not seen yet and advance its cursor in the same
    * transaction, so two concurrent reads never deliver the same event twice.
    */
