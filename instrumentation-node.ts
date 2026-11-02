@@ -1,5 +1,6 @@
 import { configureHttpDispatcher, readHttpIdleTimeoutMs } from '@/lib/http-dispatcher';
 import { closeAllAgentEventStreams } from '@/lib/agent-event-stream';
+import { shutdownActiveTaskOrchestrator } from '@/lib/tasks/orchestrator';
 
 export function registerNodeInstrumentation(): void {
   // The pi CLI applies settings' `httpIdleTimeoutMs` to the same undici
@@ -14,6 +15,15 @@ export function registerNodeInstrumentation(): void {
   const shutdownStreams = () => closeAllAgentEventStreams();
   process.on('SIGINT', shutdownStreams);
   process.on('SIGTERM', shutdownStreams);
+
+  // A bounded task child must not outlive the server that owns it: kill the
+  // active child and settle its task before the process goes away. This creates
+  // no orchestrator when the queue was never used.
+  const shutdownTasks = () => {
+    void shutdownActiveTaskOrchestrator().catch(() => {});
+  };
+  process.on('SIGINT', shutdownTasks);
+  process.on('SIGTERM', shutdownTasks);
 
   // Next evaluates a route's code on its first request, so the first
   // /api/sessions used to pay for importing the whole pi SDK, seconds on

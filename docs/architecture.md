@@ -29,6 +29,14 @@ sessions in process; Bun manages dependencies and script invocation.
 | Portable packaging       | `packaging/`                                                       |
 | Desktop shell            | `src-tauri/`, `packaging/desktop.mjs`                              |
 
+`AppShell` owns the page frame for both views: the session sidebar, the toolbar with the
+`Chat | Tasks` switch, the center column, and one resizable right-hand panel. The center renders the
+conversation or the task work surface from `components/TaskWorkspace.tsx`; the right panel renders
+Runs in chat and the task Queue in `?mode=tasks`. The sidebar and toolbar are not rebuilt, so the
+task view keeps the session list and the Settings entry in place. `TaskWorkspace` owns the queue
+state and portals its list into the right panel, which keeps that panel full height beside the
+center instead of nesting it in the work surface.
+
 ## Browser appearance and settings
 
 `components/SettingsPanel.tsx` owns modal navigation and result focus; `AppearanceSettings.tsx` owns
@@ -92,6 +100,16 @@ Run controls travel as RPC commands (`abort`), and `ask_user` reaches the browse
 extension UI sub-protocol, so the tool keeps one implementation for both the in-process chat session
 and a task child. The queue owns no model behavior: prompts, tools, models, and extensions are Pi's,
 resolved from the same agent directory chat uses.
+
+Configuration, the queue lock, and the only chat-side contact point stay small:
+`<agentDir>/pie-task-orchestrator.json` holds the queue defaults and is re-read per run,
+`<agentDir>/pie-tasks.lock` is the `proper-lockfile` lock that keeps one process driving the queue,
+and `lib/tasks/active-sessions.ts` is an in-memory set of session ids. `GET /api/agent/running` and
+`GET /api/sessions` include those ids so the composer in chat mode can disable itself, and the agent
+route refuses a prompt for a session in the set. `lib/tasks/config.ts` owns the defaults,
+`lib/tasks/gate.ts` the verification commands, `lib/tasks/git.ts` the optional commit, and
+`lib/tasks/request.ts` the route validation and error mapping. `instrumentation-node.ts` uses the
+same shutdown signal to abort the active child and settle its task.
 
 Session catalog entries are grouped by their recorded working directory. Directory validation and
 model lookup do not inspect Git or infer a replacement directory for a missing checkout. A missing

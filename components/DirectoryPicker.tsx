@@ -19,6 +19,9 @@ interface BrowseResponse {
 interface Props {
   onCancel: () => void;
   onSelect: (path: string) => void;
+  /** A caller that is not adding a project says what the folder is for. */
+  title?: string;
+  description?: string;
   /** Back to the choices this picker is one step of; no button is shown without it. */
   onBack?: () => void;
   initialPath?: string;
@@ -47,6 +50,8 @@ export function DirectoryPicker({
   onCancel,
   onSelect,
   onBack,
+  title,
+  description,
   initialPath,
   busy = false,
   error
@@ -280,8 +285,10 @@ export function DirectoryPicker({
               </button>
             )}
             <div>
-              <h2 id="directory-picker-title">{t('directoryPicker.openProject')}</h2>
-              <p id="directory-picker-description">{t('directoryPicker.description')}</p>
+              <h2 id="directory-picker-title">{title ?? t('directoryPicker.openProject')}</h2>
+              <p id="directory-picker-description">
+                {description ?? t('directoryPicker.description')}
+              </p>
             </div>
           </div>
           <button

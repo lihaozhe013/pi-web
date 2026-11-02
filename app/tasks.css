@@ -1,0 +1,1068 @@
+/*
+ * Task workspace: one queue rail and one work surface, sharing the app's
+ * sidebar and toolbar. The rail is the list of work; the surface reads the
+ * selected task instead of repeating the list in a second column.
+ */
+
+.task-workspace {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* ── The queue's bar ─────────────────────────────────────────────────────── */
+
+.task-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--workspace-line, var(--border));
+  background: var(--bg);
+}
+
+.task-header-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.task-header-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.task-header-state::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-dim);
+}
+
+.task-header-state[data-state='RUNNING'] {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
+}
+
+.task-header-state[data-state='RUNNING']::before {
+  background: var(--accent);
+  animation: task-pulse 1.4s ease-in-out infinite;
+}
+
+.task-header-state[data-state='PAUSED'] {
+  color: var(--text);
+}
+
+.task-header-notice {
+  overflow: hidden;
+  color: var(--accent);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-header-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  min-width: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.task-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding-left: 10px;
+  margin-left: 2px;
+  border-left: 1px solid var(--workspace-line, var(--border));
+}
+
+/* The model is a setting for the next run, so it reads as one quiet chip. */
+.task-model {
+  display: inline-flex;
+  max-width: 210px;
+  border: 1px solid var(--workspace-line, var(--border));
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.task-model > div > button {
+  max-width: 208px;
+}
+
+.task-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--workspace-line, var(--border));
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: calc(12px + var(--ui-font-size-offset, 0px));
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background var(--workspace-motion, 120ms ease),
+    border-color var(--workspace-motion, 120ms ease),
+    color var(--workspace-motion, 120ms ease);
+}
+
+.task-control:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.task-control:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.task-control:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.task-control.is-primary {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent) 9%, var(--bg));
+  color: var(--accent);
+}
+
+.task-control.is-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 15%, var(--bg));
+}
+
+.task-control.is-danger {
+  color: var(--danger, #dc2626);
+}
+
+.task-banner {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--workspace-line, var(--border));
+  background: color-mix(in srgb, var(--warning, #d97706) 8%, var(--bg-panel));
+  color: var(--text);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.task-banner.is-error {
+  background: color-mix(in srgb, var(--danger, #dc2626) 10%, var(--bg-panel));
+  color: var(--danger, #dc2626);
+}
+
+/* A waiting question sits above the work surface, where the chat composer
+ * shows it. */
+.task-question-strip {
+  flex-shrink: 0;
+  padding: 10px 12px 0;
+  border-bottom: 1px solid var(--workspace-line, var(--border));
+  background: var(--bg);
+}
+
+/* ── Body: queue rail and work surface ───────────────────────────────────── */
+
+.task-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.task-queue {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  background: var(--workspace-surface, var(--bg-panel));
+}
+
+/* One list in either placement: the center column where the panel cannot
+ * dock, or the shell's right panel through its slot. */
+.task-queue-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.task-queue-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-shrink: 0;
+  height: 38px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--workspace-line, var(--border));
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.task-queue-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px 10px 6px;
+  scrollbar-gutter: stable;
+}
+
+.task-queue-hint {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 8px 14px 10px;
+  border-top: 1px solid var(--workspace-line, var(--border));
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+/* The right-panel content does not scroll as a whole: the list scrolls and the
+ * keyboard hint stays at the bottom. */
+.session-info-content.task-queue-panel-content {
+  display: flex;
+  overflow: hidden;
+}
+
+.task-queue-panel-slot {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* The queue's header chip: one control for the panel, with its size and a
+ * running dot, instead of a second floating edge tab. */
+.task-queue-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 9px;
+  border: 1px solid var(--workspace-line, var(--border));
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background var(--workspace-motion, 120ms ease),
+    border-color var(--workspace-motion, 120ms ease),
+    color var(--workspace-motion, 120ms ease);
+}
+
+.task-queue-toggle:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.task-queue-toggle[data-open='true'] {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg));
+  color: var(--text);
+}
+
+.task-queue-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.task-queue-toggle .task-group-count {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+}
+
+.task-queue-toggle-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: task-pulse 1.4s ease-in-out infinite;
+}
+
+.task-group + .task-group {
+  margin-top: 14px;
+}
+
+.task-group-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 2px;
+  padding: 4px 8px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.task-group-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--bg-subtle);
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.task-group-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.task-empty {
+  padding: 12px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.task-row-shell {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  border-radius: 10px;
+}
+
+.task-row-shell > .task-row {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Rows are quiet list entries, not cards: the surface moves under the pointer,
+ * and one accent bar marks the task the work surface is reading. */
+.task-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 8px 8px 10px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background var(--workspace-motion, 120ms ease),
+    box-shadow var(--workspace-motion, 120ms ease);
+}
+
+.task-row:hover {
+  background: var(--bg-hover);
+}
+
+.task-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.task-row[data-active='true'] {
+  background: color-mix(in srgb, var(--accent) 9%, var(--bg-panel));
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+/* Selected in a multi-selection: a ring, while the anchor keeps the bar. */
+.task-row[data-selected='true'] {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 38%, var(--border));
+}
+
+.task-row[data-selected='true'][data-active='true'] {
+  box-shadow:
+    inset 2px 0 0 var(--accent),
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 38%, var(--border));
+}
+
+.task-row-marker {
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  border-radius: 50%;
+}
+
+.task-row-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.task-row-title {
+  overflow: hidden;
+  font-size: calc(13px + var(--ui-font-size-offset, 0px));
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.task-row-cwd {
+  max-width: 220px;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-row-status {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+.task-row-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity var(--workspace-motion, 120ms ease),
+    background var(--workspace-motion, 120ms ease),
+    color var(--workspace-motion, 120ms ease);
+}
+
+.task-row-shell:hover .task-row-more,
+.task-row-shell:focus-within .task-row-more,
+.task-row-shell[data-active='true'] .task-row-more,
+.task-row-shell[data-menu-open='true'] .task-row-more {
+  opacity: 1;
+}
+
+.task-row-more:hover,
+.task-row-more:focus-visible {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.task-row-more:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* ── Work surface ────────────────────────────────────────────────────────── */
+
+.task-detail {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 26px clamp(18px, 4vw, 36px) 0;
+  background: var(--bg);
+  scrollbar-gutter: stable;
+}
+
+.task-detail > * {
+  width: 100%;
+  max-width: 760px;
+  flex-shrink: 0;
+}
+
+.task-detail-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.task-detail-title {
+  margin: 0;
+  font-size: calc(19px + var(--ui-font-size-offset, 0px));
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.task-detail-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: calc(12px + var(--ui-font-size-offset, 0px));
+}
+
+.task-detail-fact {
+  padding-left: 9px;
+  border-left: 1px solid var(--workspace-line, var(--border));
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.task-detail-text {
+  margin: 0;
+  color: var(--text);
+  font-size: calc(13.5px + var(--ui-font-size-offset, 0px));
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.task-facts {
+  display: grid;
+  grid-template-columns: 148px minmax(0, 1fr);
+  gap: 0;
+  margin: 0;
+  border-top: 1px solid var(--workspace-line, var(--border));
+  font-size: calc(12px + var(--ui-font-size-offset, 0px));
+}
+
+.task-facts dt,
+.task-facts dd {
+  margin: 0;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--workspace-line, var(--border));
+  line-height: 1.5;
+}
+
+.task-facts dt {
+  padding-right: 16px;
+  color: var(--text-muted);
+}
+
+.task-facts dd {
+  overflow-wrap: anywhere;
+}
+
+.task-mono {
+  font-family: var(--font-mono);
+  font-size: calc(11.5px + var(--ui-font-size-offset, 0px));
+}
+
+.task-summary {
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+.task-link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.task-activity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: var(--bg-subtle);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.task-activity-dot {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: task-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes task-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.task-tail summary {
+  padding: 4px 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.task-tail pre {
+  max-height: 300px;
+  margin: 8px 0 0;
+  padding: 12px;
+  overflow: auto;
+  border: 1px solid var(--workspace-line, var(--border));
+  border-radius: 12px;
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+  font-size: calc(11.5px + var(--ui-font-size-offset, 0px));
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.task-detail-actions {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 14px 0 16px;
+  border-top: 1px solid var(--workspace-line, var(--border));
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+/* No task is a real state, not an error: say what the surface is for and offer
+ * the one action it enables. */
+.task-detail-empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 10px;
+  max-width: 380px;
+  margin: auto 0;
+  padding-bottom: 24px;
+}
+
+.task-detail-empty-mark {
+  color: var(--text-dim);
+  opacity: 0.65;
+}
+
+.task-detail-empty-title {
+  margin: 0;
+  font-size: calc(16px + var(--ui-font-size-offset, 0px));
+  font-weight: 600;
+}
+
+.task-detail-empty-text {
+  margin: 0 0 6px;
+  color: var(--text-muted);
+  font-size: calc(13px + var(--ui-font-size-offset, 0px));
+  line-height: 1.6;
+}
+
+/* ── Batch selection and its confirmation ────────────────────────────────── */
+
+.task-selection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.task-selection .task-detail-actions {
+  margin-top: 4px;
+}
+
+.task-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+}
+
+.task-confirm-title {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.task-confirm-text {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.task-confirm-actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+/* ── Task form ───────────────────────────────────────────────────────────── */
+
+.task-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 680px;
+}
+
+.task-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.task-field input,
+.task-field textarea,
+.task-field select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--workspace-line, var(--border));
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: calc(13px + var(--ui-font-size-offset, 0px));
+  transition: border-color var(--workspace-motion, 120ms ease);
+}
+
+.task-field input:focus-visible,
+.task-field textarea:focus-visible,
+.task-field select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.task-field textarea {
+  resize: vertical;
+}
+
+.task-field input[aria-invalid='true'] {
+  border-color: var(--danger, #dc2626);
+}
+
+.task-field-error {
+  color: var(--danger, #dc2626);
+  font-size: 11px;
+}
+
+.task-hint {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* The typed path and the picker that can fill it in share one row. */
+.task-cwd-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.task-cwd-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-cwd-row .task-control {
+  flex-shrink: 0;
+}
+
+/* ── The phone sheet ─────────────────────────────────────────────────────── */
+
+.task-detail-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 210;
+  display: flex;
+  flex-direction: column;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--bg);
+}
+
+.task-sheet-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-shrink: 0;
+  min-height: 48px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--workspace-line, var(--border));
+  background: var(--bg);
+}
+
+.task-sheet-title {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-sheet-close {
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--workspace-line, var(--border));
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.task-sheet-close:hover {
+  background: var(--bg-hover);
+}
+
+.task-sheet-close:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.task-detail-sheet .task-detail {
+  flex: 1;
+  min-height: 0;
+  padding: 20px 16px 0;
+}
+
+/* ── Queue settings ──────────────────────────────────────────────────────── */
+
+.queue-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 16px;
+}
+
+.queue-settings-intro {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.queue-settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.queue-settings-section > h3 {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* A timeout is one number, one unit, and one way to say "no limit". */
+.queue-settings-timeout {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.queue-settings-timeout > input[type='number'] {
+  width: 92px;
+  flex-shrink: 0;
+}
+
+.queue-settings-timeout > select {
+  width: auto;
+  flex-shrink: 0;
+}
+
+.queue-settings-unlimited {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.queue-settings-unlimited input {
+  accent-color: var(--accent);
+}
+
+.queue-settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* Save and Cancel stay reachable while the body scrolls on a short screen. */
+.queue-settings-actions {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: 8px;
+  margin: 0 -16px -16px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--workspace-line, var(--border));
+  background: var(--bg);
+}
+
+.queue-settings-restore {
+  margin-right: auto;
+}
+
+/* The queue's own settings live beside its controls, not in the app bar. */
+.task-queue-settings {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  padding: 0;
+  border: 1px solid var(--workspace-line, var(--border));
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    background var(--workspace-motion, 120ms ease),
+    color var(--workspace-motion, 120ms ease);
+}
+
+.task-queue-settings:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.task-queue-settings:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* The completed count lives in the button, so the icon alone is not a riddle. */
+.task-queue-settings .task-clear-count {
+  margin-left: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.task-queue-settings:has(.task-clear-count) {
+  width: auto;
+  padding: 0 9px;
+  gap: 2px;
+}
+
+/* ── Narrower windows ────────────────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+  .task-header {
+    gap: 6px;
+    padding: 6px 8px;
+  }
+
+  .task-header-tools {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-start;
+  }
+
+  .task-header-actions {
+    margin-left: auto;
+    padding-left: 0;
+    border-left: none;
+  }
+
+  .task-model {
+    max-width: 158px;
+  }
+
+  .task-model > div > button {
+    max-width: 156px;
+  }
+
+  .task-facts {
+    grid-template-columns: minmax(92px, 34%) minmax(0, 1fr);
+  }
+
+  .task-queue-hint {
+    display: none;
+  }
+
+  .task-detail {
+    padding: 20px 16px 0;
+  }
+}
+
+@media (max-width: 420px) {
+  .task-header-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .task-header-state[data-state='RUNNING']::before,
+  .task-activity-dot,
+  .task-queue-toggle-dot {
+    animation: none;
+  }
+
+  .task-control,
+  .task-row,
+  .task-row-more,
+  .task-queue-settings,
+  .task-queue-toggle {
+    transition: none;
+  }
+}

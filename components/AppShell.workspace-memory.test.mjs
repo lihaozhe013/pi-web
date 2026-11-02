@@ -57,6 +57,7 @@ test('a linked session that is gone gets no other session in its place (#1168)',
         newSessionDraftId: 'initial',
         selectedSession: null,
         sessionCatalog: [lastOpen, otherLastOpen],
+        taskMode: false,
         sessionKey: 0
       });
       context.invalidateWorkspaceRestore = () => context.workspaceRestoreTokenRef.current++;
@@ -161,6 +162,7 @@ test('New restores the draft after session navigation and workspace auto-restore
         newSessionDraftId: 'initial',
         selectedSession: null,
         sessionCatalog: [],
+        taskMode: false,
         sessionKey: 0
       });
       context.invalidateWorkspaceRestore = () => context.workspaceRestoreTokenRef.current++;
@@ -278,6 +280,7 @@ test("New in another project adopts it up front and parks the composer's draft",
     newSessionDraftId: 'first',
     selectedSession: null,
     sessionCatalog: [],
+    taskMode: false,
     sessionKey: 0
   });
   context.invalidateWorkspaceRestore = () => context.workspaceRestoreTokenRef.current++;
@@ -363,6 +366,7 @@ test("the composer's bar moves the fresh composer's draft and model picks instea
     newSessionDraftId: 'first',
     selectedSession: null,
     sessionCatalog: [],
+    taskMode: false,
     sessionKey: 0
   });
   context.invalidateWorkspaceRestore = () => context.workspaceRestoreTokenRef.current++;
@@ -485,6 +489,7 @@ test('a new session puts the caret in the fresh composer on desktop only (#1313)
     newSessionDraftId: 'first',
     selectedSession: null,
     sessionCatalog: [],
+    taskMode: false,
     sessionKey: 0
   });
   context.invalidateWorkspaceRestore = () => context.workspaceRestoreTokenRef.current++;

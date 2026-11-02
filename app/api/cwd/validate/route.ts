@@ -1,15 +1,8 @@
 import { NextResponse } from 'next/server';
 import { statSync, type Stats } from 'fs';
-import { homedir } from 'os';
-import { isAbsolute, resolve } from 'path';
+import { normalizeCwd } from '@/lib/cwd-path';
 import { allowFileRoot } from '@/lib/file-access';
 import { projectIdentityKey } from '@/lib/project-identity';
-
-function normalizeCwd(cwd: string): string {
-  if (cwd === '~') return homedir();
-  if (cwd.startsWith('~/')) return resolve(homedir(), cwd.slice(2));
-  return isAbsolute(cwd) ? cwd : resolve(cwd);
-}
 
 // POST /api/cwd/validate  body: { cwd: string }
 // Validates a candidate workspace before the UI selects it.

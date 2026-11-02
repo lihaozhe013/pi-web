@@ -4,7 +4,7 @@ import type { AgentEndInfo, NewSessionChoices } from '@/hooks/useAgentSession';
 import { useAudio } from '@/hooks/useAudio';
 import { useFontPreferences } from '@/hooks/useFontPreferences';
 import { useI18n } from '@/hooks/useI18n';
-import { useIsMobile, useIsNarrowMobile } from '@/hooks/useIsMobile';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { useGlobalKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useResizablePanel } from '@/hooks/useResizablePanel';
 import { useTheme } from '@/hooks/useTheme';
@@ -45,7 +45,6 @@ import {
 } from '@/lib/panel-layout';
 import type { SessionStatsInfo } from '@/lib/pi-types';
 import { setupPushSubscription } from '@/lib/push-client';
-import { formatCompactCount, formatCostShort } from '@/lib/session-stats-format';
 import {
   getLastSettingsSection,
   settingsSectionRequiresProject,
@@ -78,6 +77,7 @@ import { ProjectTrustDialog, type ProjectTrustFailure } from './ProjectTrustDial
 import { mergeCatalogRow } from './session-catalog-helpers';
 import { SessionInfoSidebar, useInformationPanelOverlay } from './SessionInfoSidebar';
 import { SessionModal } from './SessionModal';
+import { SessionPanelActions } from './SessionPanelActions';
 import { SessionStatsModal, type SessionCopyField } from './SessionStatsModal';
 import {
   SessionSidebar,
@@ -86,7 +86,9 @@ import {
 } from './SessionSidebar';
 import { SettingsPanel, SettingsSectionIcon } from './SettingsPanel';
 import { SystemPromptPanel } from './SystemPromptPanel';
+import { TaskWorkspace } from './TaskWorkspace';
 import { ToolDefinitionsPanel } from './ToolDefinitionsPanel';
+import { WorkspaceSwitch } from './WorkspaceSwitch';
 
 type AutoNameStatus =
   { kind: 'idle' } | { kind: 'naming' } | { kind: 'success' } | { kind: 'error'; message: string };
@@ -103,13 +105,15 @@ export function AppShell() {
   const [initialNavigation, setInitialNavigation] = useState(() =>
     getInitialNavigation(searchParams)
   );
+  // `?mode=tasks` switches the whole workspace. With the parameter absent,
+  // nothing about the conversation view changes.
+  const taskMode = searchParams.get('mode') === 'tasks';
   // Keep the system-theme subscription mounted for the lifetime of the app.
   useTheme();
   // Restore fonts even when Settings and the chat composer have not been opened.
   useFontPreferences();
   const { locale, t: translate } = useI18n();
   const isMobile = useIsMobile();
-  const isNarrowMobile = useIsNarrowMobile();
   useViewportHeight();
 
   // Once the user has granted notification permission, register a Web Push
@@ -163,6 +167,15 @@ export function AppShell() {
     });
   }, []);
   const [runningSessionIds, setRunningSessionIds] = useState<Set<string>>(() => new Set());
+  // Sessions a task child is writing. The composer stays read-only for them so
+  // two writers never share one session file.
+  const [taskSessionIds, setTaskSessionIds] = useState<Set<string>>(() => new Set());
+  const handleTaskSessionIdsChange = useCallback((ids: Set<string>) => {
+    setTaskSessionIds((previous) => {
+      if (previous.size === ids.size && [...ids].every((id) => previous.has(id))) return previous;
+      return ids;
+    });
+  }, []);
   const handleRunningSessionIdsChange = useCallback((ids: Set<string>) => {
     setRunningSessionIds((previous) => {
       if (previous.size === ids.size && [...ids].every((id) => previous.has(id))) return previous;
@@ -227,7 +240,6 @@ export function AppShell() {
   const [projectTrustError, setProjectTrustError] = useState<ProjectTrustFailure | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(() => !initialNavigation.sidebarCollapsed);
   const desktopSidebarOpenRef = useRef(!initialNavigation.sidebarCollapsed);
-  const [mobileToolbarMoreOpen, setMobileToolbarMoreOpen] = useState(false);
   const [mobileSidebarReady, setMobileSidebarReady] = useState(false);
   const sidebarWidthRef = useRef(SIDEBAR_DEFAULT_WIDTH);
   const runsPanelWidthRef = useRef(RIGHT_PANEL_DEFAULT_WIDTH);
@@ -268,7 +280,6 @@ export function AppShell() {
     text: string;
   } | null>(null);
   const topBarRef = useRef<HTMLDivElement>(null);
-  const mobileToolbarRef = useRef<HTMLDivElement>(null);
   // Branch navigator state — populated by ChatWindow via onBranchDataChange
   const [branchTree, setBranchTree] = useState<SessionTreeNode[]>([]);
   const [branchActiveLeafId, setBranchActiveLeafId] = useState<string | null>(null);
@@ -302,7 +313,6 @@ export function AppShell() {
   const [systemInfoLoading, setSystemInfoLoading] = useState(false);
   const systemInfoLoaderRef = useRef<(() => Promise<void>) | null>(null);
   const systemInfoLoadIdRef = useRef(0);
-  const systemBtnRef = useRef<HTMLButtonElement>(null);
 
   const handleSystemPromptChange = useCallback((prompt: string | null) => {
     setSystemPrompt(prompt);
@@ -463,7 +473,6 @@ export function AppShell() {
 
   const toggleRunsPanel = useCallback(() => {
     if (isMobile) setSidebarOpen(false);
-    setMobileToolbarMoreOpen(false);
     focusRunsPanelRef.current = !runsPanelOpen;
     setRunsPanelPreference((preference) =>
       toggleRunsPanelPreference(preference, {
@@ -489,11 +498,50 @@ export function AppShell() {
     );
   }, []);
 
+  // The task queue lives in the same right-hand slot as the Runs panel, so the
+  // two workspaces share one spatial language: sidebar, center, inspector. It
+  // keeps its own collapse choice (collapsing Runs does not hide the queue) but
+  // shares the resized width, so the center's edge does not move between modes.
+  // Where the panel cannot dock, the queue stays in the center column.
+  const [taskQueuePreference, setTaskQueuePreference] = useState<RunsPanelPreference>(
+    RUNS_PANEL_DEFAULT_PREFERENCE
+  );
+  const taskQueuePanelDocked = runsPanelViewportReady && !informationPanelOverlay;
+  const taskQueuePanelOpen =
+    taskMode &&
+    taskQueuePanelDocked &&
+    isRunsPanelOpen(taskQueuePreference, {
+      overlay: false,
+      settingsOpen: Boolean(settingsSection)
+    });
+  // The queue list is rendered by TaskWorkspace, which owns its state, and
+  // portaled into this slot so the panel spans the page height beside the
+  // center column instead of sitting inside it.
+  const [taskQueuePanelSlot, setTaskQueuePanelSlot] = useState<HTMLDivElement | null>(null);
+  const focusTaskQueuePanelRef = useRef(false);
+  useEffect(() => {
+    if (!taskQueuePanelOpen) focusTaskQueuePanelRef.current = false;
+  }, [taskQueuePanelOpen]);
+  const toggleTaskQueuePanel = useCallback(() => {
+    focusTaskQueuePanelRef.current = !taskQueuePanelOpen;
+    setTaskQueuePreference((preference) =>
+      toggleRunsPanelPreference(preference, { open: taskQueuePanelOpen, overlay: false })
+    );
+  }, [taskQueuePanelOpen]);
+  const closeTaskQueuePanel = useCallback(() => {
+    focusTaskQueuePanelRef.current = false;
+    setTaskQueuePreference({ collapsed: true, overlayRequested: false });
+    requestAnimationFrame(() => {
+      document
+        .querySelector<HTMLElement>('[data-task-queue-toggle="true"]')
+        ?.focus({ preventScroll: true });
+    });
+  }, []);
+
   const handleSystemInfoToggle = useCallback(
     (modal: 'system' | 'tools') => {
       const opening = activeModal !== modal;
       if (isMobile) setSidebarOpen(false);
-      setMobileToolbarMoreOpen(false);
       setActiveModal((cur) => (cur === modal ? null : modal));
       if (!opening || systemInfoLoading) return;
 
@@ -516,7 +564,6 @@ export function AppShell() {
 
   const openSessionStatsPanel = useCallback(() => {
     if (isMobile) setSidebarOpen(false);
-    setMobileToolbarMoreOpen(false);
     setActiveModal('session');
   }, [isMobile]);
 
@@ -527,58 +574,13 @@ export function AppShell() {
   }, []);
 
   const handleSidebarToggle = useCallback(() => {
-    if (isMobile) {
-      dismissRunsPanelOverlay();
-      setMobileToolbarMoreOpen(false);
-    }
+    if (isMobile) dismissRunsPanelOverlay();
     setSidebarOpen((open) => {
       const next = !open;
       if (!isMobile) desktopSidebarOpenRef.current = next;
       return next;
     });
   }, [dismissRunsPanelOverlay, isMobile]);
-
-  const handleMobileToolbarMoreToggle = useCallback(() => {
-    setSidebarOpen(false);
-    dismissRunsPanelOverlay();
-    setMobileToolbarMoreOpen((open) => !open);
-  }, [dismissRunsPanelOverlay]);
-
-  useEffect(() => {
-    if (!mobileToolbarMoreOpen) return;
-
-    const handlePointerDown = (event: PointerEvent) => {
-      const toolbar = mobileToolbarRef.current;
-      if (toolbar && event.composedPath().includes(toolbar)) return;
-      setMobileToolbarMoreOpen(false);
-    };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
-      event.preventDefault();
-      event.stopPropagation();
-      setMobileToolbarMoreOpen(false);
-    };
-
-    document.addEventListener('pointerdown', handlePointerDown, true);
-    document.addEventListener('keydown', handleKeyDown, true);
-    return () => {
-      document.removeEventListener('pointerdown', handlePointerDown, true);
-      document.removeEventListener('keydown', handleKeyDown, true);
-    };
-  }, [mobileToolbarMoreOpen]);
-
-  const mobileToolbarContextKey = JSON.stringify([
-    isMobile,
-    isNarrowMobile,
-    selectedSession?.id,
-    newSessionDraftId
-  ]);
-  const previousMobileToolbarContextKeyRef = useRef(mobileToolbarContextKey);
-  useEffect(() => {
-    const contextChanged = previousMobileToolbarContextKeyRef.current !== mobileToolbarContextKey;
-    previousMobileToolbarContextKeyRef.current = mobileToolbarContextKey;
-    if (contextChanged) setMobileToolbarMoreOpen(false);
-  }, [mobileToolbarContextKey]);
 
   const initialSessionId = initialNavigation.sessionId;
   const initialLinkedSessionId = linkedSessionId(initialNavigation);
@@ -592,11 +594,15 @@ export function AppShell() {
   // in the useState initializer made the first client tree differ from the
   // server HTML (sidebar "select project" vs ""). Restore after mount instead.
   useLayoutEffect(() => {
+    // The task workspace owns the URL it was opened with: restoring a
+    // remembered conversation here would replace `?mode=tasks` and drop the
+    // user back into chat before the queue ever renders.
+    if (taskMode) return;
     const next = withTabOpen(initialNavigation, getTabOpen());
     if (next === initialNavigation) return;
     setInitialNavigation(next);
     if (next.sessionId) setInitialSessionRestored(false);
-  }, [initialNavigation]);
+  }, [initialNavigation, taskMode]);
   // Suppresses sessionKey bump in handleCwdChange during the initial URL restore
   const suppressCwdBumpRef = useRef(false);
   // Set when the session the URL linked to is gone: the project the sidebar
@@ -632,7 +638,10 @@ export function AppShell() {
 
   useEffect(() => {
     const requestedCwd = initialNavigation.requestedCwd;
-    if (!requestedCwd) return;
+    // A visible conversation wins over a requested directory that was already
+    // applied: the navigation snapshot only changes on mount and tab-memory
+    // restore, not when the workspace switch changes the visible view.
+    if (!requestedCwd || taskMode || selectedSession) return;
 
     const controller = new AbortController();
     setInitialCwdStatus('validating');
@@ -669,7 +678,7 @@ export function AppShell() {
       });
 
     return () => controller.abort();
-  }, [initialNavigation, router]);
+  }, [initialNavigation, router, selectedSession, taskMode]);
 
   // Restore the workspace's last open session after switching to it. Called
   // from handleCwdChange once the outgoing context has been reset. The session
@@ -778,11 +787,13 @@ export function AppShell() {
       setSystemPrompt(null);
       setSystemTools(null);
       setSystemInfoLoading(false);
-      if (currentProject !== newProject) {
+      if (currentProject !== newProject && !taskMode) {
         // Restore the workspace we switched to: its last open session, or keep
-        // the default welcome page when none is remembered.
+        // the default welcome page when none is remembered. The task view has
+        // no conversation to restore and owns its own URL.
         if (!skipWorkspaceRestore) restoreWorkspaceContext(newProject, cwd);
       }
+      if (taskMode) return;
       router.replace(typeof window !== 'undefined' ? window.location.pathname : '/', {
         scroll: false
       });
@@ -793,7 +804,8 @@ export function AppShell() {
       newSessionCwd,
       router,
       selectedSession,
-      restoreWorkspaceContext
+      restoreWorkspaceContext,
+      taskMode
     ]
   );
 
@@ -822,7 +834,10 @@ export function AppShell() {
       // the full re-select flow.
       if (!isRestore && selectedSession) {
         const sameProject = workspaceKeyOf(selectedSession) === workspaceKeyOf(session);
-        if (selectedSession.id === session.id && sameProject) {
+        // The task workspace can sit on the conversation it already has in
+        // state; choosing that row is still how the person returns to it, so
+        // only skip the remount when the conversation is the visible view.
+        if (selectedSession.id === session.id && sameProject && !taskMode) {
           if (isMobile) setSidebarOpen(false);
           return;
         }
@@ -854,7 +869,15 @@ export function AppShell() {
         router.replace(`?session=${encodeURIComponent(session.id)}`, { scroll: false });
       }
     },
-    [activeCwd, invalidateWorkspaceRestore, router, isMobile, newSessionCwd, selectedSession]
+    [
+      activeCwd,
+      invalidateWorkspaceRestore,
+      router,
+      isMobile,
+      newSessionCwd,
+      selectedSession,
+      taskMode
+    ]
   );
 
   const handleNewSession = useCallback(
@@ -929,6 +952,26 @@ export function AppShell() {
       })
       .catch(() => {});
   }, []);
+
+  // Leaving the task workspace for Chat returns to the conversation this
+  // project last had open: the sidebar and the switch stay where they are, so
+  // the two views read as one workspace. An explicit pick or the tab's parked
+  // new-session composer already decided what to show and wins over memory.
+  const wasTaskModeRef = useRef(taskMode);
+  useEffect(() => {
+    const wasTaskMode = wasTaskModeRef.current;
+    wasTaskModeRef.current = taskMode;
+    if (!wasTaskMode || taskMode) return;
+    // The task view owned the URL, so there is no pending ?session= restore to
+    // wait for once the conversation is visible again.
+    setInitialSessionRestored(true);
+    if (selectedSession || newSessionCwd) return;
+    // The initial-navigation effect mounts the tab's own fresh composer; a
+    // restored session would take its place.
+    if (getTabOpen()?.kind === 'new') return;
+    if (!activeProjectKeyRef.current || !activeCwd) return;
+    restoreWorkspaceContext(activeProjectKeyRef.current, activeCwd);
+  }, [activeCwd, newSessionCwd, restoreWorkspaceContext, selectedSession, taskMode]);
 
   // Called by ChatWindow when a new session gets its real id from pi
   const handleSessionCreated = useCallback(
@@ -1307,7 +1350,13 @@ export function AppShell() {
   );
 
   const activeCwdName = activeCwd ? getFileName(activeCwd) || activeCwd : null;
-  const windowTitle = activeCwdName ? `${activeCwdName} - Pie` : 'Pie';
+  // The task workspace is its own page: a reload, a bookmark, or a push
+  // notification labels the tab by the queue, not by the conversation behind it.
+  const windowTitle = taskMode
+    ? `${translate('tasks.board')} - Pie`
+    : activeCwdName
+      ? `${activeCwdName} - Pie`
+      : 'Pie';
 
   useEffect(() => {
     const syncWindowTitle = () => {
@@ -1338,6 +1387,7 @@ export function AppShell() {
         onCwdChange={handleCwdChange}
         onBackgroundTaskDone={handleBackgroundTaskDone}
         onRunningSessionIdsChange={handleRunningSessionIdsChange}
+        onTaskSessionIdsChange={handleTaskSessionIdsChange}
         onSessionsChange={handleSessionsChange}
       />
       <div
@@ -1485,628 +1535,137 @@ export function AppShell() {
     );
   };
 
-  const renderChatToolbarActions = (mobile: boolean) => {
-    if (!mobile && !showChat) return null;
-    return (
-      // one styling hook for the existing toolbar actions, including mobile.
-      <div
-        className={`toolbar-actions${mobile ? ' is-mobile' : ''}`}
-        style={{ display: 'flex', alignItems: 'stretch', height: '100%' }}
-      >
-        <button
-          type="button"
-          onClick={() => {
-            handleViewFullHistory();
-            if (mobile && isNarrowMobile) setMobileToolbarMoreOpen(true);
-          }}
-          disabled={!selectedSession}
-          title={selectedSession ? translate('history.full') : translate('history.unsaved')}
-          aria-label={translate('history.full')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 6,
-            width: mobile ? TOP_BAR_ICON_BUTTON_SIZE : undefined,
-            height: '100%',
-            padding: mobile ? 0 : '0 12px',
-            background: 'none',
-            border: 'none',
-            borderTop: '2px solid transparent',
-            borderRight: '1px solid var(--border)',
-            color: selectedSession ? 'var(--text-muted)' : 'var(--text-dim)',
-            cursor: selectedSession ? 'pointer' : 'not-allowed',
-            opacity: selectedSession ? 1 : 0.45,
-            flexShrink: 0,
-            fontSize: 11,
-            whiteSpace: 'nowrap',
-            transition: 'color 0.1s, background 0.1s, opacity 0.1s'
-          }}
-          onMouseEnter={(event) => {
-            if (!selectedSession) return;
-            event.currentTarget.style.color = 'var(--text)';
-            event.currentTarget.style.background = 'var(--bg-hover)';
-          }}
-          onMouseLeave={(event) => {
-            event.currentTarget.style.color = selectedSession
-              ? 'var(--text-muted)'
-              : 'var(--text-dim)';
-            event.currentTarget.style.background = 'none';
-          }}
-          data-mobile-toolbar-action={mobile ? 'history' : undefined}
-        >
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            style={{
-              color: selectedSession ? 'var(--text-muted)' : 'var(--text-dim)',
-              flexShrink: 0
-            }}
-            aria-hidden="true"
-          >
-            <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
-            <path d="M3 3v5h5" />
-            <path d="M12 7v5l3 2" />
-          </svg>
-          {!mobile && <span>{translate('history.label')}</span>}
-        </button>
-        {(() => {
-          // 上下文压缩后当前消息可能不再包含 user 消息，需同时参考会话文件的消息总数。
-          const hasMessages = Boolean(
-            selectedSession &&
-            ((sessionStats?.userMessages ?? 0) > 0 || selectedSession.messageCount > 0)
-          );
-          const disabled =
-            !selectedSession ||
-            selectedSession.transient ||
-            !hasMessages ||
-            autoNameStatus.kind === 'naming';
-          const isSuccess = autoNameStatus.kind === 'success';
-          const isError = autoNameStatus.kind === 'error';
-          const label =
-            autoNameStatus.kind === 'naming'
-              ? translate('title.generating')
-              : isSuccess
-                ? translate('title.updated')
-                : isError
-                  ? translate('title.failed')
-                  : translate('title.generate');
-          const title =
-            !selectedSession || selectedSession.transient
-              ? translate('title.unsaved')
-              : !hasMessages
-                ? translate('title.noMessages')
-                : isError
-                  ? autoNameStatus.message
-                  : translate('title.generateSession');
-
-          return (
-            <button
-              type="button"
-              onClick={() => {
-                void handleAutoName();
-                if (mobile && isNarrowMobile) setMobileToolbarMoreOpen(true);
-              }}
-              disabled={disabled}
-              title={title}
-              aria-label={label}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6,
-                width: mobile ? TOP_BAR_ICON_BUTTON_SIZE : undefined,
-                height: '100%',
-                padding: mobile ? 0 : '0 12px',
-                background: 'none',
-                border: 'none',
-                borderTop: '2px solid transparent',
-                borderRight: '1px solid var(--border)',
-                color: isError
-                  ? '#dc2626'
-                  : isSuccess
-                    ? 'var(--accent)'
-                    : disabled
-                      ? 'var(--text-dim)'
-                      : 'var(--text-muted)',
-                cursor: disabled ? 'not-allowed' : 'pointer',
-                opacity: disabled && autoNameStatus.kind !== 'naming' ? 0.45 : 1,
-                flexShrink: 0,
-                fontSize: 11,
-                whiteSpace: 'nowrap',
-                transition: 'color 0.1s, background 0.1s, opacity 0.1s'
-              }}
-              onMouseEnter={(event) => {
-                if (disabled) return;
-                event.currentTarget.style.color = isError ? '#dc2626' : 'var(--text)';
-                event.currentTarget.style.background = 'var(--bg-hover)';
-              }}
-              onMouseLeave={(event) => {
-                event.currentTarget.style.color = isError
-                  ? '#dc2626'
-                  : isSuccess
-                    ? 'var(--accent)'
-                    : disabled
-                      ? 'var(--text-dim)'
-                      : 'var(--text-muted)';
-                event.currentTarget.style.background = 'none';
-              }}
-              data-mobile-toolbar-action={mobile ? 'name' : undefined}
-            >
-              {autoNameStatus.kind === 'naming' ? (
-                <svg
-                  className="animate-spin"
-                  width="13"
-                  height="13"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  aria-hidden="true"
-                >
-                  <circle
-                    cx="12"
-                    cy="12"
-                    r="9"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    opacity="0.25"
-                  />
-                  <path
-                    d="M21 12a9 9 0 0 0-9-9"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              ) : isSuccess ? (
-                <svg
-                  width="13"
-                  height="13"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-              ) : (
-                <svg
-                  width="13"
-                  height="13"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="m15 4 5 5L7 22l-5-5Z" />
-                  <path d="m14 5 5 5" />
-                  <path d="M6 4V2M5 3H3M19 19v3M17.5 20.5h3" />
-                </svg>
-              )}
-              {!mobile && <span>{label}</span>}
-            </button>
-          );
-        })()}
-
-        {sessionHasBranches && (
-          <button
-            type="button"
-            onClick={() => setActiveModal((cur) => (cur === 'branches' ? null : 'branches'))}
-            title={translate('i18n.branches')}
-            aria-label={translate('i18n.branches')}
-            aria-pressed={activeModal === 'branches'}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: TOP_BAR_ICON_BUTTON_SIZE,
-              height: '100%',
-              padding: 0,
-              background: activeModal === 'branches' ? 'var(--bg-selected)' : 'none',
-              border: 'none',
-              borderTop:
-                activeModal === 'branches' ? '2px solid var(--accent)' : '2px solid transparent',
-              borderRight: '1px solid var(--border)',
-              color: activeModal === 'branches' ? 'var(--text)' : 'var(--text-muted)',
-              cursor: 'pointer',
-              flexShrink: 0
-            }}
-            data-mobile-toolbar-action="branches"
-          >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{ color: branchTree.length > 0 ? 'var(--accent)' : 'var(--text-dim)' }}
-              aria-hidden="true"
-            >
-              <line x1="6" y1="3" x2="6" y2="15" />
-              <circle cx="18" cy="6" r="3" />
-              <circle cx="6" cy="18" r="3" />
-              <path d="M18 9a9 9 0 0 1-9 9" />
-            </svg>
-          </button>
-        )}
-        <button
-          ref={systemBtnRef}
-          type="button"
-          onClick={() => handleSystemInfoToggle('system')}
-          disabled={mobile && !showChat}
-          title={translate('system.prompt')}
-          aria-label={translate('system.prompt')}
-          aria-pressed={activeModal === 'system'}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 6,
-            width: mobile ? TOP_BAR_ICON_BUTTON_SIZE : undefined,
-            height: '100%',
-            padding: mobile ? 0 : '0 12px',
-            background: activeModal === 'system' ? 'var(--bg-selected)' : 'none',
-            border: 'none',
-            borderTop:
-              activeModal === 'system' ? '2px solid var(--accent)' : '2px solid transparent',
-            borderRight: '1px solid var(--border)',
-            cursor: mobile && !showChat ? 'not-allowed' : 'pointer',
-            color: activeModal === 'system' ? 'var(--text)' : 'var(--text-muted)',
-            opacity: mobile && !showChat ? 0.45 : 1,
-            fontSize: 11,
-            whiteSpace: 'nowrap',
-            transition: 'color 0.1s, background 0.1s'
-          }}
-          onMouseEnter={(event) => {
-            if (mobile && !showChat) return;
-            event.currentTarget.style.color = 'var(--text)';
-          }}
-          onMouseLeave={(event) => {
-            event.currentTarget.style.color =
-              activeModal === 'system' ? 'var(--text)' : 'var(--text-muted)';
-          }}
-          data-mobile-toolbar-action={mobile ? 'system' : undefined}
-        >
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            style={{ color: systemPrompt ? 'var(--accent)' : 'var(--text-dim)', flexShrink: 0 }}
-            aria-hidden="true"
-          >
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-            <polyline points="14 2 14 8 20 8" />
-            <line x1="8" y1="13" x2="16" y2="13" />
-            <line x1="8" y1="17" x2="13" y2="17" />
-          </svg>
-          {!mobile && <span>{translate('system.label')}</span>}
-        </button>
-        <button
-          type="button"
-          onClick={() => handleSystemInfoToggle('tools')}
-          disabled={mobile && !showChat}
-          title={translate('tools.title')}
-          aria-label={translate('tools.title')}
-          aria-pressed={activeModal === 'tools'}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 6,
-            width: mobile ? TOP_BAR_ICON_BUTTON_SIZE : undefined,
-            height: '100%',
-            padding: mobile ? 0 : '0 12px',
-            background: activeModal === 'tools' ? 'var(--bg-selected)' : 'none',
-            border: 'none',
-            borderTop:
-              activeModal === 'tools' ? '2px solid var(--accent)' : '2px solid transparent',
-            borderRight: '1px solid var(--border)',
-            cursor: mobile && !showChat ? 'not-allowed' : 'pointer',
-            color: activeModal === 'tools' ? 'var(--text)' : 'var(--text-muted)',
-            opacity: mobile && !showChat ? 0.45 : 1,
-            fontSize: 11,
-            whiteSpace: 'nowrap',
-            transition: 'color 0.1s, background 0.1s'
-          }}
-          onMouseEnter={(event) => {
-            if (mobile && !showChat) return;
-            event.currentTarget.style.color = 'var(--text)';
-          }}
-          onMouseLeave={(event) => {
-            event.currentTarget.style.color =
-              activeModal === 'tools' ? 'var(--text)' : 'var(--text-muted)';
-          }}
-          data-mobile-toolbar-action={mobile ? 'tools' : undefined}
-        >
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            style={{
-              color: systemTools?.some((tool) => tool.active) ? 'var(--accent)' : 'var(--text-dim)',
-              flexShrink: 0
-            }}
-            aria-hidden="true"
-          >
-            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9z" />
-          </svg>
-          {!mobile && <span>{translate('tools.label')}</span>}
-        </button>
-      </div>
-    );
-  };
-
-  const renderSessionStatsButton = (mobile: boolean) => {
-    if (!mobile && (!showChat || (!sessionStats && !contextUsage))) return null;
-
-    const tokens = sessionStats?.tokens;
-    const cost = sessionStats?.cost ?? 0;
-    const formatCompact = formatCompactCount;
-    const costText = formatCostShort(cost);
-
-    let contextColor = 'var(--text-muted)';
-    let desktopContextText: string | null = null;
-    let mobileContextText: string | null = null;
-    if (contextUsage?.contextWindow) {
-      const percent = contextUsage.percent;
-      if (percent !== null && percent > 90) contextColor = '#ef4444';
-      else if (percent !== null && percent > 70) contextColor = 'rgba(234,179,8,0.95)';
-      desktopContextText =
-        percent !== null
-          ? `${percent.toFixed(0)}% / ${formatCompact(contextUsage.contextWindow)}`
-          : `? / ${formatCompact(contextUsage.contextWindow)}`;
-      mobileContextText = percent !== null ? `${percent.toFixed(0)}%` : null;
-    }
-
-    const tooltipParts: string[] = [];
-    if (tokens) {
-      tooltipParts.push(`in: ${tokens.input.toLocaleString(locale)}`);
-      tooltipParts.push(`out: ${tokens.output.toLocaleString(locale)}`);
-      tooltipParts.push(`cache read: ${tokens.cacheRead.toLocaleString(locale)}`);
-      tooltipParts.push(`cache write: ${tokens.cacheWrite.toLocaleString(locale)}`);
-      if (cost > 0) tooltipParts.push(`cost: $${cost.toFixed(4)}`);
+  // These controls describe the session rather than the next message, so they
+  // live in the Runs panel, beside the runs that belong to it.
+  const sessionTokens = sessionStats?.tokens ?? null;
+  const sessionCost = sessionStats?.cost ?? 0;
+  const hasSessionStats = Boolean(sessionStats || contextUsage);
+  const sessionStatsTooltip = (() => {
+    const parts: string[] = [];
+    if (sessionTokens) {
+      parts.push(`in: ${sessionTokens.input.toLocaleString(locale)}`);
+      parts.push(`out: ${sessionTokens.output.toLocaleString(locale)}`);
+      parts.push(`cache read: ${sessionTokens.cacheRead.toLocaleString(locale)}`);
+      parts.push(`cache write: ${sessionTokens.cacheWrite.toLocaleString(locale)}`);
+      if (sessionCost > 0) parts.push(`cost: $${sessionCost.toFixed(4)}`);
     }
     if (contextUsage?.contextWindow) {
       const percent = contextUsage.percent;
-      tooltipParts.push(
+      parts.push(
         `context: ${percent !== null ? percent.toFixed(1) + '%' : 'unknown'} of ${contextUsage.contextWindow.toLocaleString()} tokens`
       );
     }
-    const tooltip = tooltipParts.join('  |  ');
-    const covered = mobile && isNarrowMobile && mobileToolbarMoreOpen;
-    const hasMobileValues = Boolean(
-      (tokens && (tokens.input > 0 || tokens.output > 0)) || costText || mobileContextText
-    );
+    return parts.join('  |  ');
+  })();
+  const titleHasMessages = Boolean(
+    selectedSession && ((sessionStats?.userMessages ?? 0) > 0 || selectedSession.messageCount > 0)
+  );
+  const titleDisabled =
+    !selectedSession ||
+    Boolean(selectedSession.transient) ||
+    !titleHasMessages ||
+    autoNameStatus.kind === 'naming';
+  const titleLabel =
+    autoNameStatus.kind === 'naming'
+      ? translate('title.generating')
+      : autoNameStatus.kind === 'success'
+        ? translate('title.updated')
+        : autoNameStatus.kind === 'error'
+          ? translate('title.failed')
+          : translate('title.generate');
+  const titleTitle =
+    !selectedSession || selectedSession.transient
+      ? translate('title.unsaved')
+      : !titleHasMessages
+        ? translate('title.noMessages')
+        : autoNameStatus.kind === 'error'
+          ? autoNameStatus.message
+          : translate('title.generateSession');
+  const sessionPanelActions = (
+    <SessionPanelActions
+      onOpenHistory={handleViewFullHistory}
+      historyDisabled={!selectedSession}
+      historyTitle={selectedSession ? translate('history.full') : translate('history.unsaved')}
+      onGenerateTitle={() => void handleAutoName()}
+      name={{
+        label: titleLabel,
+        title: titleTitle,
+        disabled: titleDisabled,
+        busy: autoNameStatus.kind === 'naming',
+        tone:
+          autoNameStatus.kind === 'success'
+            ? 'success'
+            : autoNameStatus.kind === 'error'
+              ? 'error'
+              : 'default'
+      }}
+      onOpenSystem={() => handleSystemInfoToggle('system')}
+      systemLoaded={Boolean(systemPrompt)}
+      onOpenTools={() => handleSystemInfoToggle('tools')}
+      toolsActive={Boolean(systemTools?.some((tool) => tool.active))}
+      onOpenBranches={
+        sessionHasBranches
+          ? () => setActiveModal((cur) => (cur === 'branches' ? null : 'branches'))
+          : null
+      }
+      stats={
+        hasSessionStats
+          ? {
+              tokens: sessionTokens
+                ? {
+                    input: sessionTokens.input,
+                    output: sessionTokens.output,
+                    cacheRead: sessionTokens.cacheRead
+                  }
+                : null,
+              cost: sessionCost,
+              contextPercent: contextUsage?.percent ?? null,
+              contextWindow: contextUsage?.contextWindow ?? null,
+              tooltip: sessionStatsTooltip
+            }
+          : null
+      }
+      onOpenStats={openSessionStatsPanel}
+    />
+  );
 
-    return (
-      <button
-        type="button"
-        onClick={() => setActiveModal((cur) => (cur === 'session' ? null : 'session'))}
-        disabled={!showChat || covered}
-        tabIndex={covered ? -1 : undefined}
-        title={tooltip || translate('session.title')}
-        aria-label={translate('session.title')}
-        aria-pressed={activeModal === 'session'}
-        aria-hidden={covered ? true : undefined}
-        className={mobile ? 'mobile-session-stats' : undefined}
-        data-mobile-toolbar-stats={mobile ? 'true' : undefined}
-        style={{
-          marginLeft: mobile ? 0 : 'auto',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'flex-end',
-          flex: mobile ? 1 : undefined,
-          minWidth: 0,
-          gap: mobile ? 7 : 10,
-          paddingLeft: mobile ? 6 : 12,
-          paddingRight: mobile ? 6 : 12,
-          height: '100%',
-          overflow: 'hidden',
-          visibility: covered ? 'hidden' : 'visible',
-          pointerEvents: covered ? 'none' : 'auto',
-          background: activeModal === 'session' ? 'var(--bg-selected)' : 'none',
-          border: 'none',
-          borderTop:
-            activeModal === 'session' ? '2px solid var(--accent)' : '2px solid transparent',
-          fontSize: 11,
-          color: 'var(--text-muted)',
-          whiteSpace: 'nowrap',
-          cursor: showChat ? 'pointer' : 'default',
-          fontVariantNumeric: 'tabular-nums',
-          transition: 'color 0.1s, background 0.1s'
-        }}
-        onMouseEnter={(event) => {
-          if (showChat && !covered) event.currentTarget.style.color = 'var(--text)';
-        }}
-        onMouseLeave={(event) => {
-          event.currentTarget.style.color =
-            activeModal === 'session' ? 'var(--text)' : 'var(--text-muted)';
-        }}
-      >
-        {mobile ? (
-          <>
-            {tokens && tokens.input > 0 && (
-              <span
-                className="mobile-session-stat-io"
-                style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}
-              >
-                <svg
-                  width="10"
-                  height="10"
-                  viewBox="0 0 10 10"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <line x1="5" y1="8.5" x2="5" y2="1.5" />
-                  <polyline points="2 4 5 1.5 8 4" />
-                </svg>
-                {formatCompact(tokens.input)}
-              </span>
-            )}
-            {tokens && tokens.output > 0 && (
-              <span
-                className="mobile-session-stat-io"
-                style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}
-              >
-                <svg
-                  width="10"
-                  height="10"
-                  viewBox="0 0 10 10"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <line x1="5" y1="1.5" x2="5" y2="8.5" />
-                  <polyline points="2 6 5 8.5 8 6" />
-                </svg>
-                {formatCompact(tokens.output)}
-              </span>
-            )}
-            {costText && (
-              <span
-                className="mobile-session-stat-cost"
-                style={{ color: 'var(--text)', fontWeight: 500, flexShrink: 0 }}
-              >
-                {costText}
-              </span>
-            )}
-            {mobileContextText && (
-              <span style={{ color: contextColor, flexShrink: 0 }}>{mobileContextText}</span>
-            )}
-            {!hasMobileValues && showChat && (
-              <span
-                style={{ overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--text-dim)' }}
-              >
-                {translate('session.title')}
-              </span>
-            )}
-          </>
-        ) : (
-          <>
-            {tokens && tokens.input > 0 && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 10 10"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <line x1="5" y1="8.5" x2="5" y2="1.5" />
-                  <polyline points="2 4 5 1.5 8 4" />
-                </svg>
-                {formatCompact(tokens.input)}
-              </span>
-            )}
-            {tokens && tokens.output > 0 && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 10 10"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <line x1="5" y1="1.5" x2="5" y2="8.5" />
-                  <polyline points="2 6 5 8.5 8 6" />
-                </svg>
-                {formatCompact(tokens.output)}
-              </span>
-            )}
-            {tokens && tokens.cacheRead > 0 && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 10 10"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M8.5 5a3.5 3.5 0 1 1-1-2.45" />
-                  <polyline points="6.5 1.5 8.5 2.5 7.5 4.5" />
-                </svg>
-                {formatCompact(tokens.cacheRead)}
-              </span>
-            )}
-            {costText && (
-              <span
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  color: 'var(--text)',
-                  fontWeight: 500
-                }}
-              >
-                {costText}
-              </span>
-            )}
-            {desktopContextText && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: contextColor }}>
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 10 10"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M1 9 L1 5 Q1 1 5 1 Q9 1 9 5 L9 9" />
-                  <line x1="1" y1="9" x2="9" y2="9" />
-                </svg>
-                {desktopContextText}
-              </span>
-            )}
-          </>
-        )}
-      </button>
-    );
-  };
+  // Settings and the trust dialog belong to the shell, not to one view: the
+  // task workspace opens the same panels the conversation does.
+  const settingsOverlays = (
+    <>
+      {settingsSection && (
+        <SettingsPanel
+          cwd={projectTrustCwd}
+          sessionId={selectedSession?.id ?? null}
+          initialSection={settingsSection}
+          quoteSelectionEnabled={quoteSelectionEnabled}
+          onQuoteSelectionChange={handleQuoteSelectionChange}
+          onClose={() => {
+            setSettingsSection(null);
+            setModelsRefreshKey((key) => key + 1);
+          }}
+          onSessionReloaded={() => setSessionKey((key) => key + 1)}
+          projectTrust={projectTrust}
+          onOpenTrustDialog={openProjectTrustDialog}
+          onProjectTrustChanged={handleProjectTrustChanged}
+          onToolPresetsChanged={() => setToolPresetsRefreshKey((key) => key + 1)}
+        />
+      )}
+      {/* After Settings, so it opens above it (z-index 1100 over 1000) when Settings › MCP asks for it. */}
+      {projectTrustDialogOpen && projectTrustCwd && (
+        <ProjectTrustDialog
+          cwd={projectTrustCwd}
+          busy={projectTrustBusy}
+          error={projectTrustError}
+          onCancel={() => {
+            if (!projectTrustBusy) setProjectTrustDialogOpen(false);
+          }}
+          onConfirm={() => void handleTrustProject()}
+          onStatus={setProjectTrust}
+        />
+      )}
+    </>
+  );
 
   return (
     <>
@@ -2338,358 +1897,325 @@ export function AppShell() {
                   </svg>
                 )}
               </button>
-              {isMobile && (
-                <div
-                  ref={mobileToolbarRef}
-                  data-mobile-toolbar="true"
-                  style={{
-                    position: 'relative',
-                    display: 'flex',
-                    alignItems: 'stretch',
-                    flex: 1,
-                    minWidth: 0,
-                    height: '100%'
-                  }}
-                >
-                  {isNarrowMobile && (
-                    <button
-                      type="button"
-                      onClick={handleMobileToolbarMoreToggle}
-                      title={
-                        mobileToolbarMoreOpen
-                          ? translate('chat.close')
-                          : translate('chat.moreControls')
-                      }
-                      aria-label={
-                        mobileToolbarMoreOpen
-                          ? translate('chat.close')
-                          : translate('chat.moreControls')
-                      }
-                      aria-controls="mobile-toolbar-actions"
-                      aria-expanded={mobileToolbarMoreOpen}
-                      data-mobile-toolbar-more="true"
-                      style={{
-                        position: 'relative',
-                        zIndex: mobileToolbarMoreOpen ? 21 : undefined,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: TOP_BAR_ICON_BUTTON_SIZE,
-                        height: TOP_BAR_ICON_BUTTON_SIZE,
-                        padding: 0,
-                        background: mobileToolbarMoreOpen ? 'var(--bg-selected)' : 'none',
-                        border: 'none',
-                        borderRight: '1px solid var(--border)',
-                        color: mobileToolbarMoreOpen ? 'var(--text)' : 'var(--text-muted)',
-                        cursor: 'pointer',
-                        flexShrink: 0,
-                        transition: 'color 0.12s, background 0.12s'
-                      }}
-                    >
-                      {mobileToolbarMoreOpen ? (
-                        <svg
-                          width="15"
-                          height="15"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          aria-hidden="true"
-                        >
-                          <line x1="5" y1="5" x2="19" y2="19" />
-                          <line x1="19" y1="5" x2="5" y2="19" />
-                        </svg>
-                      ) : (
-                        <svg
-                          width="17"
-                          height="17"
-                          viewBox="0 0 24 24"
-                          fill="currentColor"
-                          aria-hidden="true"
-                        >
-                          <circle cx="5" cy="12" r="1.5" />
-                          <circle cx="12" cy="12" r="1.5" />
-                          <circle cx="19" cy="12" r="1.5" />
-                        </svg>
-                      )}
-                    </button>
-                  )}
-                  {!isNarrowMobile && renderChatToolbarActions(true)}
-                  {renderSessionStatsButton(true)}
-                  {isNarrowMobile && mobileToolbarMoreOpen && (
-                    <div
-                      id="mobile-toolbar-actions"
-                      role="toolbar"
-                      aria-label={translate('chat.moreControls')}
-                      data-mobile-toolbar-actions="true"
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        right: 0,
-                        bottom: 0,
-                        left: TOP_BAR_ICON_BUTTON_SIZE,
-                        zIndex: 20,
-                        display: 'flex',
-                        alignItems: 'stretch',
-                        background: 'color-mix(in srgb, var(--bg-panel) 94%, var(--bg))',
-                        boxShadow: '4px 0 18px rgba(0,0,0,0.12)',
-                        backdropFilter: 'blur(10px)'
-                      }}
-                    >
-                      {renderChatToolbarActions(true)}
-                    </div>
-                  )}
-                </div>
-              )}
-              {!isMobile && (
-                <>
-                  {renderProjectTrustWarning(false)}
-                  {renderChatToolbarActions(false)}
-                  {renderSessionStatsButton(false)}
-                </>
-              )}
+              <div className="workspace-toolbar-mode">
+                <WorkspaceSwitch mode={taskMode ? 'tasks' : 'chat'} />
+              </div>
+              {!isMobile && renderProjectTrustWarning(false)}
             </div>
             {isMobile && renderProjectTrustWarning(true)}
           </div>
 
-          {/* Chat content */}
-          <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-            {!runsPanelOpen && (
-              <button
-                ref={runsPanelToggleRef}
-                type="button"
-                onClick={toggleRunsPanel}
-                className="runs-panel-toggle-btn is-collapsed"
-                title={`${translate('runs.title')}: ${translate('sidebar.show')}`}
-                aria-label={`${translate('runs.title')}: ${translate('sidebar.show')}`}
-                aria-expanded={false}
-                aria-controls="session-information"
-              >
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                  style={{
-                    color: runInProgress ? 'var(--accent)' : 'currentColor',
-                    flexShrink: 0
-                  }}
-                >
-                  <polyline points="15 18 9 12 15 6" />
-                </svg>
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                  style={{
-                    color:
-                      runInProgress || sessionCompaction.isCompacting
-                        ? 'var(--accent)'
-                        : 'currentColor',
-                    flexShrink: 0
-                  }}
-                >
-                  <path d="m4 17 6-6-6-6" />
-                  <line x1="12" y1="19" x2="20" y2="19" />
-                </svg>
-                <span className="runs-toggle-label">{translate('runs.label')}</span>
-                {(runInProgress || sessionCompaction.isCompacting) && (
-                  <span className="runs-toggle-dot" aria-label="Running" />
-                )}
-              </button>
-            )}
-            {showChat ? (
-              <ChatWindow
-                key={sessionKey}
-                session={selectedSession}
-                searchTarget={searchTarget?.sessionId === selectedSession?.id ? searchTarget : null}
-                onSearchTargetHandled={handleSearchTargetHandled}
-                initialScrollPosition={
-                  selectedSession
-                    ? (sessionScrollPositionsRef.current.get(selectedSession.id) ?? null)
-                    : null
-                }
-                onScrollPositionChange={handleSessionScrollPositionChange}
-                sessionRunning={Boolean(
-                  selectedSession && runningSessionIds.has(selectedSession.id)
-                )}
-                newSessionCwd={effectiveNewSessionCwd}
-                newSessionDraftKey={newSessionDraftKey}
-                newSessionContextBar={newSessionContextBar}
-                initialNewSessionChoices={
-                  selectedSession === null ? carriedNewSessionChoices : null
-                }
-                onNewSessionChoicesChange={handleNewSessionChoicesChange}
-                onAgentEnd={handleAgentEnd}
-                onAttentionNeeded={handleAttentionNeeded}
-                onSessionCreated={handleSessionCreated}
-                onSessionForked={handleSessionForked}
-                modelsRefreshKey={modelsRefreshKey}
-                toolPresetsRefreshKey={toolPresetsRefreshKey}
-                chatInputRef={chatInputRef}
-                onBranchDataChange={handleBranchDataChange}
-                onSystemPromptChange={handleSystemPromptChange}
-                onSystemToolsChange={handleSystemToolsChange}
-                onSystemInfoLoaderChange={handleSystemInfoLoaderChange}
-                onExecutionHistoryChange={handleExecutionHistoryChange}
-                onGoalChange={handleGoalChange}
-                onCompactionChange={handleCompactionChange}
-                onSessionStatsChange={handleSessionStatsChange}
-                onSessionStatsPanelOpen={openSessionStatsPanel}
-                onOpenSettings={openSettingsSection}
-                onContextUsageChange={handleContextUsageChange}
-                onAskInNewChat={handleAskInNewChat}
-                quoteSelectionEnabled={quoteSelectionEnabled}
-                initialPrompt={
-                  pendingQuotePrompt?.sessionId === selectedSession?.id
-                    ? pendingQuotePrompt?.text
-                    : undefined
-                }
-                onInitialPromptConsumed={() => setPendingQuotePrompt(null)}
-                soundEnabled={soundEnabled}
-                onSoundToggle={onSoundToggle}
-                playDoneSound={playDoneSound}
-                unlockAudio={unlockAudio}
-                holdAudio={holdAudio}
+          {/* The conversation and the task queue are two views of the same
+              page: the sidebar and this toolbar stay in place, and only this
+              area changes. */}
+          {taskMode ? (
+            <div className="workspace-task-view">
+              <TaskWorkspace
+                initialTaskId={Number(searchParams.get('task')) || null}
+                queuePanelDocked={taskQueuePanelDocked}
+                queuePanelOpen={taskQueuePanelOpen}
+                queuePanelSlot={taskQueuePanelSlot}
+                onToggleQueuePanel={toggleTaskQueuePanel}
+                onOpenSession={(sessionId) => {
+                  // The sidebar already lists the conversation when the task's
+                  // project is open; use it so the switch is a client-side
+                  // change. A session outside that list falls back to a full
+                  // navigation, which restores it on mount.
+                  const session = sessionCatalog.find((entry) => entry.id === sessionId);
+                  if (session) {
+                    handleSelectSession(session);
+                    return;
+                  }
+                  window.location.assign(`/?session=${encodeURIComponent(sessionId)}`);
+                }}
               />
-            ) : initialCwdStatus === 'validating' ? (
-              <div
-                role="status"
-                style={{
-                  height: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  padding: 24,
-                  color: 'var(--text-muted)',
-                  textAlign: 'center'
-                }}
-              >
-                <div style={{ fontSize: 14, color: 'var(--text)' }}>
-                  {translate('workspace.opening')}
-                </div>
-                <div
-                  style={{
-                    maxWidth: 'min(720px, 100%)',
-                    overflowWrap: 'anywhere',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: 12
-                  }}
+            </div>
+          ) : (
+            <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+              {!runsPanelOpen && (
+                <button
+                  ref={runsPanelToggleRef}
+                  type="button"
+                  onClick={toggleRunsPanel}
+                  className="runs-panel-toggle-btn is-collapsed"
+                  data-runs-panel-toggle="true"
+                  title={`${translate('runs.title')}: ${translate('sidebar.show')}`}
+                  aria-label={`${translate('runs.title')}: ${translate('sidebar.show')}`}
+                  aria-expanded={false}
+                  aria-controls="session-information"
                 >
-                  {initialNavigation.requestedCwd}
-                </div>
-              </div>
-            ) : initialCwdStatus === 'error' ? (
-              <div
-                role="alert"
-                style={{
-                  height: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  padding: 24,
-                  color: 'var(--text-muted)',
-                  textAlign: 'center'
-                }}
-              >
-                <div style={{ fontSize: 14, color: '#dc2626' }}>
-                  {translate('workspace.unable')}
-                </div>
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                    style={{
+                      color: runInProgress ? 'var(--accent)' : 'currentColor',
+                      flexShrink: 0
+                    }}
+                  >
+                    <polyline points="15 18 9 12 15 6" />
+                  </svg>
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                    style={{
+                      color:
+                        runInProgress || sessionCompaction.isCompacting
+                          ? 'var(--accent)'
+                          : 'currentColor',
+                      flexShrink: 0
+                    }}
+                  >
+                    <path d="m4 17 6-6-6-6" />
+                    <line x1="12" y1="19" x2="20" y2="19" />
+                  </svg>
+                  <span className="runs-toggle-label">{translate('runs.label')}</span>
+                  {(runInProgress || sessionCompaction.isCompacting) && (
+                    <span className="runs-toggle-dot" aria-label="Running" />
+                  )}
+                </button>
+              )}
+              {showChat ? (
+                <ChatWindow
+                  key={sessionKey}
+                  session={selectedSession}
+                  searchTarget={
+                    searchTarget?.sessionId === selectedSession?.id ? searchTarget : null
+                  }
+                  onSearchTargetHandled={handleSearchTargetHandled}
+                  initialScrollPosition={
+                    selectedSession
+                      ? (sessionScrollPositionsRef.current.get(selectedSession.id) ?? null)
+                      : null
+                  }
+                  onScrollPositionChange={handleSessionScrollPositionChange}
+                  sessionRunning={Boolean(
+                    selectedSession && runningSessionIds.has(selectedSession.id)
+                  )}
+                  taskSessionRunning={Boolean(
+                    selectedSession && taskSessionIds.has(selectedSession.id)
+                  )}
+                  newSessionCwd={effectiveNewSessionCwd}
+                  newSessionDraftKey={newSessionDraftKey}
+                  newSessionContextBar={newSessionContextBar}
+                  initialNewSessionChoices={
+                    selectedSession === null ? carriedNewSessionChoices : null
+                  }
+                  onNewSessionChoicesChange={handleNewSessionChoicesChange}
+                  onAgentEnd={handleAgentEnd}
+                  onAttentionNeeded={handleAttentionNeeded}
+                  onSessionCreated={handleSessionCreated}
+                  onSessionForked={handleSessionForked}
+                  modelsRefreshKey={modelsRefreshKey}
+                  toolPresetsRefreshKey={toolPresetsRefreshKey}
+                  chatInputRef={chatInputRef}
+                  onBranchDataChange={handleBranchDataChange}
+                  onSystemPromptChange={handleSystemPromptChange}
+                  onSystemToolsChange={handleSystemToolsChange}
+                  onSystemInfoLoaderChange={handleSystemInfoLoaderChange}
+                  onExecutionHistoryChange={handleExecutionHistoryChange}
+                  onGoalChange={handleGoalChange}
+                  onCompactionChange={handleCompactionChange}
+                  onSessionStatsChange={handleSessionStatsChange}
+                  onSessionStatsPanelOpen={openSessionStatsPanel}
+                  onOpenSettings={openSettingsSection}
+                  onContextUsageChange={handleContextUsageChange}
+                  onAskInNewChat={handleAskInNewChat}
+                  quoteSelectionEnabled={quoteSelectionEnabled}
+                  initialPrompt={
+                    pendingQuotePrompt?.sessionId === selectedSession?.id
+                      ? pendingQuotePrompt?.text
+                      : undefined
+                  }
+                  onInitialPromptConsumed={() => setPendingQuotePrompt(null)}
+                  soundEnabled={soundEnabled}
+                  onSoundToggle={onSoundToggle}
+                  playDoneSound={playDoneSound}
+                  unlockAudio={unlockAudio}
+                  holdAudio={holdAudio}
+                />
+              ) : initialCwdStatus === 'validating' ? (
                 <div
-                  style={{
-                    maxWidth: 'min(720px, 100%)',
-                    overflowWrap: 'anywhere',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: 12
-                  }}
-                >
-                  {initialNavigation.requestedCwd}
-                </div>
-                <div style={{ maxWidth: 720, fontSize: 12 }}>{initialCwdError}</div>
-              </div>
-            ) : showPlaceholder ? (
-              activeCwd ? (
-                <div
+                  role="status"
                   style={{
                     height: '100%',
                     display: 'flex',
+                    flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: 'var(--text-muted)',
-                    fontSize: 15
-                  }}
-                >
-                  {translate('workspace.selectSession')}
-                </div>
-              ) : (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: 12,
-                    left: 12,
-                    display: 'flex',
-                    alignItems: 'flex-start',
                     gap: 8,
-                    userSelect: 'none',
-                    pointerEvents: 'none'
+                    padding: 24,
+                    color: 'var(--text-muted)',
+                    textAlign: 'center'
                   }}
                 >
-                  <svg
-                    width="44"
-                    height="44"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="var(--accent)"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    style={{ opacity: 0.7, flexShrink: 0 }}
+                  <div style={{ fontSize: 14, color: 'var(--text)' }}>
+                    {translate('workspace.opening')}
+                  </div>
+                  <div
+                    style={{
+                      maxWidth: 'min(720px, 100%)',
+                      overflowWrap: 'anywhere',
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: 12
+                    }}
                   >
-                    <line x1="20" y1="12" x2="4" y2="12" />
-                    <polyline points="10 6 4 12 10 18" />
-                  </svg>
-                  <div>
-                    <div
-                      style={{
-                        fontSize: 18,
-                        fontWeight: 600,
-                        color: 'var(--text)',
-                        marginBottom: 8
-                      }}
-                    >
-                      {translate('workspace.getStarted')}
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.8 }}>
-                      <span style={{ color: 'var(--text-dim)', marginRight: 6 }}>1.</span>
-                      {translate('workspace.selectProject')}
-                      <br />
-                      <span style={{ color: 'var(--text-dim)', marginRight: 6 }}>2.</span>
-                      {translate('workspace.addModels')}
-                    </div>
+                    {initialNavigation.requestedCwd}
                   </div>
                 </div>
-              )
-            ) : null}
-          </div>
+              ) : initialCwdStatus === 'error' ? (
+                <div
+                  role="alert"
+                  style={{
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    padding: 24,
+                    color: 'var(--text-muted)',
+                    textAlign: 'center'
+                  }}
+                >
+                  <div style={{ fontSize: 14, color: '#dc2626' }}>
+                    {translate('workspace.unable')}
+                  </div>
+                  <div
+                    style={{
+                      maxWidth: 'min(720px, 100%)',
+                      overflowWrap: 'anywhere',
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: 12
+                    }}
+                  >
+                    {initialNavigation.requestedCwd}
+                  </div>
+                  <div style={{ maxWidth: 720, fontSize: 12 }}>{initialCwdError}</div>
+                </div>
+              ) : showPlaceholder ? (
+                activeCwd ? (
+                  <div
+                    style={{
+                      height: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--text-muted)',
+                      fontSize: 15
+                    }}
+                  >
+                    {translate('workspace.selectSession')}
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 12,
+                      left: 12,
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: 8,
+                      userSelect: 'none',
+                      pointerEvents: 'none'
+                    }}
+                  >
+                    <svg
+                      width="44"
+                      height="44"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="var(--accent)"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{ opacity: 0.7, flexShrink: 0 }}
+                    >
+                      <line x1="20" y1="12" x2="4" y2="12" />
+                      <polyline points="10 6 4 12 10 18" />
+                    </svg>
+                    <div>
+                      <div
+                        style={{
+                          fontSize: 18,
+                          fontWeight: 600,
+                          color: 'var(--text)',
+                          marginBottom: 8
+                        }}
+                      >
+                        {translate('workspace.getStarted')}
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.8 }}>
+                        <span style={{ color: 'var(--text-dim)', marginRight: 6 }}>1.</span>
+                        {translate('workspace.selectProject')}
+                        <br />
+                        <span style={{ color: 'var(--text-dim)', marginRight: 6 }}>2.</span>
+                        {translate('workspace.addModels')}
+                      </div>
+                    </div>
+                  </div>
+                )
+              ) : null}
+            </div>
+          )}
         </div>
 
-        {runsPanelOpen && (
+        {taskQueuePanelOpen && (
+          <>
+            {/* The same resize handle as the Runs panel: one right-hand edge. */}
+            <div
+              {...runsPanelResizer.separatorProps}
+              aria-controls="task-queue-panel"
+              className={`panel-resize-handle runs-panel-resize-handle${runsPanelResizer.isResizing ? ' is-resizing' : ''}`}
+              data-resize-handle="task-queue-panel"
+              title={`${translate('layout.resizeRunsPanel')}: ${translate('layout.resizeHint')}`}
+            />
+            <SessionInfoSidebar
+              panelId="task-queue-panel"
+              title={translate('tasks.queue')}
+              toggleSelector='[data-task-queue-toggle="true"]'
+              contentClassName="task-queue-panel-content"
+              icon={
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ color: 'var(--accent)', flexShrink: 0 }}
+                  aria-hidden="true"
+                >
+                  <path d="M4 6h9M4 12h15M4 18h6" />
+                  <circle cx="18" cy="6" r="2" />
+                  <circle cx="15" cy="18" r="2" />
+                </svg>
+              }
+              sidebarWidth={sidebarOpen ? sidebarResizer.width : 0}
+              onClose={closeTaskQueuePanel}
+              focusOnMount={focusTaskQueuePanelRef.current}
+            >
+              <div ref={setTaskQueuePanelSlot} className="task-queue-panel-slot" />
+            </SessionInfoSidebar>
+          </>
+        )}
+
+        {runsPanelOpen && !taskMode && (
           <>
             {/* The panel's border is the idle separator; this widens its grasp. */}
             {!informationPanelOverlay && (
@@ -2707,16 +2233,19 @@ export function AppShell() {
               onClose={closeRunsPanel}
               focusOnMount={focusRunsPanelRef.current}
             >
-              <ExecutionHistoryPanel
-                entries={executionHistory}
-                sessionId={selectedSession?.id}
-                historyOpen={runHistoryOpen}
-                onHistoryOpenChange={setRunHistoryOpen}
-                goal={sessionGoal}
-                isCompacting={sessionCompaction.isCompacting}
-                compactResult={sessionCompaction.compactResult}
-                compactError={sessionCompaction.compactError}
-              />
+              <div className="session-panel-stack">
+                {sessionPanelActions}
+                <ExecutionHistoryPanel
+                  entries={executionHistory}
+                  sessionId={selectedSession?.id}
+                  historyOpen={runHistoryOpen}
+                  onHistoryOpenChange={setRunHistoryOpen}
+                  goal={sessionGoal}
+                  isCompacting={sessionCompaction.isCompacting}
+                  compactResult={sessionCompaction.compactResult}
+                  compactError={sessionCompaction.compactError}
+                />
+              </div>
             </SessionInfoSidebar>
           </>
         )}
@@ -2832,37 +2361,7 @@ export function AppShell() {
           isMobile={isMobile}
         />
       )}
-      {settingsSection && (
-        <SettingsPanel
-          cwd={projectTrustCwd}
-          sessionId={selectedSession?.id ?? null}
-          initialSection={settingsSection}
-          quoteSelectionEnabled={quoteSelectionEnabled}
-          onQuoteSelectionChange={handleQuoteSelectionChange}
-          onClose={() => {
-            setSettingsSection(null);
-            setModelsRefreshKey((key) => key + 1);
-          }}
-          onSessionReloaded={() => setSessionKey((key) => key + 1)}
-          projectTrust={projectTrust}
-          onOpenTrustDialog={openProjectTrustDialog}
-          onProjectTrustChanged={handleProjectTrustChanged}
-          onToolPresetsChanged={() => setToolPresetsRefreshKey((key) => key + 1)}
-        />
-      )}
-      {/* After Settings, so it opens above it (z-index 1100 over 1000) when Settings › MCP asks for it. */}
-      {projectTrustDialogOpen && projectTrustCwd && (
-        <ProjectTrustDialog
-          cwd={projectTrustCwd}
-          busy={projectTrustBusy}
-          error={projectTrustError}
-          onCancel={() => {
-            if (!projectTrustBusy) setProjectTrustDialogOpen(false);
-          }}
-          onConfirm={() => void handleTrustProject()}
-          onStatus={setProjectTrust}
-        />
-      )}
+      {settingsOverlays}
     </>
   );
 }

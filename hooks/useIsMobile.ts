@@ -1,6 +1,6 @@
 'use client';
 
-import { useSyncExternalStore } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
 
 // Mobile breakpoint shared with app/globals.css (max-width: 640px).
 const MOBILE_QUERY = '(max-width: 640px)';
@@ -26,6 +26,17 @@ const getNarrowMobileSnapshot = () => queryMatches(NARROW_MOBILE_QUERY);
 
 function getServerSnapshot(): boolean {
   return false;
+}
+
+/**
+ * Subscribes to any media query. The predicate runs only in the browser, so a
+ * server render and the first client paint both report false and hydration
+ * stays quiet.
+ */
+export function useMediaQuery(query: string): boolean {
+  const subscribe = useCallback((cb: () => void) => subscribeToQuery(query, cb), [query]);
+  const getSnapshot = useCallback(() => queryMatches(query), [query]);
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
 /**
