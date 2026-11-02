@@ -443,14 +443,17 @@ export class TaskOrchestrator {
   }
 
   /** Take effect between tasks, never mid-run. */
-  async pause(reason?: string): Promise<OrchestratorStatus> {
+  async pause(reason?: string, originSessionId?: string | null): Promise<OrchestratorStatus> {
     const state = this.queue.getQueueState();
     if (state.state === 'PAUSED') return this.status();
-    this.queue.setQueueState({
-      state: 'PAUSED',
-      pausedReason: reason ?? 'paused by user',
-      activeTaskId: state.activeTaskId
-    });
+    this.queue.setQueueState(
+      {
+        state: 'PAUSED',
+        pausedReason: reason ?? 'paused by user',
+        activeTaskId: state.activeTaskId
+      },
+      originSessionId
+    );
     return this.status();
   }
 
@@ -474,16 +477,23 @@ export class TaskOrchestrator {
    * Stop the running task for real. The run settles as BLOCKED and the loop
    * pauses, because an abort usually means the task itself is wrong.
    */
-  async abort(): Promise<OrchestratorStatus> {
+  async abort(originSessionId?: string | null): Promise<OrchestratorStatus> {
     const active = this.activeRun;
-    this.queue.setQueueState({ state: 'PAUSED', pausedReason: 'aborted by user' });
+    this.queue.setQueueState(
+      { state: 'PAUSED', pausedReason: 'aborted by user' },
+      originSessionId
+    );
     if (active) {
       await active.handle.abort();
     }
     return this.status();
   }
 
-  async answer(taskId: number, input: TaskAnswerInput): Promise<void> {
+  async answer(
+    taskId: number,
+    input: TaskAnswerInput,
+    originSessionId?: string | null
+  ): Promise<void> {
     const active = this.activeRun;
     const task = this.queue.getTask(taskId);
     if (!active || active.taskId !== taskId || !task.pendingQuestion) {
@@ -493,6 +503,12 @@ export class TaskOrchestrator {
       );
     }
     await active.handle.answer(input);
+    try {
+      this.queue.resolveQuestion(taskId, { ...input, originSessionId });
+    } catch (error) {
+      // The answer reached the child; a failed bookkeeping write must not undo it.
+      console.warn('[pie] could not record the task answer:', error);
+    }
   }
 
   /** Kill the active child and settle its task, so a restart leaves no zombie agent. */

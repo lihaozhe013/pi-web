@@ -18,16 +18,26 @@ import type {
   PendingQuestion,
   QueueState,
   QueueStateRecord,
+  TaskEvent,
+  TaskEventInput,
+  TaskEventKind,
   TaskRecord,
   TaskRunRecord,
   TaskSettleInput,
-  TaskStatus
+  TaskStatus,
+  TaskWatchRecord
 } from './types';
 
 export const TASK_DATABASE_FILE = 'pie-tasks.db';
 
 /** How many finished runs the board keeps in its history payload. */
 export const TASK_RUN_HISTORY_LIMIT = 50;
+
+/** How many events one read returns before the reader must ask again. */
+export const TASK_EVENT_PAGE_LIMIT = 200;
+
+/** A durable event is a digest line, not a log file. */
+export const TASK_EVENT_SUMMARY_MAX_LENGTH = 4_000;
 
 type Row = Record<string, unknown>;
 
@@ -94,6 +104,18 @@ function serialize(value: unknown): string | null {
   return value === null || value === undefined ? null : JSON.stringify(value);
 }
 
+function clipSummary(value: string | null | undefined): string | null {
+  if (!value) return null;
+  return value.length > TASK_EVENT_SUMMARY_MAX_LENGTH
+    ? value.slice(0, TASK_EVENT_SUMMARY_MAX_LENGTH)
+    : value;
+}
+
+/** One sentence a digest can quote without reading the queue again. */
+export function describeQueueState(state: Pick<QueueStateRecord, 'state' | 'pausedReason'>): string {
+  return state.pausedReason ? `${state.state}: ${state.pausedReason}` : state.state;
+}
+
 function taskFromRow(row: Row): TaskRecord {
   return {
     id: Number(row.id),
@@ -139,6 +161,26 @@ function queueStateFromRow(row: Row): QueueStateRecord {
     pausedReason: row.paused_reason === null ? null : String(row.paused_reason),
     activeTaskId: row.active_task_id === null ? null : Number(row.active_task_id),
     updatedAt: String(row.updated_at)
+  };
+}
+
+function eventFromRow(row: Row): TaskEvent {
+  return {
+    id: Number(row.id),
+    taskId: row.task_id === null ? null : Number(row.task_id),
+    kind: String(row.kind) as TaskEventKind,
+    status: row.status === null ? null : (String(row.status) as TaskStatus),
+    summary: row.summary === null ? null : String(row.summary),
+    originSessionId: row.origin_session_id === null ? null : String(row.origin_session_id),
+    createdAt: String(row.created_at)
+  };
+}
+
+function watchFromRow(row: Row): TaskWatchRecord {
+  return {
+    sessionId: String(row.session_id),
+    startedAt: String(row.started_at),
+    wakes: Number(row.wakes)
   };
 }
 
@@ -208,6 +250,34 @@ const MIGRATIONS: Array<(db: DatabaseSync) => void> = [
       ALTER TABLE tasks DROP COLUMN auto_commit;
       ALTER TABLE tasks DROP COLUMN commit_sha;
       ALTER TABLE task_runs DROP COLUMN commit_sha;
+    `);
+  },
+  // Status changes outlive the process that made them, so an operator session
+  // can catch up after a reload or a restart.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS task_events (
+        id                INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id           INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+        kind              TEXT NOT NULL
+                            CHECK (kind IN ('claimed','settled','question','answered','queue','config')),
+        status            TEXT,
+        summary           TEXT,
+        origin_session_id TEXT,
+        created_at        DATETIME NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS task_event_cursors (
+        session_id    TEXT PRIMARY KEY,
+        last_event_id INTEGER NOT NULL,
+        updated_at    DATETIME NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS task_manager_watch (
+        session_id TEXT PRIMARY KEY,
+        started_at DATETIME NOT NULL,
+        wakes      INTEGER NOT NULL DEFAULT 0
+      );
     `);
   }
 ];
@@ -314,7 +384,8 @@ export class TaskStore {
   }
 
   setQueueState(
-    patch: Partial<Pick<QueueStateRecord, 'state' | 'pausedReason' | 'activeTaskId'>>
+    patch: Partial<Pick<QueueStateRecord, 'state' | 'pausedReason' | 'activeTaskId'>>,
+    originSessionId?: string | null
   ): QueueStateRecord {
     const current = this.getQueueState();
     const next = {
@@ -322,13 +393,135 @@ export class TaskStore {
       pausedReason: patch.pausedReason !== undefined ? patch.pausedReason : current.pausedReason,
       activeTaskId: patch.activeTaskId !== undefined ? patch.activeTaskId : current.activeTaskId
     };
+    if (
+      next.state === current.state &&
+      next.pausedReason === current.pausedReason &&
+      next.activeTaskId === current.activeTaskId
+    ) {
+      return current;
+    }
+    return this.transaction(() => {
+      this.db
+        .prepare(
+          `UPDATE queue_state SET state = ?, paused_reason = ?, active_task_id = ?, updated_at = ?
+           WHERE id = 1`
+        )
+        .run(next.state, next.pausedReason, next.activeTaskId, nowIso());
+      // The active task is already announced by `claimed`; only a change a reader
+      // cannot see elsewhere becomes an event.
+      if (next.state !== current.state || next.pausedReason !== current.pausedReason) {
+        this.appendEvent({ kind: 'queue', summary: describeQueueState(next), originSessionId });
+      }
+      return this.getQueueState();
+    });
+  }
+
+  // -------------------------------------------------------------------- events
+
+  /**
+   * Append one durable status change. Callers that already hold a transaction
+   * inherit it, so an event never survives without the row it describes.
+   */
+  appendEvent(input: TaskEventInput, at: string = nowIso()): TaskEvent {
+    const status = input.status ?? null;
+    const summary = clipSummary(input.summary);
+    const origin = input.originSessionId ?? null;
+    const result = this.db
+      .prepare(
+        `INSERT INTO task_events (task_id, kind, status, summary, origin_session_id, created_at)
+         VALUES (?, ?, ?, ?, ?, ?)`
+      )
+      .run(input.taskId ?? null, input.kind, status, summary, origin, at);
+    return {
+      id: Number(result.lastInsertRowid),
+      taskId: input.taskId ?? null,
+      kind: input.kind,
+      status,
+      summary,
+      originSessionId: origin,
+      createdAt: at
+    };
+  }
+
+  lastEventId(): number {
+    const row = this.db.prepare('SELECT COALESCE(MAX(id), 0) AS id FROM task_events').get() as Row;
+    return Number(row.id);
+  }
+
+  listEventsSince(afterId: number, limit = TASK_EVENT_PAGE_LIMIT): TaskEvent[] {
+    const bounded = Math.min(Math.max(Math.trunc(limit), 1), TASK_EVENT_PAGE_LIMIT);
+    const rows = this.db
+      .prepare('SELECT * FROM task_events WHERE id > ? ORDER BY id LIMIT ?')
+      .all(Math.max(Math.trunc(afterId), 0), bounded) as Row[];
+    return rows.map(eventFromRow);
+  }
+
+  getEventCursor(sessionId: string): number {
+    const row = this.db
+      .prepare('SELECT last_event_id FROM task_event_cursors WHERE session_id = ?')
+      .get(sessionId) as Row | undefined;
+    return row ? Number(row.last_event_id) : 0;
+  }
+
+  /** A cursor only moves forward, so a replayed page cannot hide newer events. */
+  setEventCursor(sessionId: string, lastEventId: number): void {
     this.db
       .prepare(
-        `UPDATE queue_state SET state = ?, paused_reason = ?, active_task_id = ?, updated_at = ?
-         WHERE id = 1`
+        `INSERT INTO task_event_cursors (session_id, last_event_id, updated_at)
+         VALUES (?, ?, ?)
+         ON CONFLICT(session_id) DO UPDATE SET
+           last_event_id = MAX(task_event_cursors.last_event_id, excluded.last_event_id),
+           updated_at = excluded.updated_at`
       )
-      .run(next.state, next.pausedReason, next.activeTaskId, nowIso());
-    return this.getQueueState();
+      .run(sessionId, Math.max(Math.trunc(lastEventId), 0), nowIso());
+  }
+
+  /**
+   * Read what a session has not seen yet and advance its cursor in the same
+   * transaction, so two concurrent reads never deliver the same event twice.
+   */
+  readSessionEvents(
+    sessionId: string,
+    limit = TASK_EVENT_PAGE_LIMIT
+  ): { events: TaskEvent[]; cursor: number } {
+    return this.transaction(() => {
+      const cursor = this.getEventCursor(sessionId);
+      const events = this.listEventsSince(cursor, limit);
+      if (events.length > 0) this.setEventCursor(sessionId, events[events.length - 1].id);
+      return { events, cursor };
+    });
+  }
+
+  // --------------------------------------------------------------- watch state
+
+  getWatch(): TaskWatchRecord | null {
+    const row = this.db.prepare('SELECT * FROM task_manager_watch LIMIT 1').get() as
+      | Row
+      | undefined;
+    return row ? watchFromRow(row) : null;
+  }
+
+  /** Replace the watch row; a new watch always starts with a zero budget. */
+  setWatch(sessionId: string, startedAt: string = nowIso()): TaskWatchRecord {
+    return this.transaction(() => {
+      this.db.prepare('DELETE FROM task_manager_watch').run();
+      this.db
+        .prepare('INSERT INTO task_manager_watch (session_id, started_at, wakes) VALUES (?, ?, 0)')
+        .run(sessionId, startedAt);
+      return { sessionId, startedAt, wakes: 0 };
+    });
+  }
+
+  bumpWatchWakes(): TaskWatchRecord | null {
+    this.db.prepare('UPDATE task_manager_watch SET wakes = wakes + 1').run();
+    return this.getWatch();
+  }
+
+  /** Clear every watch, or only the one owned by `sessionId`. */
+  clearWatch(sessionId?: string): void {
+    if (sessionId === undefined) this.db.prepare('DELETE FROM task_manager_watch').run();
+    else
+      this.db.prepare('DELETE FROM task_manager_watch WHERE session_id = ?').run(sessionId);
   }
 
   // --------------------------------------------------------------------- tasks
@@ -423,9 +616,42 @@ export class TaskStore {
   }
 
   setPendingQuestion(id: number, question: PendingQuestion | null): void {
-    this.db
-      .prepare('UPDATE tasks SET pending_question = ?, updated_at = ? WHERE id = ?')
-      .run(serialize(question), nowIso(), id);
+    this.transaction(() => {
+      this.db
+        .prepare('UPDATE tasks SET pending_question = ?, updated_at = ? WHERE id = ?')
+        .run(serialize(question), nowIso(), id);
+      if (question) {
+        this.appendEvent({
+          kind: 'question',
+          taskId: id,
+          status: 'IN_PROGRESS',
+          summary: question.question
+        });
+      }
+    });
+  }
+
+  /**
+   * Clear the pending question and record who answered it. The answer text is
+   * kept short: it is a digest line, and the child already received the full one.
+   */
+  resolveQuestion(
+    id: number,
+    input: { answer?: string; cancelled?: boolean; originSessionId?: string | null }
+  ): TaskEvent {
+    return this.transaction(() => {
+      this.db
+        .prepare('UPDATE tasks SET pending_question = NULL, updated_at = ? WHERE id = ?')
+        .run(nowIso(), id);
+      const answer = input.answer?.trim();
+      return this.appendEvent({
+        kind: 'answered',
+        taskId: id,
+        status: 'IN_PROGRESS',
+        summary: input.cancelled ? 'question dismissed' : (answer ?? 'question answered'),
+        originSessionId: input.originSessionId
+      });
+    });
   }
 
   deleteTask(id: number): boolean {
@@ -483,7 +709,14 @@ export class TaskStore {
       if (Number(result.changes) !== 1) {
         throw new Error(`task ${id} could not be claimed`);
       }
-      return taskFromRow(this.db.prepare('SELECT * FROM tasks WHERE id = ?').get(id) as Row);
+      const claimed = taskFromRow(this.db.prepare('SELECT * FROM tasks WHERE id = ?').get(id) as Row);
+      this.appendEvent({
+        kind: 'claimed',
+        taskId: id,
+        status: 'IN_PROGRESS',
+        summary: claimed.title
+      });
+      return claimed;
     });
   }
 
@@ -537,6 +770,13 @@ export class TaskStore {
           now
         );
 
+      this.appendEvent({
+        kind: 'settled',
+        taskId: id,
+        status: input.status,
+        summary: input.resultSummary
+      });
+
       if (input.queueState) {
         this.setQueueState(input.queueState);
       }
@@ -558,29 +798,43 @@ export class TaskStore {
     return rows.map(runFromRow);
   }
 
-  markTaskDone(id: number, summary: string | null): TaskRecord | null {
-    const now = nowIso();
-    const result = this.db
-      .prepare(
-        `UPDATE tasks SET status = 'DONE', result_summary = ?, claimed_token = NULL,
-                          pending_question = NULL, finished_at = ?, updated_at = ?
-          WHERE id = ? AND status <> 'IN_PROGRESS'`
-      )
-      .run(summary, now, now, id);
-    return Number(result.changes) === 1 ? this.getTask(id) : null;
+  markTaskDone(id: number, summary: string | null, originSessionId?: string | null): TaskRecord | null {
+    return this.transaction(() => {
+      const now = nowIso();
+      const result = this.db
+        .prepare(
+          `UPDATE tasks SET status = 'DONE', result_summary = ?, claimed_token = NULL,
+                            pending_question = NULL, finished_at = ?, updated_at = ?
+            WHERE id = ? AND status <> 'IN_PROGRESS'`
+        )
+        .run(summary, now, now, id);
+      if (Number(result.changes) !== 1) return null;
+      this.appendEvent({ kind: 'settled', taskId: id, status: 'DONE', summary, originSessionId });
+      return this.getTask(id);
+    });
   }
 
-  retryTask(id: number): TaskRecord | null {
-    const now = nowIso();
-    const result = this.db
-      .prepare(
-        `UPDATE tasks SET status = 'PENDING', result_summary = NULL, exit_code = NULL,
-                          verify_output = NULL, finished_at = NULL,
-                          claimed_token = NULL, pending_question = NULL, updated_at = ?
-          WHERE id = ? AND status IN ('BLOCKED','FAILED')`
-      )
-      .run(now, id);
-    return Number(result.changes) === 1 ? this.getTask(id) : null;
+  retryTask(id: number, originSessionId?: string | null): TaskRecord | null {
+    return this.transaction(() => {
+      const now = nowIso();
+      const result = this.db
+        .prepare(
+          `UPDATE tasks SET status = 'PENDING', result_summary = NULL, exit_code = NULL,
+                            verify_output = NULL, finished_at = NULL,
+                            claimed_token = NULL, pending_question = NULL, updated_at = ?
+            WHERE id = ? AND status IN ('BLOCKED','FAILED')`
+        )
+        .run(now, id);
+      if (Number(result.changes) !== 1) return null;
+      this.appendEvent({
+        kind: 'settled',
+        taskId: id,
+        status: 'PENDING',
+        summary: 'returned to the queue',
+        originSessionId
+      });
+      return this.getTask(id);
+    });
   }
 
   /**
@@ -604,6 +858,7 @@ export class TaskStore {
           `UPDATE queue_state SET state = 'PAUSED', paused_reason = ?, active_task_id = NULL, updated_at = ? WHERE id = 1`
         )
         .run(summary, now);
+      this.appendEvent({ kind: 'queue', summary: `PAUSED: ${summary}` });
     });
     return rows.map(taskFromRow);
   }

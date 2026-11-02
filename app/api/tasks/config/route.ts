@@ -1,8 +1,9 @@
 import { jsonResponse } from '@/lib/json-response';
-import { readTaskConfig, writeTaskConfig } from '@/lib/tasks/config';
+import { configChangeSummary, readTaskConfig, writeTaskConfig } from '@/lib/tasks/config';
 import { TASK_INSTRUCTIONS_MAX_LENGTH } from '@/lib/tasks/defaults';
 import { noStore, readTaskBody, taskErrorResponse } from '@/lib/tasks/request';
 import { TaskInputError } from '@/lib/tasks/queue';
+import { getTaskStore } from '@/lib/tasks/store';
 import type { TaskConfig } from '@/lib/tasks/types';
 
 export const dynamic = 'force-dynamic';
@@ -83,7 +84,16 @@ export async function PUT(req: Request) {
     if (Object.keys(patch).length === 0) {
       throw new TaskInputError('No queue default to change');
     }
-    return jsonResponse(req, { config: writeTaskConfig(patch) }, noStore());
+    const before = readTaskConfig();
+    const config = writeTaskConfig(patch);
+    try {
+      // The defaults live in a JSON file, so the event follows the write rather
+      // than sharing a transaction with it.
+      getTaskStore().appendEvent({ kind: 'config', summary: configChangeSummary(before, config) });
+    } catch {
+      // A missing event is not a failed configuration.
+    }
+    return jsonResponse(req, { config }, noStore());
   } catch (error) {
     return taskErrorResponse(req, error);
   }

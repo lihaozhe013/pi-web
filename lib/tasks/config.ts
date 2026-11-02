@@ -111,6 +111,24 @@ export function readTaskConfig(agentDir: string = getAgentDir()): TaskConfig {
   }
 }
 
+/** One digest line naming what a write changed, without quoting the values. */
+export function configChangeSummary(before: TaskConfig, after: TaskConfig): string {
+  const fields: string[] = [];
+  if (before.model?.provider !== after.model?.provider || before.model?.modelId !== after.model?.modelId) {
+    fields.push('model');
+  }
+  if (before.verifyCommands.join('\n') !== after.verifyCommands.join('\n')) {
+    fields.push('verification commands');
+  }
+  if (before.verifyTimeoutMs !== after.verifyTimeoutMs) fields.push('verification timeout');
+  if (before.taskTimeoutMs !== after.taskTimeoutMs) fields.push('task timeout');
+  if (before.allowAskUser !== after.allowAskUser) fields.push('ask_user policy');
+  if (before.instructions !== after.instructions) fields.push('instructions');
+  return fields.length > 0
+    ? `queue defaults changed: ${fields.join(', ')}`
+    : 'queue defaults written with no change';
+}
+
 /** The effective policy of one task: its override, else the queue default. */
 export function resolveTaskPolicy(
   config: TaskConfig,

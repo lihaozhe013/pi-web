@@ -3,10 +3,24 @@
  * mapping from queue errors to the documented status codes.
  */
 import { jsonResponse } from '../json-response';
-import { OrchestratorConflictError } from './orchestrator';
-import { TaskInputError, TaskLockedError, TaskMoveError, TaskNotFoundError } from './queue';
+import { TaskInputError } from './queue';
 
 export const TASK_BODY_LIMIT_BYTES = 1_048_576;
+
+/**
+ * The status for every queue error code. Mapping by `code` rather than by class
+ * keeps the answers stable when a module is loaded twice, which happens between
+ * the dev server's bundles and the test runner's module resolution.
+ */
+const TASK_ERROR_STATUS: Record<string, number> = {
+  invalid_input: 400,
+  task_not_found: 404,
+  task_locked: 409,
+  task_not_pending: 409,
+  already_running: 409,
+  not_running: 409,
+  no_pending_question: 409
+};
 
 export async function readTaskBody(request: Request): Promise<Record<string, unknown>> {
   const length = Number(request.headers.get('content-length') ?? 0);
@@ -31,20 +45,11 @@ export async function readTaskBody(request: Request): Promise<Record<string, unk
 }
 
 export function taskErrorResponse(request: Request, error: unknown): Response {
-  if (error instanceof TaskInputError) {
-    return jsonResponse(request, { error: error.message, code: error.code }, { status: 400 });
-  }
-  if (error instanceof TaskNotFoundError) {
-    return jsonResponse(request, { error: error.message, code: error.code }, { status: 404 });
-  }
-  if (error instanceof TaskLockedError) {
-    return jsonResponse(request, { error: error.message, code: error.code }, { status: 409 });
-  }
-  if (error instanceof TaskMoveError) {
-    return jsonResponse(request, { error: error.message, code: error.code }, { status: 409 });
-  }
-  if (error instanceof OrchestratorConflictError) {
-    return jsonResponse(request, { error: error.message, code: error.code }, { status: 409 });
+  const code = (error as { code?: unknown } | null)?.code;
+  const status = typeof code === 'string' ? TASK_ERROR_STATUS[code] : undefined;
+  if (status !== undefined) {
+    const message = error instanceof Error ? error.message : String(error);
+    return jsonResponse(request, { error: message, code }, { status });
   }
   const message = error instanceof Error ? error.message : String(error);
   return jsonResponse(request, { error: message, code: 'internal_error' }, { status: 500 });

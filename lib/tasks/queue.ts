@@ -183,9 +183,10 @@ export class TaskQueue {
   }
 
   setQueueState(
-    patch: Partial<Pick<QueueStateRecord, 'state' | 'pausedReason' | 'activeTaskId'>>
+    patch: Partial<Pick<QueueStateRecord, 'state' | 'pausedReason' | 'activeTaskId'>>,
+    originSessionId?: string | null
   ): QueueStateRecord {
-    return this.store.setQueueState(patch);
+    return this.store.setQueueState(patch, originSessionId);
   }
 
   async createTask(input: TaskCreateInput): Promise<TaskRecord> {
@@ -289,6 +290,14 @@ export class TaskQueue {
     this.store.setPendingQuestion(id, question);
   }
 
+  /** Record the answer and clear the pending question in one transaction. */
+  resolveQuestion(
+    id: number,
+    input: { answer?: string; cancelled?: boolean; originSessionId?: string | null }
+  ): void {
+    this.store.resolveQuestion(id, input);
+  }
+
   settle(id: number, token: string, input: TaskSettleInput): TaskRecord {
     const settled = this.store.settleTask(id, token, input);
     if (!settled) {
@@ -297,21 +306,25 @@ export class TaskQueue {
     return settled;
   }
 
-  retryTask(id: number): TaskRecord {
+  retryTask(id: number, originSessionId?: string | null): TaskRecord {
     const task = this.getTask(id);
     if (task.status !== 'BLOCKED' && task.status !== 'FAILED') {
       throw new TaskInputError('Only a blocked or failed task can be retried');
     }
-    const retried = this.store.retryTask(id);
+    const retried = this.store.retryTask(id, originSessionId);
     if (!retried) throw new TaskLockedError();
     return retried;
   }
 
-  markDone(id: number, note: string | null): TaskRecord {
+  markDone(id: number, note: string | null, originSessionId?: string | null): TaskRecord {
     const task = this.getTask(id);
     if (task.status === 'IN_PROGRESS') throw new TaskLockedError();
     const summary = (note?.trim() || task.resultSummary) ?? 'marked done by hand';
-    const done = this.store.markTaskDone(id, summary.slice(0, TASK_OUTPUT_TAIL_MAX_LENGTH));
+    const done = this.store.markTaskDone(
+      id,
+      summary.slice(0, TASK_OUTPUT_TAIL_MAX_LENGTH),
+      originSessionId
+    );
     if (!done) throw new TaskLockedError();
     return done;
   }

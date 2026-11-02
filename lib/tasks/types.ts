@@ -105,6 +105,42 @@ export interface OrchestratorStatus {
   activity: TaskActivity | null;
 }
 
+/**
+ * The decision points a queue reader can observe. Activity inside a run is
+ * deliberately absent: only a transition another operator must know about is an
+ * event.
+ */
+export type TaskEventKind = 'claimed' | 'settled' | 'question' | 'answered' | 'queue' | 'config';
+
+/** One durable status change, appended inside the transaction that caused it. */
+export interface TaskEvent {
+  id: number;
+  /** Null for a queue-level event such as a pause or a configuration write. */
+  taskId: number | null;
+  kind: TaskEventKind;
+  /** The task's status at the time, so a digest needs no second read. */
+  status: TaskStatus | null;
+  summary: string | null;
+  /** The session whose call caused it, so that session is not woken for its own work. */
+  originSessionId: string | null;
+  createdAt: string;
+}
+
+export interface TaskEventInput {
+  kind: TaskEventKind;
+  taskId?: number | null;
+  status?: TaskStatus | null;
+  summary?: string | null;
+  originSessionId?: string | null;
+}
+
+/** The one watch row: at most one session actively watches the queue. */
+export interface TaskWatchRecord {
+  sessionId: string;
+  startedAt: string;
+  wakes: number;
+}
+
 export interface TaskCreateInput {
   title: string;
   description?: string | null;
