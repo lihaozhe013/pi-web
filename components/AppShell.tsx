@@ -1553,13 +1553,63 @@ export function AppShell() {
     />
   );
 
-  // The task workspace is the page's other view: it keeps the mode switch in
-  // the same place, drops the Runs panel, and renders only the queue.
+  // Settings and the trust dialog belong to the shell, not to one view: the
+  // task workspace opens the same panels the conversation does.
+  const settingsOverlays = (
+    <>
+      {settingsSection && (
+        <SettingsPanel
+          cwd={projectTrustCwd}
+          sessionId={selectedSession?.id ?? null}
+          initialSection={settingsSection}
+          quoteSelectionEnabled={quoteSelectionEnabled}
+          onQuoteSelectionChange={handleQuoteSelectionChange}
+          onClose={() => {
+            setSettingsSection(null);
+            setModelsRefreshKey((key) => key + 1);
+          }}
+          onSessionReloaded={() => setSessionKey((key) => key + 1)}
+          projectTrust={projectTrust}
+          onOpenTrustDialog={openProjectTrustDialog}
+          onProjectTrustChanged={handleProjectTrustChanged}
+          onToolPresetsChanged={() => setToolPresetsRefreshKey((key) => key + 1)}
+        />
+      )}
+      {/* After Settings, so it opens above it (z-index 1100 over 1000) when Settings › MCP asks for it. */}
+      {projectTrustDialogOpen && projectTrustCwd && (
+        <ProjectTrustDialog
+          cwd={projectTrustCwd}
+          busy={projectTrustBusy}
+          error={projectTrustError}
+          onCancel={() => {
+            if (!projectTrustBusy) setProjectTrustDialogOpen(false);
+          }}
+          onConfirm={() => void handleTrustProject()}
+          onStatus={setProjectTrust}
+        />
+      )}
+    </>
+  );
+
+  // The task workspace is the page's other view: it keeps the mode switch and
+  // the app's own settings entry in the same place, drops the Runs panel, and
+  // renders only the queue.
   if (taskMode) {
     return (
       <div className="app-task-mode">
         <div className="task-mode-bar">
           <WorkspaceSwitch mode="tasks" />
+          <button
+            type="button"
+            className="task-mode-settings"
+            onClick={() => setSettingsSection(getLastSettingsSection(projectTrustCwd))}
+            title={translate('common.settings')}
+            aria-label={translate('common.settings')}
+            aria-haspopup="dialog"
+          >
+            <SettingsSectionIcon section="general" size={14} strokeWidth={2} />
+            <span>{translate('common.settings')}</span>
+          </button>
         </div>
         <TaskWorkspace
           initialTaskId={Number(searchParams.get('task')) || null}
@@ -1569,6 +1619,7 @@ export function AppShell() {
             window.location.assign(`/?session=${encodeURIComponent(sessionId)}`);
           }}
         />
+        {settingsOverlays}
       </div>
     );
   }
@@ -2197,37 +2248,7 @@ export function AppShell() {
           isMobile={isMobile}
         />
       )}
-      {settingsSection && (
-        <SettingsPanel
-          cwd={projectTrustCwd}
-          sessionId={selectedSession?.id ?? null}
-          initialSection={settingsSection}
-          quoteSelectionEnabled={quoteSelectionEnabled}
-          onQuoteSelectionChange={handleQuoteSelectionChange}
-          onClose={() => {
-            setSettingsSection(null);
-            setModelsRefreshKey((key) => key + 1);
-          }}
-          onSessionReloaded={() => setSessionKey((key) => key + 1)}
-          projectTrust={projectTrust}
-          onOpenTrustDialog={openProjectTrustDialog}
-          onProjectTrustChanged={handleProjectTrustChanged}
-          onToolPresetsChanged={() => setToolPresetsRefreshKey((key) => key + 1)}
-        />
-      )}
-      {/* After Settings, so it opens above it (z-index 1100 over 1000) when Settings › MCP asks for it. */}
-      {projectTrustDialogOpen && projectTrustCwd && (
-        <ProjectTrustDialog
-          cwd={projectTrustCwd}
-          busy={projectTrustBusy}
-          error={projectTrustError}
-          onCancel={() => {
-            if (!projectTrustBusy) setProjectTrustDialogOpen(false);
-          }}
-          onConfirm={() => void handleTrustProject()}
-          onStatus={setProjectTrust}
-        />
-      )}
+      {settingsOverlays}
     </>
   );
 }

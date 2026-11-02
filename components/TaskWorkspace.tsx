@@ -9,11 +9,26 @@
  * the seven `/api/tasks` routes and renders a task's session as an ordinary Pi
  * session.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode
+} from 'react';
 import { useI18n } from '@/hooks/useI18n';
-import { useMediaQuery } from '@/hooks/useIsMobile';
+import { useIsMobile, useMediaQuery } from '@/hooks/useIsMobile';
 import { AskUserPanel } from './AskUserPanel';
 import { DirectoryPicker } from './DirectoryPicker';
+import { ModelSelector, type ModelSelectorOption } from './ModelSelector';
+import {
+  SidebarMenu,
+  type SidebarMenuAnchor,
+  type SidebarMenuItem
+} from './SidebarMenu';
+import { MoreIcon } from './SidebarIcons';
 import {
   detailPlacement,
   groupTasks,
@@ -99,6 +114,99 @@ const STATUS_ORDER: Record<TaskStatus, number> = {
   DONE: 4
 };
 
+/** One row menu icon set; small enough to keep beside the board it serves. */
+function menuIcon(children: ReactNode) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  );
+}
+
+const MENU_ICON = {
+  edit: menuIcon(
+    <>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </>
+  ),
+  up: menuIcon(<polyline points="18 15 12 9 6 15" />),
+  down: menuIcon(<polyline points="6 9 12 15 18 9" />),
+  duplicate: menuIcon(
+    <>
+      <rect x="9" y="9" width="12" height="12" rx="2" />
+      <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+      <path d="M15 12v6M12 15h6" />
+    </>
+  ),
+  copy: menuIcon(
+    <>
+      <rect x="9" y="9" width="12" height="12" rx="2" />
+      <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+    </>
+  ),
+  paste: menuIcon(
+    <>
+      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+      <rect x="8" y="2" width="8" height="4" rx="1" />
+    </>
+  ),
+  session: menuIcon(
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z" />
+  ),
+  delete: menuIcon(
+    <>
+      <path d="M3 6h18" />
+      <path d="M8 6V4h8v2" />
+      <path d="M19 6l-1 14H6L5 6" />
+    </>
+  )
+};
+
+/** What "Copy" keeps: the fields "Paste" would send back to the queue. */
+interface TaskClipboard {
+  title: string;
+  description: string | null;
+  cwd: string;
+  verifyCommands: string[] | null;
+  allowAskUser: boolean | null;
+  autoCommit: boolean | null;
+}
+
+const TASK_CLIPBOARD_KEY = 'pie:task-clipboard';
+
+function clipboardFromTask(task: TaskRecord): TaskClipboard {
+  return {
+    title: task.title,
+    description: task.description,
+    cwd: task.cwd,
+    verifyCommands: task.verifyCommands,
+    allowAskUser: task.allowAskUser,
+    autoCommit: task.autoCommit
+  };
+}
+
+function taskBody(clipboard: TaskClipboard, title: string): Record<string, unknown> {
+  return {
+    title,
+    description: clipboard.description,
+    cwd: clipboard.cwd,
+    verify_commands: clipboard.verifyCommands,
+    allow_ask_user: clipboard.allowAskUser,
+    auto_commit: clipboard.autoCommit
+  };
+}
+
 function statusTone(status: TaskStatus): string {
   if (status === 'IN_PROGRESS') return 'var(--accent)';
   if (status === 'DONE') return 'var(--success, #16a34a)';
@@ -114,6 +222,7 @@ export function TaskWorkspace({
   polling = true
 }: TaskWorkspaceProps) {
   const { t } = useI18n();
+  const isMobile = useIsMobile();
   // Matches the stylesheet: at or below 900px the detail covers the board.
   const overlayDetail = useMediaQuery('(max-width: 900px)');
   const [payload, setPayload] = useState<TaskQueuePayload | null>(initialData);
@@ -125,6 +234,17 @@ export function TaskWorkspace({
   const [cwdError, setCwdError] = useState<string | null>(null);
   const [cwdChecking, setCwdChecking] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [modelOptions, setModelOptions] = useState<ModelSelectorOption[]>([]);
+  const [defaultModel, setDefaultModel] = useState<{ provider: string; modelId: string } | null>(
+    null
+  );
+  const [modelBusy, setModelBusy] = useState(false);
+  const [clipboard, setClipboard] = useState<TaskClipboard | null>(null);
+  const [menu, setMenu] = useState<{ anchor: SidebarMenuAnchor; taskId: number | null } | null>(
+    null
+  );
+  const menuOpenerRef = useRef<HTMLElement | null>(null);
   const [busy, setBusy] = useState(false);
   const [output, setOutput] = useState('');
   const rowRefs = useRef(new Map<number, HTMLButtonElement>());
@@ -146,6 +266,53 @@ export function TaskWorkspace({
       return null;
     }
   }, []);
+
+  // The clipboard outlives a reload; nothing renders from it until a menu opens.
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(TASK_CLIPBOARD_KEY);
+      if (raw) setClipboard(JSON.parse(raw) as TaskClipboard);
+    } catch {
+      // An unreadable clipboard only means there is nothing to paste.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(null), 2600);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
+  // The model list is the app's own: the same route the composer uses, without
+  // a session. A failed load leaves the header with just the queue controls.
+  useEffect(() => {
+    if (!polling) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch('/api/models', { cache: 'no-store' });
+        if (!response.ok) return;
+        const data = (await response.json()) as {
+          modelList?: { id: string; name: string; provider: string }[];
+          defaultModel?: { provider: string; modelId: string } | null;
+        };
+        if (cancelled) return;
+        setModelOptions(
+          (data.modelList ?? []).map((model) => ({
+            provider: model.provider,
+            modelId: model.id,
+            name: model.name
+          }))
+        );
+        setDefaultModel(data.defaultModel ?? null);
+      } catch {
+        // The queue still runs with Pi's own default model.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [polling]);
 
   const status = payload?.orchestrator ?? null;
   const tasks = useMemo(() => payload?.tasks ?? [], [payload]);
@@ -431,6 +598,89 @@ export function TaskWorkspace({
     [call, draft, selectedId]
   );
 
+  const createTaskFrom = useCallback(
+    async (copy: TaskClipboard, title: string): Promise<TaskRecord | null> => {
+      const result = (await call('/api/tasks', {
+        method: 'POST',
+        body: JSON.stringify(taskBody(copy, title))
+      })) as { task?: TaskRecord } | null;
+      if (!result?.task) return null;
+      setSelectedId(result.task.id);
+      return result.task;
+    },
+    [call]
+  );
+
+  const duplicateTask = useCallback(
+    async (task: TaskRecord) => {
+      const created = await createTaskFrom(
+        clipboardFromTask(task),
+        `${task.title} ${t('tasks.copySuffix')}`
+      );
+      if (created) setNotice(t('tasks.duplicated'));
+    },
+    [createTaskFrom, t]
+  );
+
+  const copyTask = useCallback(
+    (task: TaskRecord) => {
+      const copy = clipboardFromTask(task);
+      setClipboard(copy);
+      try {
+        window.localStorage.setItem(TASK_CLIPBOARD_KEY, JSON.stringify(copy));
+      } catch {
+        // The in-memory copy still works for this page.
+      }
+      setNotice(t('tasks.copied'));
+    },
+    [t]
+  );
+
+  const pasteTask = useCallback(async () => {
+    if (!clipboard) return;
+    const created = await createTaskFrom(clipboard, `${clipboard.title} ${t('tasks.copySuffix')}`);
+    if (created) setNotice(t('tasks.pasted'));
+  }, [clipboard, createTaskFrom, t]);
+
+  const saveModel = useCallback(
+    async (model: { provider: string; modelId: string } | null) => {
+      setModelBusy(true);
+      setError(null);
+      try {
+        const response = await fetch('/api/tasks/config', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model })
+        });
+        const data = (await response.json().catch(() => ({}))) as { error?: string };
+        if (!response.ok) throw new Error(data.error ?? `HTTP ${response.status}`);
+        await refresh();
+        setNotice(t('tasks.modelSaved'));
+      } catch (saveError) {
+        setError(saveError instanceof Error ? saveError.message : String(saveError));
+      } finally {
+        setModelBusy(false);
+      }
+    },
+    [refresh, t]
+  );
+
+  const closeMenu = useCallback(() => {
+    setMenu(null);
+  }, []);
+
+  // A right-click or the row's menu button act on that row, not on the
+  // selection, so the board never guesses which task was meant.
+  const openRowMenu = useCallback((task: TaskRecord, anchor: SidebarMenuAnchor, opener: HTMLElement) => {
+    menuOpenerRef.current = opener;
+    setMenu({ anchor, taskId: task.id });
+  }, []);
+
+  const openBoardMenu = useCallback((anchor: SidebarMenuAnchor, opener: HTMLElement) => {
+    menuOpenerRef.current = opener;
+    setMenu({ anchor, taskId: null });
+  }, []);
+
   const moveTask = useCallback(
     async (task: TaskRecord, direction: 'up' | 'down') => {
       if (isTaskLocked(task)) return;
@@ -487,8 +737,23 @@ export function TaskWorkspace({
   );
 
   const onRowKeyDown = useCallback(
-    (event: React.KeyboardEvent<HTMLButtonElement>, task: TaskRecord) => {
+    (event: ReactKeyboardEvent<HTMLButtonElement>, task: TaskRecord) => {
       if (event.nativeEvent.isComposing) return;
+      // The keyboard's own context-menu gesture, at the row like a right-click.
+      if ((event.key === 'F10' && event.shiftKey) || event.key === 'ContextMenu') {
+        event.preventDefault();
+        const rect = event.currentTarget.getBoundingClientRect();
+        openRowMenu(
+          task,
+          {
+            kind: 'rect',
+            align: 'end',
+            rect: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom }
+          },
+          event.currentTarget
+        );
+        return;
+      }
       if (event.key === 'ArrowUp') {
         event.preventDefault();
         void moveTask(task, 'up');
@@ -503,8 +768,119 @@ export function TaskWorkspace({
         void removeTask(task);
       }
     },
-    [moveTask, removeTask, startEdit]
+    [moveTask, openRowMenu, removeTask, startEdit]
   );
+
+  /** One row's menu: edit, move, duplicate, copy/paste, open, delete. */
+  const menuItemsFor = (task: TaskRecord): SidebarMenuItem[] => {
+    const locked = isTaskLocked(task);
+    const pending = groups.queued.findIndex((entry) => entry.id === task.id);
+    const canMoveUp = pending > 0;
+    const canMoveDown = pending >= 0 && pending < groups.queued.length - 1;
+    const lockedReason = locked ? t('tasks.lockedExplanation') : undefined;
+    const items: SidebarMenuItem[] = [
+      {
+        type: 'item',
+        id: 'edit',
+        label: t('tasks.edit'),
+        icon: MENU_ICON.edit,
+        disabled: locked,
+        disabledReason: lockedReason,
+        onSelect: () => startEdit(task)
+      },
+      { type: 'separator', id: 'sep-move' },
+      {
+        type: 'item',
+        id: 'move-up',
+        label: t('tasks.moveUp'),
+        icon: MENU_ICON.up,
+        disabled: !canMoveUp,
+        disabledReason: t('tasks.moveBlocked'),
+        onSelect: () => void moveTask(task, 'up')
+      },
+      {
+        type: 'item',
+        id: 'move-down',
+        label: t('tasks.moveDown'),
+        icon: MENU_ICON.down,
+        disabled: !canMoveDown,
+        disabledReason: t('tasks.moveBlocked'),
+        onSelect: () => void moveTask(task, 'down')
+      },
+      { type: 'separator', id: 'sep-copy' },
+      {
+        type: 'item',
+        id: 'duplicate',
+        label: t('tasks.duplicate'),
+        icon: MENU_ICON.duplicate,
+        onSelect: () => void duplicateTask(task)
+      },
+      {
+        type: 'item',
+        id: 'copy',
+        label: t('tasks.copy'),
+        icon: MENU_ICON.copy,
+        onSelect: () => copyTask(task)
+      },
+      {
+        type: 'item',
+        id: 'paste',
+        label: t('tasks.paste'),
+        icon: MENU_ICON.paste,
+        disabled: !clipboard,
+        disabledReason: clipboard ? undefined : t('tasks.nothingToPaste'),
+        onSelect: () => void pasteTask()
+      }
+    ];
+    if (task.sessionId) {
+      items.push(
+        { type: 'separator', id: 'sep-session' },
+        {
+          type: 'item',
+          id: 'open-session',
+          label: t('tasks.openSession'),
+          icon: MENU_ICON.session,
+          onSelect: () => onOpenSession?.(task.sessionId as string)
+        }
+      );
+    }
+    items.push(
+      { type: 'separator', id: 'sep-delete' },
+      {
+        type: 'item',
+        id: 'delete',
+        label: t('tasks.delete'),
+        icon: MENU_ICON.delete,
+        danger: true,
+        disabled: locked,
+        disabledReason: lockedReason,
+        onSelect: () => void removeTask(task)
+      }
+    );
+    return items;
+  };
+
+  const boardMenuItems = (): SidebarMenuItem[] => [
+    {
+      type: 'item',
+      id: 'new',
+      label: t('tasks.new'),
+      icon: MENU_ICON.edit,
+      onSelect: startNewTask
+    },
+    {
+      type: 'item',
+      id: 'paste',
+      label: t('tasks.paste'),
+      icon: MENU_ICON.paste,
+      disabled: !clipboard,
+      disabledReason: clipboard ? undefined : t('tasks.nothingToPaste'),
+      onSelect: () => void pasteTask()
+    }
+  ];
+
+  const menuTask = menu?.taskId == null ? null : (tasks.find((task) => task.id === menu.taskId) ?? null);
+  const menuItems = menu ? (menuTask ? menuItemsFor(menuTask) : boardMenuItems()) : [];
 
   const statusLabel = (value: TaskStatus): string => {
     if (value === 'IN_PROGRESS') return t('tasks.status.inProgress');
@@ -522,49 +898,82 @@ export function TaskWorkspace({
   const renderRow = (task: TaskRecord) => {
     const locked = isTaskLocked(task);
     const active = selected?.id === task.id;
+    const menuOpen = menu?.taskId === task.id;
     return (
-      <button
+      <div
         key={task.id}
-        ref={(element) => {
-          if (element) rowRefs.current.set(task.id, element);
-          else rowRefs.current.delete(task.id);
-        }}
-        type="button"
-        className="task-row"
+        className="task-row-shell"
         data-active={active}
-        data-status={task.status}
-        aria-current={active ? 'true' : undefined}
-        aria-label={`${statusLabel(task.status)}: ${task.title}`}
-        title={
-          locked
-            ? t('tasks.lockedExplanation')
-            : `${t('tasks.reorderHint')} · ${t('tasks.editHint')}`
-        }
-        onClick={() => {
-          setSelectedId(task.id);
-          setDraft(null);
-          openSheet();
+        data-menu-open={menuOpen ? 'true' : undefined}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          openRowMenu(task, { kind: 'point', x: event.clientX, y: event.clientY }, event.currentTarget);
         }}
-        onDoubleClick={() => startEdit(task)}
-        onKeyDown={(event) => onRowKeyDown(event, task)}
       >
-        <span
-          className="task-row-marker"
-          style={{ background: statusTone(task.status) }}
-          aria-hidden="true"
-        />
-        <span className="task-row-body">
-          <span className="task-row-title">{task.title}</span>
-          <span className="task-row-meta">
-            <span className="task-row-cwd">{task.cwd}</span>
-            <span>
-              {t('tasks.attempts', { count: task.attempts })} ·{' '}
-              {elapsedText(taskElapsedMs(task))}
+        <button
+          ref={(element) => {
+            if (element) rowRefs.current.set(task.id, element);
+            else rowRefs.current.delete(task.id);
+          }}
+          type="button"
+          className="task-row"
+          data-active={active}
+          data-status={task.status}
+          aria-current={active ? 'true' : undefined}
+          aria-label={`${statusLabel(task.status)}: ${task.title}`}
+          title={
+            locked
+              ? t('tasks.lockedExplanation')
+              : `${t('tasks.reorderHint')} · ${t('tasks.editHint')}`
+          }
+          onClick={() => {
+            setSelectedId(task.id);
+            setDraft(null);
+            openSheet();
+          }}
+          onDoubleClick={() => startEdit(task)}
+          onKeyDown={(event) => onRowKeyDown(event, task)}
+        >
+          <span
+            className="task-row-marker"
+            style={{ background: statusTone(task.status) }}
+            aria-hidden="true"
+          />
+          <span className="task-row-body">
+            <span className="task-row-title">{task.title}</span>
+            <span className="task-row-meta">
+              <span className="task-row-cwd">{task.cwd}</span>
+              <span>
+                {t('tasks.attempts', { count: task.attempts })} ·{' '}
+                {elapsedText(taskElapsedMs(task))}
+              </span>
             </span>
           </span>
-        </span>
-        <span className="task-row-status">{statusLabel(task.status)}</span>
-      </button>
+          <span className="task-row-status">{statusLabel(task.status)}</span>
+        </button>
+        <button
+          type="button"
+          className="task-row-more"
+          aria-label={t('tasks.moreActions')}
+          title={t('tasks.moreActions')}
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          onClick={(event) => {
+            const rect = event.currentTarget.getBoundingClientRect();
+            openRowMenu(
+              task,
+              {
+                kind: 'rect',
+                align: 'end',
+                rect: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom }
+              },
+              event.currentTarget
+            );
+          }}
+        >
+          <MoreIcon size={14} />
+        </button>
+      </div>
     );
   };
 
@@ -584,57 +993,91 @@ export function TaskWorkspace({
   return (
     <div className="task-workspace">
       <div className="task-topbar">
-        <span className="task-topbar-title">{t('tasks.board')}</span>
-        {status && (
-          <span className="task-topbar-state" data-state={status.state}>
-            {t(`tasks.queueState.${status.state.toLowerCase()}`)}
-          </span>
-        )}
-        <div className="task-topbar-actions">
-          {status?.state === 'RUNNING' ? (
+        <div className="task-topbar-main">
+          <span className="task-topbar-title">{t('tasks.board')}</span>
+          {status && (
+            <span className="task-topbar-state" data-state={status.state}>
+              {t(`tasks.queueState.${status.state.toLowerCase()}`)}
+            </span>
+          )}
+          {notice && (
+            <span className="task-topbar-notice" role="status">
+              {notice}
+            </span>
+          )}
+        </div>
+        <div className="task-topbar-tools">
+          {modelOptions.length > 0 && (
+            <span className="task-model" title={t('tasks.modelHint')}>
+              <ModelSelector
+                options={modelOptions}
+                value={payload?.config.model ?? null}
+                onChange={(provider, modelId) => void saveModel({ provider, modelId })}
+                onClear={() => void saveModel(null)}
+                emptyLabel={
+                  defaultModel
+                    ? `${t('tasks.modelDefault')}: ${
+                        modelOptions.find(
+                          (option) =>
+                            option.provider === defaultModel.provider &&
+                            option.modelId === defaultModel.modelId
+                        )?.name ?? defaultModel.modelId
+                      }`
+                    : t('tasks.modelDefault')
+                }
+                ariaLabel={t('tasks.model')}
+                busy={modelBusy}
+                variant="toolbar"
+                placement="auto"
+              />
+            </span>
+          )}
+          <div className="task-topbar-actions">
+            {status?.state === 'RUNNING' ? (
+              <button
+                type="button"
+                className="task-control"
+                disabled={busy}
+                onClick={() => void control('pause')}
+              >
+                {t('tasks.pause')}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="task-control is-primary"
+                disabled={busy || status?.state === 'PAUSED'}
+                onClick={() => void control('start')}
+              >
+                {t('tasks.start')}
+              </button>
+            )}
             <button
               type="button"
               className="task-control"
-              disabled={busy}
-              onClick={() => void control('pause')}
+              data-task-action="resume"
+              disabled={busy || status?.state !== 'PAUSED'}
+              onClick={() => void control('resume')}
             >
-              {t('tasks.pause')}
+              {t('tasks.resume')}
             </button>
-          ) : (
+            <button
+              type="button"
+              className="task-control is-danger"
+              disabled={busy || !runningTask}
+              onClick={() => void control('abort')}
+            >
+              {t('tasks.abort')}
+            </button>
             <button
               type="button"
               className="task-control is-primary"
-              disabled={busy || status?.state === 'PAUSED'}
-              onClick={() => void control('start')}
+              disabled={busy}
+              onClick={startNewTask}
             >
-              {t('tasks.start')}
+              {t('tasks.new')}
             </button>
-          )}
-          <button
-            type="button"
-            className="task-control"
-            data-task-action="resume"
-            disabled={busy || status?.state !== 'PAUSED'}
-            onClick={() => void control('resume')}
-          >
-            {t('tasks.resume')}
-          </button>
-          <button
-            type="button"
-            className="task-control is-danger"
-            disabled={busy || !runningTask}
-            onClick={() => void control('abort')}
-          >
-            {t('tasks.abort')}
-          </button>
-          <button
-            type="button"
-            className="task-control is-primary"
-            disabled={busy}
-            onClick={startNewTask}
-          >
-            {t('tasks.new')}
-          </button>
+          </div>
         </div>
       </div>
 
@@ -682,7 +1125,20 @@ export function TaskWorkspace({
           </div>
         </div>
 
-        <main className="task-board" aria-label={t('tasks.board')}>
+        <main
+          className="task-board"
+          aria-label={t('tasks.board')}
+          onContextMenu={(event) => {
+            // A right-click on a row belongs to that row's menu; the empty
+            // board offers the two things that need no task.
+            if ((event.target as HTMLElement).closest('.task-row-shell')) return;
+            event.preventDefault();
+            openBoardMenu(
+              { kind: 'point', x: event.clientX, y: event.clientY },
+              event.currentTarget
+            );
+          }}
+        >
           {tasks.length === 0 ? (
             <div className="task-board-empty">
               <p>{t('tasks.empty')}</p>
@@ -708,6 +1164,19 @@ export function TaskWorkspace({
           </aside>
         )}
       </div>
+
+      <SidebarMenu
+        open={menu !== null}
+        anchor={menu?.anchor ?? null}
+        sheet={isMobile}
+        ariaLabel={t('tasks.moreActions')}
+        title={menuTask ? menuTask.title : t('tasks.board')}
+        items={menuItems}
+        cancelLabel={t('i18n.cancel')}
+        onClose={closeMenu}
+        returnFocusTo={menuOpenerRef.current}
+        width={248}
+      />
 
       {pickerOpen && (
         <DirectoryPicker

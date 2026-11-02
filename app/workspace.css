@@ -1167,6 +1167,43 @@
   background: var(--bg-panel);
 }
 
+/* The shell's settings entry, in the same row as the workspace switch. */
+.task-mode-settings {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  margin-left: auto;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: var(--ui-radius-sm, 8px);
+  background: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.task-mode-settings:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.task-mode-settings:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+@media (max-width: 640px) {
+  /* A phone keeps the icon; the label would push the switch off the row. */
+  .task-mode-settings span {
+    display: none;
+  }
+
+  .task-mode-settings {
+    padding: 0 8px;
+  }
+}
+
 @media (max-width: 420px) {
   .workspace-switch-item {
     padding: 0 9px;

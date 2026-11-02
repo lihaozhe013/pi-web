@@ -16,6 +16,7 @@ const { PATCH, DELETE } = await jiti.import('@/app/api/tasks/[id]/route.ts');
 const { POST: control } = await jiti.import('@/app/api/tasks/control/route.ts');
 const { POST: answer } = await jiti.import('@/app/api/tasks/[id]/answer/route.ts');
 const { GET: output } = await jiti.import('@/app/api/tasks/[id]/output/route.ts');
+const { PUT: config } = await jiti.import('@/app/api/tasks/config/route.ts');
 const { getTaskStore, resetTaskStore } = await jiti.import('@/lib/tasks/store.ts');
 const { resetTaskOrchestrator } = await jiti.import('@/lib/tasks/orchestrator.ts');
 const { allowFileRoot } = await jiti.import('@/lib/allowed-roots.ts');
@@ -200,4 +201,34 @@ test('control validates its action', async () => {
   const paused = await control(jsonRequest('/api/tasks/control', { action: 'pause' }));
   assert.equal(paused.status, 200);
   assert.equal((await paused.json()).orchestrator.state, 'PAUSED');
+});
+
+test('the config route stores the queue model and can clear it', async () => {
+  const saved = await config(
+    jsonRequest(
+      '/api/tasks/config',
+      { model: { provider: 'anthropic', modelId: 'claude-sonnet-4' } },
+      'PUT'
+    )
+  );
+  assert.equal(saved.status, 200);
+  assert.deepEqual((await saved.json()).config.model, {
+    provider: 'anthropic',
+    modelId: 'claude-sonnet-4'
+  });
+
+  // The board's next poll carries the choice.
+  const board = await GET(new Request('http://local/api/tasks'));
+  assert.deepEqual((await board.json()).config.model, {
+    provider: 'anthropic',
+    modelId: 'claude-sonnet-4'
+  });
+
+  const cleared = await config(jsonRequest('/api/tasks/config', { model: null }, 'PUT'));
+  assert.equal((await cleared.json()).config.model, null);
+
+  const invalid = await config(
+    jsonRequest('/api/tasks/config', { model: { provider: 'anthropic' } }, 'PUT')
+  );
+  assert.equal(invalid.status, 400);
 });

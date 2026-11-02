@@ -311,6 +311,7 @@ export class TaskOrchestrator {
       }),
       cwd: task.cwd,
       sessionId,
+      model: policy.model,
       sessionName: `T${task.id} ${task.title}`.replace(/\s+/g, ' ').slice(0, 160),
       projectTrusted: trust.requiresTrust && trust.trusted,
       askUserExtensionPath,

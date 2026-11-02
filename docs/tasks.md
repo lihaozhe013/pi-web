@@ -341,6 +341,7 @@ override `verify_commands` and `auto_commit`.
 
 ```json
 {
+  "model": null,
   "verifyCommands": [],
   "verifyTimeoutMs": 600000,
   "taskTimeoutMs": 3600000,
@@ -350,6 +351,10 @@ override `verify_commands` and `auto_commit`.
 }
 ```
 
+- `model` is the queue's own model for the next run, `{ "provider", "modelId" }` or `null` for Pi's
+  default. The board writes it through `PUT /api/tasks/config` (the chip in its header), the child
+  receives it as `--model provider/id`, and a run already in flight keeps the model it started with.
+  Nothing else in the file is written by the app: a single-field patch keeps the rest as it was.
 - Each command runs in the task's `cwd` through the platform shell (`cmd /c` on Windows, `sh -c`
   elsewhere), with the process tree killed on timeout. The timeout applies per command. Commands are the user's own configuration, so
   this is not an input-validation boundary; the file is written by the app or edited by the user,
@@ -414,6 +419,11 @@ delivered in two steps so the chat surface is never destabilized by a navigation
 - The board: one row per task with a status marker, title, working directory, attempts, and elapsed
   time. Reordering by drag or by the arrow keys. Keyboard: `↑`/`↓` move within the queue, `Enter`
   edits, `Delete` removes, all disabled with an explanation while a row is running.
+- Every row also carries a menu (`⋯`, right-click, or the keyboard's `Shift+F10`/menu key) with
+  edit, move up/down, duplicate, copy, paste, open session, and delete. Move is offered only inside
+  the queued segment; duplicate and paste append a copy at the end and select it; copy keeps the
+  editable fields in `localStorage`, so the clipboard survives a reload. On a phone the same menu is
+  a bottom sheet, and an empty board's right-click offers "New task" and "Paste".
 - The working-directory field in that form is the chat shell's `DirectoryPicker` behind a "Choose
   folder" button, with the same validation call the composer uses. Typing a path works too: Save
   validates first, and a rejected directory leaves the form open with the reason under the field
@@ -448,7 +458,9 @@ migration, and leaves the mode-specific inspector and the per-tab mode memory ou
   and a Web Push deep link all land in the right view.
 - The switch sits in the same place in both views. The chat view keeps its 44 px header row; the
   task view adds a header row of the same height above the task workspace, because that view has no
-  sidebar toggle in front of it.
+  sidebar toggle in front of it. That row also carries the shell's Settings entry (the same
+  `SettingsPanel` and trust dialog, rendered by `AppShell` in both views) and, in the queue's own
+  bar, the model chip that picks the next run's model.
 - The session actions that used to share the header (full history, generate title, branches, system
   prompt, tools, token statistics) moved into the Runs panel, above the runs: a two-column grid of
   quiet action rows and one statistics card that opens the session dialog. They describe the

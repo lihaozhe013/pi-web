@@ -30,6 +30,8 @@ export interface TaskChildCommandInput {
   sessionName: string;
   /** True only when `lib/project-trust.ts` already trusts this directory. */
   projectTrusted: boolean;
+  /** The queue's model for the next run; omitted, the CLI keeps its own default. */
+  model?: { provider: string; modelId: string } | null;
   askUserExtensionPath?: string | null;
 }
 
@@ -84,6 +86,7 @@ export function buildTaskChildCommand(input: TaskChildCommandInput): TaskChildCo
     input.sessionName,
     input.projectTrusted ? '--approve' : '--no-approve'
   ];
+  if (input.model) args.push('--model', `${input.model.provider}/${input.model.modelId}`);
   if (input.askUserExtensionPath) args.push('-e', input.askUserExtensionPath);
   return { command: execPath, args };
 }

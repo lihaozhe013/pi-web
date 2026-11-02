@@ -30,6 +30,8 @@ export interface TaskRunRequest {
   taskId: number;
   prompt: string;
   cwd: string;
+  /** The queue's model for this run; omitted, the child uses Pi's default. */
+  model?: { provider: string; modelId: string } | null;
   sessionId: string;
   sessionName: string;
   projectTrusted: boolean;
@@ -113,6 +115,7 @@ export function startTaskRun(request: TaskRunRequest): TaskRunHandle {
       sessionId: request.sessionId,
       sessionName: request.sessionName,
       projectTrusted: request.projectTrusted,
+      model: request.model ?? null,
       askUserExtensionPath: request.askUserExtensionPath ?? null
     });
 

@@ -162,6 +162,15 @@ test('an empty queue still offers the new-task control', () => {
   assert.match(markup, /New task/);
 });
 
+test('every row offers its actions from a menu button', () => {
+  const markup = render(payload([task(), task({ id: 2, title: 'Second', rank: 20 })]));
+  // Each task renders once in the queue list and once on the board.
+  assert.equal((markup.match(/class="task-row"/g) ?? []).length, 4);
+  assert.equal((markup.match(/aria-haspopup="menu"/g) ?? []).length, 4);
+  assert.match(markup, /aria-label="Task actions"/);
+  assert.match(markup, /class="task-row-shell"/);
+});
+
 test('a draft opens a detail pane even before the first task exists', () => {
   const empty = { overlay: false, hasTask: false, hasDraft: false, sheetOpen: false };
   assert.equal(detailPlacement(empty), 'none');

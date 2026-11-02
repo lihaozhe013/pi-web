@@ -68,7 +68,15 @@ export interface QueueStateRecord {
   updatedAt: string;
 }
 
+/** The model a task's child starts with; `null` keeps Pi's own default. */
+export interface TaskModelSelection {
+  provider: string;
+  modelId: string;
+}
+
 export interface TaskConfig {
+  /** Applies to the next task the queue starts, never to one already running. */
+  model: TaskModelSelection | null;
   verifyCommands: string[];
   verifyTimeoutMs: number;
   taskTimeoutMs: number;

@@ -60,6 +60,14 @@ middle, and the task detail on the right, where the Runs panel sits in chat mode
 time; the arrow keys reorder it inside the pending segment, Enter edits, and Delete removes it. A
 running task is locked, and the controls say why.
 
+The queue's own bar holds one model chip (the queue default, "Pi default: <model>" when unset), the
+plan/stop controls, and New task. The page's top row carries the workspace switch on the left and the
+shell's Settings entry on the right, so the task view never strands the person away from Settings.
+Each row ends in a quiet `⋯` menu button; the same menu opens on right-click at the pointer and from
+`Shift+F10`, and becomes a bottom sheet on a phone. It offers edit, move up/down (only inside the
+queued segment), duplicate, copy, paste, open session, and delete — the actions a list this small
+deserves before it needs drag handles or a second toolbar.
+
 The board polls: once a second while a task runs or a question waits, otherwise every five seconds,
 never while the page is hidden, and once when it returns. A waiting `ask_user` question renders
 through the same panel the composer uses, above the board and in the task detail, so a reload or a
