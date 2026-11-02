@@ -65,12 +65,6 @@ import { CodemodeCallList } from './CodemodeToolView';
 import { toolFieldsOfInput, type ToolField } from '@/lib/tool-fields';
 import { mcpToolLabel, prettyMcpResultText } from '@/lib/mcp-tool-display';
 import {
-  streamRateKey,
-  streamRateStart,
-  streamTokensPerSecond,
-  type StreamRateStart
-} from '@/lib/stream-token-rate';
-import {
   estimateUpdatedTokens,
   getTokenEstimateText,
   type TokenEstimateCacheEntry
@@ -878,11 +872,6 @@ function AssistantMessageView({
   const providerError = getAssistantErrorMessage(message, { isStreaming });
   const truncated = isAssistantTruncated(message, { isStreaming });
   const unansweredTruncation = truncated && !hasAssistantAnswer(message);
-  const streamStartRef = useRef<StreamRateStart | null>(null);
-  const rateKey = streamRateKey(message);
-  const streamRateKeyRef = useRef(rateKey);
-  streamRateKeyRef.current = rateKey;
-  const [tps, setTps] = useState<number | null>(null);
   const blockItemsRef = useRef(blockItems);
   blockItemsRef.current = blockItems;
   const tokenEstimateCacheRef = useRef<Map<number, TokenEstimateCacheEntry>>(new Map());
@@ -903,8 +892,6 @@ function AssistantMessageView({
     tokenEstimateCacheRef.current = nextCache;
     return total;
   }, [blockItems, isStreaming]);
-  const estimatedTokensRef = useRef(estimatedTokens);
-  estimatedTokensRef.current = estimatedTokens;
 
   // Streaming-based timing for thinking blocks
   const blockStartTimesRef = useRef<Map<number, number>>(new Map());
@@ -950,8 +937,6 @@ function AssistantMessageView({
         }
         return next;
       });
-      streamStartRef.current = null;
-      setTps(null);
       return;
     }
     const tick = () => {
@@ -980,12 +965,6 @@ function AssistantMessageView({
         }
         return changed ? next : prev;
       });
-
-      const tokens = estimatedTokensRef.current;
-      if (tokens === 0) return;
-      streamStartRef.current ??= streamRateStart(streamRateKeyRef.current, tokens, now);
-      const rate = streamTokensPerSecond(streamStartRef.current, tokens, now);
-      if (rate !== null) setTps(rate);
     };
     const id = setInterval(tick, 300);
     return () => clearInterval(id);
@@ -995,7 +974,7 @@ function AssistantMessageView({
 
   return (
     <div data-message-role="assistant" data-entry-id={entryId} style={{ marginBottom: 10 }}>
-      {/* Streaming stats: estimated tokens and rate; gone once the turn settles. */}
+      {/* Streaming stats: estimated tokens; gone once the turn settles. */}
       {isStreaming && Math.round(estimatedTokens) > 0 && (
         <div
           style={{
@@ -1035,28 +1014,6 @@ function AssistantMessageView({
               </svg>
               {Math.round(estimatedTokens)}
             </span>
-            {tps !== null && (
-              <span
-                style={{
-                  marginLeft: 6,
-                  padding: '1px 6px',
-                  borderRadius: 4,
-                  background:
-                    tps >= 50
-                      ? '#53b3cb'
-                      : tps >= 30
-                        ? '#9bc53d'
-                        : tps >= 15
-                          ? '#f9c22e'
-                          : '#e01a4f',
-                  color: '#fff',
-                  fontSize: 11,
-                  fontWeight: 400
-                }}
-              >
-                {tps.toFixed(1)} t/s
-              </span>
-            )}
           </span>
         </div>
       )}
