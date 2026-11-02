@@ -1828,7 +1828,8 @@ export const zhTWLocale: LocalePlugin = {
     'tasks.chooseFolderTitle': '選擇工作目錄',
     'tasks.chooseFolderDescription': '任務及其驗證指令都在這個目錄中執行。',
     'tasks.verifyCommandsLabel': '驗證指令',
-    'tasks.verifyCommandsHint': '每行一條指令，在任務結束後執行。Windows 上由 cmd.exe 執行，其它平台由 /bin/sh 執行；請使用 echo、node -e 這類跨 shell 可用的指令。',
+    'tasks.verifyCommandsHint':
+      '每行一條指令，在任務結束後執行。Windows 上由 cmd.exe 執行，其它平台由 /bin/sh 執行；請使用 echo、node -e 這類跨 shell 可用的指令。',
     'tasks.allowAskUser': '任務中允許提問',
     'tasks.inherit': '使用佇列預設值',
     'tasks.enabled': '開啟',
@@ -1901,9 +1902,9 @@ export const zhTWLocale: LocalePlugin = {
     'tasks.verificationDefaults': '驗證指令',
     'tasks.verificationDefaultsHint': '任務結束後執行，除非任務自己填了指令。每行一條。',
     'tasks.instructions': '任務指令',
-    'tasks.instructionsPlaceholder': '例如：任務完成後提交變更，並保持工作區乾淨。',
+    'tasks.instructionsPlaceholder': '例如：任務完成前跑完測試，並讓工作區保持可審查狀態。',
     'tasks.instructionsHint':
-      '每次任務都會把這段內容附加到任務 prompt，用於佇列本身不強制執行的軟約束。',
+      '每次任務都會把這段內容附加到任務 prompt，用於佇列本身不強制執行的軟約束；只寫對所有任務都成立的要求，在非 Git 儲存庫裡寫 Git 規則只會白費一步。',
     'tasks.defaults': '執行行為',
     'tasks.timeoutInvalid': '逾時需要填寫大於 0 的數值，或選擇「不限時」。',
     'tasks.timeoutUnit': '逾時單位',

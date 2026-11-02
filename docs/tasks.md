@@ -271,10 +271,12 @@ start()
    a bounded in-memory ring buffer (64 KiB) for the live tail. A watchdog settles the task as
    `FAILED` after the task timeout (60 min default).
 4. `lib/tasks/gate.ts` runs the verification commands in the task's `cwd`. Non-zero or timeout means
-   `BLOCKED`, with the tail of the output as the summary. Each command is one command line for
-   `cmd.exe` on Windows and `/bin/sh` elsewhere — not the session's own bash — so quoted arguments
-   and `&&` chains work everywhere, while POSIX-only tools (`sleep`, `bc`) do not. The run prompt
-   says so, and the queue defaults dialog repeats it.
+   `BLOCKED`. The failure carries the command's own output: its first line goes into the pause
+   reason, a bounded tail into the result summary, and the full text stays on the board as
+   `verify_output`. `exit 1` alone is not actionable; `'sleep' is not recognized` is. Each command
+   is one command line for `cmd.exe` on Windows and `/bin/sh` elsewhere — not the session's own bash
+   — so quoted arguments and `&&` chains work everywhere, while POSIX-only tools (`sleep`, `bc`) do
+   not. The run prompt says so, and the queue defaults dialog repeats it.
 5. `settle`, including the session id, exit code, and a short summary.
 
 Control operations:
@@ -387,6 +389,8 @@ The queue does not commit, branch, push, or otherwise interpret Git. A person wh
 commit writes that rule as a standing instruction in the queue defaults; the agent sees it in every
 task prompt and decides how to follow it.
 
+- Write only rules that apply to every task in the queue. A git rule ("commit your changes") costs a
+  full step in a directory that is not a repository, and the queue cannot know which one it is.
 - `instructions` is free text (up to 20,000 characters) stored in
   `<agentDir>/pie-task-orchestrator.json` and edited in the **Queue defaults** dialog. An absent or
   malformed value means no instructions.

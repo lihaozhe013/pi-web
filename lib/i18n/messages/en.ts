@@ -1943,7 +1943,8 @@ export const enLocale: LocalePlugin = {
     'tasks.chooseFolderTitle': 'Choose a working directory',
     'tasks.chooseFolderDescription': 'The task and its verification commands run in this folder.',
     'tasks.verifyCommandsLabel': 'Verification commands',
-    'tasks.verifyCommandsHint': 'One command per line, run after the task exits, in cmd.exe on Windows and /bin/sh elsewhere. Use portable commands such as echo or node -e.',
+    'tasks.verifyCommandsHint':
+      'One command per line, run after the task exits, in cmd.exe on Windows and /bin/sh elsewhere. Use portable commands such as echo or node -e.',
     'tasks.allowAskUser': 'Questions during the task',
     'tasks.inherit': 'Use queue default',
     'tasks.enabled': 'Enabled',
@@ -2020,9 +2021,9 @@ export const enLocale: LocalePlugin = {
       'Run after a task exits, unless the task lists its own. One command per line.',
     'tasks.instructions': 'Task instructions',
     'tasks.instructionsPlaceholder':
-      'For example: commit your changes when the task is done and leave the working tree clean.',
+      'For example: run the tests before you report done, and leave the tree ready to review.',
     'tasks.instructionsHint':
-      'Appended to every task prompt as standing instructions. Use it for soft rules the queue does not enforce itself.',
+      'Appended to every task prompt as standing instructions. Use it for soft rules the queue does not enforce itself, and only rules that apply to every task: a git rule costs a step in a directory that is not a repository.',
     'tasks.defaults': 'Run behaviour',
     'tasks.timeoutInvalid': 'A timeout needs a positive number, or choose "No limit".',
     'tasks.timeoutUnit': 'Timeout unit',

@@ -31,6 +31,29 @@ import type {
   TaskRecord
 } from './types';
 
+/** How much of a failed verification's own output travels with the reason. */
+export const VERIFY_REASON_OUTPUT_MAX = 1_200;
+
+/**
+ * The output the command itself printed, normalized to one line ending. It is
+ * what makes `exit 1` actionable: "'sleep' is not recognized" says what to fix,
+ * and the digest, the tool result, and the board all read the same summary.
+ */
+function verificationOutput(output: string): string {
+  const normalized = output.replace(/\r\n?/g, '\n');
+  return clipOutputTail(normalized.trimEnd(), VERIFY_REASON_OUTPUT_MAX);
+}
+
+/** The queue state holds one line, so the reason takes the output's first line. */
+function firstOutputLine(output: string, limit = 120): string {
+  const line = output
+    .split('\n')
+    .map((candidate) => candidate.trim())
+    .find(Boolean);
+  if (!line) return '';
+  return line.length > limit ? `${line.slice(0, limit - 1)}…` : line;
+}
+
 export type TaskNotificationKind = 'complete' | 'done' | 'blocked' | 'failed' | 'question';
 
 export interface TaskNotification {
@@ -405,17 +428,25 @@ export class TaskOrchestrator {
       const reason = gate.timedOut
         ? `Verification timed out: ${gate.failedCommand ?? 'unknown command'}`
         : `Verification failed (exit ${gate.exitCode ?? 'null'}): ${gate.failedCommand ?? 'unknown command'}`;
+      const output = verificationOutput(gate.output);
+      const detail = firstOutputLine(output);
+      const pausedReason = detail ? `${reason} — ${detail}` : reason;
       settle({
         status: 'BLOCKED',
-        resultSummary: clipOutputTail(`${reason}\n\n${outcome.summary}`, 2_000),
+        resultSummary: clipOutputTail(
+          [reason, output ? `Output:\n${output}` : '', outcome.summary]
+            .filter(Boolean)
+            .join('\n\n'),
+          2_000
+        ),
         exitCode: outcome.exitCode,
         sessionId,
         verifyExit: gate.exitCode,
         verifyOutput: clipOutputTail(gate.output),
         outputTail: clipOutputTail(outcome.outputTail),
-        queueState: { state: 'PAUSED', pausedReason: reason, activeTaskId: null }
+        queueState: { state: 'PAUSED', pausedReason, activeTaskId: null }
       });
-      this.notify({ kind: 'blocked', task, reason });
+      this.notify({ kind: 'blocked', task, reason: pausedReason });
       return 'stopped';
     }
 
@@ -479,10 +510,7 @@ export class TaskOrchestrator {
    */
   async abort(originSessionId?: string | null): Promise<OrchestratorStatus> {
     const active = this.activeRun;
-    this.queue.setQueueState(
-      { state: 'PAUSED', pausedReason: 'aborted by user' },
-      originSessionId
-    );
+    this.queue.setQueueState({ state: 'PAUSED', pausedReason: 'aborted by user' }, originSessionId);
     if (active) {
       await active.handle.abort();
     }

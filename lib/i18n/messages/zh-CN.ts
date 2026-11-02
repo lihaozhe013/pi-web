@@ -1823,7 +1823,8 @@ export const zhCNLocale: LocalePlugin = {
     'tasks.chooseFolderTitle': '选择工作目录',
     'tasks.chooseFolderDescription': '任务及其验证命令都在这个目录中运行。',
     'tasks.verifyCommandsLabel': '验证命令',
-    'tasks.verifyCommandsHint': '每行一条命令，在任务退出后执行。Windows 上由 cmd.exe 执行，其它平台由 /bin/sh 执行；请使用 echo、node -e 这类跨 shell 可用的命令。',
+    'tasks.verifyCommandsHint':
+      '每行一条命令，在任务退出后执行。Windows 上由 cmd.exe 执行，其它平台由 /bin/sh 执行；请使用 echo、node -e 这类跨 shell 可用的命令。',
     'tasks.allowAskUser': '任务中允许提问',
     'tasks.inherit': '使用队列默认值',
     'tasks.enabled': '开启',
@@ -1896,9 +1897,9 @@ export const zhCNLocale: LocalePlugin = {
     'tasks.verificationDefaults': '验证命令',
     'tasks.verificationDefaultsHint': '任务结束后执行，除非任务自己填了命令。每行一条。',
     'tasks.instructions': '任务指令',
-    'tasks.instructionsPlaceholder': '例如：任务完成后提交改动，并保持工作区干净。',
+    'tasks.instructionsPlaceholder': '例如：任务完成前跑完测试，并让工作区保持可审查状态。',
     'tasks.instructionsHint':
-      '每次任务都会把这段内容附加到任务 prompt，用于队列本身不强制执行的软约束。',
+      '每次任务都会把这段内容附加到任务 prompt，用于队列本身不强制执行的软约束；只写对所有任务都成立的要求，在非 Git 仓库里写 Git 规则只会白费一步。',
     'tasks.defaults': '运行行为',
     'tasks.timeoutInvalid': '超时需要填写大于 0 的数值，或选择「不限时」。',
     'tasks.timeoutUnit': '超时单位',

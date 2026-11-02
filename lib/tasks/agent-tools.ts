@@ -184,7 +184,9 @@ function taskSummary(task: TaskRecord): Record<string, unknown> {
     cwd: task.cwd,
     createdBy: task.createdBy,
     attempts: task.attempts,
-    resultSummary: task.resultSummary ? clipOutputTail(task.resultSummary, 500) : null,
+    // Long enough to keep a failed verification's own output, which is the part
+    // an operator needs; the full text stays on the board.
+    resultSummary: task.resultSummary ? clipOutputTail(task.resultSummary, 1_000) : null,
     pendingQuestion: task.pendingQuestion?.question ?? null
   };
 }
