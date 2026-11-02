@@ -4,8 +4,10 @@ A local, strictly serial task queue: a small Jira for one person. Tasks are queu
 time, and each one is executed by a brand-new Pi agent process with its own session. When the
 process ends, its context ends with it; the next task starts from an empty window.
 
-This document is the design. It describes what will be built, why it is built this way, and which
-invariants must survive later changes. Nothing here is implemented yet.
+This document is the design and the record of what was built. Phases 1-4 are implemented; phase 5
+(the two-mode top bar) is not, so `?mode=tasks` switches the workspace while the chat toolbar stays
+where it is. The sections below describe the implemented behavior, with the differences noted where
+the built version is narrower than the original plan.
 
 ## Why this is not the boundary the project had
 
@@ -95,8 +97,9 @@ node <app>/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js \
 - The child's working directory is the task's `cwd`, so Pi discovers that project's settings,
   skills, prompt templates, and `AGENTS.md` exactly as a CLI run would.
 - Approving project-local files is refused by default (`--no-approve`) unless `lib/project-trust.ts`
-  already trusts that directory. An unattended run must not be the first thing that executes a
-  repository's `.pi/extensions`.
+  reports that the directory requires trust and a decision already trusts it. A folder with no
+  trust-gated resources loads nothing either way. An unattended run must not be the first thing that
+  executes a repository's `.pi/extensions`.
 - The session is persisted. It is an ordinary Pi session: it appears in the sidebar once the session
   list refreshes (its cache TTL is 30 s), renders through the normal transcript, and can be read
   after the task finished.
@@ -347,7 +350,7 @@ override `verify_commands` and `auto_commit`.
 ```
 
 - Each command runs in the task's `cwd` through the platform shell (`cmd /c` on Windows, `sh -c`
-  elsewhere), with the process tree killed on timeout. Commands are the user's own configuration, so
+  elsewhere), with the process tree killed on timeout. The timeout applies per command. Commands are the user's own configuration, so
   this is not an input-validation boundary; the file is written by the app or edited by the user,
   never by a task.
 - An empty list means "no gate": the task is `DONE` when the agent exits cleanly, and the board says
@@ -363,8 +366,9 @@ Off by default. When enabled:
 - The repository is located with `git -C <cwd> rev-parse --is-inside-work-tree`. Not a repository,
   or no changes, means "skip" and is recorded, never an error.
 - Only what this run changed is committed. The baseline is captured before the agent starts
-  (`git status --porcelain`), and the commit stages the paths that differ from that baseline.
-  Changes that were already present when the task started are left alone.
+  (`git status --porcelain -z -uall`), and the commit stages the paths that are dirty now and were
+  clean at the baseline. A path that was already dirty stays exactly as the person left it, even
+  when the run also touched it: the queue cannot separate their edits from the agent's.
 - Commit only, never push, never amend, never touch branches or the index beyond staging those
   paths. A commit failure is recorded in `result_summary` and does not turn a verified task into a
   failure; the board shows "verified, not committed" instead.
@@ -400,15 +404,18 @@ delivered in two steps so the chat surface is never destabilized by a navigation
   place of the conversation and composer. With the parameter absent, nothing about the current chat
   view changes. No new route file, because `app/page.tsx` already owns `I18nProvider` and a second
   route would have to repeat the provider tree. The parameter name is the one the tabs use in step
-  2, so the URL never changes.
-- The session sidebar gains a "Tasks" entry above the session list; in the task view the sidebar
-  shows the queue grouped by status (running, queued, blocked, done), so the left column keeps its
-  meaning as "what exists here".
+  2, so the URL never changes. `?task=<id>` opens one task directly, which is the URL a Web Push
+  notification links to.
+- The session sidebar gains a "Tasks" entry above the session list. The workspace itself keeps the
+  three-column language: the queue grouped by status (running, queued, blocked, done) on the left,
+  the board in the middle, and the task detail on the right. The session sidebar stays the place
+  that lists conversations.
 - The board: one row per task with a status marker, title, working directory, attempts, and elapsed
   time. Reordering by drag or by the arrow keys. Keyboard: `↑`/`↓` move within the queue, `Enter`
   edits, `Delete` removes, all disabled with an explanation while a row is running.
-- Editing opens the task in the same right-hand slot the Runs panel occupies, which keeps the three
-  columns familiar: list on the left, work in the middle, detail on the right.
+- Editing opens the task in the workspace's right-hand detail column, which keeps the three columns
+  familiar: list on the left, work in the middle, detail on the right. The Runs panel and its
+  resizing rules are untouched, because the conversation is not mounted in this mode.
 - The running task shows one activity line (the same vocabulary as the chat composer: waiting,
   thinking, reading, running a command) plus a collapsed transcript tail. "Open session" navigates
   to `?session=<id>`, that is, into the ordinary conversation view, where the work can be read in
@@ -495,6 +502,21 @@ directory or a real repository.
 | 3            | `gate` + `git` + `orchestrator` + lifecycle wiring + routes | A queue drains unattended; a failed gate pauses it; a restart leaves nothing running.           |
 | 4            | `TaskWorkspace` + `?mode=tasks` + i18n + docs               | The queue is fully operable from the browser, keyboard included.                                |
 | 5 (optional) | Two-mode top bar, toolbar migration, inspector panel        | Chat is unchanged in behavior, with the moved actions still reachable when the panel is hidden. |
+
+## Implementation status
+
+| Phase | What exists now |
+| ----- | --------------- |
+| 1 | `lib/tasks/store.ts`, `lib/tasks/queue.ts`, and their tests. Schema `user_version = 1`, WAL, per-process singleton, SQL guards for claim/update/delete/rank. |
+| 2 | `lib/ask-user-cli-extension.ts`, `lib/tasks/rpc-session.ts`, `lib/tasks/runner.ts`, `lib/tasks/prompt.ts`, and a scripted child fixture (`lib/tasks/__fixtures__/rpc-child.mjs`). LF framing, U+2028 inside a string, correlation, tree kill, question round-trip. |
+| 3 | `lib/tasks/gate.ts`, `lib/tasks/git.ts`, `lib/tasks/orchestrator.ts`, `instrumentation-node.ts` shutdown, and the seven `/api/tasks` routes. `lib/project-trust.ts` decides `--approve`; `lib/tasks/active-sessions.ts` is the only module chat imports. |
+| 4 | `components/TaskWorkspace.tsx`, `?mode=tasks`/`?task=` in `AppShell`, the sidebar entry, `app/tasks.css`, and task keys in all three locales. |
+| 5 (optional) | Not built: the two-mode top bar, moving the chat toolbar into the inspector, and the per-tab mode memory. |
+
+Queue defaults live in `<agentDir>/pie-task-orchestrator.json`, read on every run so an edit applies
+to the next task. The queue lock is `<agentDir>/pie-tasks.lock`. The `ask_user` extension is loaded
+from `lib/ask-user-cli-extension.ts`; `package.json.files` ships that file and the two modules it
+imports, so a portable install can start the same child.
 
 ## Invariants to preserve
 

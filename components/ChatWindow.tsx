@@ -126,6 +126,8 @@ interface Props {
   initialScrollPosition?: ChatScrollPosition | null;
   onScrollPositionChange?: (sessionId: string, position: ChatScrollPosition) => void;
   sessionRunning?: boolean;
+  /** A task child is writing this session: the transcript is read-only here. */
+  taskSessionRunning?: boolean;
   newSessionCwd: string | null;
   newSessionDraftKey: string | null;
   /** Shown above the composer while a fresh composer is still empty: where its session starts. */
@@ -331,6 +333,7 @@ export function ChatWindow({
   initialScrollPosition,
   onScrollPositionChange,
   sessionRunning,
+  taskSessionRunning,
   newSessionCwd,
   newSessionDraftKey,
   newSessionContextBar,
@@ -1341,7 +1344,7 @@ export function ChatWindow({
   const chatInputElement = (
     <ChatInput
       ref={chatInputRef}
-      onSend={handleSend}
+      onSend={taskSessionRunning ? () => {} : handleSend}
       onAbort={handleAbort}
       onSteer={agentRunning ? handleSteer : undefined}
       onFollowUp={agentRunning ? handleFollowUp : undefined}
@@ -2217,6 +2220,13 @@ export function ChatWindow({
             width, so it stays in place while the transcript grows below the
             user's viewport. It is always mounted and folds itself open, so the
             composer does not move when a run starts or ends. */}
+          {/* The composer is inert while a task child writes this session: two
+            writers must never append to one session file. */}
+          {taskSessionRunning && (
+            <div className="task-session-readonly" role="status">
+              {t('tasks.sessionReadOnly')}
+            </div>
+          )}
           <ComposerActivity
             store={streamingStore}
             phase={agentPhase}

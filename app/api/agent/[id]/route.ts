@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { resolveSessionPath } from '@/lib/session-reader';
 import { startRpcSession, getRpcSession, setRpcSessionTools } from '@/lib/rpc-manager';
+import { isTaskSessionActive } from '@/lib/tasks/active-sessions';
 
 // POST /api/agent/[id] - Send a command to an existing session
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -11,6 +12,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   try {
     const body = (await req.json()) as { type: string; [key: string]: unknown };
     commandType = typeof body.type === 'string' ? body.type : undefined;
+    // A session the queue is driving already has a writer: this child process.
+    // The only contact point between chat and the queue is this read-only check.
+    if (body.type === 'prompt' && isTaskSessionActive(id)) {
+      return NextResponse.json(
+        {
+          error: 'This session is being written by a running task',
+          code: 'task_session_active',
+          accepted: false
+        },
+        { status: 409 }
+      );
+    }
     const requestedToolNames = body.toolNames;
     if (
       requestedToolNames !== undefined &&

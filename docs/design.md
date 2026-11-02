@@ -34,6 +34,27 @@ plain text; its hover and focus ring show it is a control, and its accessible na
 About. About is a traditional panel: one centered column of logo, name, tagline, version, facts and
 links, without cards, frames or gradients.
 
+## The task workspace
+
+`?mode=tasks` replaces the conversation with the serial task queue described in
+[Tasks](tasks.md). The session sidebar keeps listing conversations and gains a Tasks entry; the
+workspace itself keeps the same three-column language as the chat page: the queue grouped by status
+on the left, the board in the middle, and the task detail on the right, where the Runs panel sits in
+chat mode. A task row carries its status marker, title, working directory, attempts, and elapsed
+time; the arrow keys reorder it inside the pending segment, Enter edits, and Delete removes it. A
+running task is locked, and the controls say why.
+
+The board polls: once a second while a task runs or a question waits, otherwise every five seconds,
+never while the page is hidden, and once when it returns. A waiting `ask_user` question renders
+through the same panel the composer uses, above the board and in the task detail, so a reload or a
+Web Push notification still finds it. The running task shows one activity line in the chat
+composer's vocabulary and a collapsed tail of what the child printed. Opening the task's session
+leaves the workspace for the ordinary conversation view, where the transcript is read-only until the
+task finishes. The phone layout is one column, and the task detail becomes a full-height sheet.
+
+Nothing about this workspace changes the chat view when the parameter is absent. The optional second
+step, a two-mode top bar with the chat toolbar inside the inspector, remains unbuilt.
+
 ## Quiet, clear, polished
 
 - Use soft surfaces, restrained corners, and useful whitespace rather than many borders.

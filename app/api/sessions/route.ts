@@ -13,6 +13,7 @@ import {
   getRunningRpcSessionIds
 } from '@/lib/rpc-manager';
 import { startServerPerf } from '@/lib/perf';
+import { activeTaskSessionIds } from '@/lib/tasks/active-sessions';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,7 +43,8 @@ export async function GET(req: Request) {
             sessions,
             sessionListVersion,
             runningSessionIds: getRunningRpcSessionIds(),
-            awaitingInputSessionIds: getAwaitingInputRpcSessionIds()
+            awaitingInputSessionIds: getAwaitingInputRpcSessionIds(),
+            taskSessionIds: activeTaskSessionIds()
           },
           { headers: { 'Cache-Control': 'no-store' } }
         )
@@ -53,7 +55,8 @@ export async function GET(req: Request) {
           sessions,
           sessionListVersion,
           runningSessionIds: getRunningRpcSessionIds(),
-          awaitingInputSessionIds: getAwaitingInputRpcSessionIds()
+          awaitingInputSessionIds: getAwaitingInputRpcSessionIds(),
+          taskSessionIds: activeTaskSessionIds()
         },
         { headers: { 'Cache-Control': 'no-store' } }
       )

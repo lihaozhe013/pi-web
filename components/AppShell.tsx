@@ -86,6 +86,7 @@ import {
 } from './SessionSidebar';
 import { SettingsPanel, SettingsSectionIcon } from './SettingsPanel';
 import { SystemPromptPanel } from './SystemPromptPanel';
+import { TaskWorkspace } from './TaskWorkspace';
 import { ToolDefinitionsPanel } from './ToolDefinitionsPanel';
 
 type AutoNameStatus =
@@ -103,6 +104,9 @@ export function AppShell() {
   const [initialNavigation, setInitialNavigation] = useState(() =>
     getInitialNavigation(searchParams)
   );
+  // `?mode=tasks` switches the whole workspace. With the parameter absent,
+  // nothing about the conversation view changes.
+  const taskMode = searchParams.get('mode') === 'tasks';
   // Keep the system-theme subscription mounted for the lifetime of the app.
   useTheme();
   // Restore fonts even when Settings and the chat composer have not been opened.
@@ -163,6 +167,15 @@ export function AppShell() {
     });
   }, []);
   const [runningSessionIds, setRunningSessionIds] = useState<Set<string>>(() => new Set());
+  // Sessions a task child is writing. The composer stays read-only for them so
+  // two writers never share one session file.
+  const [taskSessionIds, setTaskSessionIds] = useState<Set<string>>(() => new Set());
+  const handleTaskSessionIdsChange = useCallback((ids: Set<string>) => {
+    setTaskSessionIds((previous) => {
+      if (previous.size === ids.size && [...ids].every((id) => previous.has(id))) return previous;
+      return ids;
+    });
+  }, []);
   const handleRunningSessionIdsChange = useCallback((ids: Set<string>) => {
     setRunningSessionIds((previous) => {
       if (previous.size === ids.size && [...ids].every((id) => previous.has(id))) return previous;
@@ -1322,6 +1335,43 @@ export function AppShell() {
 
   const sidebarContent = (
     <>
+      <button
+        type="button"
+        onClick={() => router.push('/?mode=tasks')}
+        title={translate('tasks.title')}
+        aria-label={translate('tasks.title')}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          flexShrink: 0,
+          width: 'calc(100% - 12px)',
+          margin: '6px 6px 0',
+          padding: '7px 10px',
+          background: 'none',
+          border: '1px solid var(--border)',
+          borderRadius: 9,
+          color: 'var(--text-muted)',
+          fontSize: 12,
+          cursor: 'pointer'
+        }}
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M9 11l3 3L22 4" />
+          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+        </svg>
+        <span>{translate('tasks.title')}</span>
+      </button>
       <SessionSidebar
         selectedSessionId={selectedSession?.id ?? null}
         onSelectSession={handleSelectSession}
@@ -1338,6 +1388,7 @@ export function AppShell() {
         onCwdChange={handleCwdChange}
         onBackgroundTaskDone={handleBackgroundTaskDone}
         onRunningSessionIdsChange={handleRunningSessionIdsChange}
+        onTaskSessionIdsChange={handleTaskSessionIdsChange}
         onSessionsChange={handleSessionsChange}
       />
       <div
@@ -2108,6 +2159,31 @@ export function AppShell() {
     );
   };
 
+  // The task workspace replaces the conversation and composer; the chat view is
+  // untouched when the parameter is absent.
+  if (taskMode) {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          width: '100%',
+          height: 'var(--app-viewport-height, 100dvh)',
+          overflow: 'hidden'
+        }}
+      >
+        <TaskWorkspace
+          initialTaskId={Number(searchParams.get('task')) || null}
+          onOpenChat={() => router.push('/')}
+          onOpenSession={(sessionId) => {
+            // A full navigation, not a client route: the chat view restores its
+            // linked session when AppShell mounts, not when the query changes.
+            window.location.assign(`/?session=${encodeURIComponent(sessionId)}`);
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <>
       <style>{`
@@ -2524,6 +2600,9 @@ export function AppShell() {
                 onScrollPositionChange={handleSessionScrollPositionChange}
                 sessionRunning={Boolean(
                   selectedSession && runningSessionIds.has(selectedSession.id)
+                )}
+                taskSessionRunning={Boolean(
+                  selectedSession && taskSessionIds.has(selectedSession.id)
                 )}
                 newSessionCwd={effectiveNewSessionCwd}
                 newSessionDraftKey={newSessionDraftKey}

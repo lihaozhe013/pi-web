@@ -1,6 +1,14 @@
+import {
+  ASK_USER_EXTENSION_NAME,
+  ASK_USER_OTHER_LABEL,
+  ASK_USER_TOOL_NAME
+} from './ask-user-labels';
 import { askUserPresentation } from './ask-user-presentation';
 import { Type } from '@earendil-works/pi-ai';
 import { defineTool, type InlineExtension } from '@earendil-works/pi-coding-agent';
+
+// Re-exported so every existing importer keeps one source of truth.
+export { ASK_USER_EXTENSION_NAME, ASK_USER_OTHER_LABEL, ASK_USER_TOOL_NAME };
 
 /**
  * A model-callable question. The browser gives its standard Pi UI requests a composer-side
@@ -8,12 +16,6 @@ import { defineTool, type InlineExtension } from '@earendil-works/pi-coding-agen
  *
  * This is a discussion aid, not an approval gate: it can ask, but it never authorizes a write.
  */
-
-export const ASK_USER_TOOL_NAME = 'ask_user';
-export const ASK_USER_EXTENSION_NAME = 'pie-ask-user';
-
-/** Appended to the offered options; selecting it opens the text field instead of answering. */
-export const ASK_USER_OTHER_LABEL = 'Write my own answer…';
 
 const MAX_OPTIONS = 6;
 

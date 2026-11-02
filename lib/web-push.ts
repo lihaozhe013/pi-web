@@ -33,6 +33,15 @@ export interface WebPushNotifier {
   addSubscription: (subscription: PushSubscriptionRecord) => void;
   /** `sessionName` titles the notification; without one it reads "Session complete". */
   notifySessionComplete: (sessionId: string, sessionName?: string) => Promise<void>;
+  /** Queue events: complete, done, blocked, failed, and a waiting question. */
+  notifyTask: (notification: TaskPushNotification) => Promise<void>;
+}
+
+/** Structural mirror of the queue's notification, so Web Push imports no queue code. */
+export interface TaskPushNotification {
+  kind: 'complete' | 'done' | 'blocked' | 'failed' | 'question';
+  task: { id: number; title: string } | null;
+  reason?: string;
 }
 
 function stateFilePath(): string {
@@ -101,15 +110,76 @@ function pushStatusCode(error: unknown): number | undefined {
  * Locale lookup for push payloads. The browser reports its UI locale when it
  * subscribes; unknown locales fall back to English.
  */
-export function localeText(locale: string, key: 'sessionComplete' | 'taskFinished'): string {
+export type PushTextKey =
+  | 'sessionComplete'
+  | 'taskFinished'
+  | 'taskQueueComplete'
+  | 'taskDone'
+  | 'taskBlocked'
+  | 'taskFailed'
+  | 'taskQuestion';
+
+const PUSH_TEXT_MESSAGES: Record<PushTextKey, string> = {
+  sessionComplete: 'i18n.sessionComplete',
+  taskFinished: 'i18n.taskFinished',
+  taskQueueComplete: 'i18n.taskQueueComplete',
+  taskDone: 'i18n.taskDone',
+  taskBlocked: 'i18n.taskBlocked',
+  taskFailed: 'i18n.taskFailed',
+  taskQuestion: 'i18n.taskQuestion'
+};
+
+const PUSH_TEXT_FALLBACK: Record<PushTextKey, string> = {
+  sessionComplete: 'Session complete',
+  taskFinished: 'Task finished.',
+  taskQueueComplete: 'Task queue complete',
+  taskDone: 'Task finished successfully.',
+  taskBlocked: 'A task is blocked.',
+  taskFailed: 'A task failed.',
+  taskQuestion: 'A task is waiting for your answer.'
+};
+
+function messageFor(locale: string, key: PushTextKey): string {
+  const messages = locale === 'zh-CN' ? zhCNLocale.messages : enLocale.messages;
+  return messages[PUSH_TEXT_MESSAGES[key]] ?? PUSH_TEXT_FALLBACK[key];
+}
+
+export function localeText(locale: string, key: PushTextKey): string {
   if (locale === 'zh-CN') {
-    const message =
-      zhCNLocale.messages[key === 'sessionComplete' ? 'i18n.sessionComplete' : 'i18n.taskFinished'];
+    const message = zhCNLocale.messages[PUSH_TEXT_MESSAGES[key]];
     if (message) return message;
   }
-  const message =
-    enLocale.messages[key === 'sessionComplete' ? 'i18n.sessionComplete' : 'i18n.taskFinished'];
-  return message ?? (key === 'sessionComplete' ? 'Session complete' : 'Task finished.');
+  return messageFor(locale, key);
+}
+
+function taskPushPayload(
+  locale: string,
+  notification: TaskPushNotification
+): { title: string; body: string; url: string; tag: string } {
+  const label = notification.task ? `T${notification.task.id} ${notification.task.title}` : null;
+  if (notification.kind === 'complete') {
+    return {
+      title: localeText(locale, 'taskQueueComplete'),
+      body: localeText(locale, 'taskFinished'),
+      url: '/?mode=tasks',
+      tag: 'pie-task-queue'
+    };
+  }
+  const bodyKey: PushTextKey =
+    notification.kind === 'done'
+      ? 'taskDone'
+      : notification.kind === 'blocked'
+        ? 'taskBlocked'
+        : notification.kind === 'failed'
+          ? 'taskFailed'
+          : 'taskQuestion';
+  const taskId = notification.task?.id ?? 0;
+  return {
+    title: label ?? localeText(locale, bodyKey),
+    body: localeText(locale, bodyKey),
+    url: `/?mode=tasks&task=${encodeURIComponent(String(taskId))}`,
+    tag: `pie-task-${notification.kind}:${taskId}`
+  };
 }
 
 export function createWebPushNotifier(environment: WebPushEnvironment): WebPushNotifier {
@@ -162,6 +232,28 @@ export function createWebPushNotifier(environment: WebPushEnvironment): WebPushN
         }
       }
       if (pruned) saveState();
+    },
+    async notifyTask(notification) {
+      if (state.subscriptions.length === 0) return;
+      let pruned = false;
+      for (const subscription of [...state.subscriptions]) {
+        try {
+          await environment.send(
+            subscription,
+            JSON.stringify(taskPushPayload(subscription.locale, notification)),
+            state.vapidKeys
+          );
+        } catch (error) {
+          const statusCode = pushStatusCode(error);
+          if (statusCode === 404 || statusCode === 410) {
+            state.subscriptions = state.subscriptions.filter(
+              (s) => s.endpoint !== subscription.endpoint
+            );
+            pruned = true;
+          }
+        }
+      }
+      if (pruned) saveState();
     }
   };
 }
@@ -193,4 +285,9 @@ export async function notifySessionComplete(
 ): Promise<void> {
   const notifier = await getNotifier();
   await notifier.notifySessionComplete(sessionId, sessionName);
+}
+
+export async function notifyTaskEvent(notification: TaskPushNotification): Promise<void> {
+  const notifier = await getNotifier();
+  await notifier.notifyTask(notification);
 }

@@ -152,6 +152,8 @@ interface Props {
    *  Lets the app play a cross-workspace completion tone. */
   onBackgroundTaskDone?: () => void;
   onRunningSessionIdsChange?: (ids: Set<string>) => void;
+  /** Sessions a task child is writing right now; the chat composer stays read-only for them. */
+  onTaskSessionIdsChange?: (ids: Set<string>) => void;
   onSessionsChange?: (sessions: SessionInfo[]) => void;
 }
 
@@ -456,6 +458,7 @@ export function SessionSidebar({
   onCwdChange,
   onBackgroundTaskDone,
   onRunningSessionIdsChange,
+  onTaskSessionIdsChange,
   onSessionsChange
 }: Props) {
   const { t } = useI18n();
@@ -485,6 +488,7 @@ export function SessionSidebar({
   const [sessionSearchOpen, setSessionSearchOpen] = useState(false);
   const [sessionSearchQuery, setSessionSearchQuery] = useState('');
   const [runningSessionIds, setRunningSessionIds] = useState<Set<string>>(() => new Set());
+  const [taskSessionIds, setTaskSessionIds] = useState<Set<string>>(() => new Set());
   const [awaitingInputSessionIds, setAwaitingInputSessionIds] = useState<Set<string>>(
     () => new Set()
   );
@@ -626,10 +630,12 @@ export function SessionSidebar({
         sessionListVersion: number;
         runningSessionIds?: string[];
         awaitingInputSessionIds?: string[];
+        taskSessionIds?: string[];
       };
       if (loadId !== sessionLoadIdRef.current) return;
       sessionListVersionRef.current = data.sessionListVersion;
       setAllSessions(data.sessions);
+      setTaskSessionIds((previous) => sameIdsOr(previous, data.taskSessionIds ?? []));
       if (!summary) setSessionDetailsLoaded(true);
       // Treat the fetched running set as an initial fallback only. Once the
       // lightweight poll is live, a slow session-list fetch cannot overwrite it.
@@ -742,6 +748,7 @@ export function SessionSidebar({
           sessionListVersion: number;
           runningSessionIds?: string[];
           awaitingInputSessionIds?: string[];
+          taskSessionIds?: string[];
           sessionUiStateRevision?: number | null;
         };
         if (stopped || controller !== current) return;
@@ -750,6 +757,7 @@ export function SessionSidebar({
         setAwaitingInputSessionIds((previous) =>
           sameIdsOr(previous, data.awaitingInputSessionIds ?? [])
         );
+        setTaskSessionIds((previous) => sameIdsOr(previous, data.taskSessionIds ?? []));
         // Pins and archive changed in another window: reload them.
         noteUiRevision(data.sessionUiStateRevision);
         if (data.sessionListVersion !== sessionListVersionRef.current) {
@@ -787,6 +795,10 @@ export function SessionSidebar({
   useEffect(() => {
     onRunningSessionIdsChange?.(runningSessionIds);
   }, [onRunningSessionIdsChange, runningSessionIds]);
+
+  useEffect(() => {
+    onTaskSessionIdsChange?.(taskSessionIds);
+  }, [onTaskSessionIdsChange, taskSessionIds]);
 
   useEffect(() => {
     onSessionsChange?.(allSessions);

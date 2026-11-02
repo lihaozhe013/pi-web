@@ -25,7 +25,11 @@
     "!.next/**/*.js.map",
     "public",
     "next.config.ts",
-    "package.json"
+    "package.json",
+    "lib/ask-user-cli-extension.ts",
+    "lib/ask-user-labels.ts",
+    "lib/ask-user-extension.ts",
+    "lib/ask-user-presentation.ts"
   ],
   "scripts": {
     "dev": "node node_modules/next/dist/bin/next dev -H 127.0.0.1 -p 30141",

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getSessionListVersion } from '@/lib/session-reader';
 import { getAwaitingInputRpcSessionIds, getRunningRpcSessionIds } from '@/lib/rpc-manager';
 import { getSessionUiStateRevision } from '@/lib/session-ui-state';
+import { activeTaskSessionIds } from '@/lib/tasks/active-sessions';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +15,7 @@ export async function GET() {
       sessionListVersion: getSessionListVersion(),
       runningSessionIds: getRunningRpcSessionIds(),
       awaitingInputSessionIds: getAwaitingInputRpcSessionIds(),
+      taskSessionIds: activeTaskSessionIds(),
       sessionUiStateRevision: getSessionUiStateRevision()
     },
     { headers: { 'Cache-Control': 'no-store' } }
