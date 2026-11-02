@@ -92,6 +92,22 @@ export function questionRequestFor(task: TaskRecord): ExtensionUiRequest | null 
   } as ExtensionUiRequest;
 }
 
+/**
+ * Where the detail pane belongs. The side column needs desktop room; the sheet
+ * needs an explicit open because it covers the board. A draft opens either one
+ * before any task exists, which is how the very first task gets made.
+ */
+export function detailPlacement(options: {
+  overlay: boolean;
+  hasTask: boolean;
+  hasDraft: boolean;
+  sheetOpen: boolean;
+}): 'side' | 'sheet' | 'none' {
+  if (!options.hasTask && !options.hasDraft) return 'none';
+  if (!options.overlay) return 'side';
+  return options.sheetOpen || options.hasDraft ? 'sheet' : 'none';
+}
+
 export function taskElapsedMs(task: TaskRecord, now = Date.now()): number | null {
   const start = task.runStartedAt ?? task.updatedAt;
   const end = task.finishedAt ?? (task.status === 'IN_PROGRESS' ? null : task.updatedAt);

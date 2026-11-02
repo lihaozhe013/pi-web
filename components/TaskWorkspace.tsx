@@ -11,9 +11,10 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useI18n } from '@/hooks/useI18n';
-import { useIsMobile } from '@/hooks/useIsMobile';
+import { useMediaQuery } from '@/hooks/useIsMobile';
 import { AskUserPanel } from './AskUserPanel';
 import {
+  detailPlacement,
   groupTasks,
   hasVerification,
   isTaskLocked,
@@ -112,9 +113,11 @@ export function TaskWorkspace({
   polling = true
 }: TaskWorkspaceProps) {
   const { t } = useI18n();
-  const isMobile = useIsMobile();
+  // Matches the stylesheet: at or below 900px the detail covers the board.
+  const overlayDetail = useMediaQuery('(max-width: 900px)');
   const [payload, setPayload] = useState<TaskQueuePayload | null>(initialData);
   const [selectedId, setSelectedId] = useState<number | null>(initialTaskId);
+  const [sheetOpen, setSheetOpen] = useState(initialTaskId !== null);
   const [draft, setDraft] = useState<Draft>(null);
   const [form, setForm] = useState<TaskFormState>(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
@@ -122,6 +125,8 @@ export function TaskWorkspace({
   const [output, setOutput] = useState('');
   const rowRefs = useRef(new Map<number, HTMLButtonElement>());
   const pendingFocusId = useRef<number | null>(null);
+  const sheetRef = useRef<HTMLDivElement | null>(null);
+  const sheetReturnFocus = useRef<HTMLElement | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -213,6 +218,14 @@ export function TaskWorkspace({
     [runningTask, selectedId, tasks]
   );
   const questionRequest = selected ? questionRequestFor(selected) : null;
+  // A draft must place the pane even with an empty board, and on a phone the
+  // sheet opens only when asked, so closing it does not reopen on the fallback.
+  const placement = detailPlacement({
+    overlay: overlayDetail,
+    hasTask: selected !== null,
+    hasDraft: draft !== null,
+    sheetOpen
+  });
 
   const focusTask = useCallback((taskId: number | null) => {
     pendingFocusId.current = taskId;
@@ -256,23 +269,60 @@ export function TaskWorkspace({
     [refresh]
   );
 
+  // The sheet covers the board, so it remembers the control that opened it and
+  // hands focus back there; a phone keyboard user is never left on the body.
+  const openSheet = useCallback(() => {
+    if (typeof document !== 'undefined') {
+      sheetReturnFocus.current = document.activeElement as HTMLElement | null;
+    }
+    setSheetOpen(true);
+  }, []);
+
+  const closeSheet = useCallback(() => {
+    setSelectedId(null);
+    setDraft(null);
+    setSheetOpen(false);
+    const target = sheetReturnFocus.current;
+    sheetReturnFocus.current = null;
+    if (target?.isConnected) requestAnimationFrame(() => target.focus());
+  }, []);
+
   const startNewTask = useCallback(() => {
     const cwd = selected?.cwd ?? runningTask?.cwd ?? '';
     setForm({ ...EMPTY_FORM, cwd });
     setDraft({ mode: 'new' });
-  }, [runningTask?.cwd, selected?.cwd]);
+    openSheet();
+  }, [openSheet, runningTask?.cwd, selected?.cwd]);
 
-  const startEdit = useCallback((task: TaskRecord) => {
-    if (isTaskLocked(task)) return;
-    setForm(taskForm(task));
-    setDraft({ mode: 'edit', taskId: task.id });
-    setSelectedId(task.id);
-  }, []);
+  const startEdit = useCallback(
+    (task: TaskRecord) => {
+      if (isTaskLocked(task)) return;
+      setForm(taskForm(task));
+      setDraft({ mode: 'edit', taskId: task.id });
+      setSelectedId(task.id);
+      openSheet();
+    },
+    [openSheet]
+  );
 
   const closeDraft = useCallback(() => {
     setDraft(null);
     setError(null);
   }, []);
+
+  // A modal dialog takes focus and answers Escape even while focus is still on
+  // the board behind it. An open draft focuses its own title field instead.
+  useEffect(() => {
+    if (placement !== 'sheet' || draft) return;
+    sheetRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      closeSheet();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [closeSheet, draft, placement]);
 
   const saveDraft = useCallback(async () => {
     const verifyCommands = form.verifyCommands
@@ -295,6 +345,7 @@ export function TaskWorkspace({
       if (result?.task) {
         setSelectedId(result.task.id);
         setDraft(null);
+        setSheetOpen(true);
       }
       return;
     }
@@ -312,7 +363,10 @@ export function TaskWorkspace({
       if (isTaskLocked(task)) return;
       const result = await call(`/api/tasks/${task.id}`, { method: 'DELETE' });
       if (result) {
-        if (selectedId === task.id) setSelectedId(null);
+        if (selectedId === task.id) {
+          setSelectedId(null);
+          setSheetOpen(false);
+        }
         if (draft?.mode === 'edit' && draft.taskId === task.id) setDraft(null);
       }
     },
@@ -394,8 +448,6 @@ export function TaskWorkspace({
     [moveTask, removeTask, startEdit]
   );
 
-  const detailVisible = isMobile ? selected !== null : Boolean(selected);
-
   const statusLabel = (value: TaskStatus): string => {
     if (value === 'IN_PROGRESS') return t('tasks.status.inProgress');
     if (value === 'PENDING') return t('tasks.status.pending');
@@ -433,6 +485,7 @@ export function TaskWorkspace({
         onClick={() => {
           setSelectedId(task.id);
           setDraft(null);
+          openSheet();
         }}
         onDoubleClick={() => startEdit(task)}
         onKeyDown={(event) => onRowKeyDown(event, task)}
@@ -591,23 +644,23 @@ export function TaskWorkspace({
           <p className="task-keyboard-hint">{t('tasks.reorderHint')}</p>
         </main>
 
-        {detailVisible && selected && !isMobile && (
+        {placement === 'side' && (
           <aside className="task-detail" aria-label={t('tasks.detail')}>
             {renderDetail()}
           </aside>
         )}
       </div>
 
-      {isMobile && detailVisible && selected && (
-        <div className="task-detail-sheet" role="dialog" aria-modal="true" aria-label={t('tasks.detail')}>
-          <button
-            type="button"
-            className="task-sheet-close"
-            onClick={() => {
-              setSelectedId(null);
-              setDraft(null);
-            }}
-          >
+      {placement === 'sheet' && (
+        <div
+          ref={sheetRef}
+          tabIndex={-1}
+          className="task-detail-sheet"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t('tasks.detail')}
+        >
+          <button type="button" className="task-sheet-close" onClick={closeSheet}>
             {t('tasks.close')}
           </button>
           <div className="task-detail">{renderDetail()}</div>
@@ -617,8 +670,9 @@ export function TaskWorkspace({
   );
 
   function renderDetail() {
-    if (!selected) return null;
+    // The new-task form is the one detail pane that exists before a task does.
     if (draft) return renderForm();
+    if (!selected) return null;
     const locked = isTaskLocked(selected);
     return (
       <>
@@ -771,6 +825,7 @@ export function TaskWorkspace({
           <input
             value={form.title}
             required
+            autoFocus
             onChange={(event) => setForm({ ...form, title: event.target.value })}
           />
         </label>

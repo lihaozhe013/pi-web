@@ -407,15 +407,18 @@ delivered in two steps so the chat surface is never destabilized by a navigation
   route would have to repeat the provider tree. The parameter name is the one the tabs use in step
   2, so the URL never changes. `?task=<id>` opens one task directly, which is the URL a Web Push
   notification links to.
-- The session sidebar gains a "Tasks" entry above the session list. The workspace itself keeps the
-  three-column language: the queue grouped by status (running, queued, blocked, done) on the left,
-  the board in the middle, and the task detail on the right. The session sidebar stays the place
-  that lists conversations.
+- The workspace keeps the three-column language: the queue grouped by status (running, queued,
+  blocked, done) on the left, the board in the middle, and the task detail on the right. Step 2
+  later replaced the sidebar entry with the header switch, so the session sidebar keeps listing
+  conversations only.
 - The board: one row per task with a status marker, title, working directory, attempts, and elapsed
   time. Reordering by drag or by the arrow keys. Keyboard: `↑`/`↓` move within the queue, `Enter`
   edits, `Delete` removes, all disabled with an explanation while a row is running.
 - Editing opens the task in the workspace's right-hand detail column, which keeps the three columns
-  familiar: list on the left, work in the middle, detail on the right. The Runs panel and its
+  familiar: list on the left, work in the middle, detail on the right. The new-task form uses the
+  same column, so the first task can be created from an empty board; a phone opens that column as a
+  sheet only when asked, and Close or Escape returns to the board instead of reopening on the
+  fallback selection. The Runs panel and its
   resizing rules are untouched, because the conversation is not mounted in this mode.
 - The running task shows one activity line (the same vocabulary as the chat composer: waiting,
   thinking, reading, running a command) plus a collapsed transcript tail. "Open session" navigates
@@ -516,7 +519,7 @@ directory or a real repository.
 | 1 | `lib/tasks/store.ts`, `lib/tasks/queue.ts`, and their tests. Schema `user_version = 1`, WAL, per-process singleton, SQL guards for claim/update/delete/rank. |
 | 2 | `lib/ask-user-cli-extension.ts`, `lib/tasks/rpc-session.ts`, `lib/tasks/runner.ts`, `lib/tasks/prompt.ts`, and a scripted child fixture (`lib/tasks/__fixtures__/rpc-child.mjs`). LF framing, U+2028 inside a string, correlation, tree kill, question round-trip. |
 | 3 | `lib/tasks/gate.ts`, `lib/tasks/git.ts`, `lib/tasks/orchestrator.ts`, `instrumentation-node.ts` shutdown, and the seven `/api/tasks` routes. `lib/project-trust.ts` decides `--approve`; `lib/tasks/active-sessions.ts` is the only module chat imports. |
-| 4 | `components/TaskWorkspace.tsx`, `?mode=tasks`/`?task=` in `AppShell`, the sidebar entry, `app/tasks.css`, and task keys in all three locales. |
+| 4 | `components/TaskWorkspace.tsx`, `?mode=tasks`/`?task=` in `AppShell`, `app/tasks.css`, and task keys in all three locales. |
 | 5 (optional) | The `Chat | Tasks` switch in both page headers, and the session actions moved into the Runs panel (`components/SessionPanelActions.tsx`). Not built: the mode-specific inspector and the per-tab mode memory. |
 
 Queue defaults live in `<agentDir>/pie-task-orchestrator.json`, read on every run so an edit applies

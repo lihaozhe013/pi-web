@@ -462,6 +462,8 @@
 
 .task-detail-sheet .task-detail {
   width: 100%;
+  flex: 1;
+  min-height: 0;
   border-left: none;
 }
 
@@ -477,19 +479,11 @@
   cursor: pointer;
 }
 
+/* The sheet is the overlay; a fixed detail inside it would cover the close
+ * button. Below this width the queue list merges into the board instead. */
 @media (max-width: 900px) {
   .task-list-column {
     display: none;
-  }
-
-  .task-detail {
-    position: fixed;
-    inset: 0;
-    width: 100%;
-    z-index: 210;
-    border-left: none;
-    padding-top: calc(14px + env(safe-area-inset-top));
-    padding-bottom: calc(14px + env(safe-area-inset-bottom));
   }
 }
 

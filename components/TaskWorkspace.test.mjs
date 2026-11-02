@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { createJiti } from 'jiti';
 
@@ -7,9 +8,8 @@ const React = await jiti.import('react');
 const { renderToStaticMarkup } = await jiti.import('react-dom/server');
 const { I18nProvider } = await jiti.import('@/hooks/useI18n');
 const { TaskWorkspace } = await jiti.import('./TaskWorkspace.tsx');
-const { groupTasks, reorderPending, questionRequestFor, isTaskLocked } = await jiti.import(
-  '@/lib/tasks/board.ts'
-);
+const { detailPlacement, groupTasks, reorderPending, questionRequestFor, isTaskLocked } =
+  await jiti.import('@/lib/tasks/board.ts');
 
 const CONFIG = {
   verifyCommands: [],
@@ -160,6 +160,30 @@ test('an empty queue still offers the new-task control', () => {
   const markup = render(payload([]));
   assert.match(markup, /No tasks yet/);
   assert.match(markup, /New task/);
+});
+
+test('a draft opens a detail pane even before the first task exists', () => {
+  const empty = { overlay: false, hasTask: false, hasDraft: false, sheetOpen: false };
+  assert.equal(detailPlacement(empty), 'none');
+  // With no task to select, only the draft can produce the pane the form lives in.
+  assert.equal(detailPlacement({ ...empty, hasDraft: true }), 'side');
+  assert.equal(detailPlacement({ ...empty, hasDraft: true, overlay: true }), 'sheet');
+});
+
+test('a closed sheet stays closed while the selection falls back', () => {
+  const phone = { overlay: true, hasTask: true, hasDraft: false, sheetOpen: false };
+  assert.equal(detailPlacement(phone), 'none', 'the board stays readable on a phone');
+  assert.equal(detailPlacement({ ...phone, sheetOpen: true }), 'sheet');
+  assert.equal(detailPlacement({ ...phone, overlay: false }), 'side', 'the desktop column is always there');
+});
+
+test('the detail renders a draft before it looks for a selected task', () => {
+  const source = readFileSync(new URL('./TaskWorkspace.tsx', import.meta.url), 'utf8');
+  const detail = source.slice(source.indexOf('function renderDetail()'));
+  assert.ok(
+    detail.indexOf('if (draft) return renderForm();') < detail.indexOf('if (!selected) return null;'),
+    'a new-task draft has no selected task yet'
+  );
 });
 
 test('the queue state and pause reason are visible', () => {
