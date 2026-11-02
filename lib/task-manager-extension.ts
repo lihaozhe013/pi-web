@@ -193,6 +193,13 @@ export function createTaskManagerExtension(
       const tick = (sessionId: string): void => {
         if (!watch || watch.sessionId !== sessionId) return;
         try {
+          // Another session took the row over (this one's row was stale, or a
+          // restart cleared it): drop our timer without touching its watch.
+          const row = store().getWatch();
+          if (!row || row.sessionId !== sessionId) {
+            stopWatch(sessionId);
+            return;
+          }
           if (now() - watch.startedAt >= maxDurationMs) {
             endWatch(sessionId, 'time budget');
             return;
@@ -201,7 +208,6 @@ export function createTaskManagerExtension(
           const events = page.events.filter((event) => event.originSessionId !== sessionId);
           if (events.length === 0) return;
 
-          const row = store().getWatch();
           if ((row?.wakes ?? 0) >= maxWakes) {
             endWatch(sessionId, 'wake budget');
             return;
