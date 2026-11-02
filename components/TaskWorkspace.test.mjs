@@ -71,8 +71,7 @@ function render(data) {
       React.createElement(TaskWorkspace, {
         initialData: data,
         polling: false,
-        onOpenSession() {},
-        onOpenChat() {}
+        onOpenSession() {}
       })
     )
   );

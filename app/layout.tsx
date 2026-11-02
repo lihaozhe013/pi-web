@@ -15,6 +15,7 @@ import './workspace.css';
 import './about.css';
 import './tool-cards.css';
 import './execution-history.css';
+import './session-panel.css';
 import './tasks.css';
 import './catppuccin.css';
 import './appearance.css';

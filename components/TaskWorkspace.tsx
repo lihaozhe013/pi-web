@@ -27,8 +27,6 @@ import type { TaskRecord, TaskStatus } from '@/lib/tasks/types';
 export interface TaskWorkspaceProps {
   /** Opens the task's ordinary Pi session in the chat view. */
   onOpenSession?: (sessionId: string) => void;
-  /** Returns to the conversation. */
-  onOpenChat?: () => void;
   /** `?task=<id>`: the task a deep link opens. */
   initialTaskId?: number | null;
   /** Test seam and first paint: the payload the first poll would return. */
@@ -109,7 +107,6 @@ function statusTone(status: TaskStatus): string {
 
 export function TaskWorkspace({
   onOpenSession,
-  onOpenChat,
   initialTaskId = null,
   initialData = null,
   polling = true
@@ -476,23 +473,7 @@ export function TaskWorkspace({
   return (
     <div className="task-workspace">
       <div className="task-topbar">
-        <button type="button" className="task-topbar-button" onClick={onOpenChat}>
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-          {t('tasks.backToChat')}
-        </button>
-        <span className="task-topbar-title">{t('tasks.title')}</span>
+        <span className="task-topbar-title">{t('tasks.board')}</span>
         {status && (
           <span className="task-topbar-state" data-state={status.state}>
             {t(`tasks.queueState.${status.state.toLowerCase()}`)}

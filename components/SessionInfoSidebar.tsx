@@ -69,7 +69,7 @@ export function SessionInfoSidebar({
         // A dialog that opened above the panel keeps the focus it just took.
         if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
         if (opener?.isConnected && opener.getClientRects().length > 0) opener.focus();
-        else document.querySelector<HTMLElement>('[data-mobile-toolbar-more="true"]')?.focus();
+        else document.querySelector<HTMLElement>('[data-runs-panel-toggle="true"]')?.focus();
       });
     };
   }, []);

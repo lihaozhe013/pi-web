@@ -22,28 +22,12 @@
   background: var(--bg-panel);
 }
 
-.task-topbar-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 28px;
-  padding: 0 10px;
-  border: none;
-  border-radius: var(--ui-radius-sm, 8px);
-  background: none;
-  color: var(--text-muted);
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.task-topbar-button:hover {
-  background: var(--bg-hover);
-  color: var(--text);
-}
-
 .task-topbar-title {
+  overflow: hidden;
   font-size: 13px;
   font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .task-topbar-state {
@@ -520,4 +504,12 @@
 .task-hint {
   font-size: 11px;
   color: var(--text-dim);
+}
+
+/* A phone already sees the Tasks tab in the page switch; the queue's own
+ * controls need the row more than a repeated title does. */
+@media (max-width: 640px) {
+  .task-topbar-title {
+    display: none;
+  }
 }

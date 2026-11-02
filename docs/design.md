@@ -6,9 +6,9 @@ The interface should feel like a carefully organized agent conversation, not a d
 Keep frequent actions nearby and reveal secondary information on demand.
 
 The current layout uses a session sidebar, a central conversation and composer, and an optional
-information sidebar opened from the toolbar. Project groups help locate conversations; they are not
-project management. A new session chooses a working directory; Git repository relationships do not
-change its identity.
+information sidebar opened from the toolbar. The page header carries the workspace switch. Project
+groups help locate conversations; they are not project management. A new session chooses a working
+directory; Git repository relationships do not change its identity.
 
 The right panel is dedicated exclusively to Runs and execution context (including Goal and
 Compaction status) and opens 400px wide. It is part of the default desktop page: it is open
@@ -22,11 +22,28 @@ separator takes keyboard focus: the arrow keys resize, `Home` and `End` reach th
 or a double click restores the default. Settings hides the panel
 without collapsing it, so closing Settings brings it back. A docked collapse/expand toggle on the
 right side reopens a closed panel; the panel header also includes a collapse button. A surface that
-belongs to the default page — the Runs panel — never takes focus; one the user opens does. System
-prompt, tools definitions, and session token information open in focused modal dialogs above the
-conversation rather than sharing the sidebar. Active goals and compaction state report inside the
-Runs panel rather than below the chat input, keeping the main composer clean. The composer options
-button (`...`) sits in the right toolbar between the tools preset selector and the sound toggle.
+belongs to the default page — the Runs panel — never takes focus; one the user opens does.
+
+The panel also carries the session actions, as one quiet group above the runs: full history,
+generate title, branches when the session has them, system prompt, and tool definitions, plus a
+statistics card with input, output, cache read, cost, and the context bar. They describe the
+session rather than the next message, and every one of them opens a focused dialog above the
+conversation: the dialog is still the place to read, not the panel. The card's tooltip keeps the
+full breakdown; the panel keeps only what fits. Collapsing the panel, or opening the conversation on
+a phone where the panel starts closed, leaves the actions one click away behind the edge toggle.
+Active goals and compaction state report inside the Runs panel rather than below the chat input,
+keeping the main composer clean. The composer options button (`...`) sits in the right toolbar
+between the tools preset selector and the sound toggle.
+
+## Two workspaces, one switch
+
+The page header carries one segmented control, `Chat | Tasks`, after the sidebar toggle. It is the
+only place the two workspaces are chosen: a single choice is active at a time, the active segment is
+marked by surface, weight, and accent icon as well as by `aria-current`, and each segment is an
+ordinary link to a real URL (`/` and `/?mode=tasks`). Reload, open in new tab, and the Web Push deep
+links all land in the right workspace. The switch keeps the same shape, height, and position on both
+pages; the task workspace adds its own header row of the same height because it has no sidebar
+toggle in front of it. Phones keep the same control with shorter padding.
 
 The sidebar's wordmark opens About in a modal over the conversation: the logo, the build's version
 and commit, the Pi release in use, the license, and links to the source and to Pi. The wordmark is
@@ -37,10 +54,9 @@ links, without cards, frames or gradients.
 ## The task workspace
 
 `?mode=tasks` replaces the conversation with the serial task queue described in
-[Tasks](tasks.md). The session sidebar keeps listing conversations and gains a Tasks entry; the
-workspace itself keeps the same three-column language as the chat page: the queue grouped by status
-on the left, the board in the middle, and the task detail on the right, where the Runs panel sits in
-chat mode. A task row carries its status marker, title, working directory, attempts, and elapsed
+[Tasks](tasks.md), chosen from the page's `Chat | Tasks` switch. The task workspace keeps the same
+three-column language as the chat page: the queue grouped by status on the left, the board in the
+middle, and the task detail on the right, where the Runs panel sits in chat mode. A task row carries its status marker, title, working directory, attempts, and elapsed
 time; the arrow keys reorder it inside the pending segment, Enter edits, and Delete removes it. A
 running task is locked, and the controls say why.
 
@@ -52,8 +68,10 @@ composer's vocabulary and a collapsed tail of what the child printed. Opening th
 leaves the workspace for the ordinary conversation view, where the transcript is read-only until the
 task finishes. The phone layout is one column, and the task detail becomes a full-height sheet.
 
-Nothing about this workspace changes the chat view when the parameter is absent. The optional second
-step, a two-mode top bar with the chat toolbar inside the inspector, remains unbuilt.
+Nothing about this workspace changes the chat view when the parameter is absent. The switch is the
+implemented part of the two-mode header; the mode-specific inspector (task detail in the panel) and
+the per-tab mode memory remain unbuilt, and `?mode=tasks` deliberately skips the remembered-session
+restore so a reload stays in the task workspace.
 
 ## Quiet, clear, polished
 

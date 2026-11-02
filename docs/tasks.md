@@ -4,10 +4,11 @@ A local, strictly serial task queue: a small Jira for one person. Tasks are queu
 time, and each one is executed by a brand-new Pi agent process with its own session. When the
 process ends, its context ends with it; the next task starts from an empty window.
 
-This document is the design and the record of what was built. Phases 1-4 are implemented; phase 5
-(the two-mode top bar) is not, so `?mode=tasks` switches the workspace while the chat toolbar stays
-where it is. The sections below describe the implemented behavior, with the differences noted where
-the built version is narrower than the original plan.
+This document is the design and the record of what was built. Phases 1-4 and the page-level part of
+phase 5 are implemented: one `Chat | Tasks` switch sits in the page header of both views, and the
+session actions that used to share that header now live in the Runs panel. The mode-specific
+inspector and the per-tab mode memory were not built. The sections below describe the implemented
+behavior, with the differences noted where the built version is narrower than the original plan.
 
 ## Why this is not the boundary the project had
 
@@ -431,23 +432,28 @@ delivered in two steps so the chat surface is never destabilized by a navigation
 
 ### Step 2 — two modes behind one top bar
 
-Once step 1 behaves, the workspace switch becomes visible chrome:
+The built version is narrower than the original sketch: it covers the switch and the toolbar
+migration, and leaves the mode-specific inspector and the per-tab mode memory out.
 
-- The 36 px top bar carries: sidebar toggle, mode tabs (`Chat` | `Tasks`), the session name in chat
-  mode, and the right-panel toggle.
-- The present chat toolbar (history, name, branches, system prompt, tools, statistics) moves into
-  the header of the right-hand panel in chat mode, grouped under "session".
-- The right-hand panel becomes a mode-specific inspector: Runs/Execution in chat mode, task detail
-  in task mode. Its collapse, resize, phone overlay, and focus rules are reused unchanged.
-- Because that panel can be collapsed, closed on phones, and hidden entirely by a setting, the
-  actions moved into it stay reachable: when the panel is not visible, the top bar shows an overflow
-  button carrying the same actions (the pattern `mobileToolbarMoreOpen` already uses).
-- Deep links: `?mode=chat|tasks`, `?task=<id>`, and the existing `?session=`/`?cwd=` which always
-  imply chat mode. The chosen mode is remembered per browser tab through `lib/tab-session.ts` and
-  restored after mount, never during the first render (the SSR hydration rule already documented
-  there).
-- `docs/design.md` is updated in the same change: the right panel stops being a read-only surface of
-  the default page and becomes a mode-specific inspector that may hold session actions.
+- The page header carries the sidebar toggle (chat only) and one segmented control, `Chat | Tasks`.
+  It is navigation, not a tab set with panels: each choice is a real URL (`/` and `/?mode=tasks`),
+  the active one carries `aria-current="page"`, and both are ordinary links, so reload, a new tab,
+  and a Web Push deep link all land in the right view.
+- The switch sits in the same place in both views. The chat view keeps its 44 px header row; the
+  task view adds a header row of the same height above the task workspace, because that view has no
+  sidebar toggle in front of it.
+- The session actions that used to share the header (full history, generate title, branches, system
+  prompt, tools, token statistics) moved into the Runs panel, above the runs: a two-column grid of
+  quiet action rows and one statistics card that opens the session dialog. They describe the
+  session, not the next message, and the panel is part of the default page.
+- Because that panel can be collapsed, closed on phones, and hidden by Settings, the moved actions
+  are one click away rather than always visible: the edge toggle reopens the panel. There is no
+  separate overflow button; the retired phone `more` popover is gone with it.
+- `?mode=tasks` wins over the remembered session: the tab-memory restore is skipped in that view, so
+  a reload of the task workspace cannot replace its URL with `?session=`.
+- Not built: `?mode=chat`, a mode-specific inspector that shows the task detail in task mode, and
+  the per-tab mode memory in `lib/tab-session.ts`.
+- `docs/design.md` is updated in the same change.
 
 ### A running task's session is read-only in chat
 
@@ -501,7 +507,7 @@ directory or a real repository.
 | 2            | `rpc-session` + `runner` + `prompt` + fixture child + tests | A real CLI child runs one prompt to `agent_settled`, asks a question, and dies on request.      |
 | 3            | `gate` + `git` + `orchestrator` + lifecycle wiring + routes | A queue drains unattended; a failed gate pauses it; a restart leaves nothing running.           |
 | 4            | `TaskWorkspace` + `?mode=tasks` + i18n + docs               | The queue is fully operable from the browser, keyboard included.                                |
-| 5 (optional) | Two-mode top bar, toolbar migration, inspector panel        | Chat is unchanged in behavior, with the moved actions still reachable when the panel is hidden. |
+| 5 (optional) | Mode switch, toolbar migration, inspector panel             | Chat is unchanged in behavior, with the moved actions still reachable when the panel is hidden. |
 
 ## Implementation status
 
@@ -511,7 +517,7 @@ directory or a real repository.
 | 2 | `lib/ask-user-cli-extension.ts`, `lib/tasks/rpc-session.ts`, `lib/tasks/runner.ts`, `lib/tasks/prompt.ts`, and a scripted child fixture (`lib/tasks/__fixtures__/rpc-child.mjs`). LF framing, U+2028 inside a string, correlation, tree kill, question round-trip. |
 | 3 | `lib/tasks/gate.ts`, `lib/tasks/git.ts`, `lib/tasks/orchestrator.ts`, `instrumentation-node.ts` shutdown, and the seven `/api/tasks` routes. `lib/project-trust.ts` decides `--approve`; `lib/tasks/active-sessions.ts` is the only module chat imports. |
 | 4 | `components/TaskWorkspace.tsx`, `?mode=tasks`/`?task=` in `AppShell`, the sidebar entry, `app/tasks.css`, and task keys in all three locales. |
-| 5 (optional) | Not built: the two-mode top bar, moving the chat toolbar into the inspector, and the per-tab mode memory. |
+| 5 (optional) | The `Chat | Tasks` switch in both page headers, and the session actions moved into the Runs panel (`components/SessionPanelActions.tsx`). Not built: the mode-specific inspector and the per-tab mode memory. |
 
 Queue defaults live in `<agentDir>/pie-task-orchestrator.json`, read on every run so an edit applies
 to the next task. The queue lock is `<agentDir>/pie-tasks.lock`. The `ask_user` extension is loaded
