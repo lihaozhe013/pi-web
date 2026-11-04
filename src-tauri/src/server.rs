@@ -229,7 +229,7 @@ fn spawn(node: &Path, dir: &Path, port: u16) -> Result<Child, String> {
     #[cfg(unix)]
     {
         use std::os::unix::process::CommandExt;
-        // Own process group, so stopping the server also stops Next.js.
+        // Own process group, so stopping the launcher also stops the server it spawned.
         command.process_group(0);
     }
     command
@@ -319,7 +319,7 @@ fn stop_process_tree(child: &mut Child) {
     #[cfg(unix)]
     {
         let pid = child.id() as i32;
-        // The launcher forwards the signal to Next.js and waits for extensions.
+        // The launcher forwards the signal to the server and waits for extensions.
         unsafe {
             libc::kill(-pid, libc::SIGTERM);
         }

@@ -5,8 +5,8 @@ import { getAgentDir } from './session-reader';
 
 // Roots the person approved, kept beside Pie's other state so an approval made
 // by the task board or a file link is still valid after a restart. Stored on
-// globalThis as well, because Next.js hot-reload would otherwise re-read the
-// file on every request.
+// globalThis as well, so a module reload in development does not drop the cache
+// and re-read the file on every request.
 declare global {
   var __piAllowedRootsCache: { roots: Set<string>; expiresAt: number } | undefined;
   var __piAdditionalAllowedRoots: Set<string> | undefined;

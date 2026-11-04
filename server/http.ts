@@ -1,9 +1,8 @@
 /**
  * The HTTP shape the route handlers speak: a Web `Request` in, a Web `Response` out.
  *
- * Next.js used to provide this shape. Keeping it means every handler stays an ordinary
- * function that a test can call with a `Request`, and the router in `server/hono.ts` is the
- * only place that knows about the server framework.
+ * A handler stays an ordinary function that takes a `Request` and returns a `Response`, so
+ * `server/hono-route.ts` is the only module that knows about the server framework.
  */
 
 /** Path parameters, in the form the handlers already expect: a name, or the segments of a

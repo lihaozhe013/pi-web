@@ -83,10 +83,8 @@ export function isValidWebSessionToken(
 
 /**
  * The session cookie is plain HTTP state, so the routes read and write it
- * themselves: Next.js used to own the cookie jar, and these are the two
- * operations it provided. `Secure` follows the request, because a LAN client
- * may reach Pie over HTTPS through a reverse proxy while the server itself
- * speaks HTTP.
+ * themselves. `Secure` follows the request, because a LAN client may reach Pie
+ * over HTTPS through a reverse proxy while the server itself speaks HTTP.
  */
 function isSecureRequest(request: Request): boolean {
   return (

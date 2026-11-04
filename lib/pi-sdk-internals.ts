@@ -323,8 +323,8 @@ function resolveMcpClientEntry(packageDir: string): string {
 }
 
 function resolvedSdkPackageDir(cwd: string): string {
-  // Next.js runs the server with the project as cwd, and resolves externals
-  // from its build output inside the project, so both find the same package.
+  // The server runs with the project as cwd, so both this lookup and any
+  // resolution the SDK does itself land on the same package.
   const manifestPath = findPackageJSON(SDK_PACKAGE, pathToFileURL(join(cwd, 'package.json')).href);
   if (!manifestPath) throw new Error(`cannot resolve ${SDK_PACKAGE} from ${cwd}`);
   return realpathSync(join(manifestPath, '..'));

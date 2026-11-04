@@ -32,7 +32,7 @@ function parseHttpIdleTimeoutMs(value: unknown): number | undefined {
 /**
  * The agent directory pi keeps its global `settings.json` in, resolved as pi's
  * `getAgentDir()` resolves it. It is resolved here instead of through the SDK
- * because this module runs in Next.js instrumentation: importing the SDK there
+ * because this module loads during instrumentation: importing the SDK there
  * costs about a second of startup time, while `undici` costs a tenth of one.
  */
 export function defaultAgentDir(): string {
@@ -94,7 +94,7 @@ export function readHttpIdleTimeoutMs(agentDir: string = defaultAgentDir()): num
 
 // Undici can emit an internal Client error while terminating a response body.
 // The body stream still rejects; this prevents the EventEmitter error from
-// terminating the Next.js process first.
+// terminating the server process first.
 function withUndiciErrorListener<T extends undici.Dispatcher>(dispatcher: T): T {
   if (dispatcher instanceof EventEmitter) {
     EventEmitter.prototype.on.call(dispatcher, 'error', ignoreUndiciDispatcherError);

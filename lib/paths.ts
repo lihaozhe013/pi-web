@@ -29,7 +29,7 @@ export function isWindowsAbsolutePath(filePath: string): boolean {
   );
 }
 
-/** Rebuild an absolute filesystem path from Next.js catch-all route segments. */
+/** Rebuild an absolute filesystem path from the segments of a catch-all API path. */
 export function filePathFromApiSegments(segments: string[]): string {
   const joined = segments.join('/');
   const slashJoined = toSlashPath(joined);

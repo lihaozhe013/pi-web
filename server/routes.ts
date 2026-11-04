@@ -2,9 +2,9 @@
  * Every HTTP route Pie serves, mapped to the handler that answers it.
  *
  * Routes without a path parameter register first, so a literal segment such as
- * `/api/sessions/ui-state` can never be read as `/api/sessions/:id`. Each handler keeps
- * Next.js's `(request, context)` shape (see `./http.ts`), which is why the routes stay
- * plain functions that a test can call without a server.
+ * `/api/sessions/ui-state` can never be read as `/api/sessions/:id`. Each handler keeps the
+ * `(request, context)` shape (see `./http.ts`), which is why the routes stay plain
+ * functions that a caller can invoke without a server.
  */
 import type { Hono } from 'hono';
 import { toHono } from './hono-route';

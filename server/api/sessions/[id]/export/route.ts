@@ -60,7 +60,7 @@ async function getPiCliPath(): Promise<string | null> {
       candidates.add(join(dirname(fileURLToPath(indexUrl)), 'cli.js'));
     }
   } catch {
-    // Next.js production bundles can strip import.meta.resolve.
+    // A bundled build can leave `import.meta.resolve` undefined; the fallback below covers it.
   }
 
   candidates.add(

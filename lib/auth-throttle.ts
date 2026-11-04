@@ -1,9 +1,9 @@
 /**
  * Global exponential backoff for password authentication failures.
  *
- * Pie serves a single operator and binds to 127.0.0.1, so Next.js route
- * handlers have no reliable client address (`x-forwarded-for` is spoofable and
- * absent for direct connections). Rather than trusting a per-IP key, every
+ * Pie serves a single operator and binds to 127.0.0.1, so a request carries no
+ * reliable client address (`x-forwarded-for` is spoofable and absent for direct
+ * connections). Rather than trusting a per-IP key, every
  * failure feeds one shared counter and briefly blocks all password attempts.
  * The only "other user" affected by the block is the operator, and a bounded
  * delay is acceptable for them while it caps brute force at roughly one guess
@@ -36,7 +36,7 @@ export function createAuthThrottleState(): AuthThrottleState {
   return freshState();
 }
 
-/** Stored on `globalThis` so the counter survives Next.js hot reloads. */
+/** Stored on `globalThis` so the counter survives a development reload. */
 function getGlobalState(): AuthThrottleState {
   const store = globalThis as Record<PropertyKey, unknown>;
   const key = Symbol.for(STATE_KEY);

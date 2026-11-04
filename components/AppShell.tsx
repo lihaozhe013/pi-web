@@ -859,8 +859,8 @@ export function AppShell() {
         // onCwdChange effect firing after setSelectedCwd in the sidebar
         suppressCwdBumpRef.current = true;
       }
-      // Skip router.replace when the URL already has this session — calling
-      // replace in production Next.js triggers a Suspense remount loop.
+      // Skip router.replace when the URL already has this session; replacing
+      // it again would re-render the shell for no change.
       // Tab-memory restore lands on `/` and must write `?session=` so reload
       // and copy-link keep this session.
       if (!isRestore || new URLSearchParams(window.location.search).get('session') !== session.id) {

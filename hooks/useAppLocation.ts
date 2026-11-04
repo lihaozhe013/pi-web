@@ -6,8 +6,8 @@ import {
 } from 'react';
 
 /**
- * Browser navigation for the single-page app, in the shape the shell was written against
- * when Next.js provided `useRouter` and `useSearchParams`.
+ * Browser navigation for the single-page app, exposed as `useRouter` and `useSearchParams`: the
+ * shape every component in the shell already imports.
  *
  * The URL is the app's own state: `?mode=tasks` selects the workspace, `?session=` opens a
  * session, and `?cwd=` names the project. A history change therefore has to notify React, which

@@ -7,7 +7,7 @@ export { isWindowsAbsolutePath } from './paths';
 // Short-TTL cache for the allowed-roots set. Without this, every file list/read
 // request re-scans every pi session on disk just to check access. 5s is short
 // enough that newly-created cwds appear promptly; stored on globalThis so it
-// survives Next.js hot-reload.
+// survives a reload in development.
 declare global {
   var __piAllowedRootsCache: { roots: Set<string>; expiresAt: number } | undefined;
 }

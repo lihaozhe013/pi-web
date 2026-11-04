@@ -19,7 +19,7 @@ export {
 
 // MCP servers are started on behalf of a project like its bash commands, so
 // they get the same environment: the server's own, without the variables that
-// configure or guard this Next.js process (ADR 0006, "Safety → Environment").
+// configure or guard the Pie server (ADR 0006, "Safety → Environment").
 // The SDK's default stdio transport passes the whole `process.env` instead.
 
 type TransportInternals = Pick<

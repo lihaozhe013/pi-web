@@ -15,8 +15,8 @@ function isApiPath(path: string): boolean {
 }
 
 /**
- * The paths this middleware guards, matching what Next.js used to match: the app shell, the
- * login page, and every API route. Anything else is a bundle asset.
+ * The paths this middleware guards: the app shell, the login page, and every API route.
+ * Anything else is a bundle asset.
  */
 function isGuardedPath(path: string): boolean {
   return path === '/' || path === '/login' || isApiPath(path);
