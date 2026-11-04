@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { json } from '@/server/http';
 import { stat } from 'fs/promises';
 import { hasJsonContentType, isApiRequestAllowed } from '@/lib/request-security';
 import {
@@ -13,13 +13,13 @@ import {
 } from '@/lib/directory-browser';
 
 // GET /api/cwd/browse?path=...：列出文件系统中的可读子目录。
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
-    const requested = request.nextUrl.searchParams.get('path')?.trim();
+    const requested = new URL(request.url).searchParams.get('path')?.trim();
 
-    if (request.nextUrl.searchParams.get('complete') === '1' && requested) {
+    if (new URL(request.url).searchParams.get('complete') === '1' && requested) {
       try {
-        return NextResponse.json(await completeDirectory(requested));
+        return json(await completeDirectory(requested));
       } catch (error) {
         const code =
           error && typeof error === 'object' && 'code' in error ? String(error.code) : '';
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
           code === 'EACCES' || code === 'EPERM'
             ? 'Permission denied'
             : 'Directory does not exist or cannot be read';
-        return NextResponse.json(
+        return json(
           { error: message },
           { status: code === 'EACCES' || code === 'EPERM' ? 403 : 404 }
         );
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (shouldShowWindowsDrivePicker(requested)) {
-      return NextResponse.json({
+      return json({
         path: '',
         parentPath: null,
         drives: await listWindowsDrives(),
@@ -49,23 +49,23 @@ export async function GET(request: NextRequest) {
     try {
       resolved = await resolveDirectory(candidate);
     } catch {
-      return NextResponse.json({ error: 'Directory does not exist' }, { status: 404 });
+      return json({ error: 'Directory does not exist' }, { status: 404 });
     }
 
     const directoryStat = await stat(resolved);
     if (!directoryStat.isDirectory()) {
-      return NextResponse.json({ error: 'Path is not a directory' }, { status: 400 });
+      return json({ error: 'Path is not a directory' }, { status: 400 });
     }
 
     const directories = await listDirectories(resolved);
 
-    return NextResponse.json({
+    return json({
       path: resolved,
       parentPath: getParentDirectory(resolved),
       directories
     });
   } catch (error) {
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    return json({ error: String(error) }, { status: 500 });
   }
 }
 
@@ -73,10 +73,10 @@ export async function GET(request: NextRequest) {
 // Creates one direct child of the currently browsed directory.
 export async function POST(request: Request) {
   if (!isApiRequestAllowed(request)) {
-    return NextResponse.json({ error: 'Untrusted API request' }, { status: 403 });
+    return json({ error: 'Untrusted API request' }, { status: 403 });
   }
   if (!hasJsonContentType(request)) {
-    return NextResponse.json({ error: 'Content-Type must be application/json' }, { status: 415 });
+    return json({ error: 'Content-Type must be application/json' }, { status: 415 });
   }
 
   try {
@@ -85,38 +85,38 @@ export async function POST(request: Request) {
     const name = typeof body.name === 'string' ? body.name.trim() : '';
 
     if (!parentPath) {
-      return NextResponse.json({ error: 'Parent path is required' }, { status: 400 });
+      return json({ error: 'Parent path is required' }, { status: 400 });
     }
     if (!name) {
-      return NextResponse.json({ error: 'Directory name is required' }, { status: 400 });
+      return json({ error: 'Directory name is required' }, { status: 400 });
     }
 
     const createdPath = await createDirectory(parentPath, name);
-    return NextResponse.json({ success: true, path: createdPath });
+    return json({ success: true, path: createdPath });
   } catch (error) {
     const code = error && typeof error === 'object' && 'code' in error ? String(error.code) : '';
     if (code === 'EEXIST') {
-      return NextResponse.json(
+      return json(
         { error: 'A file or directory with this name already exists' },
         { status: 409 }
       );
     }
     if (code === 'ENOENT') {
-      return NextResponse.json({ error: 'Parent directory does not exist' }, { status: 404 });
+      return json({ error: 'Parent directory does not exist' }, { status: 404 });
     }
     if (code === 'EACCES' || code === 'EPERM') {
-      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+      return json({ error: 'Permission denied' }, { status: 403 });
     }
     if (code === 'EINVAL' || code === 'ENAMETOOLONG') {
-      return NextResponse.json({ error: 'Directory name is invalid' }, { status: 400 });
+      return json({ error: 'Directory name is invalid' }, { status: 400 });
     }
     if (
       error instanceof Error &&
       (error.message === 'Directory name must be a single folder name' ||
         error.message === 'Parent path is not a directory')
     ) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      return json({ error: error.message }, { status: 400 });
     }
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    return json({ error: String(error) }, { status: 500 });
   }
 }

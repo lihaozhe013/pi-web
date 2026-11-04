@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { json } from '@/server/http';
 import { statSync, type Stats } from 'fs';
 import { normalizeCwd } from '@/lib/cwd-path';
 import { allowFileRoot } from '@/lib/file-access';
@@ -12,7 +12,7 @@ export async function POST(req: Request) {
     const cwd = typeof body.cwd === 'string' ? body.cwd.trim() : '';
 
     if (!cwd) {
-      return NextResponse.json({ error: 'Path is required' }, { status: 400 });
+      return json({ error: 'Path is required' }, { status: 400 });
     }
 
     const normalizedCwd = normalizeCwd(cwd);
@@ -20,21 +20,21 @@ export async function POST(req: Request) {
     try {
       stat = statSync(normalizedCwd);
     } catch {
-      return NextResponse.json({ error: `Directory does not exist: ${cwd}` }, { status: 400 });
+      return json({ error: `Directory does not exist: ${cwd}` }, { status: 400 });
     }
 
     if (!stat.isDirectory()) {
-      return NextResponse.json({ error: `Path is not a directory: ${cwd}` }, { status: 400 });
+      return json({ error: `Path is not a directory: ${cwd}` }, { status: 400 });
     }
 
     allowFileRoot(normalizedCwd);
-    return NextResponse.json({
+    return json({
       success: true,
       cwd: normalizedCwd,
       projectRoot: normalizedCwd,
       projectKey: projectIdentityKey(normalizedCwd)
     });
   } catch (error) {
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    return json({ error: String(error) }, { status: 500 });
   }
 }

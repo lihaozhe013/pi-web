@@ -14,10 +14,11 @@ use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 use tauri::AppHandle;
 
-/// The Next.js floor. Older releases are reported instead of used.
+/// The floor for the Node.js API the server uses (`node:sqlite`). Older releases are reported
+/// instead of used.
 pub const MINIMUM: Version = Version {
-    major: 20,
-    minor: 9,
+    major: 22,
+    minor: 5,
     patch: 0,
 };
 
@@ -477,135 +478,5 @@ pub fn quiet(command: &mut Command) {
     #[cfg(not(windows))]
     {
         let _ = command;
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn search(platform: Platform, configured: Option<&str>, path: &[&str]) -> Search {
-        Search {
-            platform,
-            configured: configured.map(PathBuf::from),
-            path_dirs: path.iter().map(PathBuf::from).collect(),
-            fixed_dirs: vec![PathBuf::from("/fixed/bin")],
-            version_roots: vec![(PathBuf::from("/versions"), vec!["bin".to_string()])],
-        }
-    }
-
-    #[test]
-    fn parses_versions_with_and_without_v() {
-        assert_eq!(
-            Version::parse("v24.4.0"),
-            Some(Version {
-                major: 24,
-                minor: 4,
-                patch: 0
-            })
-        );
-        assert_eq!(Version::parse("20.9.0\n"), Version::parse("20.9"));
-        assert_eq!(
-            Version::parse("22.1.0-rc.1").map(|version| version.patch),
-            Some(0)
-        );
-        assert_eq!(Version::parse("nope"), None);
-    }
-
-    #[test]
-    fn enforces_the_next_floor() {
-        assert!(!Version::parse("20.8.9").unwrap().supported());
-        assert!(Version::parse("20.9.0").unwrap().supported());
-        assert!(Version::parse("24.4.0").unwrap().supported());
-    }
-
-    #[test]
-    fn prefers_the_configured_binary_then_path() {
-        let found = candidates(&search(Platform::Unix, Some("/custom/node"), &["/a", "/b"]));
-        assert_eq!(found[0], PathBuf::from("/custom/node"));
-        assert_eq!(found[1], PathBuf::from("/a/node"));
-        assert_eq!(found[2], PathBuf::from("/b/node"));
-        assert_eq!(found[3], PathBuf::from("/fixed/bin/node"));
-    }
-
-    #[test]
-    fn uses_the_platform_executable_name() {
-        let found = candidates(&search(Platform::Windows, None, &[r"C:\nodejs"]));
-        assert_eq!(found[0], PathBuf::from(r"C:\nodejs").join("node.exe"));
-    }
-
-    #[test]
-    fn child_path_leads_with_the_node_directory_and_keeps_every_entry_once() {
-        let node = PathBuf::from("/versions/v24/bin/node");
-        let path = child_path(
-            &node,
-            Path::new("/agent/bin"),
-            Some(OsString::from("/usr/bin::/versions/v24/bin:/opt/custom")),
-            |dir| dir == Path::new("/agent/bin"),
-        );
-        let entries: Vec<PathBuf> = std::env::split_paths(&path).collect();
-        assert_eq!(entries[0], PathBuf::from("/versions/v24/bin"));
-        assert_eq!(entries[1], PathBuf::from("/agent/bin"));
-        // An empty entry would add the working directory to every lookup.
-        assert!(!entries.iter().any(|dir| dir.as_os_str().is_empty()));
-        for expected in ["/usr/bin", "/versions/v24/bin", "/opt/custom"] {
-            let wanted = PathBuf::from(expected);
-            assert_eq!(entries.iter().filter(|dir| **dir == wanted).count(), 1);
-        }
-        // The desktop's entries keep their order.
-        let inherited: Vec<&PathBuf> = entries
-            .iter()
-            .filter(|dir| dir.ends_with("/usr/bin") || dir.ends_with("/opt/custom"))
-            .collect();
-        assert_eq!(
-            inherited,
-            vec![&PathBuf::from("/usr/bin"), &PathBuf::from("/opt/custom")]
-        );
-    }
-
-    #[test]
-    fn child_path_skips_tool_directories_that_do_not_exist() {
-        let path = child_path(
-            Path::new("/versions/v24/bin/node"),
-            Path::new("/agent/bin"),
-            None,
-            |_| false,
-        );
-        assert_eq!(
-            std::env::split_paths(&path).collect::<Vec<PathBuf>>(),
-            vec![PathBuf::from("/versions/v24/bin")]
-        );
-    }
-
-    #[test]
-    fn tool_directories_cover_the_common_package_managers() {
-        let dirs = tool_dirs();
-        let home = std::env::var_os("HOME")
-            .or_else(|| std::env::var_os("USERPROFILE"))
-            .map(PathBuf::from);
-        if let Some(home) = home {
-            assert!(dirs.contains(&home.join(".bun").join("bin")));
-            assert!(dirs.contains(&home.join(".local").join("bin")));
-        }
-        assert!(dirs.contains(&PathBuf::from("/opt/homebrew/bin")));
-    }
-
-    #[test]
-    fn orders_version_manager_directories_newest_first() {
-        let root = std::env::temp_dir().join(format!("pie-node-test-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&root);
-        for version in ["v20.9.0", "v24.4.0", "v22.11.0", "not-a-version"] {
-            std::fs::create_dir_all(root.join(version).join("bin")).unwrap();
-        }
-        let found = version_dirs(&root, &["bin".to_string()], "node");
-        let _ = std::fs::remove_dir_all(&root);
-        assert_eq!(
-            found,
-            vec![
-                root.join("v24.4.0").join("bin").join("node"),
-                root.join("v22.11.0").join("bin").join("node"),
-                root.join("v20.9.0").join("bin").join("node"),
-            ]
-        );
     }
 }

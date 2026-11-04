@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { json } from '@/server/http';
 import {
   GLOBAL_AGENTS_MAX_BYTES,
   readGlobalAgents,
@@ -6,14 +6,12 @@ import {
 } from '@/lib/global-agents-file';
 import { hasJsonContentType, isApiRequestAllowed } from '@/lib/request-security';
 
-export const dynamic = 'force-dynamic';
-
 // The JSON envelope adds a little to the content size; anything beyond this
 // cannot contain an allowed file and is refused before it is parsed.
 const MAX_REQUEST_BYTES = GLOBAL_AGENTS_MAX_BYTES + 64 * 1024;
 
 function errorResponse(error: unknown) {
-  return NextResponse.json(
+  return json(
     { error: error instanceof Error ? error.message : String(error) },
     { status: 500 }
   );
@@ -30,7 +28,7 @@ function declaredContentLength(request: Request): number | null {
 // route is not a general file reader or writer.
 export async function GET() {
   try {
-    return NextResponse.json(readGlobalAgents());
+    return json(readGlobalAgents());
   } catch (error) {
     return errorResponse(error);
   }
@@ -38,14 +36,14 @@ export async function GET() {
 
 export async function PUT(req: Request) {
   if (!isApiRequestAllowed(req)) {
-    return NextResponse.json({ error: 'Untrusted API request' }, { status: 403 });
+    return json({ error: 'Untrusted API request' }, { status: 403 });
   }
   if (!hasJsonContentType(req)) {
-    return NextResponse.json({ error: 'Content-Type must be application/json' }, { status: 415 });
+    return json({ error: 'Content-Type must be application/json' }, { status: 415 });
   }
   const declared = declaredContentLength(req);
   if (declared !== null && declared > MAX_REQUEST_BYTES) {
-    return NextResponse.json(
+    return json(
       { error: 'Global AGENTS.md must be 1 MiB or smaller' },
       { status: 413 }
     );
@@ -55,14 +53,14 @@ export async function PUT(req: Request) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    return json({ error: 'Invalid JSON body' }, { status: 400 });
   }
   const content = (body as { content?: unknown } | null)?.content;
   if (typeof content !== 'string') {
-    return NextResponse.json({ error: 'content must be a string' }, { status: 400 });
+    return json({ error: 'content must be a string' }, { status: 400 });
   }
   if (Buffer.byteLength(content, 'utf8') > GLOBAL_AGENTS_MAX_BYTES) {
-    return NextResponse.json(
+    return json(
       { error: 'Global AGENTS.md must be 1 MiB or smaller' },
       { status: 413 }
     );
@@ -70,7 +68,7 @@ export async function PUT(req: Request) {
 
   try {
     const path = writeGlobalAgents(content);
-    return NextResponse.json({ path, content, exists: true });
+    return json({ path, content, exists: true });
   } catch (error) {
     return errorResponse(error);
   }

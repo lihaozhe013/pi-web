@@ -80,3 +80,52 @@ export function isValidWebSessionToken(
   if (!Number.isSafeInteger(expiresAt) || expiresAt <= Math.floor(now / 1000)) return false;
   return secretsEqual(match[3], sessionSignature(match[1], password));
 }
+
+/**
+ * The session cookie is plain HTTP state, so the routes read and write it
+ * themselves: Next.js used to own the cookie jar, and these are the two
+ * operations it provided. `Secure` follows the request, because a LAN client
+ * may reach Pie over HTTPS through a reverse proxy while the server itself
+ * speaks HTTP.
+ */
+function isSecureRequest(request: Request): boolean {
+  return (
+    new URL(request.url).protocol === 'https:' ||
+    request.headers.get('x-forwarded-proto')?.split(',', 1)[0]?.trim() === 'https'
+  );
+}
+
+export function readWebSessionCookie(request: Request): string | undefined {
+  const header = request.headers.get('cookie');
+  if (!header) return undefined;
+  for (const pair of header.split(';')) {
+    const separator = pair.indexOf('=');
+    if (separator < 0) continue;
+    if (pair.slice(0, separator).trim() !== PIE_SESSION_COOKIE) continue;
+    const raw = pair.slice(separator + 1).trim();
+    try {
+      return decodeURIComponent(raw);
+    } catch {
+      return raw;
+    }
+  }
+  return undefined;
+}
+
+/** The `Set-Cookie` value for the session, including the attributes both the login form and
+ * the logout route need. A `maxAgeSeconds` of 0 clears it. */
+export function webSessionCookie(
+  request: Request,
+  value: string,
+  maxAgeSeconds: number
+): string {
+  const attributes = [
+    `${PIE_SESSION_COOKIE}=${encodeURIComponent(value)}`,
+    'Path=/',
+    'HttpOnly',
+    'SameSite=Lax',
+    `Max-Age=${maxAgeSeconds}`
+  ];
+  if (isSecureRequest(request)) attributes.push('Secure');
+  return attributes.join('; ');
+}

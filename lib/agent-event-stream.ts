@@ -88,17 +88,15 @@ function logBackpressure(
 
 /**
  * Registry of live SSE streams, closed from the SIGINT/SIGTERM hook in
- * instrumentation.ts.
+ * `server/instrumentation.ts`.
  *
- * In production Next 16 handles those signals with `server.close()` and waits
- * for every connection to end, with no timeout and no `closeAllConnections`
- * (that call is dev-only in next/dist/server/lib/start-server.js). An SSE
- * stream only ends when the client disconnects, so without this the process
- * stops listening (502 upstream) but never exits.
+ * `server.close()` waits for every connection to end. An SSE stream only ends
+ * when the client disconnects, so without this the process stops listening but
+ * never exits.
  *
- * instrumentation.ts and the route handlers are bundled into separate module
- * graphs, each with its own copy of this module; a plain module-level Set
- * would be two disconnected registries. Symbol.for + globalThis shares one.
+ * The registry lives on `globalThis` behind `Symbol.for` rather than in a
+ * module-level Set, so a second copy of this module (a reloaded bundle, a
+ * script that imports the same source) closes the same streams.
  */
 const CLOSER_REGISTRY: symbol = Symbol.for('pie.agentEventStreamClosers');
 type StreamCloser = (closeController: boolean | 'error') => void;

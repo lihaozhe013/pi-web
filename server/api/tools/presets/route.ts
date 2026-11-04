@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { json } from '@/server/http';
 import {
   CustomToolPresetsLockedError,
   readCustomToolPresets,
@@ -6,17 +6,15 @@ import {
 } from '@/lib/custom-tool-presets';
 import { hasJsonContentType, isApiRequestAllowed } from '@/lib/request-security';
 
-export const dynamic = 'force-dynamic';
-
 // The custom tool presets (`lib/custom-tool-presets.ts`): the whole list is
 // replaced on each save, as the editor sends it. Reads are open like the other
 // settings GETs; writes require a trusted same-origin request.
 
 export async function GET() {
   try {
-    return NextResponse.json({ presets: readCustomToolPresets() });
+    return json({ presets: readCustomToolPresets() });
   } catch (error) {
-    return NextResponse.json(
+    return json(
       { error: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
@@ -25,29 +23,29 @@ export async function GET() {
 
 export async function PUT(req: Request) {
   if (!isApiRequestAllowed(req)) {
-    return NextResponse.json({ error: 'Untrusted API request' }, { status: 403 });
+    return json({ error: 'Untrusted API request' }, { status: 403 });
   }
   if (!hasJsonContentType(req)) {
-    return NextResponse.json({ error: 'Content-Type must be application/json' }, { status: 415 });
+    return json({ error: 'Content-Type must be application/json' }, { status: 415 });
   }
 
   let body: unknown;
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    return json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
   try {
     const presets = await writeCustomToolPresets(body);
-    return NextResponse.json({ presets });
+    return json({ presets });
   } catch (error) {
     if (error instanceof CustomToolPresetsLockedError) {
-      return NextResponse.json({ error: error.message }, { status: 409 });
+      return json({ error: error.message }, { status: 409 });
     }
     // An invalid document is the client's mistake; anything else is ours.
     const message = error instanceof Error ? error.message : String(error);
     const invalid = message.startsWith('Expected a tool preset document');
-    return NextResponse.json({ error: message }, { status: invalid ? 400 : 500 });
+    return json({ error: message }, { status: invalid ? 400 : 500 });
   }
 }

@@ -1,9 +1,7 @@
-import { NextResponse } from 'next/server';
+import { json } from '@/server/http';
 import type { McpErrorResponse, McpRefusalReason, McpSignInFlowInfo } from '@/lib/api-types';
 import { cancelMcpSignIn, pasteMcpSignInRedirect, readMcpSignIn } from '@/lib/mcp-sign-in';
 import { hasJsonContentType, isApiRequestAllowed } from '@/lib/request-security';
-
-export const dynamic = 'force-dynamic';
 
 // One Settings › MCP sign-in by its id (`lib/mcp-sign-in.ts`):
 //   GET     where it stands, which the panel polls about once a second;
@@ -16,7 +14,7 @@ export const dynamic = 'force-dynamic';
 // checked when the sign-in started; nothing here connects or reads a file.
 
 function refusal(status: number, reason: McpRefusalReason, error: string) {
-  return NextResponse.json({ error, reason } satisfies McpErrorResponse, { status });
+  return json({ error, reason } satisfies McpErrorResponse, { status });
 }
 
 const UNKNOWN = 'No sign-in has that id: it ended over a minute ago, or Pie restarted';
@@ -28,7 +26,7 @@ export async function GET(req: Request, { params }: Context) {
   const { flowId } = await params;
   const flow = readMcpSignIn(flowId);
   if (!flow) return refusal(404, 'sign-in-unknown', UNKNOWN);
-  return NextResponse.json(flow satisfies McpSignInFlowInfo);
+  return json(flow satisfies McpSignInFlowInfo);
 }
 
 export async function POST(req: Request, { params }: Context) {
@@ -47,7 +45,7 @@ export async function POST(req: Request, { params }: Context) {
       ? (body as Record<string, unknown>).redirectUrl
       : undefined;
   const result = pasteMcpSignInRedirect(flowId, redirectUrl);
-  if (result.ok) return NextResponse.json(result.flow satisfies McpSignInFlowInfo);
+  if (result.ok) return json(result.flow satisfies McpSignInFlowInfo);
   return refusal(result.status, result.reason, result.error);
 }
 
@@ -56,5 +54,5 @@ export async function DELETE(req: Request, { params }: Context) {
   const { flowId } = await params;
   const flow = cancelMcpSignIn(flowId);
   if (!flow) return refusal(404, 'sign-in-unknown', UNKNOWN);
-  return NextResponse.json(flow satisfies McpSignInFlowInfo);
+  return json(flow satisfies McpSignInFlowInfo);
 }

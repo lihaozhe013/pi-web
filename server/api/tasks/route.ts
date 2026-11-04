@@ -1,18 +1,15 @@
-import { jsonResponse } from '@/lib/json-response';
+import { json } from '@/server/http';
 import { readTaskConfig } from '@/lib/tasks/config';
 import { getTaskOrchestrator } from '@/lib/tasks/orchestrator';
 import { noStore, readTaskBody, taskErrorResponse } from '@/lib/tasks/request';
 import type { TaskCreateInput } from '@/lib/tasks/types';
 
-export const dynamic = 'force-dynamic';
 
 /** The board's whole poll payload: tasks, recent runs, loop state, and defaults. */
-export async function GET(req: Request) {
+export async function GET() {
   try {
     const orchestrator = getTaskOrchestrator();
-    return jsonResponse(
-      req,
-      {
+    return json({
         tasks: orchestrator.queue.listTasks(),
         runs: orchestrator.queue.listRuns(),
         orchestrator: orchestrator.status(),
@@ -23,7 +20,7 @@ export async function GET(req: Request) {
       noStore()
     );
   } catch (error) {
-    return taskErrorResponse(req, error);
+    return taskErrorResponse(error);
   }
 }
 
@@ -41,8 +38,8 @@ export async function POST(req: Request) {
     };
     const orchestrator = getTaskOrchestrator();
     const task = await orchestrator.queue.createTask(input);
-    return jsonResponse(req, { task }, { status: 201, ...noStore() });
+    return json({ task }, { status: 201, ...noStore() });
   } catch (error) {
-    return taskErrorResponse(req, error);
+    return taskErrorResponse(error);
   }
 }

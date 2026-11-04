@@ -28,8 +28,6 @@ import { withDeferredProviderModels } from '@/lib/deferred-provider-models';
 import { getAllowedFileRoots, isExistingFilePathAllowed } from '@/lib/file-access';
 import { invalidateModelsCache } from '@/lib/models-cache';
 
-export const dynamic = 'force-dynamic';
-
 interface RequestContext {
   modelRuntime: ModelRuntime;
   models: readonly Model<Api>[];

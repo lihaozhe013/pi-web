@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { json } from '@/server/http';
 import type { McpErrorResponse, McpRefusalReason, ToolSettingsResponse } from '@/lib/api-types';
 import {
   CODEMODE_INLINE_BUDGET_MAX,
@@ -14,8 +14,6 @@ import {
 import { hasJsonContentType, isApiRequestAllowed } from '@/lib/request-security';
 import { readPowerShellToolEnabled, writePowerShellToolEnabled } from '@/lib/powershell-settings';
 
-export const dynamic = 'force-dynamic';
-
 // The only writer of the global `defaultTools` key: the PowerShell switch
 // (Windows) and the Code mode choice (ADR 0006, chosen in Settings › MCP) both
 // edit it, under the lock pi's SettingsManager takes on the same file. Settings
@@ -27,7 +25,7 @@ export const dynamic = 'force-dynamic';
 const CHANGES = ['enabled', 'codemode', 'codemodeMode', 'codemodeInlineBudget'] as const;
 
 function refusal(status: number, reason: McpRefusalReason, error: string) {
-  return NextResponse.json({ error, reason } satisfies McpErrorResponse, { status });
+  return json({ error, reason } satisfies McpErrorResponse, { status });
 }
 
 function errorResponse(error: unknown) {
@@ -51,7 +49,7 @@ async function readToolSettings(): Promise<ToolSettingsResponse> {
 
 export async function GET() {
   try {
-    return NextResponse.json(await readToolSettings());
+    return json(await readToolSettings());
   } catch (error) {
     return errorResponse(error);
   }
@@ -95,7 +93,7 @@ export async function PUT(req: Request) {
     }
     try {
       await writeCodemodeMode(changes.codemodeMode);
-      return NextResponse.json(await readToolSettings());
+      return json(await readToolSettings());
     } catch (error) {
       return errorResponse(error);
     }
@@ -113,7 +111,7 @@ export async function PUT(req: Request) {
     }
     try {
       await writeCodemodeInlineBudget(budget ?? undefined);
-      return NextResponse.json(await readToolSettings());
+      return json(await readToolSettings());
     } catch (error) {
       return errorResponse(error);
     }
@@ -125,7 +123,7 @@ export async function PUT(req: Request) {
     }
     try {
       await writeCodemodePreference(changes.codemode);
-      return NextResponse.json(await readToolSettings());
+      return json(await readToolSettings());
     } catch (error) {
       return errorResponse(error);
     }
@@ -143,7 +141,7 @@ export async function PUT(req: Request) {
   }
   try {
     await writePowerShellToolEnabled(changes.enabled);
-    return NextResponse.json(await readToolSettings());
+    return json(await readToolSettings());
   } catch (error) {
     return errorResponse(error);
   }

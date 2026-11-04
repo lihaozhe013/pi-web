@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { json } from '@/server/http';
 import { getRpcSession } from '@/lib/rpc-manager';
 import { hasJsonContentType, isApiRequestAllowed } from '@/lib/request-security';
 import { forkSessionBranch, readForkSourceTitle, SessionForkError } from '@/lib/session-fork';
@@ -11,8 +11,6 @@ import {
   resolveSessionPath
 } from '@/lib/session-reader';
 import type { SessionInfo } from '@/lib/types';
-
-export const dynamic = 'force-dynamic';
 
 // The sidebar's Fork action copies the current branch into a new session
 // file named after the source plus a short random suffix (lib/session-fork.ts).
@@ -29,7 +27,7 @@ interface SessionForkResponse {
 }
 
 function refusal(status: number, code: string, error: string) {
-  return NextResponse.json({ error, code }, { status, headers: NO_STORE });
+  return json({ error, code }, { status, headers: NO_STORE });
 }
 
 // POST /api/sessions/[id]/fork - body {}; answers with the new session.
@@ -77,7 +75,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       parentSessionId: id,
       relation: { kind: 'fork', originSessionId: id }
     };
-    return NextResponse.json({ sessionId: fork.sessionId, session } satisfies SessionForkResponse, {
+    return json({ sessionId: fork.sessionId, session } satisfies SessionForkResponse, {
       headers: NO_STORE
     });
   } catch (error) {

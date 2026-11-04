@@ -1,8 +1,6 @@
-import { NextResponse } from 'next/server';
+import { json } from '@/server/http';
 import { resolveModelDiscoveryAuth } from '@/lib/model-discovery-auth';
 import { buildModelsListUrl, parseDiscoveredModels } from '@/lib/model-discovery';
-
-export const dynamic = 'force-dynamic';
 
 const DISCOVERY_TIMEOUT_MS = 20_000;
 
@@ -39,9 +37,9 @@ export async function POST(req: Request) {
     const body = (await req.json()) as { providerName?: unknown; provider?: unknown };
     const providerName = typeof body.providerName === 'string' ? body.providerName.trim() : '';
     if (!providerName)
-      return NextResponse.json({ error: 'providerName is required' }, { status: 400 });
+      return json({ error: 'providerName is required' }, { status: 400 });
     if (!isRecord(body.provider))
-      return NextResponse.json({ error: 'provider is required' }, { status: 400 });
+      return json({ error: 'provider is required' }, { status: 400 });
 
     const configuredBaseUrl =
       typeof body.provider.baseUrl === 'string' ? body.provider.baseUrl.trim() : '';
@@ -55,11 +53,11 @@ export async function POST(req: Request) {
       // Without a configured Base URL, pi's catalog was the only other source of
       // one; for a custom provider it fails with an error about the placeholder model.
       if (!configuredBaseUrl)
-        return NextResponse.json({ error: 'Base URL is required' }, { status: 400 });
+        return json({ error: 'Base URL is required' }, { status: 400 });
       throw error;
     }
     if (typeof body.provider.apiKey === 'string' && body.provider.apiKey.trim() && !auth.apiKey) {
-      return NextResponse.json(
+      return json(
         { error: `No API key found for "${providerName}"` },
         { status: 400 }
       );
@@ -68,14 +66,14 @@ export async function POST(req: Request) {
     // Fall back to pi's provider catalog so built-in providers, and entries
     // that only list models, do not have to repeat the upstream base URL.
     const baseUrl = configuredBaseUrl || auth.baseUrl || '';
-    if (!baseUrl) return NextResponse.json({ error: 'Base URL is required' }, { status: 400 });
+    if (!baseUrl) return json({ error: 'Base URL is required' }, { status: 400 });
     const api = configuredApi || auth.api || 'openai-completions';
 
     let endpoint: URL;
     try {
       endpoint = buildModelsListUrl(baseUrl, api);
     } catch {
-      return NextResponse.json({ error: 'Base URL is invalid' }, { status: 400 });
+      return json({ error: 'Base URL is invalid' }, { status: 400 });
     }
 
     const response = await fetch(endpoint, {
@@ -85,7 +83,7 @@ export async function POST(req: Request) {
     });
     const responseText = await response.text();
     if (!response.ok) {
-      return NextResponse.json(
+      return json(
         {
           error: responseText.slice(0, 500) || `Upstream returned HTTP ${response.status}`,
           status: response.status
@@ -98,23 +96,23 @@ export async function POST(req: Request) {
     try {
       payload = JSON.parse(responseText);
     } catch {
-      return NextResponse.json(
+      return json(
         { error: 'Upstream model list was not valid JSON' },
         { status: 502 }
       );
     }
     const models = parseDiscoveredModels(payload);
     if (models.length === 0) {
-      return NextResponse.json(
+      return json(
         { error: 'No models found in the upstream response' },
         { status: 502 }
       );
     }
 
-    return NextResponse.json({ models, endpoint: endpoint.toString() });
+    return json({ models, endpoint: endpoint.toString() });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const status = error instanceof DOMException && error.name === 'TimeoutError' ? 504 : 500;
-    return NextResponse.json({ error: message }, { status });
+    return json({ error: message }, { status });
   }
 }

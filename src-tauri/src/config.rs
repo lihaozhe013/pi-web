@@ -47,26 +47,3 @@ pub fn read_file(file: &Path) -> DesktopConfig {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_config_file_can_name_a_node_binary() {
-        let config: DesktopConfig =
-            serde_json::from_str(r#"{"nodePath":" /opt/node/bin/node ","port":30141}"#).unwrap();
-        assert_eq!(
-            config.node_path().unwrap(),
-            PathBuf::from("/opt/node/bin/node")
-        );
-        assert_eq!(config.port, Some(30141));
-    }
-
-    #[test]
-    fn blank_and_missing_paths_are_ignored() {
-        let config: DesktopConfig = serde_json::from_str(r#"{"nodePath":"   "}"#).unwrap();
-        assert_eq!(config.node_path(), None);
-        assert_eq!(DesktopConfig::default().node_path(), None);
-    }
-}

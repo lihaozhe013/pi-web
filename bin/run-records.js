@@ -1,7 +1,7 @@
 'use strict';
 
 // Records of running pie servers: one <agentDir>/pie-run/<launcher pid>.json
-// per server, written by the launcher once Next.js is ready and removed when it
+// per server, written by the launcher once the server is ready and removed when it
 // exits. pie keeps all its state in pi's agent directory, so this does too.
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -79,9 +79,9 @@ function readProcessCommand(
   return match && match[2] === String(pid) ? match[1] : '';
 }
 
-// Whether pid still is the launcher or the Next.js server of a record. After a
+// Whether pid still is the launcher or the Pie server of a record. After a
 // crash or a reboot the pid may belong to an unrelated process, which stop must
-// never signal. Next.js renames its process to "next-server (vX)". Windows only
+// never signal. The server runs the built entry, so its command line names it. Windows only
 // gives the image name. When nothing can tell, the URL check alone decides.
 function isRecordProcess(
   pid,
@@ -91,7 +91,7 @@ function isRecordProcess(
   const command = readCommand(pid, { platform });
   if (command === null) return true;
   if (platform === 'win32') return /^node/i.test(command);
-  return role === 'launcher' ? command.includes('pie') : command.includes('next');
+  return role === 'launcher' ? command.includes('pie') : command.includes('build/server/index.mjs');
 }
 
 function recordPath(dir, pid) {
@@ -129,7 +129,7 @@ function isValidPid(pid) {
 }
 
 // Running servers sorted by port, each with `stopPid`: the launcher, or the
-// Next.js server when the launcher was killed and left it serving (`orphaned`).
+// Pie server when the launcher was killed and left it serving (`orphaned`).
 // A record none of whose processes is still ours, or that cannot be read, is
 // deleted. One whose process is ours but whose URL does not answer is skipped,
 // not deleted.
@@ -155,16 +155,16 @@ async function listRunRecords(
     }
     const launcherRuns =
       record && isValidPid(record.pid) && isAlive(record.pid) && isOurs(record.pid, 'launcher');
-    const nextRuns =
+    const serverRuns =
       !launcherRuns &&
       record &&
-      isValidPid(record.nextPid) &&
-      isAlive(record.nextPid) &&
-      isOurs(record.nextPid, 'next');
-    if (launcherRuns || nextRuns) {
+      isValidPid(record.serverPid) &&
+      isAlive(record.serverPid) &&
+      isOurs(record.serverPid, 'server');
+    if (launcherRuns || serverRuns) {
       candidates.push({
         ...record,
-        stopPid: launcherRuns ? record.pid : record.nextPid,
+        stopPid: launcherRuns ? record.pid : record.serverPid,
         orphaned: !launcherRuns
       });
     } else {
@@ -200,7 +200,7 @@ function selectRunRecord(records, port) {
 
 function formatRunRecord(record) {
   const pid = record.orphaned
-    ? `Next.js pid ${record.stopPid} (launcher gone)`
+    ? `server pid ${record.stopPid} (launcher gone)`
     : `pid ${record.pid}`;
   return `  ${record.url}  ${pid}  v${record.version}  started ${record.startedAt}`;
 }

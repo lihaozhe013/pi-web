@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { json } from '@/server/http';
 import type { McpErrorResponse, McpSignInFlowInfo } from '@/lib/api-types';
 import { isMcpDisabledByOperator } from '@/lib/builtin-extensions';
 import {
@@ -7,8 +7,6 @@ import {
   readConnectableMcpEntry
 } from '@/lib/mcp-entry-request';
 import { createMcpSignInDeps, mcpOAuthUrl, startMcpSignIn } from '@/lib/mcp-sign-in';
-
-export const dynamic = 'force-dynamic';
 
 // Settings › MCP's sign-in (ADR 0006): starts signing in to one OAuth server
 // of the global `mcp.json` or the panel's project `.pi/mcp.json`, or joins the
@@ -26,11 +24,11 @@ function errorMessage(error: unknown): string {
 // POST /api/mcp/sign-in body: { scope, name, cwd? }
 export async function POST(req: Request) {
   const entry = await readConnectableMcpEntry(req);
-  if (isMcpEntryRefusal(entry)) return NextResponse.json(entry.body, { status: entry.status });
+  if (isMcpEntryRefusal(entry)) return json(entry.body, { status: entry.status });
   const { scope, name, sourcePath, configKey, config, cwd, project, agentDir, internals } = entry;
   const url = mcpOAuthUrl(config);
   if (url === undefined) {
-    return NextResponse.json(
+    return json(
       {
         error: `MCP server "${name}" does not use OAuth: only an HTTP server without an Authorization header does`,
         reason: 'sign-in-not-oauth',
@@ -50,12 +48,12 @@ export async function POST(req: Request) {
       { scope, name, sourcePath, configKey, config, cwd, url, mayConnect },
       createMcpSignInDeps(internals)
     );
-    return NextResponse.json({
+    return json({
       ...flow,
       ...(joined ? { joined: true as const } : {})
     } satisfies McpSignInFlowInfo);
   } catch (error) {
-    return NextResponse.json(
+    return json(
       { error: errorMessage(error), reason: 'internal' } satisfies McpErrorResponse,
       { status: 500 }
     );

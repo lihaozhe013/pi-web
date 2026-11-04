@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { json } from '@/server/http';
 import {
   getAuthRetryAfterMs,
   recordAuthFailure,
@@ -12,21 +12,13 @@ import {
   isValidWebPassword,
   isValidWebSessionToken,
   isWebPasswordEnabled,
-  PIE_SESSION_COOKIE,
-  PIE_SESSION_MAX_AGE
+  PIE_SESSION_MAX_AGE,
+  readWebSessionCookie,
+  webSessionCookie
 } from '@/lib/web-auth';
 
-export const dynamic = 'force-dynamic';
-
-function isSecureRequest(request: Request): boolean {
-  return (
-    new URL(request.url).protocol === 'https:' ||
-    request.headers.get('x-forwarded-proto')?.split(',', 1)[0]?.trim() === 'https'
-  );
-}
-
-function tooManyAttempts(retryAfterMs: number): NextResponse {
-  return NextResponse.json(
+function tooManyAttempts(retryAfterMs: number): Response {
+  return json(
     { error: 'Too many failed attempts', retryAfterMs },
     {
       status: 429,
@@ -38,21 +30,16 @@ function tooManyAttempts(retryAfterMs: number): NextResponse {
   );
 }
 
-function clearSessionCookie(response: NextResponse, request: Request): void {
-  response.cookies.set({
-    name: PIE_SESSION_COOKIE,
-    value: '',
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: isSecureRequest(request),
-    path: '/',
-    maxAge: 0
-  });
+function withSessionCookie(request: Request, value: string, maxAge: number): Response {
+  return json(
+    { ok: true },
+    { headers: { 'Set-Cookie': webSessionCookie(request, value, maxAge) } }
+  );
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   if (!isApiRequestAllowed(request)) {
-    return NextResponse.json({ error: 'Untrusted API request' }, { status: 403 });
+    return json({ error: 'Untrusted API request' }, { status: 403 });
   }
 
   const password = process.env.PIE_PASSWORD;
@@ -60,24 +47,24 @@ export async function GET(request: NextRequest) {
   const authenticated =
     !enabled ||
     isValidBasicAuthorization(request.headers.get('authorization'), password) ||
-    isValidWebSessionToken(request.cookies.get(PIE_SESSION_COOKIE)?.value, password);
-  return NextResponse.json(
+    isValidWebSessionToken(readWebSessionCookie(request), password);
+  return json(
     { enabled, authenticated },
     { headers: { 'Cache-Control': 'no-store' } }
   );
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   if (!isApiRequestAllowed(request)) {
-    return NextResponse.json({ error: 'Untrusted API request' }, { status: 403 });
+    return json({ error: 'Untrusted API request' }, { status: 403 });
   }
   if (!hasJsonContentType(request)) {
-    return NextResponse.json({ error: 'Content-Type must be application/json' }, { status: 415 });
+    return json({ error: 'Content-Type must be application/json' }, { status: 415 });
   }
 
   const password = process.env.PIE_PASSWORD;
   if (!isWebPasswordEnabled(password)) {
-    return NextResponse.json({ error: 'Password authentication is disabled' }, { status: 404 });
+    return json({ error: 'Password authentication is disabled' }, { status: 404 });
   }
 
   const retryAfterMs = getAuthRetryAfterMs();
@@ -91,32 +78,20 @@ export async function POST(request: NextRequest) {
     console.warn(
       `[web-auth] Password authentication failed; next attempt blocked for ${delayMs}ms`
     );
-    return NextResponse.json(
+    return json(
       { error: 'Invalid password', retryAfterMs: delayMs },
       { status: 401, headers: { 'Retry-After': String(retryAfterSeconds(delayMs)) } }
     );
   }
 
   recordAuthSuccess();
-  const response = NextResponse.json({ ok: true });
-  response.cookies.set({
-    name: PIE_SESSION_COOKIE,
-    value: createWebSessionToken(password),
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: isSecureRequest(request),
-    path: '/',
-    maxAge: PIE_SESSION_MAX_AGE
-  });
-  return response;
+  return withSessionCookie(request, createWebSessionToken(password), PIE_SESSION_MAX_AGE);
 }
 
-export async function DELETE(request: NextRequest) {
+export async function DELETE(request: Request) {
   if (!isApiRequestAllowed(request)) {
-    return NextResponse.json({ error: 'Untrusted API request' }, { status: 403 });
+    return json({ error: 'Untrusted API request' }, { status: 403 });
   }
 
-  const response = NextResponse.json({ ok: true });
-  clearSessionCookie(response, request);
-  return response;
+  return withSessionCookie(request, '', 0);
 }

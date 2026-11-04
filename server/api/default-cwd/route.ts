@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { json } from '@/server/http';
 import { mkdirSync } from 'fs';
 import { defaultCwdPath } from '@/lib/default-cwd';
 
@@ -9,8 +9,8 @@ export async function POST() {
   try {
     const dir = defaultCwdPath();
     mkdirSync(dir, { recursive: true });
-    return NextResponse.json({ cwd: dir });
+    return json({ cwd: dir });
   } catch (error) {
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    return json({ error: String(error) }, { status: 500 });
   }
 }

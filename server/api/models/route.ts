@@ -23,8 +23,6 @@ import { rememberProviderModels, withDeferredProviderModels } from '@/lib/deferr
 import { createGlobalModelSettings, getModelRuntimeWithExtensions } from '@/lib/model-runtime';
 import { withContextWindowLimit } from '@/lib/model-context-limit';
 
-export const dynamic = 'force-dynamic';
-
 async function loadModels(cwd: string | null): Promise<ModelsData> {
   const nameMap = new Map<string, string>();
   let modelList: { id: string; name: string; provider: string }[] = [];

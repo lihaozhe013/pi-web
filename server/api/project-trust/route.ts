@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { json } from '@/server/http';
 import { getAgentDir } from '@earendil-works/pi-coding-agent';
 import type {
   McpErrorResponse,
@@ -14,14 +14,12 @@ import { getProjectTrustStatus, trustProject } from '@/lib/project-trust';
 import { hasJsonContentType, isApiRequestAllowed } from '@/lib/request-security';
 import { destroyRpcSessionsForCwd, hasBusyRpcSessionForCwd } from '@/lib/rpc-manager';
 
-export const dynamic = 'force-dynamic';
-
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
 function refusal(status: number, reason: McpRefusalReason, error: string) {
-  return NextResponse.json({ error, reason } satisfies McpErrorResponse, { status });
+  return json({ error, reason } satisfies McpErrorResponse, { status });
 }
 
 /**
@@ -33,10 +31,10 @@ function refusal(status: number, reason: McpRefusalReason, error: string) {
  */
 async function validateCwd(
   value: unknown
-): Promise<{ cwd: string; allowedRoots: Set<string> } | { response: NextResponse }> {
+): Promise<{ cwd: string; allowedRoots: Set<string> } | { response: Response }> {
   const result = await validateMcpProject(value);
   if (isMcpEntryRefusal(result))
-    return { response: NextResponse.json(result.body, { status: result.status }) };
+    return { response: json(result.body, { status: result.status }) };
   return result;
 }
 
@@ -66,14 +64,14 @@ export async function GET(req: Request) {
   // and a dialog left without one would offer Trust with nothing listed.
   const listing = await listProjectMcpServers(agentDir, result.cwd, result.allowedRoots);
   try {
-    return NextResponse.json({
+    return json({
       ...getProjectTrustStatus(result.cwd, agentDir),
       ...listing
     } satisfies ProjectTrustResponse);
   } catch (error) {
     // trust.json unparsable, or locked by another process (the pi CLI) past the
     // store's short wait; trusting would fail the same way right now.
-    return NextResponse.json(
+    return json(
       {
         error: errorMessage(error),
         reason: 'trust-unreadable',
@@ -110,7 +108,7 @@ export async function POST(req: Request) {
     const status = trustProject(result.cwd, agentDir);
     invalidateModelsCache();
     await destroyRpcSessionsForCwd(result.cwd);
-    return NextResponse.json(status);
+    return json(status);
   } catch (error) {
     return refusal(500, 'internal', errorMessage(error));
   }

@@ -1,5 +1,4 @@
-import { NextResponse } from 'next/server';
-import { jsonResponse } from '@/lib/json-response';
+import { json } from '@/server/http';
 import {
   attachSessionProjectInfo,
   getSessionListVersion,
@@ -14,8 +13,6 @@ import {
 } from '@/lib/rpc-manager';
 import { startServerPerf } from '@/lib/perf';
 import { activeTaskSessionIds } from '@/lib/tasks/active-sessions';
-
-export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
   const perf = startServerPerf('GET /api/sessions');
@@ -37,9 +34,7 @@ export async function GET(req: Request) {
     const sessions = mergeSessionLists(persistedSessions, runtimeSessions);
     return (
       perf?.attach(
-        jsonResponse(
-          req,
-          {
+        json({
             sessions,
             sessionListVersion,
             runningSessionIds: getRunningRpcSessionIds(),
@@ -49,9 +44,7 @@ export async function GET(req: Request) {
           { headers: { 'Cache-Control': 'no-store' } }
         )
       ) ??
-      jsonResponse(
-        req,
-        {
+      json({
           sessions,
           sessionListVersion,
           runningSessionIds: getRunningRpcSessionIds(),
@@ -62,7 +55,7 @@ export async function GET(req: Request) {
       )
     );
   } catch (error) {
-    return NextResponse.json(
+    return json(
       { error: String(error) },
       { status: 500, headers: { 'Cache-Control': 'no-store' } }
     );

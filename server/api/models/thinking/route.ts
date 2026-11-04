@@ -14,8 +14,6 @@ import { resolveVisibleModels } from '@/lib/model-scope';
 import { projectTrustReloadOptions } from '@/lib/project-trust';
 import { createGlobalModelSettings, getModelRuntimeWithExtensions } from '@/lib/model-runtime';
 
-export const dynamic = 'force-dynamic';
-
 interface ModelThinkingRequest {
   cwd?: unknown;
   provider?: unknown;

@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { json } from '@/server/http';
 import { resolveSessionPath, openSessionManager, buildSessionContext } from '@/lib/session-reader';
 import { getRpcSession } from '@/lib/rpc-manager';
 import {
@@ -25,7 +25,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const liveRpc = rpc?.isAlive() ? rpc : undefined;
     const filePath = liveRpc ? null : await resolveSessionPath(id);
     if (!liveRpc && !filePath) {
-      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+      return json({ error: 'Session not found' }, { status: 404 });
     }
 
     const sm = liveRpc?.inner.sessionManager ?? openSessionManager(filePath!);
@@ -49,8 +49,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       transcriptNotices
     );
 
-    return NextResponse.json({ context, tail, before: before ?? null });
+    return json({ context, tail, before: before ?? null });
   } catch (error) {
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    return json({ error: String(error) }, { status: 500 });
   }
 }

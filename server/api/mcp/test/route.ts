@@ -1,9 +1,7 @@
-import { NextResponse } from 'next/server';
+import { json } from '@/server/http';
 import type { McpErrorResponse, McpTestResponse } from '@/lib/api-types';
 import { isMcpEntryRefusal, readConnectableMcpEntry } from '@/lib/mcp-entry-request';
 import { testMcpServer } from '@/lib/mcp-test';
-
-export const dynamic = 'force-dynamic';
 
 // Settings › MCP's Test (ADR 0006): connects one server of the global
 // `mcp.json` or the panel's project `.pi/mcp.json` once, outside any session,
@@ -25,7 +23,7 @@ function errorMessage(error: unknown): string {
 // folder a global stdio server runs in.
 export async function POST(req: Request) {
   const entry = await readConnectableMcpEntry(req);
-  if (isMcpEntryRefusal(entry)) return NextResponse.json(entry.body, { status: entry.status });
+  if (isMcpEntryRefusal(entry)) return json(entry.body, { status: entry.status });
   const { scope, name, sourcePath, configKey, config, cwd, internals } = entry;
   try {
     const result = await testMcpServer(
@@ -33,9 +31,9 @@ export async function POST(req: Request) {
       internals,
       { signal: req.signal }
     );
-    return NextResponse.json({ scope, name, configKey, result } satisfies McpTestResponse);
+    return json({ scope, name, configKey, result } satisfies McpTestResponse);
   } catch (error) {
-    return NextResponse.json(
+    return json(
       { error: errorMessage(error), reason: 'internal' } satisfies McpErrorResponse,
       { status: 500 }
     );

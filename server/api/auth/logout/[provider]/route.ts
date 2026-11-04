@@ -2,8 +2,6 @@ import { invalidateModelsCache } from '@/lib/models-cache';
 import { removeStoredCredentialIfType } from '@/lib/provider-credential-store';
 import { getModelRuntimeWithExtensions } from '@/lib/model-runtime';
 
-export const dynamic = 'force-dynamic';
-
 export async function POST(_req: Request, { params }: { params: Promise<{ provider: string }> }) {
   const { provider } = await params;
   const modelRuntime = await getModelRuntimeWithExtensions();

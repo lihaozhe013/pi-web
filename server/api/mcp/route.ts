@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { json } from '@/server/http';
 import { getAgentDir, type McpExposure } from '@earendil-works/pi-coding-agent';
 import type {
   McpActionItemResult,
@@ -51,8 +51,6 @@ import {
 } from '@/lib/project-trust';
 import { hasJsonContentType, isApiRequestAllowed } from '@/lib/request-security';
 
-export const dynamic = 'force-dynamic';
-
 // Settings › MCP (ADR 0006). GET reads files only: it never spawns a server,
 // opens a connection, or runs a `!command` value, so it lists an untrusted
 // project's servers as safely as the global ones. Without `cwd` it lists the
@@ -84,7 +82,7 @@ function refusal(
   error: string,
   params: RefusalParams = {}
 ) {
-  return NextResponse.json({ error, reason, ...params } satisfies McpErrorResponse, { status });
+  return json({ error, reason, ...params } satisfies McpErrorResponse, { status });
 }
 
 /** A typed refusal: the whole answer of a request, or one server's result in a bulk switch. */
@@ -128,7 +126,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    return NextResponse.json(
+    return json(
       (await readMcpOverview({ agentDir: getAgentDir(), project })) satisfies McpResponse
     );
   } catch (error) {
@@ -214,7 +212,7 @@ async function overviewResponse(
 ) {
   try {
     const overview = await readMcpOverview({ agentDir, project });
-    return NextResponse.json({ ...overview, ...extra } satisfies McpActionResponse);
+    return json({ ...overview, ...extra } satisfies McpActionResponse);
   } catch (error) {
     return refusal(500, 'internal', errorMessage(error));
   }

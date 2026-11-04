@@ -1,10 +1,8 @@
-import { jsonResponse } from '@/lib/json-response';
+import { json } from '@/server/http';
 import { getTaskOrchestrator } from '@/lib/tasks/orchestrator';
 import { noStore, readTaskBody, taskErrorResponse } from '@/lib/tasks/request';
 import { TaskInputError } from '@/lib/tasks/queue';
 import type { TaskMoveAction, TaskUpdateInput } from '@/lib/tasks/types';
-
-export const dynamic = 'force-dynamic';
 
 function updateFromBody(body: Record<string, unknown>): TaskUpdateInput {
   const update: TaskUpdateInput = {};
@@ -37,27 +35,27 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
     if (action === 'update') {
       const task = await queue.updateTask(taskId, updateFromBody(body));
-      return jsonResponse(req, { task }, noStore());
+      return json({ task }, noStore());
     }
     if (action === 'move') {
       const move: TaskMoveAction = {};
       if (body.direction === 'up' || body.direction === 'down') move.direction = body.direction;
       if (typeof body.position === 'number') move.position = body.position;
       const tasks = queue.moveTask(taskId, move);
-      return jsonResponse(req, { tasks }, noStore());
+      return json({ tasks }, noStore());
     }
     if (action === 'retry') {
       const task = queue.retryTask(taskId);
-      return jsonResponse(req, { task }, noStore());
+      return json({ task }, noStore());
     }
     if (action === 'markDone') {
       const note = typeof body.note === 'string' ? body.note : null;
       const task = queue.markDone(taskId, note);
-      return jsonResponse(req, { task }, noStore());
+      return json({ task }, noStore());
     }
     throw new TaskInputError('action must be update, move, retry, or markDone');
   } catch (error) {
-    return taskErrorResponse(req, error);
+    return taskErrorResponse(error);
   }
 }
 
@@ -67,8 +65,8 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     const taskId = Number(id);
     if (!Number.isInteger(taskId) || taskId <= 0) throw new TaskInputError('Invalid task id');
     getTaskOrchestrator().queue.deleteTask(taskId);
-    return jsonResponse(req, { deleted: taskId }, noStore());
+    return json({ deleted: taskId }, noStore());
   } catch (error) {
-    return taskErrorResponse(req, error);
+    return taskErrorResponse(error);
   }
 }

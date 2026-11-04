@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { json } from '@/server/http';
 import fs from 'fs';
 import path from 'path';
 import {
@@ -142,11 +142,11 @@ function parseFileRequestType(value: string): FileRequestType | null {
 
 async function getUploadDirectory(
   segments: string[]
-): Promise<{ directory: string } | { response: NextResponse }> {
+): Promise<{ directory: string } | { response: Response }> {
   const directory = filePathFromApiSegments(segments);
   const allowedRoots = await getAllowedFileRoots();
   if (!isFilePathAllowed(directory, allowedRoots)) {
-    return { response: NextResponse.json({ error: 'Access denied' }, { status: 403 }) };
+    return { response: json({ error: 'Access denied' }, { status: 403 }) };
   }
 
   let stat: fs.Stats;
@@ -154,12 +154,12 @@ async function getUploadDirectory(
     stat = fs.statSync(directory);
   } catch {
     return {
-      response: NextResponse.json({ error: 'Upload directory not found' }, { status: 404 })
+      response: json({ error: 'Upload directory not found' }, { status: 404 })
     };
   }
   if (!stat.isDirectory()) {
     return {
-      response: NextResponse.json({ error: 'Upload target is not a directory' }, { status: 400 })
+      response: json({ error: 'Upload target is not a directory' }, { status: 400 })
     };
   }
 
@@ -175,7 +175,7 @@ async function getUploadDirectory(
     }
   }
   if (!isFilePathAllowed(realDirectory, realRoots)) {
-    return { response: NextResponse.json({ error: 'Access denied' }, { status: 403 }) };
+    return { response: json({ error: 'Access denied' }, { status: 403 }) };
   }
 
   return { directory: realDirectory };
@@ -185,15 +185,15 @@ async function getUploadDirectory(
 // browsable. Allowing it is the operator's explicit choice, the same one as
 // selecting that directory as a workspace, and lasts until the server restarts.
 async function allowLinkedDirectory(
-  request: NextRequest,
+  request: Request,
   segments: string[]
-): Promise<NextResponse> {
+): Promise<Response> {
   if (!hasJsonContentType(request)) {
-    return NextResponse.json({ error: 'Content-Type must be application/json' }, { status: 415 });
+    return json({ error: 'Content-Type must be application/json' }, { status: 415 });
   }
   const body = (await request.json().catch(() => null)) as { target?: unknown } | null;
   if (typeof body?.target !== 'string' || !body.target) {
-    return NextResponse.json(
+    return json(
       { error: 'target must be the link target shown in the listing' },
       { status: 400 }
     );
@@ -204,10 +204,10 @@ async function allowLinkedDirectory(
     await getAllowedFileRoots()
   );
   if (!approval.ok) {
-    return NextResponse.json({ error: approval.error }, { status: approval.status });
+    return json({ error: approval.error }, { status: approval.status });
   }
   if (!approval.alreadyAllowed) allowFileRoot(approval.target);
-  return NextResponse.json({ path: approval.target });
+  return json({ path: approval.target });
 }
 
 function parseUploadFileNames(value: unknown): string[] | null {
@@ -216,16 +216,16 @@ function parseUploadFileNames(value: unknown): string[] | null {
 }
 
 export async function POST(
-  request: NextRequest,
+  request: Request,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
   if (!isApiRequestAllowed(request)) {
-    return NextResponse.json({ error: 'Untrusted API request' }, { status: 403 });
+    return json({ error: 'Untrusted API request' }, { status: 403 });
   }
 
   try {
     const { path: segments } = await params;
-    const type = request.nextUrl.searchParams.get('type') ?? 'upload';
+    const type = new URL(request.url).searchParams.get('type') ?? 'upload';
     if (type === 'allow-link') return allowLinkedDirectory(request, segments);
 
     const uploadDirectory = await getUploadDirectory(segments);
@@ -236,25 +236,25 @@ export async function POST(
       const body = (await request.json().catch(() => null)) as { fileNames?: unknown } | null;
       const fileNames = parseUploadFileNames(body?.fileNames);
       if (!fileNames) {
-        return NextResponse.json(
+        return json(
           { error: 'fileNames must be an array of strings' },
           { status: 400 }
         );
       }
       const validationError = validateUploadFileNames(fileNames);
       if (validationError) {
-        return NextResponse.json({ error: validationError }, { status: 400 });
+        return json({ error: validationError }, { status: 400 });
       }
-      return NextResponse.json(inspectUploadTargets(directory, fileNames));
+      return json(inspectUploadTargets(directory, fileNames));
     }
 
     if (type !== 'upload') {
-      return NextResponse.json({ error: 'Invalid upload request type' }, { status: 400 });
+      return json({ error: 'Invalid upload request type' }, { status: 400 });
     }
 
-    const strategy = parseUploadConflictStrategy(request.nextUrl.searchParams.get('conflict'));
+    const strategy = parseUploadConflictStrategy(new URL(request.url).searchParams.get('conflict'));
     if (!strategy) {
-      return NextResponse.json({ error: 'Invalid conflict strategy' }, { status: 400 });
+      return json({ error: 'Invalid conflict strategy' }, { status: 400 });
     }
 
     let formData: FormData;
@@ -262,7 +262,7 @@ export async function POST(
       formData = await parseFormDataWithinLimit(request, MAX_UPLOAD_REQUEST_BYTES);
     } catch (error) {
       if (error instanceof RequestBodyTooLargeError) {
-        return NextResponse.json({ error: 'Uploads must total 100MB or less' }, { status: 413 });
+        return json({ error: 'Uploads must total 100MB or less' }, { status: 413 });
       }
       throw error;
     }
@@ -270,20 +270,20 @@ export async function POST(
       .getAll('files')
       .filter((entry): entry is File => typeof entry !== 'string');
     if (files.some((file) => file.size > MAX_UPLOAD_FILE_BYTES)) {
-      return NextResponse.json({ error: 'Each upload must be 25MB or smaller' }, { status: 413 });
+      return json({ error: 'Each upload must be 25MB or smaller' }, { status: 413 });
     }
     if (files.reduce((total, file) => total + file.size, 0) > MAX_UPLOAD_TOTAL_BYTES) {
-      return NextResponse.json({ error: 'Uploads must total 100MB or less' }, { status: 413 });
+      return json({ error: 'Uploads must total 100MB or less' }, { status: 413 });
     }
     const fileNames = files.map((file) => file.name);
     const validationError = validateUploadFileNames(fileNames);
     if (validationError) {
-      return NextResponse.json({ error: validationError }, { status: 400 });
+      return json({ error: validationError }, { status: 400 });
     }
 
     const inspection = inspectUploadTargets(directory, fileNames);
     if (strategy === 'error' && inspection.conflicts.length > 0) {
-      return NextResponse.json(
+      return json(
         {
           error: 'One or more files already exist',
           conflicts: inspection.conflicts,
@@ -336,12 +336,12 @@ export async function POST(
       }
     }
 
-    return NextResponse.json(
+    return json(
       { uploaded, skipped, errors },
       { status: errors.length > 0 ? 207 : 200 }
     );
   } catch (error) {
-    return NextResponse.json(
+    return json(
       { error: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
@@ -488,7 +488,7 @@ function streamFile(
 }
 
 export async function GET(
-  request: NextRequest,
+  request: Request,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
   try {
@@ -501,14 +501,14 @@ export async function GET(
     // existing-path check refuses them too, but a file referenced by the
     // session skips that check.
     if (hasParentDirectorySegment(filePath)) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      return json({ error: 'Access denied' }, { status: 403 });
     }
-    const rawType = request.nextUrl.searchParams.get('type') ?? 'list';
+    const rawType = new URL(request.url).searchParams.get('type') ?? 'list';
     const type = parseFileRequestType(rawType);
     if (!type) {
-      return NextResponse.json({ error: 'Invalid file request type' }, { status: 400 });
+      return json({ error: 'Invalid file request type' }, { status: 400 });
     }
-    const sessionId = request.nextUrl.searchParams.get('sessionId');
+    const sessionId = new URL(request.url).searchParams.get('sessionId');
 
     const allowedRoots = await getAllowedFileRoots();
     const allowedByRoot = isFilePathAllowed(filePath, allowedRoots);
@@ -517,7 +517,7 @@ export async function GET(
       type !== 'list' &&
       (await isFilePathReferencedBySession(filePath, sessionId));
     if (!allowedByRoot && !allowedBySessionReference) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      return json({ error: 'Access denied' }, { status: 403 });
     }
 
     let stat: fs.Stats | undefined;
@@ -525,7 +525,7 @@ export async function GET(
       stat = fs.statSync(filePath);
     } catch {
       if (type !== 'watch') {
-        return NextResponse.json({ error: 'Not found' }, { status: 404 });
+        return json({ error: 'Not found' }, { status: 404 });
       }
     }
 
@@ -534,17 +534,17 @@ export async function GET(
       !allowedBySessionReference &&
       !isExistingFilePathAllowed(existingAuthorizationPath, allowedRoots)
     ) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      return json({ error: 'Access denied' }, { status: 403 });
     }
 
     if (type === 'read') {
       if (!stat?.isFile()) {
-        return NextResponse.json({ error: 'Not a file' }, { status: 400 });
+        return json({ error: 'Not a file' }, { status: 400 });
       }
       const imageMime = getImageMime(filePath);
       if (imageMime) {
         if (stat.size > IMAGE_PREVIEW_MAX_BYTES) {
-          return NextResponse.json({ error: 'Image too large (>10MB)' }, { status: 413 });
+          return json({ error: 'Image too large (>10MB)' }, { status: 413 });
         }
         return streamFile(filePath, stat, imageMime, request.headers.get('range'));
       }
@@ -560,17 +560,17 @@ export async function GET(
       if (documentMime) {
         return streamFile(filePath, stat, documentMime, request.headers.get('range'));
       }
-      const rawOffset = request.nextUrl.searchParams.get('offset');
+      const rawOffset = new URL(request.url).searchParams.get('offset');
       if (rawOffset !== null && !/^\d+$/.test(rawOffset)) {
-        return NextResponse.json({ error: 'Invalid text preview offset' }, { status: 400 });
+        return json({ error: 'Invalid text preview offset' }, { status: 400 });
       }
       const offset = Number(rawOffset ?? 0);
       if (!Number.isSafeInteger(offset) || offset > stat.size) {
-        return NextResponse.json({ error: 'Invalid text preview offset' }, { status: 400 });
+        return json({ error: 'Invalid text preview offset' }, { status: 400 });
       }
       const chunk = readTextPreviewChunk(filePath, stat.size, offset);
       const language = getLanguage(filePath);
-      return NextResponse.json({
+      return json({
         ...chunk,
         language,
         size: stat.size,
@@ -580,7 +580,7 @@ export async function GET(
 
     if (type === 'download') {
       if (!stat?.isFile()) {
-        return NextResponse.json({ error: 'Not a file' }, { status: 400 });
+        return json({ error: 'Not a file' }, { status: 400 });
       }
       const mime =
         getImageMime(filePath) ||
@@ -593,13 +593,13 @@ export async function GET(
 
     if (type === 'meta') {
       if (!stat?.isFile()) {
-        return NextResponse.json({ error: 'Not a file' }, { status: 400 });
+        return json({ error: 'Not a file' }, { status: 400 });
       }
       const imageMime = getImageMime(filePath);
       const audioMime = getAudioMime(filePath);
       const videoMime = getVideoMime(filePath);
       const documentMime = getDocumentMime(filePath);
-      return NextResponse.json({
+      return json({
         size: stat.size,
         // The watch's `change` events carry the same pair (lib/file-version.ts).
         mtime: stat.mtime.toISOString(),
@@ -610,12 +610,12 @@ export async function GET(
     }
 
     if (type === 'preview') {
-      return NextResponse.json({ error: 'File preview has been removed' }, { status: 404 });
+      return json({ error: 'File preview has been removed' }, { status: 404 });
     }
 
     if (type === 'watch') {
       if (stat && !stat.isFile()) {
-        return NextResponse.json({ error: 'Not a file' }, { status: 400 });
+        return json({ error: 'Not a file' }, { status: 400 });
       }
       let watcher: fs.FSWatcher | null = null;
       let lastMtimeMs = stat?.mtimeMs ?? 0;
@@ -706,13 +706,13 @@ export async function GET(
 
     // type === "list"
     if (!stat?.isDirectory()) {
-      return NextResponse.json({ error: 'Not a directory' }, { status: 400 });
+      return json({ error: 'Not a directory' }, { status: 400 });
     }
 
     // `hidden=1` (the explorer's "show hidden" switch) also lists what Git
     // ignores and what the name list hides, marked with the reason; `.git`
     // and `.DS_Store` stay out either way.
-    const showHidden = request.nextUrl.searchParams.get('hidden') === '1';
+    const showHidden = new URL(request.url).searchParams.get('hidden') === '1';
     // Avoid per-entry stat calls for normal files and directories. Symlinks and
     // filesystems without directory type information use the stat fallback.
     const dirents = fs.readdirSync(filePath, { withFileTypes: true });
@@ -735,11 +735,11 @@ export async function GET(
         return a.name.localeCompare(b.name);
       });
 
-    return NextResponse.json({
+    return json({
       entries: withOutsideLinkTargets(filePath, entries, dirents, allowedRoots),
       path: filePath
     });
   } catch (error) {
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    return json({ error: String(error) }, { status: 500 });
   }
 }

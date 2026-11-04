@@ -1,12 +1,10 @@
-import { NextResponse } from 'next/server';
+import { json } from '@/server/http';
 import { existsSync, realpathSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { getAllowedFileRoots, isExistingFilePathAllowed } from '@/lib/file-access';
 import { isExistingPathWithinRoots } from '@/lib/path-security';
 import { readRegularFileText } from '@/lib/regular-file';
 import { loadSkillsWithInstallInfo } from '@/lib/skills-service';
-
-export const dynamic = 'force-dynamic';
 
 /** Skill instructions should stay small enough to inspect without a large API response. */
 const SKILL_CONTENT_MAX_BYTES = 1024 * 1024;
@@ -22,24 +20,24 @@ export async function GET(req: Request) {
   const cwd = searchParams.get('cwd');
   const filePath = searchParams.get('filePath');
   const document = searchParams.get('document');
-  if (!cwd) return NextResponse.json({ error: 'cwd required' }, { status: 400 });
-  if (!filePath) return NextResponse.json({ error: 'filePath required' }, { status: 400 });
+  if (!cwd) return json({ error: 'cwd required' }, { status: 400 });
+  if (!filePath) return json({ error: 'filePath required' }, { status: 400 });
 
   try {
     const allowedRoots = await getAllowedFileRoots();
     if (!isExistingFilePathAllowed(cwd, allowedRoots)) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      return json({ error: 'Access denied' }, { status: 403 });
     }
 
     const { skills } = await loadSkillsWithInstallInfo(cwd);
     const skill = skills.find((item) => item.filePath === filePath);
     if (!skill) {
-      return NextResponse.json({ error: 'Skill not found' }, { status: 404 });
+      return json({ error: 'Skill not found' }, { status: 404 });
     }
 
     let target = skill.filePath;
     if (document !== null) {
-      const refuse = (status: number, error: string) => NextResponse.json({ error }, { status });
+      const refuse = (status: number, error: string) => json({ error }, { status });
       // The client sends a normalized path. A `..` after a link names one file
       // to path.join() and realpath, another to the filesystem (#748).
       if (
@@ -65,14 +63,14 @@ export async function GET(req: Request) {
 
     const content = readRegularFileText(target, SKILL_CONTENT_MAX_BYTES);
     if (content === undefined) {
-      return NextResponse.json({ error: 'Skill file not found' }, { status: 404 });
+      return json({ error: 'Skill file not found' }, { status: 404 });
     }
-    return NextResponse.json({ content });
+    return json({ content });
   } catch (error) {
     // Node's errors name the path; a document's answer stays without one.
     if (document !== null)
-      return NextResponse.json({ error: 'Skill document could not be read' }, { status: 500 });
-    return NextResponse.json(
+      return json({ error: 'Skill document could not be read' }, { status: 500 });
+    return json(
       { error: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );

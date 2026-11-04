@@ -3,8 +3,6 @@ import { randomUUID } from 'node:crypto';
 import { invalidateModelsCache } from '@/lib/models-cache';
 import { createModelRuntimeWithExtensions } from '@/lib/model-runtime';
 
-export const dynamic = 'force-dynamic';
-
 // In-memory registry: loginToken -> resolve/reject for the manualCodeInput promise
 declare global {
   var __piLoginCallbacks:

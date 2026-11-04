@@ -1,13 +1,11 @@
 import { existsSync } from 'node:fs';
-import { NextResponse } from 'next/server';
+import { json } from '@/server/http';
 import {
   getGlobalSettingsPath,
   readGlobalSettings,
   updateGlobalSettings
 } from '@/lib/global-settings-file';
 import { hasJsonContentType, isApiRequestAllowed } from '@/lib/request-security';
-
-export const dynamic = 'force-dynamic';
 
 // Settings › General's switch for pi's own `showCacheMissNotices` (#1265), in
 // the global settings.json under the lock pi's SettingsManager takes. Off is
@@ -21,7 +19,7 @@ async function readEnabled(): Promise<boolean> {
 }
 
 function errorResponse(error: unknown) {
-  return NextResponse.json(
+  return json(
     { error: error instanceof Error ? error.message : String(error) },
     { status: 500 }
   );
@@ -29,7 +27,7 @@ function errorResponse(error: unknown) {
 
 export async function GET() {
   try {
-    return NextResponse.json({ enabled: await readEnabled() });
+    return json({ enabled: await readEnabled() });
   } catch (error) {
     return errorResponse(error);
   }
@@ -37,30 +35,30 @@ export async function GET() {
 
 export async function PUT(req: Request) {
   if (!isApiRequestAllowed(req)) {
-    return NextResponse.json({ error: 'Untrusted API request' }, { status: 403 });
+    return json({ error: 'Untrusted API request' }, { status: 403 });
   }
   if (!hasJsonContentType(req)) {
-    return NextResponse.json({ error: 'Content-Type must be application/json' }, { status: 415 });
+    return json({ error: 'Content-Type must be application/json' }, { status: 415 });
   }
   let body: unknown;
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    return json({ error: 'Invalid JSON body' }, { status: 400 });
   }
   const enabled = (body as { enabled?: unknown } | null)?.enabled;
   if (typeof enabled !== 'boolean') {
-    return NextResponse.json({ error: 'enabled must be a boolean' }, { status: 400 });
+    return json({ error: 'enabled must be a boolean' }, { status: 400 });
   }
   try {
     // Off with no settings file is already pi's default: nothing to create.
     if (!enabled && !existsSync(getGlobalSettingsPath()))
-      return NextResponse.json({ enabled: false });
+      return json({ enabled: false });
     await updateGlobalSettings(getGlobalSettingsPath(), (settings) => {
       if (enabled) settings[KEY] = true;
       else delete settings[KEY];
     });
-    return NextResponse.json({ enabled: await readEnabled() });
+    return json({ enabled: await readEnabled() });
   } catch (error) {
     return errorResponse(error);
   }

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { json } from '@/server/http';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs';
@@ -109,30 +109,30 @@ function listWithWalk(cwd: string): FileListing {
 // repos larger than MAX_FILES still find deep files (cap applied after
 // matching, like the TUI passing the query to fd).
 // Guarded by the same allow-list as /api/files.
-export async function GET(req: NextRequest) {
+export async function GET(req: Request) {
   try {
-    const cwd = req.nextUrl.searchParams.get('cwd')?.trim() ?? '';
+    const cwd = new URL(req.url).searchParams.get('cwd')?.trim() ?? '';
     if (!cwd || (!cwd.startsWith('/') && !isWindowsAbsolutePath(cwd))) {
-      return NextResponse.json({ error: 'cwd must be an absolute path' }, { status: 400 });
+      return json({ error: 'cwd must be an absolute path' }, { status: 400 });
     }
-    const query = req.nextUrl.searchParams.get('q')?.slice(0, MAX_QUERY_LENGTH) ?? '';
+    const query = new URL(req.url).searchParams.get('q')?.slice(0, MAX_QUERY_LENGTH) ?? '';
 
     const allowedRoots = await getAllowedFileRoots();
     if (!isFilePathAllowed(cwd, allowedRoots)) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      return json({ error: 'Access denied' }, { status: 403 });
     }
 
     let stat: fs.Stats;
     try {
       stat = fs.statSync(cwd);
     } catch {
-      return NextResponse.json({ error: 'Directory not found' }, { status: 404 });
+      return json({ error: 'Directory not found' }, { status: 404 });
     }
     if (!stat.isDirectory()) {
-      return NextResponse.json({ error: 'Not a directory' }, { status: 400 });
+      return json({ error: 'Not a directory' }, { status: 400 });
     }
     if (!isExistingFilePathAllowed(cwd, allowedRoots)) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      return json({ error: 'Access denied' }, { status: 403 });
     }
 
     const cache = getIndexCache();
@@ -150,15 +150,15 @@ export async function GET(req: NextRequest) {
 
     if (query) {
       cached.entries ??= buildEntriesFromFiles(cached.listing.files);
-      return NextResponse.json({ matches: filterFileEntries(cached.entries, query) });
+      return json({ matches: filterFileEntries(cached.entries, query) });
     }
 
     const { files, hardTruncated } = cached.listing;
-    return NextResponse.json({
+    return json({
       files: files.slice(0, MAX_FILES),
       truncated: hardTruncated || files.length > MAX_FILES
     });
   } catch (error) {
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    return json({ error: String(error) }, { status: 500 });
   }
 }

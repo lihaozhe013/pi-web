@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { json } from '@/server/http';
 import type { ThinkingLevel } from '@earendil-works/pi-agent-core';
 import { existsSync } from 'fs';
 import { randomUUID } from 'crypto';
@@ -37,7 +37,7 @@ export async function POST(req: Request) {
     commandType = typeof command.type === 'string' ? command.type : undefined;
 
     if (!cwd || typeof cwd !== 'string') {
-      return NextResponse.json(
+      return json(
         {
           error: 'cwd is required',
           ...(commandType === 'prompt' ? { code: 'prompt_rejected', accepted: false } : {})
@@ -46,7 +46,7 @@ export async function POST(req: Request) {
       );
     }
     if (!existsSync(cwd)) {
-      return NextResponse.json(
+      return json(
         {
           error: `Directory does not exist: ${cwd}`,
           ...(commandType === 'prompt' ? { code: 'prompt_rejected', accepted: false } : {})
@@ -80,7 +80,7 @@ export async function POST(req: Request) {
       ...(explicitThinkingLevel ? { thinkingLevel: explicitThinkingLevel } : {})
     });
 
-    // Keep the files-route allowed-roots cache (see app/api/files/[...path]/route.ts)
+    // Keep the files-route allowed-roots cache (see server/api/files/[...path]/route.ts)
     // in sync so the new cwd is immediately readable via /api/files. Without this,
     // a file request under a brand-new cwd would 403 for up to the cache TTL.
     allowFileRoot(cwd);
@@ -92,7 +92,7 @@ export async function POST(req: Request) {
     };
 
     if (promptCommand.type === 'ensure_session') {
-      return NextResponse.json({
+      return json({
         success: true,
         sessionId: realSessionId,
         data: null,
@@ -104,7 +104,7 @@ export async function POST(req: Request) {
     const result = await session.send(promptCommand);
     promptAccepted = promptCommand.type === 'prompt';
 
-    return NextResponse.json({
+    return json({
       success: true,
       sessionId: realSessionId,
       data: result,
@@ -112,7 +112,7 @@ export async function POST(req: Request) {
       thinkingLevel: state.thinkingLevel
     });
   } catch (error) {
-    return NextResponse.json(
+    return json(
       {
         error: error instanceof Error ? error.message : String(error),
         ...(commandType === 'prompt' && !promptAccepted

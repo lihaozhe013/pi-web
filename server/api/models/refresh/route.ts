@@ -1,7 +1,5 @@
 import { shareModelCatalogRefresh } from '@/lib/model-catalog-refresh';
 
-export const dynamic = 'force-dynamic';
-
 /**
  * POST /api/models/refresh — fetch the remote provider catalogs now.
  *

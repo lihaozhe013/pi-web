@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { json } from '@/server/http';
 import { resolveSessionPath } from '@/lib/session-reader';
 import { startRpcSession, getRpcSession, setRpcSessionTools } from '@/lib/rpc-manager';
 import { isTaskSessionActive } from '@/lib/tasks/active-sessions';
@@ -15,7 +15,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     // A session the queue is driving already has a writer: this child process.
     // The only contact point between chat and the queue is this read-only check.
     if (body.type === 'prompt' && isTaskSessionActive(id)) {
-      return NextResponse.json(
+      return json(
         {
           error: 'This session is being written by a running task',
           code: 'task_session_active',
@@ -41,10 +41,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (body.type === 'set_tools') {
       const filePath = existing?.sessionFile || (await resolveSessionPath(id)) || undefined;
       if (!existing?.isAlive() && !filePath) {
-        return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+        return json({ error: 'Session not found' }, { status: 404 });
       }
       const changed = await setRpcSessionTools(id, filePath, toolNames, requestedMode);
-      return NextResponse.json({
+      return json({
         success: true,
         data: { sessionId: changed.sessionId, recreated: changed.recreated }
       });
@@ -52,12 +52,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (existing?.isAlive()) {
       const result = await existing.send(body);
       promptAccepted = body.type === 'prompt';
-      return NextResponse.json({ success: true, data: result });
+      return json({ success: true, data: result });
     }
 
     const filePath = await resolveSessionPath(id);
     if (!filePath) {
-      return NextResponse.json(
+      return json(
         {
           error: 'Session not found',
           ...(body.type === 'prompt' ? { code: 'prompt_rejected', accepted: false } : {})
@@ -72,9 +72,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const result = await session.send(body);
     promptAccepted = body.type === 'prompt';
 
-    return NextResponse.json({ success: true, data: result });
+    return json({ success: true, data: result });
   } catch (error) {
-    return NextResponse.json(
+    return json(
       {
         error: error instanceof Error ? error.message : String(error),
         ...(commandType === 'prompt' && !promptAccepted
@@ -93,14 +93,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   try {
     const session = getRpcSession(id);
     if (!session || !session.isAlive()) {
-      return NextResponse.json({ running: false });
+      return json({ running: false });
     }
 
     const state = (await session.send({ type: 'get_state' })) as Record<string, unknown>;
     // Status reads leave out the system prompt, most of the reply (agentStatusUrl()).
     if (new URL(req.url).searchParams.get('systemPrompt') === '0') delete state.systemPrompt;
-    return NextResponse.json({ running: true, state });
+    return json({ running: true, state });
   } catch (error) {
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    return json({ error: String(error) }, { status: 500 });
   }
 }

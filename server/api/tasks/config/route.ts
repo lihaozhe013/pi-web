@@ -1,10 +1,9 @@
-import { jsonResponse } from '@/lib/json-response';
+import { json } from '@/server/http';
 import { configChangeSummary, readTaskConfig, writeTaskConfig } from '@/lib/tasks/config';
 import { parseTaskConfigPatch } from '@/lib/tasks/config-fields';
 import { noStore, readTaskBody, taskErrorResponse } from '@/lib/tasks/request';
 import { getTaskStore } from '@/lib/tasks/store';
 
-export const dynamic = 'force-dynamic';
 
 /**
  * The queue's own defaults. Only the fields the board or the orchestrator can
@@ -23,16 +22,16 @@ export async function PUT(req: Request) {
     } catch {
       // A missing event is not a failed configuration.
     }
-    return jsonResponse(req, { config }, noStore());
+    return json({ config }, noStore());
   } catch (error) {
-    return taskErrorResponse(req, error);
+    return taskErrorResponse(error);
   }
 }
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
-    return jsonResponse(req, { config: readTaskConfig() }, noStore());
+    return json({ config: readTaskConfig() }, noStore());
   } catch (error) {
-    return taskErrorResponse(req, error);
+    return taskErrorResponse(error);
   }
 }

@@ -1,9 +1,7 @@
-import { jsonResponse } from '@/lib/json-response';
+import { json } from '@/server/http';
 import { OrchestratorConflictError, getTaskOrchestrator } from '@/lib/tasks/orchestrator';
 import { noStore, readTaskBody, taskErrorResponse } from '@/lib/tasks/request';
 import type { TaskAnswerInput } from '@/lib/tasks/types';
-
-export const dynamic = 'force-dynamic';
 
 /** Answer or dismiss the question the running task is waiting on. */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -22,8 +20,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       throw new OrchestratorConflictError('no_pending_question', 'An answer is required');
     }
     await getTaskOrchestrator().answer(taskId, input);
-    return jsonResponse(req, { answered: taskId }, noStore());
+    return json({ answered: taskId }, noStore());
   } catch (error) {
-    return taskErrorResponse(req, error);
+    return taskErrorResponse(error);
   }
 }

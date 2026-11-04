@@ -15,8 +15,6 @@ import { invalidateModelsCache } from '@/lib/models-cache';
 import { projectTrustReloadOptions } from '@/lib/project-trust';
 import { createGlobalModelSettings, getModelRuntimeWithExtensions } from '@/lib/model-runtime';
 
-export const dynamic = 'force-dynamic';
-
 interface DefaultPreferencesRequest {
   cwd?: unknown;
   provider?: unknown;

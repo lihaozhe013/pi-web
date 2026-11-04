@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { json } from '@/server/http';
 import { existsSync, statSync } from 'fs';
 import {
   attachSessionProjectInfo,
@@ -19,7 +19,6 @@ import type { SessionEntry } from '@/lib/types';
 import { readSessionToolSelection } from '@/lib/session-tool-selection';
 import { readWorkMode } from '@/lib/work-mode';
 import { readGoalFacts } from '@/lib/goal-driver';
-import { jsonResponse } from '@/lib/json-response';
 import { deleteSessions } from '@/lib/session-delete';
 import {
   attachTranscriptNotices,
@@ -49,7 +48,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const liveRpc = liveWrapper;
     const resolvedPath = liveRpc ? null : await resolveSessionPath(id);
     if (!liveRpc && !resolvedPath) {
-      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+      return json({ error: 'Session not found' }, { status: 404 });
     }
 
     const sm = liveRpc?.inner.sessionManager ?? openSessionManager(resolvedPath!);
@@ -165,7 +164,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
     return (
       perf?.attach(
-        jsonResponse(req, {
+        json({
           sessionId: id,
           filePath,
           info,
@@ -182,7 +181,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
           ...(wrapperRebuilt ? { wrapperRebuilt: true } : {})
         })
       ) ??
-      jsonResponse(req, {
+      json({
         sessionId: id,
         filePath,
         info,
@@ -200,7 +199,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       })
     );
   } catch (error) {
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    return json({ error: String(error) }, { status: 500 });
   }
 }
 
@@ -210,11 +209,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   try {
     const { name } = (await req.json()) as { name?: string };
     if (typeof name !== 'string') {
-      return NextResponse.json({ error: 'name is required' }, { status: 400 });
+      return json({ error: 'name is required' }, { status: 400 });
     }
     const filePath = await resolveSessionPath(id);
     if (!filePath) {
-      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+      return json({ error: 'Session not found' }, { status: 404 });
     }
 
     // PATCH writes via appendSessionInfo — open fresh, bypassing the cache.
@@ -222,9 +221,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     sm.appendSessionInfo(name.trim());
     invalidateSessionManagerCache(filePath);
     invalidateSessionListCache();
-    return NextResponse.json({ ok: true });
+    return json({ ok: true });
   } catch (error) {
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    return json({ error: String(error) }, { status: 500 });
   }
 }
 
@@ -233,10 +232,10 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   try {
     const { missing } = await deleteSessions([id]);
     if (missing.length > 0) {
-      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+      return json({ error: 'Session not found' }, { status: 404 });
     }
-    return NextResponse.json({ ok: true });
+    return json({ ok: true });
   } catch (error) {
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    return json({ error: String(error) }, { status: 500 });
   }
 }

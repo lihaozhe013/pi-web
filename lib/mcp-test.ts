@@ -41,7 +41,7 @@ import type {
 // session does — the SDK's `McpServerConnection`, Pie's transport factory
 // (scrubbed environment, PIE_PASSWORD refused), the default OAuth store in
 // `mcp-auth.json` — so what it finds is what a session would find. The route
-// (`app/api/mcp/test/route.ts`) decides whether an entry may be tested at all
+// (`server/api/mcp/test/route.ts`) decides whether an entry may be tested at all
 // and reads it from the file; nothing here takes a config from the browser.
 //
 // Bounding it is the point of most of this file:

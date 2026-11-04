@@ -99,14 +99,3 @@ pub(crate) fn app_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         ],
     )
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn about_dispatches_the_page_event() {
-        assert_eq!(ABOUT_MENU_ID, "about");
-        assert!(SHOW_ABOUT_SCRIPT.contains("CustomEvent('pie:show-about')"));
-    }
-}

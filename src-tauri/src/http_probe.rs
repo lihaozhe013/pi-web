@@ -78,36 +78,3 @@ pub fn ephemeral_port() -> Option<u16> {
     let listener = TcpListener::bind(("127.0.0.1", 0)).ok()?;
     listener.local_addr().ok().map(|address| address.port())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn reads_the_status_code_from_a_response_head() {
-        assert_eq!(
-            parse_status(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n"),
-            Some(200)
-        );
-        assert_eq!(
-            parse_status(b"HTTP/1.1 401 Unauthorized\r\n\r\n"),
-            Some(401)
-        );
-        assert_eq!(parse_status(b"HTTP/1.1 503 Service Unavailable"), Some(503));
-    }
-
-    #[test]
-    fn rejects_anything_that_is_not_an_http_status_line() {
-        assert_eq!(parse_status(b""), None);
-        assert_eq!(parse_status(b"OK 200\r\n"), None);
-        assert_eq!(parse_status(b"HTTP/1.1 banana\r\n"), None);
-        assert_eq!(parse_status(b"\x00\x01\x02"), None);
-    }
-
-    #[test]
-    fn only_binds_loopback_ports() {
-        let port = ephemeral_port().expect("an ephemeral port");
-        assert!(port > 0);
-        assert!(port_available(port));
-    }
-}

@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { json } from '@/server/http';
 import { hasJsonContentType, isApiRequestAllowed } from '@/lib/request-security';
 import {
   deleteSessions,
@@ -7,12 +7,10 @@ import {
 } from '@/lib/session-delete';
 import { SESSION_ID_PATTERN } from '@/lib/session-ui-state-shared';
 
-export const dynamic = 'force-dynamic';
-
 const NO_STORE = { 'Cache-Control': 'no-store' };
 
 function refusal(status: number, error: string) {
-  return NextResponse.json({ error }, { status, headers: NO_STORE });
+  return json({ error }, { status, headers: NO_STORE });
 }
 
 // POST /api/sessions/delete - body { ids: string[] } (at most MAX_SESSION_DELETE_IDS).
@@ -38,7 +36,7 @@ export async function POST(req: Request) {
 
   try {
     const result = await deleteSessions(ids as string[], { keepRunning: true });
-    return NextResponse.json(result satisfies SessionDeleteResult, { headers: NO_STORE });
+    return json(result satisfies SessionDeleteResult, { headers: NO_STORE });
   } catch (error) {
     return refusal(500, error instanceof Error ? error.message : String(error));
   }

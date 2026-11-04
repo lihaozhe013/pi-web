@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { json } from '@/server/http';
 import { hasJsonContentType, isApiRequestAllowed } from '@/lib/request-security';
 import { getRpcSession } from '@/lib/rpc-manager';
 import { openSessionManager, resolveSessionPath } from '@/lib/session-reader';
@@ -6,8 +6,6 @@ import { computeSessionStats, type SessionUsageSummary } from '@/lib/session-sta
 import { computeSessionTotalActiveMs } from '@/lib/session-timing';
 import { SESSION_ID_PATTERN } from '@/lib/session-ui-state-shared';
 import type { SessionEntry } from '@/lib/types';
-
-export const dynamic = 'force-dynamic';
 
 const MAX_SESSION_STATS_IDS = 200;
 const NO_STORE = { 'Cache-Control': 'no-store' };
@@ -23,7 +21,7 @@ interface CachedSummary {
 const summaries = new WeakMap<SessionManagerLike, CachedSummary>();
 
 function refusal(status: number, error: string) {
-  return NextResponse.json({ error }, { status, headers: NO_STORE });
+  return json({ error }, { status, headers: NO_STORE });
 }
 
 async function readSummary(id: string): Promise<SessionUsageSummary | null> {
@@ -84,5 +82,5 @@ export async function POST(req: Request) {
       // Malformed or concurrently removed session: leave it out.
     }
   }
-  return NextResponse.json({ stats }, { headers: NO_STORE });
+  return json({ stats }, { headers: NO_STORE });
 }

@@ -10,11 +10,7 @@ const fs = require('fs');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { getHelpText, parseCommandLine } = require('./pie-options');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { getNextNodeArgs } = require('./pie-node-args');
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { wireChildProcessLifecycle } = require('./process-lifecycle');
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { rotatePreviewSecrets, getRotationWarning } = require('./rotate-preview-secrets');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { openInBrowser } = require('./browser-opener');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -56,37 +52,14 @@ function exitWhenIdle(code) {
 
 function startServer({ port, hostname, openBrowser }) {
   const pkgDir = path.join(__dirname, '..');
-  const nextDir = path.join(pkgDir, '.next');
-
-  // Resolve next's CLI entry directly to avoid relying on .bin symlinks (which
-  // may not exist when installed via npx).
-  let nextBin;
-  try {
-    nextBin = require.resolve('next/dist/bin/next', { paths: [pkgDir] });
-  } catch {
-    // Fallback: locate next package root and derive the bin path manually.
-    try {
-      const nextPkg = require.resolve('next/package.json', { paths: [pkgDir] });
-      nextBin = path.join(path.dirname(nextPkg), 'dist', 'bin', 'next');
-    } catch {
-      nextBin = path.join(pkgDir, 'node_modules', 'next', 'dist', 'bin', 'next');
-    }
-  }
+  const serverEntry = path.join(pkgDir, 'build', 'server', 'index.mjs');
 
   const loopbackHostnames = new Set(['127.0.0.1', 'localhost', '::1', '[::1]']);
   const passwordEnabled = Boolean(process.env.PIE_PASSWORD);
 
-  if (!fs.existsSync(nextDir)) {
+  if (!fs.existsSync(serverEntry)) {
     console.error('Build artifacts not found. Please report this issue.');
     process.exit(1);
-  }
-
-  // Replace the published preview-mode secrets with fresh random values so the
-  // previewModeId baked into the npm tarball cannot be used to skip the proxy
-  // (via the x-prerender-revalidate header). Must happen before `next start`.
-  const rotation = rotatePreviewSecrets(nextDir);
-  if (!rotation.ok) {
-    console.warn(getRotationWarning(rotation.reason));
   }
 
   if (!loopbackHostnames.has(hostname)) {
@@ -101,15 +74,13 @@ function startServer({ port, hostname, openBrowser }) {
     }
   }
 
-  const nextArgs = ['start', '-p', port];
-  nextArgs.push('-H', hostname);
-
-  // Always run next's JS entry with node directly — avoids .bin symlink issues
-  // and path-with-spaces problems on Windows when shell: true is used.
-  const child = spawn(process.execPath, getNextNodeArgs(nextBin, nextArgs), {
+  // Run the built server entry with node directly — avoids .bin symlink issues and
+  // path-with-spaces problems on Windows when shell: true is used. The port and host
+  // travel as environment variables so the server needs no argument parsing.
+  const child = spawn(process.execPath, [serverEntry], {
     cwd: pkgDir,
     stdio: ['inherit', 'pipe', 'inherit'],
-    env: { ...process.env, PIE_HOSTNAME: hostname }
+    env: { ...process.env, PIE_HOSTNAME: hostname, PORT: String(port) }
   });
   wireChildProcessLifecycle(child);
 
@@ -118,7 +89,7 @@ function startServer({ port, hostname, openBrowser }) {
     dir: getRunDir,
     record: {
       pid: process.pid,
-      nextPid: child.pid,
+      serverPid: child.pid,
       port: Number(port),
       hostname,
       url: getOpenUrl(hostname, port),

@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { json } from '@/server/http';
 import { hasJsonContentType, isApiRequestAllowed } from '@/lib/request-security';
 import {
   readSessionUiState,
@@ -15,8 +15,6 @@ import {
   type SessionUiStateResponse
 } from '@/lib/session-ui-state-shared';
 
-export const dynamic = 'force-dynamic';
-
 // The sidebar's pins, archive, project order and project names
 // (lib/session-ui-state.ts). Ids and projectKeys are not checked against the
 // session list: an entry for a session that is gone is harmless, and deleting
@@ -26,7 +24,7 @@ export const dynamic = 'force-dynamic';
 const NO_STORE = { 'Cache-Control': 'no-store' };
 
 function refusal(status: number, reason: SessionUiStateRefusalReason, error: string) {
-  return NextResponse.json({ error, reason } satisfies SessionUiStateErrorResponse, {
+  return json({ error, reason } satisfies SessionUiStateErrorResponse, {
     status,
     headers: NO_STORE
   });
@@ -34,7 +32,7 @@ function refusal(status: number, reason: SessionUiStateRefusalReason, error: str
 
 // GET /api/sessions/ui-state
 export async function GET() {
-  return NextResponse.json({ state: readSessionUiState() } satisfies SessionUiStateResponse, {
+  return json({ state: readSessionUiState() } satisfies SessionUiStateResponse, {
     headers: NO_STORE
   });
 }
@@ -76,7 +74,7 @@ export async function POST(req: Request) {
         `No room for another project name (at most ${MAX_PROJECT_NAMES}, ${PROJECT_NAMES_MAX_BYTES / 1024} KiB in all)`
       );
     }
-    return NextResponse.json({ state } satisfies SessionUiStateResponse, { headers: NO_STORE });
+    return json({ state } satisfies SessionUiStateResponse, { headers: NO_STORE });
   } catch (error) {
     if (error instanceof SessionUiStateLockedError) return refusal(409, 'locked', error.message);
     return refusal(500, 'internal', error instanceof Error ? error.message : String(error));

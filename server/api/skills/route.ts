@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { json } from '@/server/http';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { homedir } from 'os';
 import path from 'path';
@@ -8,24 +8,22 @@ import { loadSkillsWithInstallInfo } from '@/lib/skills-service';
 import { setDisableModelInvocation } from '@/lib/skill-frontmatter';
 import { getAllowedFileRoots, isExistingFilePathAllowed } from '@/lib/file-access';
 
-export const dynamic = 'force-dynamic';
-
 // GET /api/skills?cwd=<path>
 // Uses DefaultResourceLoader (same logic as AgentSession startup) so settings.json
 // skill paths, package skills, and .agents/skills directories are all included.
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const cwd = searchParams.get('cwd');
-  if (!cwd) return NextResponse.json({ error: 'cwd required' }, { status: 400 });
+  if (!cwd) return json({ error: 'cwd required' }, { status: 400 });
 
   try {
     const allowedRoots = await getAllowedFileRoots();
     if (!isExistingFilePathAllowed(cwd, allowedRoots)) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      return json({ error: 'Access denied' }, { status: 403 });
     }
-    return NextResponse.json(await loadSkillsWithInstallInfo(cwd));
+    return json(await loadSkillsWithInstallInfo(cwd));
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 });
+    return json({ error: String(e) }, { status: 500 });
   }
 }
 
@@ -81,10 +79,10 @@ export async function PATCH(req: Request) {
         !Array.isArray(filePaths) ||
         !filePaths.every((item) => typeof item === 'string' && item)
       ) {
-        return NextResponse.json({ error: 'filePaths must be a list of paths' }, { status: 400 });
+        return json({ error: 'filePaths must be a list of paths' }, { status: 400 });
       }
       if (typeof disableModelInvocation !== 'boolean') {
-        return NextResponse.json(
+        return json(
           { error: 'disableModelInvocation must be a boolean' },
           { status: 400 }
         );
@@ -99,14 +97,14 @@ export async function PATCH(req: Request) {
           results.push({ filePath: target, error: e instanceof Error ? e.message : String(e) });
         }
       }
-      return NextResponse.json({ results });
+      return json({ results });
     }
 
-    if (!filePath) return NextResponse.json({ error: 'filePath required' }, { status: 400 });
+    if (!filePath) return json({ error: 'filePath required' }, { status: 400 });
     const refused = toggleSkillFile(filePath, disableModelInvocation, await getSkillEditRoots());
-    if (refused) return NextResponse.json({ error: refused.error }, { status: refused.status });
-    return NextResponse.json({ success: true });
+    if (refused) return json({ error: refused.error }, { status: refused.status });
+    return json({ success: true });
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 });
+    return json({ error: String(e) }, { status: 500 });
   }
 }

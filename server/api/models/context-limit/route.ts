@@ -1,7 +1,5 @@
 import { readContextWindowLimit, writeContextWindowLimit } from '@/lib/model-context-limit';
 
-export const dynamic = 'force-dynamic';
-
 /** The global context window limit for every model; null when no cap is set. */
 export async function GET() {
   try {

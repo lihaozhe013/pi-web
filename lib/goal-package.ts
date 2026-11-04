@@ -19,10 +19,9 @@ const GOAL_PACKAGE_NAME = /goal/i;
 let resolved: string | undefined | null = null;
 
 /**
- * Resolve from wherever this module was compiled to. Next emits server code as
- * CommonJS chunks under `.next/server`, where `import.meta.url` is not always
- * available, and `__filename` still lets Node walk up to the app's
- * `node_modules`.
+ * Resolve from wherever this module was loaded. The server bundle is one file, but the packager
+ * installs the app's `node_modules` beside it, so the working directory is a fallback when a
+ * loader has no `import.meta.url`.
  */
 function resolveOptional(id: string): string | undefined {
   const requireFns: Array<() => NodeJS.Require> = [

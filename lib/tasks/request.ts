@@ -2,7 +2,7 @@
  * Small HTTP helpers shared by the task routes: a bounded JSON body and one
  * mapping from queue errors to the documented status codes.
  */
-import { jsonResponse } from '../json-response';
+import { json } from '../../server/http';
 import { TaskInputError } from './queue';
 
 export const TASK_BODY_LIMIT_BYTES = 1_048_576;
@@ -44,15 +44,15 @@ export async function readTaskBody(request: Request): Promise<Record<string, unk
   return parsed as Record<string, unknown>;
 }
 
-export function taskErrorResponse(request: Request, error: unknown): Response {
+export function taskErrorResponse(error: unknown): Response {
   const code = (error as { code?: unknown } | null)?.code;
   const status = typeof code === 'string' ? TASK_ERROR_STATUS[code] : undefined;
   if (status !== undefined) {
     const message = error instanceof Error ? error.message : String(error);
-    return jsonResponse(request, { error: message, code }, { status });
+    return json({ error: message, code }, { status });
   }
   const message = error instanceof Error ? error.message : String(error);
-  return jsonResponse(request, { error: message, code: 'internal_error' }, { status: 500 });
+  return json({ error: message, code: 'internal_error' }, { status: 500 });
 }
 
 export function noStore(): { headers: Record<string, string> } {

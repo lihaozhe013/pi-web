@@ -1,8 +1,25 @@
-import type { MetadataRoute } from 'next';
+/**
+ * The web app manifest.
+ *
+ * It is served per request rather than written at build time, because `PIE_APP_NAME` is a launch
+ * setting: one build serves whatever name the operator started it with.
+ */
+export interface WebManifest {
+  id: string;
+  name: string;
+  short_name: string;
+  description: string;
+  start_url: string;
+  scope: string;
+  display: 'standalone';
+  background_color: string;
+  theme_color: string;
+  categories: string[];
+  lang: string;
+  icons: { src: string; sizes: string; type: string; purpose: string }[];
+}
 
-export const dynamic = 'force-dynamic';
-
-export default function manifest(): MetadataRoute.Manifest {
+export function webManifest(): WebManifest {
   const appName = process.env.PIE_APP_NAME?.trim() || 'Pie';
   return {
     id: '/',

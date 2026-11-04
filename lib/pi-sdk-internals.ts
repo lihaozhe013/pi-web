@@ -331,10 +331,8 @@ function resolvedSdkPackageDir(cwd: string): string {
 }
 
 /**
- * `name@version` of a package directory, or undefined when it has no readable
- * manifest. A production build keeps the SDK in `.next/node_modules` as a real
- * copy when Next.js cannot create a symlink (Windows without Developer Mode),
- * so the copy that the server bundle loads can live at a path of its own.
+ * `name@version` of a package directory, or undefined when it has no readable manifest. The
+ * version comes from the directory the module actually loaded, not from the one resolved by name.
  */
 function packageRelease(dir: string): string | undefined {
   try {

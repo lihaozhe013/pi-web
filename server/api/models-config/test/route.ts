@@ -1,12 +1,10 @@
-import { NextResponse } from 'next/server';
+import { json } from '@/server/http';
 import { mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { completeSimple, type AssistantMessage } from '@earendil-works/pi-ai/compat';
 import { ModelRuntime } from '@earendil-works/pi-coding-agent';
 import { hasJsonContentType, isApiRequestAllowed } from '@/lib/request-security';
-
-export const dynamic = 'force-dynamic';
 
 const TEST_TIMEOUT_MS = 20_000;
 
@@ -27,10 +25,10 @@ function getAssistantText(message: AssistantMessage): string {
 
 export async function POST(req: Request) {
   if (!isApiRequestAllowed(req)) {
-    return NextResponse.json({ ok: false, error: 'Untrusted API request' }, { status: 403 });
+    return json({ ok: false, error: 'Untrusted API request' }, { status: 403 });
   }
   if (!hasJsonContentType(req)) {
-    return NextResponse.json(
+    return json(
       { ok: false, error: 'Content-Type must be application/json' },
       { status: 415 }
     );
@@ -46,15 +44,15 @@ export async function POST(req: Request) {
     };
     const providerName = typeof body.providerName === 'string' ? body.providerName.trim() : '';
     if (!providerName)
-      return NextResponse.json({ ok: false, error: 'providerName is required' }, { status: 400 });
+      return json({ ok: false, error: 'providerName is required' }, { status: 400 });
     if (!isRecord(body.provider))
-      return NextResponse.json({ ok: false, error: 'provider is required' }, { status: 400 });
+      return json({ ok: false, error: 'provider is required' }, { status: 400 });
     if (!isRecord(body.model))
-      return NextResponse.json({ ok: false, error: 'model is required' }, { status: 400 });
+      return json({ ok: false, error: 'model is required' }, { status: 400 });
 
     const modelId = typeof body.model.id === 'string' ? body.model.id.trim() : '';
     if (!modelId)
-      return NextResponse.json({ ok: false, error: 'Model ID is required' }, { status: 400 });
+      return json({ ok: false, error: 'Model ID is required' }, { status: 400 });
 
     tempDir = mkdtempSync(join(tmpdir(), 'pie-model-test-'));
     const modelsPath = join(tempDir, 'models.json');
@@ -77,15 +75,15 @@ export async function POST(req: Request) {
 
     const modelRuntime = await ModelRuntime.create({ modelsPath });
     const loadError = modelRuntime.getError();
-    if (loadError) return NextResponse.json({ ok: false, error: loadError });
+    if (loadError) return json({ ok: false, error: loadError });
 
     const model = modelRuntime.getModel(providerName, modelId);
     if (!model)
-      return NextResponse.json({ ok: false, error: `Model not found: ${providerName}/${modelId}` });
+      return json({ ok: false, error: `Model not found: ${providerName}/${modelId}` });
 
     const resolved = await modelRuntime.getAuth(model);
     if (!resolved?.auth.apiKey) {
-      return NextResponse.json({ ok: false, error: `No API key found for "${providerName}"` });
+      return json({ ok: false, error: `No API key found for "${providerName}"` });
     }
 
     const controller = new AbortController();
@@ -121,7 +119,7 @@ export async function POST(req: Request) {
 
       const latencyMs = Date.now() - startedAt;
       if (message.stopReason === 'error' || message.stopReason === 'aborted') {
-        return NextResponse.json({
+        return json({
           ok: false,
           error:
             message.errorMessage ??
@@ -131,7 +129,7 @@ export async function POST(req: Request) {
         });
       }
 
-      return NextResponse.json({
+      return json({
         ok: true,
         latencyMs,
         status,
@@ -141,7 +139,7 @@ export async function POST(req: Request) {
       clearTimeout(timeout);
     }
   } catch (error) {
-    return NextResponse.json({ ok: false, error: errorMessage(error) }, { status: 500 });
+    return json({ ok: false, error: errorMessage(error) }, { status: 500 });
   } finally {
     if (tempDir) rmSync(tempDir, { recursive: true, force: true });
   }

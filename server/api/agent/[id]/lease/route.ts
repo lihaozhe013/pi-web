@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { json } from '@/server/http';
 import { getRpcSession } from '@/lib/rpc-manager';
 import { holdSessionLivenessLease } from '@/lib/session-liveness';
 
@@ -13,7 +13,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params;
   const holder = new URL(req.url).searchParams.get('holder');
   if (!holder || !HOLDER_PATTERN.test(holder)) {
-    return NextResponse.json(
+    return json(
       { error: 'holder must be 1-64 letters, digits, - or _' },
       { status: 400 }
     );
@@ -21,7 +21,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   holdSessionLivenessLease(id, holder);
   const session = getRpcSession(id);
   const alive = Boolean(session?.isAlive());
-  return NextResponse.json(
+  return json(
     {
       success: true,
       // A run, a queued prompt, a `!` command or a compaction (isRunning()).
