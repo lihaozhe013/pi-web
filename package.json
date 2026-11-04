@@ -21,7 +21,6 @@
     "bin",
     "build/server",
     "dist",
-    "public",
     "package.json",
     "lib/ask-user-cli-extension.ts",
     "lib/ask-user-labels.ts",

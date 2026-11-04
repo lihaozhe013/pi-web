@@ -28,15 +28,11 @@ export function artifactName(version, platform = process.platform, arch = proces
 }
 
 /**
- * Remove files the running server never reads: source maps and the image optimizer binary.
- * Source maps only matter for stack traces with `--enable-source-maps`, and a packaged release
- * is not run that way.
+ * Remove files the running server never reads: source maps. They only matter for stack traces
+ * with `--enable-source-maps`, and a packaged release is not run that way.
  */
 export async function pruneRuntime(appDir) {
-  const nodeModules = join(appDir, 'node_modules');
-  const maps = await removeSourceMaps(nodeModules, { files: 0, bytes: 0 });
-  await rm(join(nodeModules, '@img'), { recursive: true, force: true });
-  return maps;
+  return removeSourceMaps(join(appDir, 'node_modules'), { files: 0, bytes: 0 });
 }
 
 async function removeSourceMaps(dir, removed) {

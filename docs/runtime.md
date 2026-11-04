@@ -24,13 +24,15 @@ copy of the application.
 
 | Command              | What runs                                                                 |
 | -------------------- | ------------------------------------------------------------------------- |
-| `bun run dev`        | Vite dev server on 30140, Node server on 30141, Vite proxies `/api` to it  |
+| `bun run dev`        | Vite dev server on 30141, Node server on 30142, Vite proxies `/api` to it  |
 | `bun run build`      | Vite client build to `dist/`, then the server bundle to `build/server/`    |
 | `bun run start`      | `bin/pie.js`, which starts `build/server/index.mjs` and opens the browser  |
 
 `scripts/dev.mjs` starts all three development pieces: it builds the server once, runs it under
 `node --watch`, and keeps a Vite watch build next to the UI dev server. The API therefore runs the
-same compiled bundle a release ships.
+same compiled bundle a release ships. The interface answers on 30141 in development, the port a
+release uses, so a bookmark or the desktop shell finds it in both modes; only the API moves, to
+30142, and Vite forwards `/api` there. `bun run dev:lan` listens on every interface.
 
 The desktop shell is unchanged in kind: `src-tauri/` starts `bin/pie.js`, waits for the `Ready` line
 on stdout, and loads the loopback URL. See [desktop shell](desktop.md).

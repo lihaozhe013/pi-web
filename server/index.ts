@@ -33,9 +33,9 @@ const server = serve({ fetch: createApp(distDir).fetch, hostname, port }, (info)
 let closing = false;
 
 /**
- * Next.js answered a signal by closing its server and waiting for connections to end, with
- * no timeout. SSE streams only end when the client disconnects, so `registerNodeInstrumentation`
- * closes them first; this handler closes the listener and bounds the wait.
+ * A graceful close waits for every connection to end. SSE streams only end when the client
+ * disconnects, so `registerNodeInstrumentation` closes them first; this handler closes the
+ * listener and bounds the wait anyway.
  */
 function shutdown(signal: string): void {
   if (closing) return;
