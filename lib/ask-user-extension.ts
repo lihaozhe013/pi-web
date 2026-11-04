@@ -4,7 +4,9 @@ import {
   ASK_USER_TOOL_NAME
 } from './ask-user-labels';
 import { askUserPresentation } from './ask-user-presentation';
-import { Type } from '@earendil-works/pi-ai';
+// pi-ai 1.5 stopped re-exporting TypeBox; tool schemas are TypeBox `TSchema`
+// values, so the builder comes from the package the SDK types use.
+import { Type } from 'typebox';
 import { defineTool, type InlineExtension } from '@earendil-works/pi-coding-agent';
 
 // Re-exported so every existing importer keeps one source of truth.

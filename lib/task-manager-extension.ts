@@ -7,7 +7,8 @@
  * through `lib/tasks/agent-tools.ts`; this module declares the schemas, turns
  * results into text, and owns the watch that wakes an idle session.
  */
-import { Type } from '@earendil-works/pi-ai';
+// pi-ai 1.5 stopped re-exporting TypeBox; see `lib/ask-user-extension.ts`.
+import { Type } from 'typebox';
 import {
   defineTool,
   type ExtensionAPI,
