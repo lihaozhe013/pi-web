@@ -19,12 +19,9 @@
   },
   "files": [
     "bin",
-    ".next",
-    "!.next/cache",
-    "!.next/dev",
-    "!.next/**/*.js.map",
+    "build/server",
+    "dist",
     "public",
-    "next.config.ts",
     "package.json",
     "lib/ask-user-cli-extension.ts",
     "lib/ask-user-labels.ts",
@@ -32,21 +29,17 @@
     "lib/ask-user-presentation.ts"
   ],
   "scripts": {
-    "dev": "node node_modules/next/dist/bin/next dev -H 127.0.0.1 -p 30141",
-    "dev:lan": "node node_modules/next/dist/bin/next dev -H 0.0.0.0 -p 30141",
-    "build": "node node_modules/next/dist/bin/next build",
-    "start": "node node_modules/next/dist/bin/next start -H 0.0.0.0 -p 30141",
-    "start:local": "node node_modules/next/dist/bin/next start -H 127.0.0.1 -p 30141",
-    "start:lan": "node node_modules/next/dist/bin/next start -H 0.0.0.0 -p 30141",
-    "format": "prettier . --write",
+    "dev": "node scripts/dev.mjs",
+    "dev:lan": "node scripts/dev.mjs --lan",
+    "build": "node node_modules/vite/bin/vite.js build && node node_modules/vite/bin/vite.js build --config vite.server.config.ts",
+    "start": "node bin/pie.js start",
+    "start:local": "node bin/pie.js start -H 127.0.0.1 -p 30141",
+    "start:lan": "node bin/pie.js start -H 0.0.0.0 -p 30141",
+    "format": "node node_modules/prettier/bin/prettier.cjs . --write",
     "lint": "node node_modules/oxlint/bin/oxlint .",
-    "test:e2e": "node e2e/run.mjs",
-    "test": "node --experimental-strip-types --test \"app/**/*.test.mjs\" \"components/**/*.test.mjs\" \"hooks/**/*.test.mjs\" \"lib/**/*.test.mjs\" \"public/**/*.test.mjs\"",
     "package:portable": "node packaging/portable.mjs",
     "desktop:dev": "node packaging/desktop.mjs --dev",
     "desktop:build": "node packaging/desktop.mjs",
-    "test:portable": "node --test packaging/portable.test.mjs",
-    "test:desktop": "node --test packaging/desktop.test.mjs",
     "typecheck": "node node_modules/typescript/bin/tsc --noEmit"
   },
   "dependencies": {
@@ -55,10 +48,12 @@
     "@earendil-works/pi-codemode": "1.5.0",
     "@earendil-works/pi-coding-agent": "1.5.0",
     "@earendil-works/pi-mcp": "1.5.0",
+    "@earendil-works/pi-schema": "1.5.0",
     "@earendil-works/pi-telemetry": "1.5.0",
     "@earendil-works/pi-tui": "1.5.0",
+    "@hono/node-server": "^2.1.6",
+    "hono": "^4.13.16",
     "js-yaml": "^5.5.0",
-    "next": "16.4.3",
     "pi-better-goal": "^0.10.4",
     "proper-lockfile": "4.1.2",
     "react": "^19.3.1",
@@ -69,7 +64,8 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.3.3",
+    "@fontsource-variable/noto-sans-mono": "^5.3.0",
+    "@tailwindcss/vite": "^4.3.4",
     "@tauri-apps/cli": "^2",
     "@types/js-yaml": "^4.0.9",
     "@types/mdast": "^4.0.4",
@@ -79,6 +75,7 @@
     "@types/react-dom": "^19.3.0",
     "@types/semver": "7.8.0",
     "@types/web-push": "^3.6.4",
+    "@vitejs/plugin-react": "^6.2.1",
     "ansi_up": "^6.0.6",
     "jiti": "^2.7.0",
     "katex": "^0.19.1",
@@ -86,7 +83,6 @@
     "oxc-parser": "^0.155.0",
     "oxlint": "^1.89",
     "playwright": "^1.64.1",
-    "postcss": "^8.5.31",
     "prettier": "^3.9.10",
     "react-markdown": "^10.1.0",
     "react-syntax-highlighter": "^16.1.2",
@@ -98,7 +94,8 @@
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",
     "tailwindcss": "^4.3.3",
-    "typescript": "^7"
+    "typescript": "^7",
+    "vite": "^8.3.5"
   },
   "overrides": {
     "rehype-katex>katex": "$katex"

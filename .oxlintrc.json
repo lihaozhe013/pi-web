@@ -1,6 +1,10 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "nextjs", "jsx-a11y", "typescript"],
+  "plugins": [
+    "react",
+    "jsx-a11y",
+    "typescript"
+  ],
   "categories": {
     "correctness": "error",
     "suspicious": "error"
@@ -11,7 +15,9 @@
     "builtin": true
   },
   "settings": {
-    "react": { "version": "19" }
+    "react": {
+      "version": "19"
+    }
   },
   "rules": {
     "react/react-in-jsx-scope": "off",
@@ -35,5 +41,9 @@
     "jsx-a11y/media-has-caption": "off",
     "jsx-a11y/no-redundant-roles": "off"
   },
-  "ignorePatterns": ["build/**", "package/**", "playwright-report/**", "test-results/**"]
+  "ignorePatterns": [
+    "build/**",
+    "package/**",
+    "dist/**"
+  ]
 }
