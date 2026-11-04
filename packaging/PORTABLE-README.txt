@@ -12,10 +12,10 @@ From the extracted directory:
   node bin/pie.js --no-open --port 30141 --hostname 127.0.0.1
   node bin/pie.js --help
 
-The application directory must be writable (startup rotates preview secrets).
-Keep the complete directory, including hidden .next and node_modules. Do not
-replace the bundled Next.js or copy node_modules between platforms. Build and
-test locally with the latest Bun release and the latest Node.js LTS release.
+The application directory must be writable (Pie keeps run records there).
+Keep the complete directory, including build/server, dist and node_modules. Do
+not copy node_modules between platforms. Build locally with the latest Bun
+release and the latest Node.js LTS release.
 
 Linux packages target glibc, not Alpine/musl. Cross-platform certification is
 not provided. Native dependencies may require system libraries.

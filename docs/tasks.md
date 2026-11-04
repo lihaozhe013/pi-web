@@ -25,7 +25,7 @@ subagent/queue feature. This document replaces that part of the boundary with a 
 
 The queue owns scheduling, persistence, and progress reporting. It owns no agent capability: it
 starts the installed Pi CLI and speaks Pi's documented RPC records. Deleting `lib/tasks`,
-`app/api/tasks`, and `components/TaskWorkspace*` must leave the chat experience untouched.
+`server/api/tasks`, and `components/TaskWorkspace*` must leave the chat experience untouched.
 
 ## Goals
 
@@ -53,7 +53,7 @@ starts the installed Pi CLI and speaks Pi's documented RPC records. Deleting `li
 ```
 components/TaskWorkspace*          view: queue board, task editor, live activity
         │ HTTP (polling)
-app/api/tasks/**                   thin routes: validation, delegation, no logic
+server/api/tasks/**                thin routes: validation, delegation, no logic
         │
 lib/tasks/orchestrator.ts          the only loop: claim → run → gate → settle
         ├── lib/tasks/queue.ts     QueueController: CRUD, ordering, state guards
@@ -296,7 +296,7 @@ Shutdown: `instrumentation-node.ts` already owns SIGINT/SIGTERM handling for str
 It gains one call that kills the active child and settles its task as `BLOCKED`, so a server restart
 never leaves a zombie agent writing into a directory the user believes is idle.
 
-Notifications reuse the existing Web Push path (`lib/web-push.ts`, `app/api/push`): queue complete,
+Notifications reuse the existing Web Push path (`lib/web-push.ts`, `server/api/push`): queue complete,
 task failed or blocked, and — importantly — a question waiting.
 
 ## A question during a task
@@ -560,29 +560,18 @@ disabled composer instead of breaking.
 - The child runs with the same credentials as the user's own CLI. The queue must not be exposed to
   an untrusted network: it starts agents that can edit files on the machine.
 
-## Testing
+## Verification
 
-Only the relevant file per change, per `AGENTS.md`.
-
-| File                                | Covers                                                                                                                                                               |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `lib/tasks/store.test.mjs`          | Temp-database creation, WAL selection, migration idempotence, rank rebalancing.                                                                                      |
-| `lib/tasks/queue.test.mjs`          | Atomic claim, the "no second IN_PROGRESS" assertion, lock guards returning `TaskLockedError`, ordering, recovery of an interrupted task.                             |
-| `lib/tasks/rpc-session.test.mjs`    | Child arguments including `--append-system-prompt`; LF-only framing with U+2028 inside a string, request correlation, question round-trip, orderly close, tree kill. |
-| `lib/tasks/runner.test.mjs`         | Success, non-zero exit, timeout, abort, and a question answered or dismissed.                                                                                        |
-| `lib/tasks/orchestrator.test.mjs`   | Claim → done → next, gate failure → blocked → paused, empty queue → notice, restart recovery.                                                                        |
-| `app/api/tasks/route.test.mjs`      | Status codes, `task_locked`, answer routing.                                                                                                                         |
-| `components/TaskWorkspace.test.mjs` | Reorder by keyboard, disabled controls while running, question rendering, shift ranges, which tasks a sweep collects.                                                |
-
-`store.test.mjs` and `queue.test.mjs` use a temporary directory; no test touches the real agent
-directory.
+Testing is manual; the project keeps no tests and no test runner. Walk the queue by hand: create a
+task, start the orchestrator, watch one attempt run to `agent_settled`, fail a verification command
+to confirm it blocks, then restart the server and confirm nothing is left `IN_PROGRESS`.
 
 ## Implementation phases
 
 | Phase        | Deliverable                                                 | Exit criterion                                                                                  |
 | ------------ | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| 1            | `store` + `queue` + tests                                   | Guards and ordering verified without any process involved.                                      |
-| 2            | `rpc-session` + `runner` + `prompt` + fixture child + tests | A real CLI child runs one prompt to `agent_settled`, asks a question, and dies on request.      |
+| 1            | `store` + `queue`                                           | Guards and ordering verified without any process involved.                                      |
+| 2            | `rpc-session` + `runner` + `prompt` + a scripted child      | A real CLI child runs one prompt to `agent_settled`, asks a question, and dies on request.      |
 | 3            | `gate` + `orchestrator` + lifecycle wiring + routes         | A queue drains unattended; a failed gate pauses it; a restart leaves nothing running.           |
 | 4            | `TaskWorkspace` + `?mode=tasks` + i18n + docs               | The queue is fully operable from the browser, keyboard included.                                |
 | 5 (optional) | Mode switch, toolbar migration, inspector panel             | Chat is unchanged in behavior, with the moved actions still reachable when the panel is hidden. |
@@ -591,10 +580,10 @@ directory.
 
 | Phase        | What exists now                                                                                                                                                                                                                                                    |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1            | `lib/tasks/store.ts`, `lib/tasks/queue.ts`, and their tests. Schema `user_version = 2`, WAL, per-process singleton, SQL guards for claim/update/delete/rank.                                                                                                       |
-| 2            | `lib/ask-user-cli-extension.ts`, `lib/tasks/rpc-session.ts`, `lib/tasks/runner.ts`, `lib/tasks/prompt.ts`, and a scripted child fixture (`lib/tasks/__fixtures__/rpc-child.mjs`). LF framing, U+2028 inside a string, correlation, tree kill, question round-trip. |
-| 3            | `lib/tasks/gate.ts`, `lib/tasks/orchestrator.ts`, `instrumentation-node.ts` shutdown, and the seven `/api/tasks` routes. `lib/project-trust.ts` decides `--approve`; `lib/tasks/active-sessions.ts` is the only module chat imports.                               |
-| 4            | `components/TaskWorkspace.tsx`, `?mode=tasks`/`?task=` in `AppShell`, `app/tasks.css`, and task keys in all three locales.                                                                                                                                         |
+| 1            | `lib/tasks/store.ts` and `lib/tasks/queue.ts`. Schema `user_version = 2`, WAL, per-process singleton, SQL guards for claim/update/delete/rank.                                                                                                       |
+| 2            | `lib/ask-user-cli-extension.ts`, `lib/tasks/rpc-session.ts`, `lib/tasks/runner.ts`, `lib/tasks/prompt.ts`, and a scripted child. LF framing, U+2028 inside a string, correlation, tree kill, question round-trip. |
+| 3            | `lib/tasks/gate.ts`, `lib/tasks/orchestrator.ts`, `server/instrumentation.ts` shutdown, and the seven `/api/tasks` routes. `lib/project-trust.ts` decides `--approve`; `lib/tasks/active-sessions.ts` is the only module chat imports.                               |
+| 4            | `components/TaskWorkspace.tsx`, `?mode=tasks`/`?task=` in `AppShell`, `styles/tasks.css`, and task keys in all three locales.                                                                                                                                         |
 | 5 (optional) | The `Chat                                                                                                                                                                                                                                                          | Tasks` switch in both page headers, and the session actions moved into the Runs panel (`components/SessionPanelActions.tsx`). Not built: the mode-specific inspector and the per-tab mode memory. |
 
 Queue defaults live in `<agentDir>/pie-task-orchestrator.json`, read on every run so an edit applies

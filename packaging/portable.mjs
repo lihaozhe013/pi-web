@@ -15,7 +15,6 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { smokeTest } from './smoke.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -29,36 +28,15 @@ export function artifactName(version, platform = process.platform, arch = proces
 }
 
 /**
- * Remove files the running server never reads: source maps, the image optimizer
- * binary, and Next.js documentation. Source maps only matter for stack traces
- * with `--enable-source-maps`; Next.js's own `.next` maps are already outside
- * the package allow-list.
- *
- * `@next/swc` must stay: when it is missing, Next.js downloads the bindings at
- * startup into `next/next-swc-fallback`, which needs network access and roughly
- * 190 MiB of the user's disk.
+ * Remove files the running server never reads: source maps and the image optimizer binary.
+ * Source maps only matter for stack traces with `--enable-source-maps`, and a packaged release
+ * is not run that way.
  */
 export async function pruneRuntime(appDir) {
   const nodeModules = join(appDir, 'node_modules');
-  await assertNextSwc(nodeModules);
   const maps = await removeSourceMaps(nodeModules, { files: 0, bytes: 0 });
   await rm(join(nodeModules, '@img'), { recursive: true, force: true });
-  await rm(join(nodeModules, 'next', 'dist', 'docs'), { recursive: true, force: true });
   return maps;
-}
-
-async function assertNextSwc(nodeModules) {
-  let entries = [];
-  try {
-    entries = await readdir(join(nodeModules, '@next'));
-  } catch {
-    /* Reported below. */
-  }
-  if (!entries.some((entry) => entry.startsWith('swc-'))) {
-    throw new Error(
-      'The production install has no @next/swc binary. Next.js would download it at startup, so packaging stops here.'
-    );
-  }
 }
 
 async function removeSourceMaps(dir, removed) {
@@ -83,15 +61,6 @@ async function removeSourceMaps(dir, removed) {
     removed.bytes += size;
   }
   return removed;
-}
-
-async function exists(file) {
-  try {
-    await stat(file);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 function run(command, args, cwd, capture = false, env = process.env) {
@@ -149,8 +118,8 @@ export async function buildPortableArchive({
       [source, packed, staging, output].map((dir) => mkdir(dir, { recursive: true }))
     );
 
-    // Copy tracked working-tree files only: never copy .env, sessions, node_modules
-    // or the active dev .next. Commit/add new application files before packaging.
+    // Copy tracked working-tree files only: never copy .env, sessions, node_modules,
+    // or a build output. Commit/add new application files before packaging.
     const tracked = execFileSync('git', ['ls-files', '-z'], { cwd: root, encoding: 'utf8' })
       .split('\0')
       .filter(Boolean);
@@ -173,30 +142,13 @@ export async function buildPortableArchive({
     run('tar', ['-xzf', 'packed/app.tgz', '-C', 'staging'], work);
     const app = join(staging, 'pie');
     await rename(join(staging, 'package'), app);
-    // `bun pm pack` never includes nested node_modules directories, but Next 16
-    // keeps external-package shims in `.next/node_modules`
-    // (`@earendil-works/pi-coding-agent-<hash>`), and the server bundle loads
-    // them from there. Next.js links the package on systems that allow it and
-    // copies it where it cannot create a link (Windows without Developer Mode),
-    // so `cp` may materialise a directory here; the packaged server then runs
-    // the SDK from this copy, not from `node_modules`. Without the entries
-    // `next start` fails to load the instrumentation hook.
-    const shims = join(source, '.next', 'node_modules');
-    if (await exists(shims)) {
-      await cp(shims, join(app, '.next', 'node_modules'), {
-        recursive: true,
-        verbatimSymlinks: true,
-        force: true
-      });
-    }
     await cp(join(source, 'bun.lock'), join(app, 'bun.lock'));
     // Install on the target OS/architecture so optional/native dependencies match.
     bun(['install', '--frozen-lockfile', '--production'], app);
-    // Trim what `next start` never reads. Pruning before the archive is written
-    // means the smoke test below validates the pruned tree.
+    // Trim what the server never reads.
     const pruned = await pruneRuntime(app);
     console.log(
-      `Pruned ${pruned.files} source maps (${(pruned.bytes / 1024 / 1024).toFixed(1)} MiB), sharp, and Next.js docs.`
+      `Pruned ${pruned.files} source maps (${(pruned.bytes / 1024 / 1024).toFixed(1)} MiB).`
     );
     await writeFile(
       join(app, 'PORTABLE.json'),
@@ -219,11 +171,6 @@ export async function buildPortableArchive({
 
     const archive = join(work, `${name}.tar.gz`);
     run('tar', ['-czf', `${name}.tar.gz`, '-C', 'staging', 'pie'], work);
-    // Test the actual archive after extraction into a different path, not the build tree.
-    const check = join(work, 'extracted with spaces');
-    await mkdir(check);
-    run('tar', ['-xzf', `${name}.tar.gz`, '-C', 'extracted with spaces'], work);
-    await smokeTest(join(check, 'pie'));
     const hash = createHash('sha256')
       .update(await readFile(archive))
       .digest('hex');

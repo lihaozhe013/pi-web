@@ -44,8 +44,9 @@ Maintain this project independently, without upstream merges. Change the stack a
 when doing so reduces complexity. There is no permanent separation between inherited code and fork
 enhancements.
 
-Development, verification, and optional portable packaging are local. No CI, public release
-pipeline, or automated update commitment is maintained.
+Development, verification, and optional portable packaging are local, and verification is manual:
+the project ships no tests and no test runner. No CI, public release pipeline, or automated update
+commitment is maintained.
 
 ## Documentation
 
@@ -57,12 +58,11 @@ All project documentation is maintained in English, without translated copies.
 | [Agent instructions](../AGENTS.md)        | Rules for coding assistants           |
 | [Interface principles](design.md)         | Presentation and interaction          |
 | [Architecture](architecture.md)           | Current entry points and boundaries   |
-| [Runtime migration](runtime-migration.md) | Leaving Next.js for Vite and Hono     |
+| [Runtime](runtime.md)                     | Vite, Hono, and how a request is served |
 | [Desktop shell](desktop.md)               | Tauri 2 window and desktop packaging  |
 | [Tasks](tasks.md)                         | Serial task queue, execution boundary |
 | [Task manager](task-manager.md)           | Agent-driven queue control            |
 | [Packaging](../packaging/README.md)       | Local portable builds                 |
-| [Browser tests](../e2e/README.md)         | Local browser regression testing      |
 
 These documents replace the upstream snapshot, fork-specific design guide, translated guides,
 historical ADRs, and release instructions. Use Git history for historical context rather than

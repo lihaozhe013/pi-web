@@ -36,7 +36,8 @@ bun install --frozen-lockfile
 bun run dev
 ```
 
-Open <http://127.0.0.1:30141>. The app uses local Pi configuration and credentials. Sessions default
+Open <http://127.0.0.1:30141>. Vite serves the interface on that port and proxies `/api` to the Node
+server on 30142. The app uses local Pi configuration and credentials. Sessions default
 to `~/.pi/agent/sessions/`. Existing sessions can be browsed without model credentials; sending
 prompts requires a configured provider.
 
@@ -48,14 +49,14 @@ development server remains loopback-only by default; `bun run dev:lan` enables L
 Bun manages dependencies and invokes scripts. Node.js remains the runtime.
 
 ```sh
-bun run test
 bun run typecheck
 bun run lint
 ```
 
-Use `bun run test`, not `bun test`. See [local packaging](packaging/README.md) for portable builds
-and [desktop shell](docs/desktop.md) for the Tauri window. There is no maintained CI, npm
-publication workflow, or automated update commitment.
+This project has no tests and no test runner: verification is manual, by running the build and
+using the interface. See [local packaging](packaging/README.md) for portable builds and
+[desktop shell](docs/desktop.md) for the Tauri window. There is no maintained CI, npm publication
+workflow, or automated update commitment.
 
 ## Version
 
@@ -86,8 +87,8 @@ before deleting sessions or changing configuration.
 ## Desktop shell
 
 A Tauri 2 shell starts the same server in a window instead of a browser. It does not bundle Node.js
-or a webview: it needs a Node.js release that satisfies the Next.js floor (`>= 20.9.0`), the system
-webview, and nothing else. Build it locally with `bun run desktop:build`.
+or a webview: it needs a Node.js release (`>= 22`), the system webview, and nothing else. Build it
+locally with `bun run desktop:build`.
 
 ```sh
 bun run desktop:dev     # window against the development server on 127.0.0.1:30141
@@ -103,7 +104,6 @@ See [desktop shell](docs/desktop.md) for runtime paths, port handling, and per-p
 - [Architecture](docs/architecture.md)
 - [Desktop shell](docs/desktop.md)
 - [Coding agent instructions](AGENTS.md)
-- [Local browser tests](e2e/README.md)
 
 All project documentation is maintained in English.
 

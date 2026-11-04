@@ -1,7 +1,6 @@
 # Local Portable Packaging
 
-Build and test portable archives locally. There is no CI, public release pipeline, or npm
-publication step.
+Build portable archives locally. There is no CI, public release pipeline, or npm publication step.
 
 ## Requirements
 
@@ -11,7 +10,6 @@ packages require glibc; Alpine/musl and cross-compilation are unsupported.
 
 ```sh
 bun install --frozen-lockfile
-bun run test:portable
 bun run package:portable
 # Optional output directory:
 bun run package:portable /path/to/output
@@ -26,20 +24,16 @@ The packager copies Git-tracked working-tree files, including local modification
 source directory. Add new files to Git before packaging. Deleted files are skipped and the required
 `bun.lock` is copied.
 
-It installs frozen dependencies, builds outside the development checkout, packs using the package
-file allow-list, and installs production dependencies in isolation. That production tree is then
-pruned of files `next start` never reads: source maps under `node_modules`, the sharp image
-optimizer (`images.unoptimized` is on), and Next.js documentation. Pruning keeps `@next/swc` and
-fails the build when it is missing, because Next.js would otherwise download the bindings at
-startup. The smoke test runs after pruning, so it validates what ships. The temporary source copy
-has no `.git`, so the packager forwards the source commit as `PIE_COMMIT` and the build's version
-carries its short form (`0.1.0+1c02256`). The final archive contains `.next` and complete production
-`node_modules`; it does not use Next.js standalone output.
+It installs frozen dependencies, builds outside the development checkout (`vite build` for the
+interface, `vite build --config vite.server.config.ts` for the server bundle), packs using the
+package file allow-list, and installs production dependencies in isolation. That production tree is
+then pruned of files the server never reads: source maps and the sharp image optimizer. The
+temporary source copy has no `.git`, so the packager forwards the source commit as `PIE_COMMIT` and
+the build's version carries its short form (`0.1.0+1c02256`). The final archive contains `dist`,
+`build/server`, and complete production `node_modules`.
 
-Before saving the archive and SHA-256 checksum, the packager extracts it to another path containing
-spaces and smoke-tests the launcher, homepage, static assets, and sessions API. Output defaults to
-`build/portable/`. Temporary directories are cleaned up afterward. Registry access is needed during
-packaging.
+Output defaults to `build/portable/`. Temporary directories are cleaned up afterward. Registry
+access is needed during packaging.
 
 `PORTABLE.json` records the version, commit, platform, and actual Node.js and Bun versions. Commit
 first when a reproducible source reference matters: the commit alone cannot reconstruct uncommitted
@@ -54,8 +48,8 @@ node bin/pie.js --no-open
 ```
 
 Open <http://127.0.0.1:30141>. Verify the supplied checksum before extraction, using `sha256sum` or
-macOS `shasum -a 256`. Preserve hidden `.next` files and all of `node_modules`. The installation
-must be writable for launcher preview-secret rotation.
+macOS `shasum -a 256`. Keep the whole directory and all of `node_modules` together. The installation
+must be writable for the launcher's state files.
 
 For remote access, prefer SSH forwarding:
 
@@ -69,14 +63,14 @@ Stop the old instance, extract the replacement to a new directory, and start it 
 directory for rollback and back up user configuration and sessions. Do not replace build files in a
 running installation or copy native dependencies between platforms.
 
-Smoke tests verify the build platform, not every provider, OAuth flow, MCP server, or extension.
-Git, shells, Python, npm/npx, and external MCP programs must be provided separately when needed.
-Historical plugin and skill installers may still require npm/npx.
+The build is not verified automatically: check the packaged interface, a session round trip, and
+the API the build is going to serve. Git, shells, Python, npm/npx, and external MCP programs must be
+provided separately when needed. Historical plugin and skill installers may still require npm/npx.
 
 ## Desktop shell
 
 The archive is also the payload of the Tauri 2 shell in `src-tauri/`. `bun run desktop:build` runs
 this pipeline, writes `build/desktop/payload.tar.gz` and `payload.json`, builds the shell, and
 packages the host platform; `--payload <archive>` reuses an existing archive. The payload is rebuilt
-with `NEXT_PUBLIC_PIE_DESKTOP=1` so the service worker stays unregistered in a webview. See
+with `VITE_PIE_DESKTOP=1` so the service worker stays unregistered in a webview. See
 [desktop shell](../docs/desktop.md) for the runtime contract.

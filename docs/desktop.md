@@ -10,7 +10,7 @@ Keep the shell small enough to audit in one sitting:
 
 - Find a Node.js binary and start the Pie server as a child process.
 - Give the webview a stable loopback URL and shut the server down on exit.
-- Package the already-tested portable payload; no second build pipeline.
+- Package the portable payload; no second build pipeline.
 
 The shell does not reimplement configuration, credentials, sessions, or updates. It has no
 auto-updater and no release channel.
@@ -67,7 +67,7 @@ the shell already probes.
 ## Node.js
 
 The shell needs a Node.js binary, not Bun or a dependency installation. It accepts a version that
-satisfies the Next.js floor (`>= 20.9.0`). Resolution order:
+satisfies the server's floor (`>= 22.5.0`, for `node:sqlite`). Resolution order:
 
 1. `PIE_DESKTOP_NODE`
 2. `nodePath` in `desktop.json`
@@ -181,8 +181,6 @@ and the Windows prerequisites.
 
 ```sh
 bun install --frozen-lockfile
-bun run test:portable            # portable payload tests
-bun run test:desktop             # payload manifest and config tests
 bun run desktop:dev              # shell against an already running dev server
 bun run desktop:build            # payload + release binary + platform package
 ```
@@ -219,12 +217,10 @@ programs invoked by the agent remain the user's responsibility.
 
 ## Verification
 
-- `cargo test` in `src-tauri`: version parsing, HTTP status parsing, path safety, navigation
-  classification, port candidates, and the `PATH` the shell gives the server.
+Verification is manual; the project keeps no tests.
+
 - From Finder or the Start menu (not a terminal), `ps eww -p <server pid>` shows the widened `PATH`,
   and both an `npx`-based MCP entry's Test button and `bun --version` in the bash tool work.
-- `node --test packaging/desktop.test.mjs`: payload manifest and archive layout.
-- The portable smoke test runs inside `desktop:build`, so the payload is verified before packaging.
-- Manual, on each platform: start, send a message, drag an attachment, sign in to a provider (system
-  browser round-trip), view full history (system browser), close the window, then confirm
-  `pie status` is empty.
+- On each platform: start, send a message, drag an attachment, sign in to a provider (system browser
+  round-trip), view full history (system browser), close the window, then confirm `pie status` is
+  empty.

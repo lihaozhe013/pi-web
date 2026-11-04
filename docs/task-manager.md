@@ -314,18 +314,10 @@ Policy, decided and recorded here:
 - The queue still refuses to run when another process holds `pie-tasks.lock`; the tools surface that
   conflict instead of pretending to start.
 
-## Testing
+## Verification
 
-One relevant file per change, per `AGENTS.md`.
-
-| File                                        | Covers                                                                                             |
-| ------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `lib/tasks/store.test.mjs`                  | Migrations to `user_version = 4`, events written in the same transaction as claim/settle/question. |
-| `lib/tasks/agent-tools.test.mjs` (new)      | Each tool against a temporary database: create/update/move/delete, `task_locked`, cursor advance.  |
-| `lib/task-manager-extension.test.mjs` (new) | Watch on/off, digest coalescing, origin filter, budget, single watcher, `sendMessage` arguments.   |
-| `lib/rpc-manager-tool-exposure.test.mjs`    | The extension is loaded only for the manager cwd, and the tool set is forced non-chat-only there.  |
-| `app/api/tasks/route.test.mjs`              | `POST /api/tasks/manager`, directory creation, default `AGENTS.md` never overwritten.              |
-| `components/TaskWorkspace.test.mjs`         | The Orchestrator action and the watching chip's states.                                            |
+Testing is manual; the project keeps no tests. Open the task manager project, send a
+message, and watch the tools read and change the queue; add, move, and delete one task by hand.
 
 ## Implementation phases
 

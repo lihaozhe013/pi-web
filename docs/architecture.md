@@ -5,11 +5,11 @@ code and installed SDK types before changing behavior.
 
 ## Runtime
 
-Next.js serves the browser UI and local HTTP APIs. React renders the conversation. Node.js hosts Pi
-sessions in process; Bun manages dependencies and script invocation.
+One Node.js process serves the browser UI and the local HTTP API through Hono; Vite builds the
+interface and the server bundle. React renders the conversation, and Pi sessions live in that same
+process. Bun manages dependencies and script invocation.
 
-This runtime is being replaced. [Runtime migration](runtime-migration.md) plans the move to Vite and
-Hono and the removal of Next.js.
+[Runtime](runtime.md) describes the request path, the build, and why the framework was replaced.
 
 ## Main entry points
 
@@ -26,9 +26,12 @@ Hono and the removal of Next.js.
 | Agent runtime            | `lib/rpc-manager.ts`                                                                        |
 | Saved session reading    | `lib/session-reader.ts`                                                                     |
 | Shared types             | `lib/types.ts`, `lib/pi-types.ts`                                                           |
-| Task queue               | `lib/tasks/`, `app/api/tasks/`, `components/TaskWorkspace.tsx`                              |
+| Task queue               | `lib/tasks/`, `server/api/tasks/`, `components/TaskWorkspace.tsx`                           |
 | Task manager             | `lib/task-manager-extension.ts`, `lib/tasks/agent-tools.ts`, `lib/tasks/manager-project.ts` |
-| HTTP APIs                | `app/api/`                                                                                  |
+| HTTP APIs                | `server/api/`, registered in `server/routes.ts`                                             |
+| Server assembly          | `server/app.ts`, `server/index.ts`, `server/middleware/security.ts`                         |
+| Browser entry            | `src/main.tsx`, `index.html`, `vite.config.ts`                                              |
+| Styles                   | `styles/`, imported once by `src/main.tsx`                                                  |
 | Local launcher           | `bin/pie.js`                                                                                |
 | Portable packaging       | `packaging/`                                                                                |
 | Desktop shell            | `src-tauri/`, `packaging/desktop.mjs`                                                       |
@@ -48,7 +51,7 @@ the appearance editor. `lib/settings-search.ts` is a metadata-only index with st
 translated labels and availability hints. Searches do not read persisted configuration content.
 
 Settings › Global AGENTS.md edits Pi's user-level context file from `getAgentDir()` as plain text.
-`components/GlobalAgentsConfig.tsx` reads and saves it through `app/api/global-agents`;
+`components/GlobalAgentsConfig.tsx` reads and saves it through `server/api/global-agents`;
 `lib/global-agents-file.ts` keeps the path fixed, bounds the file at 1 MiB, and replaces it
 atomically. There is no Markdown preview or general file access on that route.
 
@@ -66,7 +69,7 @@ semantics. Global and project model lists have separate cache keys; default and 
 still write global settings and refuse edits shadowed by the selected project's settings.
 
 Settings › Models › General saves a global context window limit in `pie-model-settings.json` in the
-agent directory (`lib/model-context-limit.ts`, served by `app/api/models/context-limit`). Because pi
+agent directory (`lib/model-context-limit.ts`, served by `server/api/models/context-limit`). Because pi
 compacts from the session model's native `contextWindow`, the limit is applied where models are
 resolved: `withContextWindowLimit()` wraps the `ModelRuntime` the same transparent way
 `withDeferredProviderModels()` does — session runtimes in `lib/rpc-manager.ts`, the shared
@@ -87,7 +90,7 @@ extension UI paths. The one tool surface Pie registers itself is the queue's man
 
 One scheduled surface exists: the serial task queue in [Tasks](tasks.md). It never runs two tasks at
 once, never reuses a session between tasks, and speaks only Pi's RPC records to a Pi CLI child
-process. It imports nothing from `lib/rpc-manager.ts`, so deleting `lib/tasks`, `app/api/tasks`, and
+process. It imports nothing from `lib/rpc-manager.ts`, so deleting `lib/tasks`, `server/api/tasks`, and
 the task workspace leaves chat behavior unchanged. A task's session is an ordinary Pi session and
 renders through the normal transcript; while its process runs, that session is read-only in chat so
 two writers never share one session file.
@@ -218,7 +221,7 @@ same dialog drives either one.
 setup step. `lib/goal-package.ts` resolves that copy and hands its package root to the session's
 resource loader as an extension path — the same path a person's own package takes, so the package's
 `pi.extensions` manifest and its peer modules decide how it loads, and no import of its TypeScript
-enters the Next build. A goal package the person configured themselves (global or project settings)
+enters the server bundle. A goal package the person configured themselves (global or project settings)
 wins over the bundled one: two of them in one session would run two loops over one goal. Removing
 the package from the app's dependencies, or configuring another goal package, leaves the sessions
 with the package the person chose; a session with none offers no goal card.
@@ -251,7 +254,7 @@ this feature with untrusted workspaces or permissions you would not grant to an 
 ## Math rendering dependencies
 
 Markdown and the chat minimap use `rehype-katex` with the KaTeX stylesheet imported by
-`app/layout.tsx`. A scoped Bun override keeps the plugin's renderer on the same KaTeX version as the
+`src/main.tsx`. A scoped Bun override keeps the plugin's renderer on the same KaTeX version as the
 stylesheet, despite its older declared range. Review this override when upgrading the plugin;
 Mermaid and micromark retain their own KaTeX dependency versions. The scoped override requires a Bun
 version that supports lockfile version 3.

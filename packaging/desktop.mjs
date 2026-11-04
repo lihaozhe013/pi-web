@@ -14,7 +14,7 @@ const tauriDir = join(root, 'src-tauri');
 const cliBuildConfig = join(tauriDir, 'tauri.build.conf.json');
 
 /** The desktop payload is the portable payload, rebuilt without the service worker. */
-export const DESKTOP_BUILD_ENV = { NEXT_PUBLIC_PIE_DESKTOP: '1' };
+export const DESKTOP_BUILD_ENV = { VITE_PIE_DESKTOP: '1' };
 
 export function payloadKey(version, sha256) {
   if (!/^[\w.+-]+$/.test(version)) throw new Error('Invalid payload version');
@@ -38,7 +38,7 @@ A window around the local Pie server. The server runs as a child process and
 stops when the window closes. Node.js and the webview are not bundled.
 
 Requirements
-  Node.js 20.9.0 or newer on PATH, or a path in the desktop config file
+  Node.js 22.5.0 or newer on PATH, or a path in the desktop config file
   WebKitGTK 4.1 (webkit2gtk-4.1) 2.44 or newer, and GTK 3
   A graphical session (X11 or Wayland)
 
@@ -183,8 +183,8 @@ export async function preparePayload({ payload, skipPayload = false, commit } = 
     return JSON.parse(await readFile(manifestPath, 'utf8'));
   }
 
-  // The portable pipeline already smoke-tests the extracted archive, so the
-  // desktop build never packages an unverified payload.
+  // The desktop payload is the portable archive, so one pipeline produces both and the archive
+  // that ships is the one the portable build wrote.
   const built = await buildPortableArchive({
     output: join(desktopDir, 'portable'),
     env: DESKTOP_BUILD_ENV
