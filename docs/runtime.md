@@ -69,7 +69,8 @@ node scripts/generate-routes.mjs
 The generator registers literal paths before parameterized ones, maps `[id]` to `:id`, and maps a
 rest directory such as `[...path]` to a wildcard whose segments arrive as `params.path`. It also
 names the handler for each file, so adding a route is: add `server/api/<path>/route.ts`, export the
-methods, regenerate, and commit both files.
+methods, regenerate, and commit both files. `bun run build` runs the generator first, so a release
+can never ship a route the registry does not know about.
 
 ## The interface
 

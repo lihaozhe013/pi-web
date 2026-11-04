@@ -10,8 +10,9 @@ const UI_PORT = 30141;
 const API_PORT = 30142;
 
 /**
- * The saved palette has to apply before first paint, so the inline script runs from `<head>`.
- * It lives in `lib/theme.ts` because the app and the themes' tests share it.
+ * The saved palette has to apply before first paint, so the inline script runs from `<head>`
+ * instead of from the bundle. Its source is `lib/theme.ts` so the page and the app apply the
+ * same rules.
  */
 function themeInit(): Plugin {
   return {
