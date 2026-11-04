@@ -38,7 +38,7 @@ export function readBuildInfo() {
   return { version, piVersion, commit: readCommit() };
 }
 
-/** The `define` entries that stand in for the `env` block `next.config.ts` used to provide. */
+/** The `define` entries that inline the build's identity into the client bundle. */
 export function buildInfoDefine() {
   const { version, piVersion, commit } = readBuildInfo();
   return {
