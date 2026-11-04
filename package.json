@@ -1,6 +1,9 @@
 {
   "name": "@lihaozhe013/pie",
   "version": "0.1.0",
+  "engines": {
+    "node": ">=22.5.0"
+  },
   "description": "Minimal GUI for the Pi coding agent",
   "homepage": "https://github.com/lihaozhe013/pie#readme",
   "repository": {
