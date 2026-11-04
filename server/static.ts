@@ -26,7 +26,10 @@ function bundleFile(distDir: string, path: string): string | null {
     .split(sep)
     .join('/');
   if (relativePath.split('/').some((segment) => segment === '..' || segment === '.')) return null;
-  return existsSync(join(distDir, relativePath)) ? relativePath : null;
+  const file = join(distDir, relativePath);
+  // A directory name is not a file: `/assets` must fall through to the shell rule, not open a
+  // stream that errors on a directory handle.
+  return existsSync(file) && statSync(file).isFile() ? relativePath : null;
 }
 
 function fileResponse(distDir: string, relativePath: string): Response {

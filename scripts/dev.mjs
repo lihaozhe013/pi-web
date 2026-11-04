@@ -1,7 +1,7 @@
 // Development: Vite serves the interface on its own port and the built server answers the API.
 // The server is rebuilt on change and restarted by `node --watch`, so the API uses the same
 // compiled bundle a release ships instead of a separate TypeScript loader.
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -41,6 +41,10 @@ function buildServer({ watch }) {
   if (watch) args.push('--watch');
   return run(args);
 }
+
+// A route file added since the last run would otherwise answer 404 until someone remembered to
+// regenerate, so the registry is derived once at startup.
+execFileSync(process.execPath, [join(root, 'scripts', 'generate-routes.mjs')], { stdio: 'inherit' });
 
 // The first build has to finish before the server can start; later rebuilds are picked up by
 // `node --watch`.
