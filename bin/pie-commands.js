@@ -39,12 +39,12 @@ async function stopServer(
     error = console.error
   } = {}
 ) {
-  // The launcher, or the Next.js server a killed launcher left serving.
+  // The launcher, or the server a killed launcher left serving.
   const pid = record.stopPid ?? record.pid;
   try {
-    // The launcher forwards SIGTERM to Next.js and exits after it. Windows has
-    // no SIGTERM: process.kill() would end the launcher alone and leave Next.js
-    // serving the port, so end the whole process tree there.
+    // The launcher forwards SIGTERM to the server and exits after it. Windows has
+    // no SIGTERM: process.kill() would end the launcher alone and leave the server
+    // holding the port, so end the whole process tree there.
     if (platform === 'win32') killTree(pid);
     else kill(pid, 'SIGTERM');
   } catch (killError) {

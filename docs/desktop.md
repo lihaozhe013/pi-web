@@ -131,7 +131,7 @@ existing window.
 Closing the window, quitting the app, or Ctrl-C in a terminal stops a server the shell started:
 
 - Unix: `SIGTERM` to the launcher's process group, `SIGKILL` after 8 seconds. The launcher forwards
-  the signal to Next.js and waits for extensions to shut down.
+  the signal to the server, which closes its streams and waits for extensions to shut down.
 - Windows: `taskkill /PID <pid> /T /F`, matching `pie stop`.
 
 A crash of the shell leaves the server behind; the run record is what `pie status` and `pie stop`
@@ -153,19 +153,18 @@ saying so, instead of showing an empty frame.
   in the window. A small initialization script routes `window.open` and `target="_blank"` anchors
   through the same guard, so session export and provider login still reach a real browser.
 - Requested permissions stay unchanged: path authorization, origin validation, and credential
-  handling remain in the Next.js server.
+  handling remain in the server (`server/middleware/security.ts`).
 
 ## Payload
 
 `packaging/portable.mjs` builds the payload, so the desktop build is the portable build plus a
-shell. The app is rebuilt with `NEXT_PUBLIC_PIE_DESKTOP=1`, which keeps the service worker from
+shell. The app is rebuilt with `VITE_PIE_DESKTOP=1`, which keeps the service worker from
 registering. A service worker in a webview caches by origin, survives port changes, and can serve a
 stale shell after an update; the desktop shell does not need offline support.
 
-Production dependencies are pruned of source maps, sharp, and Next.js docs before the archive is
-written. `@next/swc` stays: when it is missing, Next.js downloads the bindings at startup, which
-needs network access and about 190 MiB of the user's disk. The payload is mostly Next.js itself (its
-native compiler plus runtime) and Pi's provider SDKs, not application code.
+Production dependencies are pruned of source maps before the archive is written. What remains is
+the built interface (`dist`, about 11 MB), the server bundle (`build/server`, about 1 MB), the
+launcher in `bin`, and Pi's provider SDKs with their native helpers.
 
 ## Build
 

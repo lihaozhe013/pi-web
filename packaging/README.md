@@ -27,10 +27,10 @@ source directory. Add new files to Git before packaging. Deleted files are skipp
 It installs frozen dependencies, builds outside the development checkout (`vite build` for the
 interface, `vite build --config vite.server.config.ts` for the server bundle), packs using the
 package file allow-list, and installs production dependencies in isolation. That production tree is
-then pruned of files the server never reads: source maps and the sharp image optimizer. The
-temporary source copy has no `.git`, so the packager forwards the source commit as `PIE_COMMIT` and
-the build's version carries its short form (`0.1.0+1c02256`). The final archive contains `dist`,
-`build/server`, and complete production `node_modules`.
+then pruned of files the server never reads: source maps. The temporary source copy has no `.git`,
+so the packager forwards the source commit as `PIE_COMMIT` and the build's version carries its short
+form (`0.1.0+1c02256`). The final archive contains `dist`, `build/server`, and complete production
+`node_modules`.
 
 Output defaults to `build/portable/`. Temporary directories are cleaned up afterward. Registry
 access is needed during packaging.

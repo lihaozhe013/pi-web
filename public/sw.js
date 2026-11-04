@@ -138,7 +138,7 @@ async function focusOrOpenWindow(targetUrl) {
 /**
  * Fetch with a ceiling on the wait for the response headers (time to first
  * byte). The timer is cleared as soon as they arrive, so a response that
- * streams a long body — Next.js streams SSR output — is never cut off
+ * streams a long body — an agent event stream, for example — is never cut off
  * mid-stream.
  */
 async function fetchWithTimeout(request, timeoutMs) {
