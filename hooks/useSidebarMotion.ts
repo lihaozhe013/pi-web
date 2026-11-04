@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { prefersReducedMotion } from '@/lib/motion';
 
 /**
- * The sidebar's two motions (components/SessionSidebar.tsx, app/sidebar.css):
+ * The sidebar's two motions (components/SessionSidebar.tsx, styles/sidebar.css):
  * the files section below the sessions folding to its header row and back,
  * and the archive view sliding in over the session tree and away again. CSS
  * runs both this long (SessionSidebar.test.mjs checks that the two agree).
@@ -106,7 +106,7 @@ export interface ArchiveViewState {
   archiveMounted: boolean;
   /** Inert on its way out: nothing in it is clicked twice. */
   archiveInert: boolean;
-  /** The archive view's animation (app/sidebar.css). */
+  /** The archive view's animation (styles/sidebar.css). */
   archiveClass: 'is-entering' | 'is-leaving' | null;
 }
 

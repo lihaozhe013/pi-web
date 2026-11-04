@@ -402,7 +402,7 @@ export function handOffDisabledKeyFocus(
 }
 
 /**
- * How much of the toolbar row's labels fit (`data-fit`, app/sidebar.css):
+ * How much of the toolbar row's labels fit (`data-fit`, styles/sidebar.css):
  * all (0), New's + alone (1), then the tabs' icons alone, or below the
  * sessions the brand's versions in a smaller type (2): the brand itself is
  * never cut. Measured, not a fixed width, since the labels' widths change

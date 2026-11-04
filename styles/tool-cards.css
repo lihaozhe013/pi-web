@@ -7,7 +7,7 @@
  * output inside it sits a shade deeper, so the body reads as a pane of its own
  * instead of as the page background. Both shades mix semantic tokens, so every
  * theme gets a proportional tint without another hard-coded colour. The radius
- * comes from the inline 7px, which app/workspace.css lifts to --ui-radius-md,
+ * comes from the inline 7px, which styles/workspace.css lifts to --ui-radius-md,
  * the message-bubble radius. State stays in a quiet status mark (below the
  * buffer for running shells); only an error warms the tint.
  */

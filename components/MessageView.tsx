@@ -506,7 +506,6 @@ function UserMessageView({
             : '';
         return (
           <ImagePreview key={i} src={src}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={src}
               alt=""
@@ -1407,7 +1406,7 @@ const TOOL_DURATION_MIN_MS = 100;
 
 /**
  * The quiet card has no outline — its surface tint in
- * `app/tool-cards.css` draws the card — so every divider inside it is the
+ * `styles/tool-cards.css` draws the card — so every divider inside it is the
  * border token at less than half strength: a whisper, not a rule.
  */
 
@@ -1661,7 +1660,7 @@ function ToolCallBlock({
             </button>
           </div>
 
-          {/* The body folds open and shut (`app/tool-cards.css`): its content is
+          {/* The body folds open and shut (`styles/tool-cards.css`): its content is
             clipped, not unmounted mid-fold, so closing reads as a movement. */}
           <div
             className="tool-card-body"
@@ -1980,7 +1979,6 @@ function ResultImages({ images }: { images: ImageContent[] }) {
         if (!src) return null;
         return (
           <ImagePreview key={`${src}-${index}`} src={src} style={{ maxWidth: '100%' }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={src}
               alt=""
@@ -2360,7 +2358,6 @@ function CustomMessageView({
                     if (!src) return null;
                     return (
                       <ImagePreview key={i} src={src}>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={src}
                           alt=""

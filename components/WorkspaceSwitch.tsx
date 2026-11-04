@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { useInAppClick } from '@/hooks/useAppLocation';
 import { useI18n } from '@/hooks/useI18n';
 
 export type WorkspaceMode = 'chat' | 'tasks';
@@ -54,6 +54,7 @@ function TasksIcon() {
  */
 export function WorkspaceSwitch({ mode }: { mode: WorkspaceMode }) {
   const { t } = useI18n();
+  const onClick = useInAppClick();
   const options = [
     { key: 'chat', href: '/', label: t('workspace.chat') },
     { key: 'tasks', href: '/?mode=tasks', label: t('workspace.tasks') }
@@ -62,9 +63,10 @@ export function WorkspaceSwitch({ mode }: { mode: WorkspaceMode }) {
   return (
     <nav className="workspace-switch" aria-label={t('workspace.switch')}>
       {options.map((option) => (
-        <Link
+        <a
           key={option.key}
           href={option.href}
+          onClick={onClick}
           className="workspace-switch-item"
           data-active={mode === option.key ? 'true' : undefined}
           data-workspace-option={option.key}
@@ -72,7 +74,7 @@ export function WorkspaceSwitch({ mode }: { mode: WorkspaceMode }) {
         >
           {option.key === 'chat' ? <ChatIcon /> : <TasksIcon />}
           <span>{option.label}</span>
-        </Link>
+        </a>
       ))}
     </nav>
   );

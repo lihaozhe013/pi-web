@@ -10,14 +10,11 @@ import { useActiveExecutionHistory } from '@/hooks/useActiveExecutionHistory';
 import { ToolActivityProvider, liveToolIds } from './ToolActivity'; // display-only execution status
 import type { GoalFacts } from '@/lib/goal-driver';
 import { formatAppVersion } from '@/lib/app-version';
+import { BUILD_COMMIT, BUILD_PI_VERSION, BUILD_VERSION } from '@/lib/build-info';
 
 /** The web build's version, with the commit it came from (`0.1.0+1c02256`). */
-const APP_VERSION_LABEL = formatAppVersion(
-  process.env.NEXT_PUBLIC_APP_VERSION,
-  process.env.NEXT_PUBLIC_APP_COMMIT
-);
+const APP_VERSION_LABEL = formatAppVersion(BUILD_VERSION, BUILD_COMMIT);
 import { registerAbortHandler } from '@/hooks/useKeyboardShortcuts';
-import Image from 'next/image';
 import {
   Fragment,
   memo,
@@ -2184,12 +2181,11 @@ export function ChatWindow({
                 style={{ maxWidth: 'var(--chat-content-max-width, 820px)' }}
               >
                 <div className="new-session-brand">
-                  <Image
+                  <img
                     src="/icons/apple-touch-icon.png"
                     width={40}
                     height={40}
                     alt=""
-                    priority
                     className="new-session-logo"
                   />
                   <div className="new-session-brand-text">
@@ -2198,7 +2194,7 @@ export function ChatWindow({
                       <span>web v{APP_VERSION_LABEL}</span>
                       <span aria-hidden="true">·</span>
                       <span className="new-session-meta-pi">
-                        pi v{process.env.NEXT_PUBLIC_PI_VERSION ?? '0.0.0'}
+                        pi v{BUILD_PI_VERSION}
                       </span>
                     </span>
                   </div>

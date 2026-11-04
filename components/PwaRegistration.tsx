@@ -1,6 +1,7 @@
 'use client';
 
 import { formatAppVersion } from '@/lib/app-version';
+import { BUILD_COMMIT, BUILD_VERSION, IS_DESKTOP_SHELL } from '@/lib/build-info';
 import { useEffect } from 'react';
 
 export function PwaRegistration() {
@@ -13,7 +14,7 @@ export function PwaRegistration() {
     // there caches by origin, outlives a port change, and can serve a stale shell
     // after an update, so the desktop build never registers one and removes any
     // registration an earlier build left behind.
-    if (process.env.NEXT_PUBLIC_PIE_DESKTOP === '1') {
+    if (IS_DESKTOP_SHELL) {
       void navigator.serviceWorker
         .getRegistrations()
         .then((registrations) =>
@@ -26,10 +27,7 @@ export function PwaRegistration() {
     }
 
     const register = () => {
-      const appVersion = formatAppVersion(
-        process.env.NEXT_PUBLIC_APP_VERSION ?? 'dev',
-        process.env.NEXT_PUBLIC_APP_COMMIT
-      );
+      const appVersion = formatAppVersion(BUILD_VERSION, BUILD_COMMIT);
       const scriptUrl = `/sw.js?v=${encodeURIComponent(appVersion)}`;
 
       void navigator.serviceWorker

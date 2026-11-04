@@ -772,7 +772,7 @@ export function SidebarMenu({
       if (!target) return;
       target.focus({ preventScroll: true });
       // Keyboard focus on the row's main button shows its actions again
-      // (:has(:focus-visible) in app/sidebar.css): the opener is back, so it
+      // (:has(:focus-visible) in styles/sidebar.css): the opener is back, so it
       // takes focus, as if it had never been hidden.
       if (opener && target !== opener && isRendered(opener)) opener.focus({ preventScroll: true });
     };

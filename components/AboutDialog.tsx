@@ -2,6 +2,7 @@
 
 import { useI18n } from '@/hooks/useI18n';
 import { shortCommit } from '@/lib/app-version';
+import { BUILD_COMMIT, BUILD_PI_VERSION, BUILD_VERSION } from '@/lib/build-info';
 import { SessionModal } from './SessionModal';
 
 /**
@@ -19,10 +20,8 @@ export const APP_REPOSITORY_URL = 'https://github.com/lihaozhe013/pie';
 export const PI_REPOSITORY_URL = 'https://github.com/earendil-works/pi';
 export const APP_LICENSE = 'MIT';
 
-/** The build's values, inlined by Next from next.config.ts's `env`. */
-export const BUILD_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? '0.0.0';
-export const BUILD_COMMIT = process.env.NEXT_PUBLIC_APP_COMMIT ?? 'unknown';
-export const BUILD_PI_VERSION = process.env.NEXT_PUBLIC_PI_VERSION ?? '0.0.0';
+/** Kept as named exports so the About tests and the dialog read one source. */
+export { BUILD_COMMIT, BUILD_PI_VERSION, BUILD_VERSION };
 
 function GitHubIcon() {
   return (
@@ -58,8 +57,7 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
   return (
     <SessionModal title={t('about.title')} onClose={onClose} maxWidth={380}>
       <div className="about-dialog">
-        {/* A fixed 64px mark, not content: next/image buys nothing here. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {/* A fixed 64px mark, not content: it needs no loader or sizing logic. */}
         <img
           className="about-logo"
           src={ABOUT_LOGO_SRC}

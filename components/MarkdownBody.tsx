@@ -67,7 +67,6 @@ function MarkdownImage({
     return <video controls playsInline preload="metadata" src={mediaSrc} aria-label={label} />;
   }
   // Dynamic local paths are served directly by the file API.
-  // eslint-disable-next-line @next/next/no-img-element
   const image = <img src={mediaSrc} alt={alt ?? ''} loading="lazy" {...props} />;
   if (!mediaSrc || insideLink) return image;
   return (

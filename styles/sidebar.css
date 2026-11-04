@@ -1139,7 +1139,7 @@ a.session-tree-main {
 
 /* The separator between them: a 12px hit area centred on the files
    section's top border, which is the line it shows; the sidebar's own
-   handle (app/globals.css, .panel-resize-handle) turned on its side, so
+   handle (styles/globals.css, .panel-resize-handle) turned on its side, so
    hover, focus and a drag look the same. */
 .panel-resize-handle.sidebar-files-resize-handle {
   width: auto;
@@ -1428,7 +1428,7 @@ a.session-tree-main {
 }
 
 /* Files tab: the folder in use (the stacked project picker's two boxes,
-   app/globals.css) and what is done with it, then a line and the tree. */
+   styles/globals.css) and what is done with it, then a line and the tree. */
 .sidebar-files-head {
   display: flex;
   flex: none;

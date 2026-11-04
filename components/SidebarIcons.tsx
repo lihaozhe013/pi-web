@@ -275,7 +275,7 @@ export function MessageIcon(props: SidebarIconProps) {
 
 /**
  * The running-agent spinner. It turns through the `sidebar-spin` class
- * (app/sidebar-menu.css), which stands still under prefers-reduced-motion.
+ * (styles/sidebar-menu.css), which stands still under prefers-reduced-motion.
  */
 export function SpinnerIcon({ className, ...props }: SidebarIconProps) {
   return (

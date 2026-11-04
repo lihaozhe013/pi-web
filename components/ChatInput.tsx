@@ -2402,7 +2402,6 @@ export const ChatInput = memo(
               {attachedImages.map((img, i) => (
                 <div key={i} style={{ position: 'relative', flexShrink: 0 }}>
                   <ImagePreview key={img.previewUrl} src={img.previewUrl}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={img.previewUrl}
                       alt=""

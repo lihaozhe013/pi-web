@@ -1,7 +1,7 @@
 /* About dialog (components/AboutDialog.tsx): one centered column — the mark,
    the name, the version the build came from, its Pi release and license, and
    the links out. Traditional about panel: no cards, frames or gradients; the
-   modal shell (app/workspace.css) already supplies the surface and its
+   modal shell (styles/workspace.css) already supplies the surface and its
    header's close button. */
 
 .about-dialog {

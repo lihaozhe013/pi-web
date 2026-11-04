@@ -64,7 +64,7 @@ import {
   setLastOpenSession,
   workspaceKeyOf
 } from '@/lib/workspace-memory';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from '@/hooks/useAppLocation';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { BranchNavigator, hasSessionBranches } from './BranchNavigator';
 import type { ChatInputHandle } from './ChatInput';

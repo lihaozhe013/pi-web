@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import { useState, type FormEvent } from 'react';
 import { I18nProvider, useI18n } from '@/hooks/useI18n';
 import { safeLoginDestination } from '@/lib/login-destination';
@@ -51,7 +50,7 @@ function LoginForm() {
     <main className="web-login-page">
       <div className="web-login-shell">
         <header className="web-login-brand">
-          <Image src="/icons/apple-touch-icon.png" width={52} height={52} alt="" priority />
+          <img src="/icons/apple-touch-icon.png" width={52} height={52} alt="" />
           <div>
             <h1>Pie</h1>
             <p>{t('auth.prompt')}</p>
@@ -100,7 +99,7 @@ function LoginForm() {
   );
 }
 
-export default function LoginPage() {
+export function LoginPage() {
   return (
     <I18nProvider>
       <LoginForm />

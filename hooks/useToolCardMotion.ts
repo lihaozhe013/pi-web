@@ -3,7 +3,7 @@ import { prefersReducedMotion } from '@/lib/motion';
 
 /**
  * How long a card that left the transcript keeps fading out
- * (`app/tool-cards.css`, `.tool-card-exit`).
+ * (`styles/tool-cards.css`, `.tool-card-exit`).
  */
 export const TOOL_CARD_EXIT_MS = 240;
 
@@ -16,7 +16,7 @@ export const TOOL_CARD_EXIT_MS = 240;
 export const TOOL_CARD_MIN_VISIBLE_MS = 2000;
 
 /**
- * How long a card's body takes to open or close (`app/tool-cards.css`,
+ * How long a card's body takes to open or close (`styles/tool-cards.css`,
  * `.tool-card-body`). The body's content is kept this long after it closes,
  * so it is still there while it folds away.
  */
