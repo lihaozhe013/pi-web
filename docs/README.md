@@ -51,17 +51,18 @@ pipeline, or automated update commitment is maintained.
 
 All project documentation is maintained in English, without translated copies.
 
-| Document                            | Purpose                               |
-| ----------------------------------- | ------------------------------------- |
-| [README](../README.md)              | Usage, security, and attribution      |
-| [Agent instructions](../AGENTS.md)  | Rules for coding assistants           |
-| [Interface principles](design.md)   | Presentation and interaction          |
-| [Architecture](architecture.md)     | Current entry points and boundaries   |
-| [Desktop shell](desktop.md)         | Tauri 2 window and desktop packaging  |
-| [Tasks](tasks.md)                   | Serial task queue, execution boundary |
-| [Task manager](task-manager.md)     | Agent-driven queue control            |
-| [Packaging](../packaging/README.md) | Local portable builds                 |
-| [Browser tests](../e2e/README.md)   | Local browser regression testing      |
+| Document                                  | Purpose                               |
+| ----------------------------------------- | ------------------------------------- |
+| [README](../README.md)                    | Usage, security, and attribution      |
+| [Agent instructions](../AGENTS.md)        | Rules for coding assistants           |
+| [Interface principles](design.md)         | Presentation and interaction          |
+| [Architecture](architecture.md)           | Current entry points and boundaries   |
+| [Runtime migration](runtime-migration.md) | Leaving Next.js for Vite and Hono     |
+| [Desktop shell](desktop.md)               | Tauri 2 window and desktop packaging  |
+| [Tasks](tasks.md)                         | Serial task queue, execution boundary |
+| [Task manager](task-manager.md)           | Agent-driven queue control            |
+| [Packaging](../packaging/README.md)       | Local portable builds                 |
+| [Browser tests](../e2e/README.md)         | Local browser regression testing      |
 
 These documents replace the upstream snapshot, fork-specific design guide, translated guides,
 historical ADRs, and release instructions. Use Git history for historical context rather than

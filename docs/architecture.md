@@ -8,6 +8,9 @@ code and installed SDK types before changing behavior.
 Next.js serves the browser UI and local HTTP APIs. React renders the conversation. Node.js hosts Pi
 sessions in process; Bun manages dependencies and script invocation.
 
+This runtime is being replaced. [Runtime migration](runtime-migration.md) plans the move to Vite and
+Hono and the removal of Next.js.
+
 ## Main entry points
 
 | Area                     | Entry points                                                                                |
