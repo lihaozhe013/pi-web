@@ -1,5 +1,3 @@
-'use client';
-
 import { useEffect, useId, useRef, useState } from 'react';
 import type { McpServerInfo, McpSignInFlowInfo } from '@/lib/api-types';
 import { useI18n } from '@/hooks/useI18n';

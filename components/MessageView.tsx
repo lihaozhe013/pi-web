@@ -1,5 +1,3 @@
-'use client';
-
 import { memo, useState, useRef, useEffect, useMemo, type CSSProperties } from 'react';
 import {
   isQuietActivityBlock,

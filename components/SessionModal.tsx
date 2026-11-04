@@ -1,5 +1,3 @@
-'use client';
-
 import { useEffect, useRef, type ReactNode } from 'react';
 import { openStackedDialog } from '@/lib/stacked-dialog';
 import { useI18n } from '@/hooks/useI18n';

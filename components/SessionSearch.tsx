@@ -1,5 +1,3 @@
-'use client';
-
 import { useEffect, useState, type ReactNode } from 'react';
 import { useI18n } from '@/hooks/useI18n';
 import { formatRelativeTime } from '@/lib/i18n/format';

@@ -1,5 +1,3 @@
-'use client';
-
 import { Fragment, useEffect, useId, useRef } from 'react';
 import type {
   ButtonHTMLAttributes,

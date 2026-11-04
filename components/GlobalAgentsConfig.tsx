@@ -1,5 +1,3 @@
-'use client';
-
 import { useEffect, useId, useState } from 'react';
 import { useI18n } from '@/hooks/useI18n';
 import { sendAgentCommand } from '@/lib/agent-client';

@@ -1,5 +1,3 @@
-'use client';
-
 import { useInAppClick } from '@/hooks/useAppLocation';
 import { useI18n } from '@/hooks/useI18n';
 

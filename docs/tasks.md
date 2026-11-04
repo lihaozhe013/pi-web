@@ -292,9 +292,9 @@ Aborting settles as `BLOCKED` rather than rolling back to `PENDING`, because an 
 "this task is wrong": rolling it back would let `resume` immediately repeat the same mistake.
 Explicit `retry` is the way back.
 
-Shutdown: `instrumentation-node.ts` already owns SIGINT/SIGTERM handling for streams and sessions.
-It gains one call that kills the active child and settles its task as `BLOCKED`, so a server restart
-never leaves a zombie agent writing into a directory the user believes is idle.
+Shutdown: `server/instrumentation.ts` already owns SIGINT/SIGTERM handling for streams and
+sessions. It gains one call that kills the active child and settles its task as `BLOCKED`, so a
+server restart never leaves a zombie agent writing into a directory the user believes is idle.
 
 Notifications reuse the existing Web Push path (`lib/web-push.ts`, `server/api/push`): queue complete,
 task failed or blocked, and — importantly — a question waiting.
@@ -433,9 +433,9 @@ delivered in two steps so the chat surface is never destabilized by a navigation
 
 - `AppShell` gains a workspace switch driven by `?mode=tasks`, rendered as `<TaskWorkspace>` in
   place of the conversation and composer. With the parameter absent, nothing about the current chat
-  view changes. No new route file, because `app/page.tsx` already owns `I18nProvider` and a second
-  route would have to repeat the provider tree. The parameter name is the one the tabs use in step
-  2, so the URL never changes. `?task=<id>` opens one task directly, which is the URL a Web Push
+  view changes. No second entry point, because `src/main.tsx` already owns `I18nProvider` and a
+  second mount would have to repeat the provider tree. The parameter name is the one the tabs use in
+  step 2, so the URL never changes. `?task=<id>` opens one task directly, which is the URL a Web Push
   notification links to.
 - The workspace keeps the app's sidebar and toolbar. The center column is one work surface for the
   task being read, and the queue grouped by status (running, queued, blocked, done) sits in the same

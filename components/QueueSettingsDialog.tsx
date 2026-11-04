@@ -1,5 +1,3 @@
-'use client';
-
 import { useState, type FormEvent } from 'react';
 import { useI18n } from '@/hooks/useI18n';
 import { TASK_CONFIG_DEFAULTS, TASK_INSTRUCTIONS_MAX_LENGTH } from '@/lib/tasks/defaults';

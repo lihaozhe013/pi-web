@@ -1,5 +1,3 @@
-'use client';
-
 import { useCallback, useSyncExternalStore } from 'react';
 
 // Mobile breakpoint shared with styles/globals.css (max-width: 640px).

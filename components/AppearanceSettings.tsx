@@ -1,5 +1,3 @@
-'use client';
-
 import {
   CHAT_CONTENT_FONT_SIZE_DEFAULT,
   CHAT_CONTENT_FONT_SIZE_MIN,

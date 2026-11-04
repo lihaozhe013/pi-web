@@ -1,5 +1,3 @@
-'use client';
-
 import { useI18n } from '@/hooks/useI18n';
 import type { NewSessionContext, NewSessionTarget } from '@/lib/new-session-context';
 import { focusIfLost } from '@/lib/stacked-dialog';

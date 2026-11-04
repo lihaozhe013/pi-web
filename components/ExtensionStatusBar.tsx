@@ -1,5 +1,3 @@
-'use client';
-
 import { stripAnsi } from '@/lib/ansi';
 import type { ExtensionStatusItem, ExtensionWidgetItem } from '@/lib/types';
 import { AnsiText } from './AnsiText';

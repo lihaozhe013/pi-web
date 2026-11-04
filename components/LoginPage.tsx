@@ -1,5 +1,3 @@
-'use client';
-
 import { useState, type FormEvent } from 'react';
 import { I18nProvider, useI18n } from '@/hooks/useI18n';
 import { safeLoginDestination } from '@/lib/login-destination';

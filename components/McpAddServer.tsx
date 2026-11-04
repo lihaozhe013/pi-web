@@ -1,5 +1,3 @@
-'use client';
-
 import { useId, useMemo } from 'react';
 import type { McpServerConfig } from '@earendil-works/pi-coding-agent';
 import type { McpResponse, McpScope } from '@/lib/api-types';

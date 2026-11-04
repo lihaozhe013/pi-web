@@ -1,5 +1,3 @@
-'use client';
-
 import { useSyncExternalStore } from 'react';
 
 export const CHAT_CONTENT_WIDTH_DEFAULT = 820;

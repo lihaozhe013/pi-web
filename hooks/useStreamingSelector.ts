@@ -1,5 +1,3 @@
-'use client';
-
 import { useLayoutEffect, useState } from 'react';
 import type { StreamingState, StreamingStore } from '@/lib/streaming-message';
 

@@ -1,5 +1,3 @@
-'use client';
-
 import { setEnterSendMode, useEnterSendMode } from '@/hooks/useEnterSendMode';
 import { setTranscriptToolDisplay, useTranscriptToolDisplay } from '@/hooks/useTranscriptMode';
 import { useI18n } from '@/hooks/useI18n';

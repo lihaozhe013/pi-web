@@ -1,5 +1,3 @@
-'use client';
-
 import type { ReactNode, Ref } from 'react';
 
 /** The parts of a keydown the paste box decides on. */

@@ -1,5 +1,3 @@
-'use client';
-
 import { useI18n } from '@/hooks/useI18n';
 import { shortCommit } from '@/lib/app-version';
 import { BUILD_COMMIT, BUILD_PI_VERSION, BUILD_VERSION } from '@/lib/build-info';

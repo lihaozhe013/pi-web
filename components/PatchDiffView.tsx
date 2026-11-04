@@ -1,5 +1,3 @@
-'use client';
-
 import { useMemo } from 'react';
 import { useI18n } from '@/hooks/useI18n';
 import { useIsMobile } from '@/hooks/useIsMobile';

@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * The task workspace: one queue rail and one work surface that reads the
  * selected task, the task editor, and the live activity of the running task.

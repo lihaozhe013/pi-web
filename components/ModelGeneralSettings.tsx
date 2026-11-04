@@ -1,5 +1,3 @@
-'use client';
-
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useI18n } from '@/hooks/useI18n';
 import { parseContextWindow } from '@/lib/model-context';

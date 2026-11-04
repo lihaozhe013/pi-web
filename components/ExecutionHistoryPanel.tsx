@@ -1,5 +1,3 @@
-'use client';
-
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useBodyContent, useExitingItems } from '@/hooks/useToolCardMotion';
 import { useI18n } from '@/hooks/useI18n';

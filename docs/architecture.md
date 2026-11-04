@@ -119,7 +119,7 @@ and `lib/tasks/active-sessions.ts` is an in-memory set of session ids. `GET /api
 route refuses a prompt for a session in the set. `lib/tasks/config.ts` owns the defaults,
 `lib/tasks/prompt.ts` the task prompt and standing instructions, `lib/tasks/gate.ts` the
 verification commands, and `lib/tasks/request.ts` the route validation and error mapping.
-`instrumentation-node.ts` uses the same shutdown signal to abort the active child and settle its
+`server/instrumentation.ts` uses the same shutdown signal to abort the active child and settle its
 task.
 
 The [task manager](task-manager.md) adds a third contact point: `lib/rpc-manager.ts` loads one

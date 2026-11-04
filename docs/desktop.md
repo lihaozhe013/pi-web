@@ -28,9 +28,10 @@ pie-desktop (Rust, Tauri 2)
   `-- stop                             close the server, then exit
 ```
 
-The payload is the portable archive except for unrelated metadata: `.next` plus production
-`node_modules`, run by the same `bin/pie.js` launcher. Run records, `pie status`, `pie stop`, signal
-forwarding, and preview-secret rotation keep working because the launcher is unchanged.
+The payload is the portable archive except for unrelated metadata: the built interface in `dist`,
+the server bundle in `build/server`, production `node_modules`, and `public`, run by the same
+`bin/pie.js` launcher. Run records, `pie status`, `pie stop`, signal forwarding, and preview-secret
+rotation keep working because the launcher is unchanged.
 
 On macOS the shell replaces Tauri's default menu so its About item opens the interface's own About
 dialog instead of the native panel. The rest of that menu is the default one, so editing shortcuts,
@@ -50,10 +51,11 @@ Hide, and Quit keep working; the item only evaluates an event in the page (see S
 `~/Library/Application Support/...` on macOS, `$XDG_DATA_HOME/...` on Linux, `%APPDATA%\...` on
 Windows.
 
-The payload is extracted instead of running from the bundle because the launcher rewrites
-`.next/prerender-manifest.json` at startup. macOS App Translocation and machine-wide Windows
-installs are read-only, so an in-place bundle would only produce that warning. Extraction also keeps
-Windows away from deep `node_modules` paths inside the installer.
+The payload is extracted instead of running from the bundle because the launcher writes run
+records beside it and the server keeps its Pi runtime state under the same tree. macOS App
+Translocation and machine-wide Windows installs are read-only, so an in-place bundle would fail on
+the first write. Extraction also keeps Windows away from deep `node_modules` paths inside the
+installer.
 
 `desktop.json` is written by hand and read on every launch:
 

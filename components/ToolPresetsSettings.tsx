@@ -1,5 +1,3 @@
-'use client';
-
 import { useEffect, useId, useRef, useState } from 'react';
 import { useI18n } from '@/hooks/useI18n';
 import { PRESET_DEFAULT, PRESET_FULL, PRESET_READ_ONLY } from '@/lib/tool-presets';

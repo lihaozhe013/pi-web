@@ -1,5 +1,3 @@
-'use client';
-
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { getLocalePlugin, getSupportedLocales, resolveBrowserLocale } from '@/lib/i18n/registry';
 import { translateMessage } from '@/lib/i18n/format';

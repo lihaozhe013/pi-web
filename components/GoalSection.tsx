@@ -1,5 +1,3 @@
-'use client';
-
 import { useId, useRef, useState } from 'react';
 import { useI18n } from '@/hooks/useI18n';
 import {

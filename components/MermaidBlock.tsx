@@ -1,5 +1,3 @@
-'use client';
-
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import SyntaxHighlighter from 'react-syntax-highlighter/dist/esm/prism-light';
 import { vs } from 'react-syntax-highlighter/dist/cjs/styles/prism';

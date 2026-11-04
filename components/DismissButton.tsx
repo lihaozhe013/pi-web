@@ -1,5 +1,3 @@
-'use client';
-
 /** Close button for an inline error or result notice. */
 export function DismissButton({ onClick, title }: { onClick: () => void; title: string }) {
   return (

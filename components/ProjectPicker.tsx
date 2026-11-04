@@ -1,5 +1,3 @@
-'use client';
-
 import { useImperativeHandle, useRef, useState, type Ref } from 'react';
 import { useI18n } from '@/hooks/useI18n';
 import {

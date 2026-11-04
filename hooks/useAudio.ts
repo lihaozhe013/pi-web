@@ -1,5 +1,3 @@
-'use client';
-
 import { useState, useRef, useCallback, useEffect } from 'react';
 
 // How long the context keeps running after a chime, an unlock or a hold. The

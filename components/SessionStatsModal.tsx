@@ -1,5 +1,3 @@
-'use client';
-
 import type { SessionInfo } from '@/lib/types';
 import type { SessionStatsInfo } from '@/lib/pi-types';
 import { formatActiveDuration, formatCompactCount } from '@/lib/session-stats-format';

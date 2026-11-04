@@ -1,5 +1,3 @@
-'use client';
-
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { useI18n } from '@/hooks/useI18n';
 import { AnsiText } from '@/components/AnsiText';

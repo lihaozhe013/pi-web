@@ -1,5 +1,3 @@
-'use client';
-
 import { useI18n } from '@/hooks/useI18n';
 import { formatCompactCount, formatCostShort } from '@/lib/session-stats-format';
 

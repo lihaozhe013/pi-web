@@ -1,4 +1,3 @@
-'use client';
 import { AskUserPanel, isAskUserRequest } from './AskUserPanel';
 import { ComposerActivity } from './ComposerActivity';
 import { TurnCopy } from './TurnCopy';

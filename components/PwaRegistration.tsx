@@ -1,5 +1,3 @@
-'use client';
-
 import { formatAppVersion } from '@/lib/app-version';
 import { BUILD_COMMIT, BUILD_VERSION, IS_DESKTOP_SHELL } from '@/lib/build-info';
 import { useEffect } from 'react';

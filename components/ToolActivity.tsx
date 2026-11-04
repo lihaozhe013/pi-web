@@ -1,5 +1,3 @@
-'use client';
-
 // Derive display activity from the existing client execution state.
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { useI18n } from '@/hooks/useI18n';

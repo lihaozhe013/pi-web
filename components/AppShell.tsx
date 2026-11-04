@@ -1,5 +1,3 @@
-'use client';
-
 import type { AgentEndInfo, NewSessionChoices } from '@/hooks/useAgentSession';
 import { useAudio } from '@/hooks/useAudio';
 import { useFontPreferences } from '@/hooks/useFontPreferences';

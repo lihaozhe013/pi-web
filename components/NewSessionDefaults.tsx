@@ -1,5 +1,3 @@
-'use client';
-
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useI18n } from '@/hooks/useI18n';
 import type { ModelsData } from '@/lib/models-cache';

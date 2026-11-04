@@ -1,5 +1,3 @@
-'use client';
-
 import { useState, useEffect, useCallback, useLayoutEffect, useRef } from 'react';
 import { useI18n } from '@/hooks/useI18n';
 import type {
