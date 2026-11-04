@@ -46,8 +46,8 @@ middleware and the routes:
    not compress anything themselves, and SSE responses are excluded by content type.
 2. `security()` guards `/`, `/login`, and `/api/*`: host and origin allow-listing from
    `lib/request-security.ts`, then the optional `PIE_PASSWORD` check with the session cookie,
-   `Basic` compatibility, and the shared failure throttle. Its behavior is the behavior the deleted
-   `proxy.ts` had.
+   `Basic` compatibility, and the shared failure throttle. It is a port of the interceptor the
+   project ran before the migration, behavior included.
 3. Routes answer from `server/api/**`, registered in `server/routes.ts`.
 4. `registerStatic()` serves `dist/`: the app shell for `/` and `/login`, the real file for anything
    the bundle contains, and a 404 for a missing file with an extension.

@@ -406,8 +406,8 @@ task prompt and decides how to follow it.
 
 ## HTTP API
 
-All routes are under `/api/tasks` and sit behind the existing `proxy.ts` origin check, the optional
-web password, and `lib/json-response.ts`.
+All routes are under `/api/tasks` and sit behind the shared `server/middleware/security.ts` origin
+check, the optional web password, and the `json()` helper in `server/http.ts`.
 
 | Route                         | Purpose                                                                                     |
 | ----------------------------- | ------------------------------------------------------------------------------------------- |

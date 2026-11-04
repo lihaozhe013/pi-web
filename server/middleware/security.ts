@@ -32,8 +32,8 @@ function tooManyAttempts(context: Parameters<MiddlewareHandler>[0], retryAfterMs
 /**
  * Host and origin authorization, then optional password authentication.
  *
- * This is the middleware Next.js ran as `proxy.ts`, kept deliberately literal: the
- * throttling rules and the redirect chain are security behavior, not styling.
+ * Ported literally from the request interceptor this project used to run ahead of every request:
+ * the throttling rules and the redirect chain are security behavior, not styling.
  */
 export function security(): MiddlewareHandler {
   return async (context, next) => {
