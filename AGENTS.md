@@ -7,7 +7,8 @@ parallel protocol.
 ## Changes
 
 - Read [project direction](docs/README.md) and [interface principles](docs/design.md) for product or
-  UI work. Read [architecture](docs/architecture.md) for runtime and API changes.
+  UI work. Read [architecture](docs/architecture.md) and [runtime](docs/runtime.md) for runtime and
+  API changes.
 - Prefer simple solutions. Check consumers before removing shared behavior.
 - Preserve user data, session history, conversation inputs, and security checks. Keep path and
   origin validation, credential isolation, and session shutdown intact.
