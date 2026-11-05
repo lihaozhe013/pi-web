@@ -1132,7 +1132,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   const loadTools = useCallback(
     async (sid: string) => {
       try {
-        // Plan pins the same tools as Read-only, so the mode comes with the list.
+        // Plan and Autonomous pin tool lists that would otherwise lose their mode.
         const result = await sendAgentCommand<{ tools: ToolEntry[]; workMode?: WorkMode }>(sid, {
           type: 'get_tools'
         });
@@ -1145,7 +1145,13 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
               customToolPresetsRef.current
             )
           : CONFIGURED_TOOL_PRESET;
-        setToolPresetState(result.workMode === 'plan' ? 'plan' : pinned);
+        setToolPresetState(
+          result.workMode === 'plan'
+            ? 'plan'
+            : result.workMode === 'autonomous'
+              ? 'autonomous'
+              : pinned
+        );
         onSystemToolsChange?.(tools);
         return tools;
       } catch (e) {
@@ -3114,7 +3120,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       try {
         // Omitting toolNames retracts the session's pin so it follows the configured
         // defaults again; the server rebuilds the session to resolve them. `mode: null`
-        // clears a stored Plan mode, which needs no rebuild.
+        // clears a stored Plan or Autonomous mode, which needs no rebuild.
         const result = await sendAgentCommand<{ sessionId?: string; recreated?: boolean }>(sid, {
           type: 'set_tools',
           ...(toolNames !== undefined ? { toolNames } : {}),
