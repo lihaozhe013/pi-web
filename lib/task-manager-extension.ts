@@ -64,9 +64,9 @@ const TASK_CONTROL_SCHEMA = Type.Union([
   Type.Literal('markDone')
 ]);
 
-/** Every tool carries these: the queue is serial, and its state is the context. */
+/** Every tool carries these: the project queue is the context. */
 const GUIDELINES = [
-  'Each project has its own serial queue: one task at a time per project, while different projects may run concurrently. Every tool result ends with all project queues and the events since your last call; read them before deciding what to do next.',
+  'Each project has its own queue with one queued task at a time; chat sessions can run in parallel with it, and a started queue waits for running chats before claiming its next task. Different projects may run concurrently. Every tool result ends with all project queues and the events since your last call; read them before deciding what to do next.',
   'Every task needs a title that names the outcome and a cwd inside an allowed project directory. The cwd is the project identity: starting, pausing, resuming, and aborting a queue take that project cwd. Add verification commands when you know them.',
   'If a directory has never been used, queue the task with authorizeCwd: true only when the user named that directory themselves. The flag approves the path; never set it to get past a refusal on your own.',
   'Ask the user before deleting a task, aborting a run, or marking work done without a run, and pass confirm: true only after they agree. Clearing completed tasks needs cwd so one project is not emptied with another.',

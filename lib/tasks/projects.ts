@@ -17,6 +17,7 @@ export function emptyProjectSummary(cwd: string): TaskProjectSummary {
     pausedReason: null,
     activeTaskId: null,
     activeTaskTitle: null,
+    activeSessions: [],
     running: false,
     pending: 0,
     blocked: 0,
@@ -45,10 +46,16 @@ export function resolveTaskProject(
   // A state row can outlive the tasks that created it, so an empty project is
   // not a default: the board opens a project that still has work to show.
   const populated = projects.filter(
-    (project) => project.total > 0 || project.activeTaskId !== null
+    (project) =>
+      project.total > 0 ||
+      project.activeTaskId !== null ||
+      project.activeSessions.length > 0
   );
   const running = populated.find(
-    (project) => project.activeTaskId !== null || project.state === 'RUNNING'
+    (project) =>
+      project.activeTaskId !== null ||
+      project.state === 'RUNNING' ||
+      project.activeSessions.length > 0
   );
   if (running) return running;
   return [...populated].sort((a, b) =>

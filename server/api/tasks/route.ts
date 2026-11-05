@@ -7,6 +7,10 @@ import {
 } from '@/lib/tasks/orchestrator';
 import { resolveTaskProject } from '@/lib/tasks/projects';
 import { getTaskQueue } from '@/lib/tasks/queue';
+import {
+  runningProjectSessions,
+  withSessionActivity
+} from '@/lib/tasks/session-activity';
 import { noStore, readTaskBody, taskErrorResponse } from '@/lib/tasks/request';
 import { getTaskStore } from '@/lib/tasks/store';
 import type { TaskCreateInput } from '@/lib/tasks/types';
@@ -22,12 +26,17 @@ export async function GET(req: Request) {
     await ensureTaskQueuesRecovered();
     const requestedCwd = new URL(req.url).searchParams.get('cwd');
     const store = getTaskStore();
-    const projects = listTaskProjects(store);
+    const projects = withSessionActivity(
+      listTaskProjects(store),
+      runningProjectSessions()
+    );
     const selected = resolveTaskProject(projects, requestedCwd);
     const queue = getTaskQueue();
     const orchestrator = selected
       ? getTaskOrchestrator(selected.projectKey, selected.cwd)
       : null;
+    const status = orchestrator?.status() ?? null;
+    if (status) status.activeSessions = selected?.activeSessions ?? [];
     return json(
       {
         project: selected
@@ -35,8 +44,8 @@ export async function GET(req: Request) {
           : null,
         tasks: selected ? queue.listTasks(selected.projectKey) : [],
         runs: selected ? queue.listRuns(selected.projectKey) : [],
-        orchestrator: orchestrator ? orchestrator.status() : null,
-        projects: listTaskProjects(store),
+        orchestrator: status,
+        projects,
         config: readTaskConfig(),
         // The one watch row, so the board can say a session is listening.
         watch: store.getWatch()

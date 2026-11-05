@@ -3,13 +3,15 @@
  * ordering and question rules testable without a browser.
  */
 import { ASK_USER_OTHER_LABEL } from '../ask-user-labels';
-import type { ExtensionUiRequest } from '../types';
+import { projectIdentityKey } from '../project-identity';
+import type { ExtensionUiRequest, SessionInfo } from '../types';
 import type {
   OrchestratorStatus,
   TaskConfig,
   TaskProjectSummary,
   TaskRecord,
   TaskRunRecord,
+  TaskStatus,
   TaskWatchRecord
 } from './types';
 
@@ -31,6 +33,69 @@ export interface TaskGroups {
   queued: TaskRecord[];
   blocked: TaskRecord[];
   done: TaskRecord[];
+}
+
+/** A conversation is project work too; the board shows it beside queued tasks. */
+export interface ChatTask {
+  session: SessionInfo;
+  title: string;
+  running: boolean;
+  awaiting: boolean;
+  status: TaskStatus;
+}
+
+/** How many conversations the board keeps visible without the chat sidebar. */
+export const CHAT_TASK_LIMIT = 30;
+
+/** Queue children identify their prompt this way; a deleted task must not leave a chat row. */
+const QUEUED_TASK_PROMPT_PREFIX = 'You are running task #';
+
+/**
+ * The project's conversations that the queue does not already represent.
+ * Task children own their session rows, so they are filtered out to keep one
+ * row per piece of work. Running chats come first; recent idle chats follow.
+ */
+export function chatTasksForProject(
+  sessions: readonly SessionInfo[],
+  input: {
+    projectKey: string | null;
+    linkedSessionIds: ReadonlySet<string>;
+    runningIds: ReadonlySet<string>;
+    awaitingIds: ReadonlySet<string>;
+    limit?: number;
+  }
+): ChatTask[] {
+  if (!input.projectKey) return [];
+  const rows = sessions
+    .filter((session) => {
+      if (input.linkedSessionIds.has(session.id)) return false;
+      if (session.firstMessage.startsWith(QUEUED_TASK_PROMPT_PREFIX)) return false;
+      return (session.projectKey || projectIdentityKey(session.cwd)) === input.projectKey;
+    })
+    .map((session): ChatTask => {
+      const running = input.runningIds.has(session.id);
+      const awaiting = input.awaitingIds.has(session.id);
+      return {
+        session,
+        title: session.name?.trim() || session.firstMessage?.trim() || '',
+        running,
+        awaiting,
+        status: running
+          ? 'IN_PROGRESS'
+          : awaiting
+            ? 'BLOCKED'
+            : session.messageCount > 0
+              ? 'DONE'
+              : 'PENDING'
+      };
+    })
+    .sort(
+      (a, b) =>
+        Number(b.running) - Number(a.running) ||
+        b.session.modified.localeCompare(a.session.modified) ||
+        a.session.id.localeCompare(b.session.id)
+    );
+  return rows.slice(0, input.limit ?? CHAT_TASK_LIMIT);
 }
 
 export function isTaskLocked(task: Pick<TaskRecord, 'status'>): boolean {

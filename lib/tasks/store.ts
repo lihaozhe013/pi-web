@@ -653,6 +653,7 @@ export class TaskStore {
         pausedReason: state?.pausedReason ?? null,
         activeTaskId: runningTask?.id ?? state?.activeTaskId ?? null,
         activeTaskTitle: runningTask?.title ?? null,
+        activeSessions: [],
         running: false,
         pending: tasks ? Number(tasks.pending) : 0,
         blocked: tasks ? Number(tasks.blocked) : 0,

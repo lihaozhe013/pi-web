@@ -20,7 +20,7 @@ export function buildTaskPrompt({ task, verifyCommands, allowAskUser }: TaskProm
   const lines: string[] = [];
   const verificationShell = verificationShellName();
   lines.push(
-    `You are running task #${task.id} from Pie's serial task queue, unattended, in one fresh session.`,
+    `You are running task #${task.id} from Pie's project task queue, unattended, in one fresh session.`,
     ''
   );
   lines.push(`Task: ${task.title}`);

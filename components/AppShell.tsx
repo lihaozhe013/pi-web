@@ -196,27 +196,10 @@ export function AppShell() {
       return refreshed ? mergeCatalogRow(current, refreshed) : current;
     });
   }, []);
-  // In chat the sidebar owns the catalogue fetch. Task mode renders the
-  // project panel instead, so it needs the same list for its project rows.
-  useEffect(() => {
-    if (!taskMode || sessionCatalog.length > 0) return;
-    let cancelled = false;
-    void fetch('/api/sessions', { cache: 'no-store' })
-      .then((response) =>
-        response.ok ? (response.json() as Promise<{ sessions: SessionInfo[] }>) : null
-      )
-      .then((data) => {
-        if (!cancelled && data) handleSessionsChange(data.sessions);
-      })
-      .catch(() => {
-        // The panel still offers Add project; the next mode switch retries.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [handleSessionsChange, sessionCatalog.length, taskMode]);
-
   const [runningSessionIds, setRunningSessionIds] = useState<Set<string>>(() => new Set());
+  const [awaitingInputSessionIds, setAwaitingInputSessionIds] = useState<Set<string>>(
+    () => new Set()
+  );
   // Sessions a task child is writing. The composer stays read-only for them so
   // two writers never share one session file.
   const [taskSessionIds, setTaskSessionIds] = useState<Set<string>>(() => new Set());
@@ -232,6 +215,85 @@ export function AppShell() {
       return ids;
     });
   }, []);
+  const handleAwaitingInputSessionIdsChange = useCallback((ids: Set<string>) => {
+    setAwaitingInputSessionIds((previous) => {
+      if (previous.size === ids.size && [...ids].every((id) => previous.has(id))) return previous;
+      return ids;
+    });
+  }, []);
+  // Task mode has no conversation sidebar, so it owns the same live catalogue
+  // the chat sidebar would otherwise poll: projects need new sessions at once,
+  // and rows need to turn into running tasks as soon as a prompt starts.
+  useEffect(() => {
+    if (!taskMode) return;
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let sessionListVersion: number | null = null;
+    let runningKey = '';
+    const loadSessions = async () => {
+      try {
+        const response = await fetch('/api/sessions', { cache: 'no-store' });
+        if (!response.ok) return;
+        const data = (await response.json()) as { sessions: SessionInfo[] };
+        if (!stopped) handleSessionsChange(data.sessions);
+      } catch {
+        // The last catalogue remains usable; the next poll retries.
+      }
+    };
+    const schedule = (delay: number) => {
+      if (stopped) return;
+      timer = setTimeout(() => void tick(), delay);
+    };
+    const tick = async () => {
+      if (stopped) return;
+      if (document.visibilityState === 'hidden') {
+        schedule(3_000);
+        return;
+      }
+      let anyRunning = false;
+      try {
+        const response = await fetch('/api/agent/running', { cache: 'no-store' });
+        if (response.ok) {
+          const data = (await response.json()) as {
+            sessionListVersion: number;
+            runningSessionIds?: string[];
+            awaitingInputSessionIds?: string[];
+          };
+          if (stopped) return;
+          const running = new Set(data.runningSessionIds ?? []);
+          anyRunning = running.size > 0;
+          handleRunningSessionIdsChange(running);
+          handleAwaitingInputSessionIdsChange(
+            new Set(data.awaitingInputSessionIds ?? [])
+          );
+          const nextRunningKey = [...running].sort().join('\n');
+          if (
+            sessionListVersion === null ||
+            sessionListVersion !== data.sessionListVersion ||
+            nextRunningKey !== runningKey
+          ) {
+            sessionListVersion = data.sessionListVersion;
+            runningKey = nextRunningKey;
+            await loadSessions();
+          }
+        }
+      } catch {
+        // Keep the last state; the next visible-tab poll retries.
+      } finally {
+        schedule(anyRunning ? 1_000 : 3_000);
+      }
+    };
+    void loadSessions().finally(() => schedule(0));
+    return () => {
+      stopped = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [
+    handleAwaitingInputSessionIdsChange,
+    handleRunningSessionIdsChange,
+    handleSessionsChange,
+    taskMode
+  ]);
   // The temporary id distinguishes consecutive fresh composers in one cwd.
   const [newSessionCwd, setNewSessionCwd] = useState<string | null>(null);
   const [newSessionDraftId, setNewSessionDraftId] = useState('initial');
@@ -635,6 +697,9 @@ export function AppShell() {
   const initialSessionId = initialNavigation.sessionId;
   const initialLinkedSessionId = linkedSessionId(initialNavigation);
   const [activeCwd, setActiveCwd] = useState<string | null>(null);
+  // Chat -> Tasks keeps the conversation's project, so the board opens the
+  // same project the person was already looking at.
+  const taskLinkCwd = taskMode ? taskCwd : (selectedSession?.cwd ?? newSessionCwd ?? activeCwd);
   const activeProjectKeyRef = useRef<string | null>(null);
   // True once the initial ?session= URL param has been resolved (or confirmed absent)
   const [initialSessionRestored, setInitialSessionRestored] = useState<boolean>(
@@ -1989,7 +2054,9 @@ export function AppShell() {
                 <WorkspaceSwitch
                   mode={taskMode ? 'tasks' : 'chat'}
                   tasksHref={
-                    taskCwd ? `/?mode=tasks&cwd=${encodeURIComponent(taskCwd)}` : '/?mode=tasks'
+                    taskLinkCwd
+                      ? `/?mode=tasks&cwd=${encodeURIComponent(taskLinkCwd)}`
+                      : '/?mode=tasks'
                   }
                 />
               </div>
@@ -2050,6 +2117,10 @@ export function AppShell() {
                 onProjectChange={handleTaskProjectChange}
                 onProjectsChange={handleTaskProjectsChange}
                 onOpenTaskManager={handleOpenTaskManager}
+                sessions={sessionCatalog}
+                runningSessionIds={runningSessionIds}
+                awaitingSessionIds={awaitingInputSessionIds}
+                taskSessionIds={taskSessionIds}
                 onOpenSession={(sessionId) => {
                   // The sidebar already lists the conversation when the task's
                   // project is open; use it so the switch is a client-side
@@ -2263,7 +2334,7 @@ export function AppShell() {
             />
             <SessionInfoSidebar
               panelId="task-queue-panel"
-              title={translate('tasks.queue')}
+              title={translate('tasks.board')}
               toggleSelector='[data-task-queue-toggle="true"]'
               contentClassName="task-queue-panel-content"
               icon={

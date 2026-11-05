@@ -71,6 +71,13 @@ export interface QueueStateRecord {
   updatedAt: string;
 }
 
+/** A running chat session in a project; chat work takes priority over queued work. */
+export interface TaskActiveSession {
+  sessionId: string;
+  title: string;
+  awaiting: boolean;
+}
+
 /** One project's queue as the board and the task sidebar read it. */
 export interface TaskProjectSummary {
   projectKey: string;
@@ -79,6 +86,8 @@ export interface TaskProjectSummary {
   pausedReason: string | null;
   activeTaskId: number | null;
   activeTaskTitle: string | null;
+  /** Chat sessions currently running in this project, newest activity first. */
+  activeSessions: TaskActiveSession[];
   /** True while this process is driving the project's loop. */
   running: boolean;
   pending: number;
@@ -126,6 +135,8 @@ export interface OrchestratorStatus {
   state: QueueState;
   pausedReason: string | null;
   activeTaskId: number | null;
+  /** Chat sessions currently running in this project, newest activity first. */
+  activeSessions: TaskActiveSession[];
   /** True while the process loop is executing, as opposed to the stored state. */
   running: boolean;
   activity: TaskActivity | null;

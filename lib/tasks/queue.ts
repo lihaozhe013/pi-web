@@ -400,6 +400,7 @@ export class TaskQueue {
       state: state.state as QueueState,
       pausedReason: state.pausedReason,
       activeTaskId: state.activeTaskId,
+      activeSessions: [],
       running
     };
   }

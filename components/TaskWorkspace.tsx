@@ -1,11 +1,12 @@
 /**
- * The task workspace: one queue rail and one work surface that reads the
- * selected task, the task editor, and the live activity of the running task.
+ * The task workspace: one board and one work surface that reads the selected
+ * task or chat, the task editor, and the live activity of the running task.
  *
  * It is the center column of the app in `?mode=tasks`; the shell keeps the
  * sidebar and toolbar. Nothing here is imported by the conversation; the
- * workspace reads and writes the queue through the seven `/api/tasks` routes
- * and renders a task's session as an ordinary Pi session.
+ * workspace reads and writes the queue through the `/api/tasks` routes, shows
+ * the project's chat sessions as task-shaped rows, and renders a task's session
+ * as an ordinary Pi session.
  */
 import {
   useCallback,
@@ -26,6 +27,7 @@ import { QueueSettingsDialog } from './QueueSettingsDialog';
 import { SidebarMenu, type SidebarMenuAnchor, type SidebarMenuItem } from './SidebarMenu';
 import { MoreIcon } from './SidebarIcons';
 import {
+  chatTasksForProject,
   completedTaskIds,
   detailPlacement,
   groupTasks,
@@ -36,9 +38,13 @@ import {
   rangeSelection,
   reorderPending,
   taskElapsedMs,
+  type ChatTask,
   type TaskQueuePayload
 } from '@/lib/tasks/board';
 import type { TaskProjectSummary, TaskRecord, TaskStatus } from '@/lib/tasks/types';
+import type { SessionInfo } from '@/lib/types';
+
+const EMPTY_IDS: ReadonlySet<string> = new Set();
 
 export interface TaskWorkspaceProps {
   /** Opens the task's ordinary Pi session in the chat view. */
@@ -65,6 +71,14 @@ export interface TaskWorkspaceProps {
   onProjectChange?: (cwd: string | null) => void;
   /** Every project's queue summary, bubbled to the shell's project list. */
   onProjectsChange?: (projects: TaskProjectSummary[]) => void;
+  /** The chat catalogue, so a conversation appears here as project work. */
+  sessions?: readonly SessionInfo[];
+  /** Conversations running now; the live poll owns this set. */
+  runningSessionIds?: ReadonlySet<string>;
+  /** Conversations parked on an input dialog. */
+  awaitingSessionIds?: ReadonlySet<string>;
+  /** Sessions a queue child is writing; their task row already represents them. */
+  taskSessionIds?: ReadonlySet<string>;
 }
 
 type Draft = { mode: 'new' } | { mode: 'edit'; taskId: number } | null;
@@ -238,12 +252,17 @@ export function TaskWorkspace({
   onToggleQueuePanel,
   selectedCwd = null,
   onProjectChange,
-  onProjectsChange
+  onProjectsChange,
+  sessions = [],
+  runningSessionIds = EMPTY_IDS,
+  awaitingSessionIds = EMPTY_IDS,
+  taskSessionIds = EMPTY_IDS
 }: TaskWorkspaceProps) {
   const { t } = useI18n();
   const isMobile = useIsMobile();
   const [payload, setPayload] = useState<TaskQueuePayload | null>(initialData);
   const [selectedId, setSelectedId] = useState<number | null>(initialTaskId);
+  const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   // A project switch invalidates the previous board before the next poll
   // lands, so a quick click cannot start or pause the project just left.
   useEffect(() => {
@@ -369,14 +388,58 @@ export function TaskWorkspace({
   const questionPending = Boolean(runningTask?.pendingQuestion);
   const anyProjectRunning =
     payload?.projects.some(
-      (project) => project.activeTaskId !== null || project.state === 'RUNNING'
+      (project) =>
+        project.activeTaskId !== null ||
+        project.state === 'RUNNING' ||
+        (project.activeSessions?.length ?? 0) > 0
     ) ?? false;
-  const interval = runningTask || questionPending || anyProjectRunning ? 1_000 : 5_000;
+  const interval =
+    runningTask || questionPending || anyProjectRunning || runningSessionIds.size > 0
+      ? 1_000
+      : 5_000;
   const projectKey = payload?.project?.projectKey ?? null;
   const projectCwd = selectedCwd ?? payload?.project?.cwd ?? null;
   const projectName = projectCwd ? projectLabelFromPath(projectCwd) : null;
   const hasProject = Boolean(projectCwd);
   const loopRunning = Boolean(status?.state === 'RUNNING' && status.running);
+  const linkedSessionIds = useMemo(() => {
+    const ids = new Set<string>(taskSessionIds);
+    for (const task of tasks) if (task.sessionId) ids.add(task.sessionId);
+    return ids;
+  }, [taskSessionIds, tasks]);
+  const chats = useMemo(
+    () =>
+      chatTasksForProject(sessions, {
+        projectKey,
+        linkedSessionIds,
+        runningIds: runningSessionIds,
+        awaitingIds: awaitingSessionIds
+      }),
+    [
+      awaitingSessionIds,
+      linkedSessionIds,
+      projectKey,
+      runningSessionIds,
+      sessions
+    ]
+  );
+  const selectedChat = useMemo(() => {
+    if (selectedId !== null) return null;
+    return (
+      chats.find((chat) => chat.session.id === selectedChatId) ??
+      (initialTaskId === null ? (chats.find((chat) => chat.running) ?? null) : null)
+    );
+  }, [chats, initialTaskId, selectedChatId, selectedId]);
+  const selectedSessionCount = status?.activeSessions?.length ?? 0;
+  const projectBusy =
+    status?.activeTaskId != null ||
+    status?.state === 'RUNNING' ||
+    selectedSessionCount > 0;
+  useEffect(() => {
+    if (selectedChatId && !chats.some((chat) => chat.session.id === selectedChatId)) {
+      setSelectedChatId(null);
+    }
+  }, [chats, selectedChatId]);
 
   // Polling: fast while work happens, slow otherwise, suspended with the page.
   useEffect(() => {
@@ -444,8 +507,11 @@ export function TaskWorkspace({
 
   const groups = useMemo(() => groupTasks(tasks), [tasks]);
   const selected = useMemo(
-    () => tasks.find((task) => task.id === selectedId) ?? runningTask ?? tasks[0] ?? null,
-    [runningTask, selectedId, tasks]
+    () =>
+      selectedChat
+        ? null
+        : (tasks.find((task) => task.id === selectedId) ?? runningTask ?? tasks[0] ?? null),
+    [runningTask, selectedChat, selectedId, tasks]
   );
   const questionRequest = selected ? questionRequestFor(selected) : null;
   const selection = useMemo(() => {
@@ -531,6 +597,7 @@ export function TaskWorkspace({
     const pending = pendingSelectId.current;
     pendingSelectId.current = null;
     setSelectedId(pending ?? initialTaskId);
+    setSelectedChatId(null);
     setExtraSelectedIds([]);
     setDraft(null);
     setSheetOpen(false);
@@ -565,7 +632,7 @@ export function TaskWorkspace({
   const detailIsSheet = !queueDocked;
   const placement = detailPlacement({
     overlay: detailIsSheet,
-    hasTask: selected !== null,
+    hasTask: selected !== null || selectedChat !== null,
     hasDraft: draft !== null,
     sheetOpen
   });
@@ -667,6 +734,7 @@ export function TaskWorkspace({
 
   const closeSheet = useCallback(() => {
     setSelectedId(null);
+    setSelectedChatId(null);
     setDraft(null);
     setSheetOpen(false);
     const target = sheetReturnFocus.current;
@@ -1314,6 +1382,71 @@ export function TaskWorkspace({
       (status.activity.detail ? ` · ${status.activity.detail}` : '')
     : null;
 
+  const chatTitle = (chat: ChatTask) => chat.title || t('tasks.untitledChat');
+  const chatStatusLabel = (chat: ChatTask) =>
+    chat.running
+      ? chat.awaiting
+        ? t('tasks.chatWaiting')
+        : t('tasks.status.inProgress')
+      : t('tasks.queueState.idle');
+
+  const renderChatRow = (chat: ChatTask) => {
+    const active = selectedChat?.session.id === chat.session.id;
+    return (
+      <div
+        key={`chat-${chat.session.id}`}
+        className="task-row-shell"
+        data-active={active}
+        data-chat="true"
+        data-menu-open={undefined}
+      >
+        <button
+          type="button"
+          className="task-row"
+          data-active={active}
+          data-status={chat.status}
+          aria-current={active ? 'true' : undefined}
+          aria-label={`${chatStatusLabel(chat)}: ${chatTitle(chat)}`}
+          title={t('tasks.chatHint')}
+          onClick={() => {
+            setDraft(null);
+            setSelectedId(null);
+            setExtraSelectedIds([]);
+            setSelectedChatId(chat.session.id);
+            openSheet();
+          }}
+          onDoubleClick={() => onOpenSession?.(chat.session.id)}
+        >
+          <span
+            className="task-row-marker"
+            style={{ background: statusTone(chat.status) }}
+            aria-hidden="true"
+          />
+          <span className="task-row-body">
+            <span className="task-row-title">{chatTitle(chat)}</span>
+            <span className="task-row-meta">
+              <span className="task-row-cwd">{chat.session.cwd}</span>
+              <span>{t('tasks.chat')}</span>
+              {chat.session.messageCount > 0 && (
+                <span>{t('tasks.messageCount', { count: chat.session.messageCount })}</span>
+              )}
+            </span>
+          </span>
+          <span className="task-row-status">{chatStatusLabel(chat)}</span>
+        </button>
+        <button
+          type="button"
+          className="task-row-more"
+          aria-label={t('tasks.openChat')}
+          title={t('tasks.openChat')}
+          onClick={() => onOpenSession?.(chat.session.id)}
+        >
+          {MENU_ICON.session}
+        </button>
+      </div>
+    );
+  };
+
   const renderRow = (task: TaskRecord, order: number[]) => {
     const locked = isTaskLocked(task);
     const active = selected?.id === task.id;
@@ -1362,6 +1495,7 @@ export function TaskWorkspace({
               toggleSelection(task.id);
               return;
             }
+            setSelectedChatId(null);
             setSelectedId(task.id);
             setExtraSelectedIds([]);
             openSheet();
@@ -1452,22 +1586,31 @@ export function TaskWorkspace({
     >
       {showHeading && (
         <div className="task-queue-heading">
-          <span>{t('tasks.queue')}</span>
+          <span>{t('tasks.board')}</span>
           {projectName && (
             <span className="task-queue-project" title={projectCwd ?? undefined}>
               {projectName}
             </span>
           )}
-          <span className="task-group-count">{tasks.length}</span>
+          <span className="task-group-count">{tasks.length + chats.length}</span>
         </div>
       )}
       <div className="task-queue-scroll">
-        {tasks.length === 0 ? (
+        {tasks.length === 0 && chats.length === 0 ? (
           <p className="task-empty">
-            {hasProject ? t('tasks.empty') : t('tasks.chooseProject')}
+            {hasProject ? t('tasks.emptyWork') : t('tasks.chooseProject')}
           </p>
         ) : (
           <>
+            {chats.length > 0 && (
+              <section className="task-group" aria-label={t('tasks.group.chats')}>
+                <h3 className="task-group-title">
+                  {t('tasks.group.chats')}
+                  <span className="task-group-count">{chats.length}</span>
+                </h3>
+                <div className="task-group-list">{chats.map(renderChatRow)}</div>
+              </section>
+            )}
             {groupSection('running', groups.running)}
             {groupSection('queued', groups.queued)}
             {groupSection('blocked', groups.blocked)}
@@ -1493,8 +1636,14 @@ export function TaskWorkspace({
             </span>
           )}
           {status && (
-            <span className="task-header-state" data-state={status.state}>
-              {t(`tasks.queueState.${status.state.toLowerCase()}`)}
+            <span
+              className="task-header-state"
+              data-state={selectedSessionCount > 0 ? 'RUNNING' : status.state}
+              data-busy={projectBusy ? 'true' : undefined}
+            >
+              {selectedSessionCount > 0
+                ? t('tasks.chatRunning', { count: selectedSessionCount })
+                : t(`tasks.queueState.${status.state.toLowerCase()}`)}
             </span>
           )}
           {queueDocked && !queuePanelOpen && onToggleQueuePanel && (
@@ -1523,9 +1672,11 @@ export function TaskWorkspace({
                 <circle cx="18" cy="6" r="2" />
                 <circle cx="15" cy="18" r="2" />
               </svg>
-              <span>{t('tasks.queue')}</span>
-              <span className="task-group-count">{tasks.length}</span>
-              {runningTask && <span className="task-queue-toggle-dot" aria-hidden="true" />}
+              <span>{t('tasks.board')}</span>
+              <span className="task-group-count">{tasks.length + chats.length}</span>
+              {(runningTask || chats.some((chat) => chat.running)) && (
+                <span className="task-queue-toggle-dot" aria-hidden="true" />
+              )}
             </button>
           )}
           {notice && (
@@ -1726,7 +1877,7 @@ export function TaskWorkspace({
             {renderDetail() ?? renderEmptyDetail()}
           </section>
         ) : (
-          <aside className="task-queue" aria-label={t('tasks.queue')}>
+          <aside className="task-queue" aria-label={t('tasks.board')}>
             {renderQueueList(true)}
           </aside>
         )}
@@ -1940,9 +2091,55 @@ export function TaskWorkspace({
     );
   }
 
+  function renderChatDetail(chat: ChatTask) {
+    const title = chatTitle(chat);
+    return (
+      <>
+        <header className="task-detail-head">
+          <h2 className="task-detail-title">{title}</h2>
+          <p className="task-detail-status" data-status={chat.status}>
+            <span className="task-row-marker" style={{ background: statusTone(chat.status) }} />
+            <span>{chatStatusLabel(chat)}</span>
+            <span className="task-detail-fact">
+              {t('tasks.messageCount', { count: chat.session.messageCount })}
+            </span>
+          </p>
+          {chat.session.firstMessage && (
+            <p className="task-detail-text">{chat.session.firstMessage}</p>
+          )}
+        </header>
+        <dl className="task-facts">
+          <dt>{t('tasks.cwdLabel')}</dt>
+          <dd className="task-mono">{chat.session.cwd}</dd>
+          <dt>{t('tasks.session')}</dt>
+          <dd className="task-mono">{chat.session.id}</dd>
+          <dt>{t('tasks.lastActivity')}</dt>
+          <dd>{new Date(chat.session.modified).toLocaleString()}</dd>
+        </dl>
+        {chat.awaiting && (
+          <p className="task-activity" role="status">
+            <span className="task-activity-dot" aria-hidden="true" />
+            {t('tasks.chatWaitingHint')}
+          </p>
+        )}
+        <div className="task-detail-actions">
+          <button
+            type="button"
+            className="task-control is-primary"
+            disabled={!onOpenSession}
+            onClick={() => onOpenSession?.(chat.session.id)}
+          >
+            {t('tasks.openChat')}
+          </button>
+        </div>
+      </>
+    );
+  }
+
   function renderDetail() {
     // The new-task form is the one detail pane that exists before a task does.
     if (draft) return renderForm();
+    if (selectedChat) return renderChatDetail(selectedChat);
     if (multiSelected) return renderSelection();
     if (!selected) return null;
     const locked = isTaskLocked(selected);

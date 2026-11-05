@@ -47,6 +47,7 @@ import { getProjectTrustStatus, projectTrustReloadOptions } from './project-trus
 import { notifySessionComplete } from './web-push';
 import { hasActiveSessionLivenessProvider } from './session-liveness';
 import { isTaskManagerProject } from './tasks/manager-project';
+import { setBusySessionCheck } from './tasks/runtime-sessions';
 import type { SlashCommandInfo } from '@earendil-works/pi-coding-agent';
 import type { AgentSessionLike, ExtensionUiContextLike, ToolInfo } from './pi-types';
 import type {
@@ -2722,6 +2723,10 @@ export function hasBusyRpcSessionForCwd(cwd: string): boolean {
     (session) => normalizeRpcCwd(session.cwd) === targetCwd && session.isRunning()
   );
 }
+
+// The task queue reads this through lib/tasks/runtime-sessions, so it can wait
+// for chat without importing the agent runtime or creating a module cycle.
+setBusySessionCheck(hasBusyRpcSessionForCwd);
 
 export async function destroyRpcSessionsForCwd(cwd: string): Promise<number> {
   const targetCwd = normalizeRpcCwd(cwd);

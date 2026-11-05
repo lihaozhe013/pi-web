@@ -41,7 +41,13 @@ interface ProjectRow {
 function priority(row: ProjectRow): number {
   const task = row.task;
   if (!task) return 4;
-  if (task.activeTaskId !== null || task.state === 'RUNNING') return 0;
+  if (
+    task.activeTaskId !== null ||
+    task.state === 'RUNNING' ||
+    (task.activeSessions?.length ?? 0) > 0
+  ) {
+    return 0;
+  }
   if (task.state === 'PAUSED' || task.blocked > 0 || task.failed > 0) return 1;
   if (task.pending > 0) return 2;
   if (task.total > 0) return 3;
@@ -127,23 +133,33 @@ export function TaskProjectsSidebar({
   const renderRow = (row: ProjectRow) => {
     const selected = selectedCwd !== null && row.root === selectedCwd;
     const task = row.task;
-    const running = Boolean(task && (task.activeTaskId !== null || task.state === 'RUNNING'));
+    const running = Boolean(
+      task &&
+        (task.activeTaskId !== null ||
+          task.state === 'RUNNING' ||
+          (task.activeSessions?.length ?? 0) > 0)
+    );
+    const activeSessions = task?.activeSessions ?? [];
     const paused = task?.state === 'PAUSED';
     const pending = task?.pending ?? 0;
     const attention = (task?.blocked ?? 0) + (task?.failed ?? 0);
     const statusText = running
-      ? t('tasks.queueState.running')
+      ? activeSessions.length > 0 && task?.activeTaskId === null
+        ? t('tasks.chatRunning', { count: activeSessions.length })
+        : t('tasks.queueState.running')
       : paused
         ? t('tasks.queueState.paused')
         : pending > 0
           ? t('tasks.projectQueued', { count: pending })
           : t('tasks.queueState.idle');
     const detail =
-      running && task?.activeTaskTitle
+      running && task && task.activeTaskId !== null && task.activeTaskTitle
         ? `T${task.activeTaskId} ${task.activeTaskTitle}`
-        : paused && task?.pausedReason
-          ? task.pausedReason
-          : row.root;
+        : running && activeSessions.length > 0
+          ? t('tasks.chatRunningDetail', { title: activeSessions[0].title })
+          : paused && task?.pausedReason
+            ? task.pausedReason
+            : row.root;
     return (
       <button
         key={row.key}

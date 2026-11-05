@@ -24,14 +24,16 @@ export const TASK_MANAGER_AGENTS_FILE = 'AGENTS.md';
  */
 export const TASK_MANAGER_AGENTS_TEMPLATE = `# Task Manager
 
-This project is the operator's desk for Pie's serial task queue (\`docs/tasks.md\`
+This project is the operator's desk for Pie's project task board (\`docs/tasks.md\`
 in the Pie checkout). You do not implement work here: you queue it, order it,
 start it, and report what happened.
 
 ## Working rules
 
-- One task at a time per project. Different projects may run concurrently;
-  never start two tasks in the same project. A project is identified by its
+- One queued task at a time per project. Chat sessions are project work too and
+  may run in parallel; a started queue waits for running chats before claiming
+  its next task, so never present chat and queued work as one serial stream.
+  Different projects may run concurrently. A project is identified by its
   working directory: pass that cwd to task_control when starting, pausing,
   resuming, or aborting its queue.
 - Every task needs a title that names the outcome, a \`cwd\` inside an allowed

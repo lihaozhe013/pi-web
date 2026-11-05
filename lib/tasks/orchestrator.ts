@@ -23,6 +23,7 @@ import { buildTaskPrompt } from './prompt';
 import { TaskQueue, clipOutputTail, TaskLockedError } from './queue';
 import { getTaskStore, type TaskStore } from './store';
 import { startTaskRun, type TaskRunHandle, type TaskRunOutcome } from './runner';
+import { hasBusySessionForCwd } from './runtime-sessions';
 import { DEFAULT_GRACE_MS } from './rpc-session';
 import type { spawn } from 'node:child_process';
 import type {
@@ -36,6 +37,9 @@ import type {
 
 /** How much of a failed verification's own output travels with the reason. */
 export const VERIFY_REASON_OUTPUT_MAX = 1_200;
+
+/** How often a started queue checks whether a chat session still owns the project. */
+export const TASK_QUEUE_IDLE_POLL_MS = 500;
 
 /**
  * The output the command itself printed, normalized to one line ending. It is
@@ -180,7 +184,11 @@ export class TaskOrchestrator {
 
   status(): OrchestratorStatus {
     const state = this.queue.status(this.projectKey, this.cwd, this.running);
-    return { ...state, activity: this.activeRun ? this.currentActivity : null };
+    return {
+      ...state,
+      activeSessions: [],
+      activity: this.activeRun ? this.currentActivity : null
+    };
   }
 
   /** The live tail of the active task, or '' when nothing runs. */
@@ -267,6 +275,13 @@ export class TaskOrchestrator {
       while (!this.stopping) {
         const state = this.queue.getQueueState(this.projectKey, this.cwd);
         if (state.state === 'PAUSED') break;
+        // Chat has priority: a queued task starts only while no conversation is
+        // running in this project. A chat that starts during a run is allowed
+        // to continue beside it; the next claim waits for both to be free.
+        const hasPending = this.queue
+          .listTasks(this.projectKey)
+          .some((task) => task.status === 'PENDING');
+        if (hasPending && !(await this.waitForProjectIdle())) break;
         const sessionId = randomUUID();
         let task: TaskRecord | null;
         try {
@@ -516,6 +531,23 @@ export class TaskOrchestrator {
     });
     this.notify({ kind: 'done', task, reason: verifiedNote ?? undefined });
     return 'done';
+  }
+
+  /**
+   * Wait until no chat session is running in this project. The queue loop stays
+   * started and holds its lock while waiting, so a pause or shutdown can still
+   * stop it between two sleeps. Returns false when it should stop.
+   */
+  private async waitForProjectIdle(): Promise<boolean> {
+    while (!this.stopping) {
+      const state = this.queue.getQueueState(this.projectKey, this.cwd);
+      if (state.state === 'PAUSED') return false;
+      if (!hasBusySessionForCwd(this.cwd)) return true;
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, TASK_QUEUE_IDLE_POLL_MS);
+      });
+    }
+    return false;
   }
 
   /** Take effect between tasks, never mid-run. */
