@@ -200,8 +200,8 @@ export function AppShell() {
   const [awaitingInputSessionIds, setAwaitingInputSessionIds] = useState<Set<string>>(
     () => new Set()
   );
-  // Sessions a task child is writing. The composer stays read-only for them so
-  // two writers never share one session file.
+  // Sessions a task child is writing. The task board keeps them in their task
+  // row instead of listing them as chat work.
   const [taskSessionIds, setTaskSessionIds] = useState<Set<string>>(() => new Set());
   const handleTaskSessionIdsChange = useCallback((ids: Set<string>) => {
     setTaskSessionIds((previous) => {
@@ -2154,9 +2154,6 @@ export function AppShell() {
                   onScrollPositionChange={handleSessionScrollPositionChange}
                   sessionRunning={Boolean(
                     selectedSession && runningSessionIds.has(selectedSession.id)
-                  )}
-                  taskSessionRunning={Boolean(
-                    selectedSession && taskSessionIds.has(selectedSession.id)
                   )}
                   newSessionCwd={effectiveNewSessionCwd}
                   newSessionDraftKey={newSessionDraftKey}

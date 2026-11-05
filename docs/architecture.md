@@ -101,9 +101,9 @@ a session, and every attempt starts through the same in-process SDK runtime chat
 reads the live chat registry through the runtime-sessions hook before each claim; deleting
 `lib/tasks`, `server/api/tasks`, and the task workspace still leaves chat behavior unchanged. A
 task's session is an ordinary Pi session and renders through the normal transcript; while the task
-runner drives it, prompts from chat are refused so two writers never share one run. The queue waits
-for chat through `lib/tasks/runtime-sessions.ts`: the agent runtime registers a cwd-busy check when
-it loads, so the queue never imports the runtime directly.
+runner drives it, chat can still steer the same run, and the runner waits for the session to settle.
+The queue waits for chat through `lib/tasks/runtime-sessions.ts`: the agent runtime registers a
+cwd-busy check when it loads, so the queue never imports the runtime directly.
 
 ## Per-project task queues
 
@@ -128,11 +128,12 @@ tools, models, and extensions are Pi's, resolved from the same agent directory c
 Configuration, the project locks, and the chat-side contact points stay small:
 `<agentDir>/pie-task-orchestrator.json` holds the shared queue defaults and is re-read per run,
 `<agentDir>/pie-task-locks/<sha256(projectKey)>.lock` is the `proper-lockfile` lock that keeps one
-process driving that project, and `lib/tasks/active-sessions.ts` is an in-memory set of session ids. `GET /api/agent/running` and
-`GET /api/sessions` include those ids so the composer in chat mode can disable itself, and the agent
-route refuses a prompt for a session in the set. `lib/tasks/session-activity.ts` overlays running
-chat sessions on project summaries, and `lib/tasks/chat-watcher.ts` starts a project queue when a
-chat is running beside pending work; a paused queue is left alone. `lib/tasks/config.ts` owns the defaults,
+process driving that project, and `lib/tasks/active-sessions.ts` is an in-memory set of session
+ids. `GET /api/agent/running` and `GET /api/sessions` include those ids so the board keeps a running
+task's session in its task row; the session itself stays editable from chat.
+`lib/tasks/session-activity.ts` overlays running chat sessions on project summaries, and
+`lib/tasks/chat-watcher.ts` starts a project queue when a chat is running beside pending work; a
+paused queue is left alone. `lib/tasks/config.ts` owns the defaults,
 `lib/tasks/prompt.ts` the task prompt and standing instructions, `lib/tasks/gate.ts` the
 verification commands, and `lib/tasks/request.ts` the route validation and error mapping.
 `server/instrumentation.ts` uses the same shutdown signal to abort every live project loop's session

@@ -90,7 +90,7 @@ lib/tasks/orchestrator.ts          the only loop: claim → run → gate → set
 
 | Boundary                             | Cost                                                                                                                                                                                                                                   |
 | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Agent runtime (`lib/rpc-manager.ts`) | The runner starts a task through the same `startRpcSession` factory chat uses, so the session joins the ordinary registry and event stream. The runtime registers a cwd-busy check through `lib/tasks/runtime-sessions.ts`, and the agent route consults a read-only guard for a running task. |
+| Agent runtime (`lib/rpc-manager.ts`) | The runner starts a task through the same `startRpcSession` factory chat uses, so the session joins the ordinary registry and event stream. The runtime registers a cwd-busy check through `lib/tasks/runtime-sessions.ts`; a running task's session stays interactive in chat. |
 | Pi                                   | Uses the same SDK, extensions, settings, and tool presets chat uses. No child protocol and no second agent implementation.                                                                                                              |
 | Web layer                            | Eight REST routes underneath one client hook. The board can be removed without touching chat.                                                                                                                                          |
 | Packaging                            | No new dependency. Storage uses Node's built-in `node:sqlite`; the SDK is already the app's runtime.                                                                                                                                   |
@@ -360,9 +360,10 @@ Tasks use the same `ask_user` extension and the same extension-UI channel chat u
 - **Policy.** There is one global mode. `full` keeps `ask_user` available and the queue waits for
   the answer; `autonomous` omits the tool and starts a goal instead, so the agent must decide and
   keep working. The timeout stays a watchdog, not an answer.
-- **Intervention.** A running task's session is read-only for prompts in chat, but it is fully
-  visible: the transcript streams live, the question card is answerable, and goal pause/resume
-  controls work through the same session commands.
+- **Intervention.** A running task's session is fully interactive in chat: the transcript streams
+  live, the composer can steer or follow up the same run, the question card is answerable, and goal
+  pause/resume controls work through the same session commands. A steer joins the run the queue is
+  already waiting on; it does not start a second writer.
 
 One question at a time: the tool is `executionMode: 'sequential'`, and a project runs one queued
 task at a time. A chat session may run beside the waiting task; that does not answer the question.
@@ -591,19 +592,18 @@ and the queue's move into the right-hand inspector slot, and leaves the per-tab 
   the per-tab mode memory in `lib/tab-session.ts`.
 - `docs/design.md` is updated in the same change.
 
-### A running task's session is read-only in chat
+### A running task's session stays interactive in chat
 
-While a task is `IN_PROGRESS`, its session is the same SDK session chat opens, but the task runner
-owns the run. Opening it in chat streams the live transcript; sending a prompt there would put two
-writers on one run. The composer is therefore disabled for that session with an explanation, and
-the agent route refuses a prompt for a session the queue is driving. Reading, copying, exporting,
-asking a question, and using the goal controls remain available. After the task settles the guard
-is released and the session is an ordinary chat again.
+While a task is `IN_PROGRESS`, its session is the same SDK session chat opens, and the composer is
+enabled. The transcript streams live; a prompt uses the ordinary SDK steering path and joins the
+run the task runner is already waiting on, rather than opening a second session. Follow-ups and
+goal controls use the same session commands. The queue still settles from `agent_settled`, so extra
+turns keep the task running until the agent actually stops.
 
-This is the only place the chat runtime learns that the queue exists: the prompt handler asks one
-read-only function (`lib/tasks/active-sessions.ts`, a global set of session ids the task runner is
-driving). Deleting the queue removes that single call, and the behavior degrades to the client-side
-disabled composer instead of breaking.
+The board learns which sessions belong to the queue from `lib/tasks/active-sessions.ts`, a global
+set of session ids the task runner is driving. The set is informational: it keeps a running task's
+session in its task row instead of listing it as separate chat work. Deleting the queue removes
+that overlay; the session remains an ordinary chat.
 
 ## Security and failure containment
 

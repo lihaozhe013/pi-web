@@ -1964,7 +1964,6 @@ export const zhTWLocale: LocalePlugin = {
     'tasks.restoreDefaults': '還原預設值',
     'tasks.defaultsSaved': '佇列預設值已儲存',
     'tasks.saving': '儲存中',
-    'tasks.sessionReadOnly': '任務正在寫入此工作階段。對話記錄仍可閱讀，但任務結束前輸入框不可用。',
     'tasks.result': '結果',
     'tasks.verifyOutput': '驗證輸出',
     'tasks.verification': '驗證',

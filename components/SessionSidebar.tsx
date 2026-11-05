@@ -150,7 +150,7 @@ interface Props {
    *  Lets the app play a cross-workspace completion tone. */
   onBackgroundTaskDone?: () => void;
   onRunningSessionIdsChange?: (ids: Set<string>) => void;
-  /** Sessions a task child is writing right now; the chat composer stays read-only for them. */
+  /** Sessions a task child is writing right now; the board keeps them in their task row. */
   onTaskSessionIdsChange?: (ids: Set<string>) => void;
   onSessionsChange?: (sessions: SessionInfo[]) => void;
 }

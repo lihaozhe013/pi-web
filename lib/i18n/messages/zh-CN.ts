@@ -1959,7 +1959,6 @@ export const zhCNLocale: LocalePlugin = {
     'tasks.restoreDefaults': '恢复默认值',
     'tasks.defaultsSaved': '队列默认值已保存',
     'tasks.saving': '保存中',
-    'tasks.sessionReadOnly': '任务正在写入此会话。对话记录仍可阅读，但任务结束前输入框不可用。',
     'tasks.result': '结果',
     'tasks.verifyOutput': '验证输出',
     'tasks.verification': '验证',

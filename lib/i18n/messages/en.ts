@@ -2085,8 +2085,6 @@ export const enLocale: LocalePlugin = {
     'tasks.restoreDefaults': 'Restore defaults',
     'tasks.defaultsSaved': 'Queue defaults saved',
     'tasks.saving': 'Saving',
-    'tasks.sessionReadOnly':
-      'A task is writing this session. The transcript stays readable, but the composer is disabled until the task finishes.',
     'tasks.result': 'Result',
     'tasks.verifyOutput': 'Verification output',
     'tasks.verification': 'Verification',
