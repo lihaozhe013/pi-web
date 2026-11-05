@@ -1,10 +1,17 @@
 # Per-project Task Queues
 
-A local task queue for one person: a small Jira per project. Each working directory has its own
-strictly serial queue. Tasks in one project are claimed one at a time and each is executed by a
-brand-new Pi agent process with its own session. When the process ends, its context ends with it;
-the next task in that project starts from an empty window. Different projects have different
-queues and may each run one task at the same time, so the queue count is the concurrency limit.
+A local task board for one person: a small Jira per project. Each working directory has its own
+queue, and queued tasks in one project are claimed one at a time. Every queued task is executed by
+a brand-new Pi agent process with its own session. When the process ends, its context ends with it;
+the next queued task in that project starts from an empty window.
+
+Chat sessions are first-class work on the same board. A conversation appears as a task-shaped row
+in its project, and any running conversation keeps that project active. Chat may run in parallel:
+several conversations in one project can run at once, and a conversation may start while a queued
+task is already running. The queue has the lower priority. A started queue claims its next task
+only while no conversation is running in the project; if a conversation is still running when a
+queued task ends, the next queued task waits. Different projects have different queues and may each
+run work at the same time.
 
 This document is the design and the record of what was built. The queue, the `Chat | Tasks` switch,
 and the project panel are implemented. The sections below describe the implemented behavior, with
@@ -15,14 +22,17 @@ the differences noted where the built version is narrower than the original plan
 `docs/README.md` and `docs/architecture.md` previously ruled out a multi-agent orchestrator and a
 subagent/queue feature. This document replaces that part of the boundary with a narrower rule:
 
-- **Allowed:** one serial queue per working directory, one active task per project at a time,
-  executed as a Pi CLI child process driven over Pi's own RPC protocol.
-- **Allowed:** different projects running their own tasks concurrently, each in its own child
+- **Allowed:** one queue per working directory with one active queued task at a time, executed as a
+  Pi CLI child process driven over Pi's own RPC protocol.
+- **Allowed:** ordinary chat sessions in the same project, including several running at once and a
+  chat that starts beside a queued task. A started queue waits for running chats before its next
+  claim.
+- **Allowed:** different projects running their own work concurrently, each in its own child
   process and its own session.
 - **Allowed:** one management surface for every queue, described in
   [Task manager](task-manager.md): an ordinary chat session in its own project whose tools read and
   change the queues. It controls the queues, not agents.
-- **Still refused:** parallel execution inside one project, a global worker pool, agent profiles,
+- **Still refused:** parallel queued tasks inside one project, a global worker pool, agent profiles,
   worktrees, a second agent protocol, subagent spawning or control, and any orchestration of Pi
   internals.
 
@@ -32,8 +42,10 @@ starts the installed Pi CLI and speaks Pi's documented RPC records. Deleting `li
 
 ## Goals
 
-- **Strict serial execution per project.** Never two tasks at once in the same working directory,
-  in one process or across processes. The project, not the repository, is the unit: `/repo` and
+- **One queued task at a time per project; chat has priority.** Never two queued tasks at once in
+  the same working directory, in one process or across processes. Chat sessions may run in parallel
+  with each other and with a queued task; a queue claims its next task only when the project has no
+  running conversation. The project, not the repository, is the unit: `/repo` and
   `/repo/packages/app` are separate queues.
 - **Projects run in parallel.** A queue for another project may run while the first one is busy;
   the concurrency limit is the number of projects with work.
@@ -48,8 +60,9 @@ starts the installed Pi CLI and speaks Pi's documented RPC records. Deleting `li
 
 ## Non-goals
 
-- Parallelism inside one project, worker pools, a global concurrency cap, priorities beyond manual
-  rank, dependencies between tasks.
+- Multiple queued tasks running at once inside one project. Chat concurrency is owned by the chat
+  runtime; the queue does not create a second worker or a global concurrency cap. There are no
+  priorities beyond manual rank and no dependencies between tasks.
 - Pull requests, branches, worktrees, or pushes. The queue never publishes; whether a run commits is
   a standing instruction the person writes into the task prompt.
 - Multi-user operation, remote execution, or a hosted service.
@@ -74,7 +87,7 @@ lib/tasks/orchestrator.ts          the only loop: claim → run → gate → set
 
 | Boundary                             | Cost                                                                                                                                                                                                                                   |
 | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Agent runtime (`lib/rpc-manager.ts`) | No import in either direction. The two systems share only the agent directory and Pi's session directory. The one contact point is a read-only guard the agent route consults so a running task's session stays read-only (see below). |
+| Agent runtime (`lib/rpc-manager.ts`) | No direct import in either direction. The runtime registers a cwd-busy check through `lib/tasks/runtime-sessions.ts`, and the agent route consults a read-only guard so a running task's session stays read-only (see below). |
 | Pi                                   | Uses the installed CLI and its documented RPC records. No new protocol, no SDK internals.                                                                                                                                              |
 | Web layer                            | Eight REST routes underneath one client hook. The board can be removed without touching chat.                                                                                                                                          |
 | Packaging                            | No new dependency. Storage uses Node's built-in `node:sqlite`; the CLI is resolved from the app's own `node_modules`.                                                                                                                  |
@@ -92,7 +105,7 @@ lib/tasks/orchestrator.ts          the only loop: claim → run → gate → set
 
 ## Process model
 
-Each task spawns exactly one Pi child:
+Each queued task spawns exactly one Pi child:
 
 ```
 node <app>/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js \
@@ -282,6 +295,8 @@ getTaskOrchestrator(projectKey, cwd)
        ├─ take this project's lock, recoverInterrupted(projectKey), set its state RUNNING
        └─ loop:
             if this project is PAUSED or stopping: stop
+            if a chat session is running in this project:
+                 wait until it ends (pause/stop still break the wait)
             task = claimNext(projectKey)
             if task is null:
                  state = IDLE, notify "project queue complete", stop
@@ -290,6 +305,18 @@ getTaskOrchestrator(projectKey, cwd)
                  on DONE: continue
                  on BLOCKED/FAILED: state = PAUSED with the reason, notify, stop
 ```
+
+The liveness check runs before each claim, not during a run. A conversation that starts while a
+queued task is executing is allowed to run beside it; the queue does not abort or pause the task.
+After that task ends, the next claim waits for the conversation, so the queue never starts a second
+piece of queued work while chat is active. The board overlays running sessions on the stored queue
+state, so a project with only a running conversation still appears in the Active section.
+
+A small process-wide watcher (`lib/tasks/chat-watcher.ts`) starts a project's loop when a non-task
+chat is running and that project has pending work. This is what makes "a running chat has started
+the queue" true even if nobody pressed Start: the loop reports RUNNING, waits for the chat, and
+claims the pending task when the chat ends. A queue explicitly paused by the person is never started
+by the watcher.
 
 Recovery at startup walks the stored project summaries. A project whose lock is free and that has
 an interrupted `IN_PROGRESS` row is blocked and paused; a project whose lock is held by another
@@ -370,12 +397,13 @@ Parent-side handling:
   consent.
 - **Policy.** The queue has a default (`allowAskUser`, off) and each task may override it. When it
   is off the extension is not loaded at all, so the tool does not exist and the prompt says
-  questions are not available. When it is on, the queue waits indefinitely — a serial queue that
-  stops for a person is the point — while `abort` remains the escape hatch. The `timeout` field RPC
-  supports is deliberately unused: a wall clock should not answer for the user.
+  questions are not available. When it is on, the queue waits indefinitely — a task that stops for
+  a person is the point — while `abort` remains the escape hatch. The `timeout` field RPC supports
+  is deliberately unused: a wall clock should not answer for the user.
 
-One question at a time: the tool is already `executionMode: 'sequential'`, and a project's serial
-queue means nothing else is running in that project anyway.
+One question at a time: the tool is already `executionMode: 'sequential'`, and a project runs one
+queued task at a time. A chat session may run beside the waiting task; that does not answer the
+question.
 
 ## Verification gate
 
@@ -449,7 +477,7 @@ check, the optional web password, and the `json()` helper in `server/http.ts`.
 
 | Route                         | Purpose                                                                                                                     |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `GET /api/tasks?cwd=…`        | One project: `{ project, tasks, runs, orchestrator, projects, config, watch }`; `no-store`. `projects` is every queue's summary. Without `cwd`, the running or most recently updated project is chosen. |
+| `GET /api/tasks?cwd=…`        | One project: `{ project, tasks, runs, orchestrator, projects, config, watch }`; `no-store`. `projects` is every queue's summary; `orchestrator.activeSessions` and each summary's `activeSessions` overlay running chat. Without `cwd`, the running or most recently updated project is chosen. |
 | `POST /api/tasks`             | Create. Body: title, description, cwd, allow_ask_user, verify_commands. Returns `{ task, project }`.                         |
 | `GET /api/tasks/[id]`         | One task and the project it belongs to; used to resolve a `?task=` deep link that has no `cwd`.                              |
 | `PATCH /api/tasks/[id]`       | `{ action: 'update' \| 'move' \| 'retry' \| 'markDone' }`. `409 task_locked` while running.                                 |
@@ -477,27 +505,31 @@ delivered in two steps so the chat surface is never destabilized by a navigation
   step 2, so the URL never changes. `?task=<id>` opens one task directly, which is the URL a Web Push
   notification links to.
 - The workspace keeps the app's toolbar. In task mode the left panel is a project list instead of
-  the conversation tree: one row per working directory, with its queue state, the running task,
-  and the number queued. A project with tasks but no conversation is still listed, and "Add
+  the conversation tree: one row per working directory, with its queue state, the running task or
+  chat, and the number queued. A project with tasks but no conversation is still listed, and "Add
   project" opens the same directory picker the task form uses. The center column is one work
-  surface for the task being read, and the queue grouped by status (running, queued, blocked,
-  done) sits in the same right-hand panel the Runs panel uses in chat. The queue is one list, not
-  a board that repeats the same rows.
-- Clicking a project switches the queue panel and the work surface to that project's queue. The
-  project is a URL parameter (`?mode=tasks&cwd=<path>`), so a reload, a new tab, and a Web Push
-  deep link all reopen the same project. A task that starts running moves its project to the
-  active section and selects the task; without a `cwd` the server opens the project with a running
-  task, or the most recently updated one.
+  surface for the task being read, and the board sits in the same right-hand panel the Runs panel
+  uses in chat. The board has a Chats section above the queue groups (running, queued, blocked,
+  done); a conversation that also has a queue task is represented by that task, so the same work
+  never appears twice.
+- Clicking a project switches the board and the work surface to that project. The project is a URL
+  parameter (`?mode=tasks&cwd=<path>`), so a reload, a new tab, and a Web Push deep link all reopen
+  the same project. A chat session that starts running moves its project to the active section and
+  is selected; the board's header says how many chats are running. Without a `cwd` the server
+  opens the project with running work, or the most recently updated queue.
 - The queue panel is docked on desktop, open until collapsed, and resizable from its left edge with
   the same handle, limits and remembered width as the Runs panel; its own header closes it. A
-  `Queue` chip in the task bar shows the size and a running mark while the panel is closed and
-  reopens it. Settings hides the panel without collapsing it. Its collapse choice is independent of
+  `Task board` chip in the task bar shows the size and a running mark while the panel is closed
+  and reopens it. Settings hides the panel without collapsing it. Its collapse choice is independent of
   the Runs panel's, so the two modes keep their own arrangements.
-- The queue list: one row per task with a status marker, title, working directory, and, once it has
-  run, its attempts and elapsed time. The group heading carries the status for queued, running, and
-  done rows; a failed row names its status because its group also holds blocked ones. The arrow keys
-  reorder. Keyboard: `↑`/`↓` move within the queue, `Enter` edits, `Delete` removes, all disabled
-  with an explanation while a row is running.
+- The chat rows use the same row language as queue tasks: status marker, title, working directory,
+  message count, and a status word. Running chats sort first. Selecting one opens a small summary
+  with the full title, session id, last activity, and an "Open chat" action; double-clicking the row
+  opens the conversation directly. The queue groups carry a status marker, title, working directory,
+  and, once a task has run, its attempts and elapsed time. The group heading carries the status for
+  queued, running, and done rows; a failed row names its status because its group also holds blocked
+  ones. The arrow keys reorder. Keyboard: `↑`/`↓` move within the queue, `Enter` edits, `Delete`
+  removes, all disabled with an explanation while a row is running.
 - Several tasks can be acted on at once. Shift+click selects the range between the anchor and the
   row clicked, Command/Ctrl+click adds or removes one row, `Command/Ctrl+A` selects the queue and
   `Shift+↑`/`↓` extends the selection, so no pointer modifier is the only way in. On a phone, where
@@ -509,8 +541,8 @@ delivered in two steps so the chat surface is never destabilized by a navigation
   that removes every `DONE` record in a single confirmation. It is the answer to a queue that
   accumulates finished work; the tasks that are still queued, running, or waiting on a person are
   never part of it.
-- Every row also carries a menu (`⋯`, right-click, or the keyboard's `Shift+F10`/menu key) with
-  select/deselect, edit, move up/down, duplicate, copy, paste, open session, and delete. Move is
+- Every queue row also carries a menu (`⋯`, right-click, or the keyboard's `Shift+F10`/menu key)
+  with select/deselect, edit, move up/down, duplicate, copy, paste, open session, and delete. Move is
   offered only inside the queued segment; duplicate and paste append a copy at the end and select
   it; copy keeps the editable fields in `localStorage`, so the clipboard survives a reload. On a
   phone the same menu is a bottom sheet, and an empty queue's right-click offers "New task" and
@@ -528,16 +560,21 @@ delivered in two steps so the chat surface is never destabilized by a navigation
   created from an empty queue. Where the queue panel cannot dock, the queue takes the center column
   and the work surface becomes a full-height sheet; Close or Escape returns to the queue instead of
   reopening on the fallback selection.
-- The running task shows one activity line (the same vocabulary as the chat composer: waiting,
+- A running queued task shows one activity line (the same vocabulary as the chat composer: waiting,
   thinking, reading, running a command) plus a collapsed transcript tail. "Open session" navigates
   to `?session=<id>`, that is, into the ordinary conversation view, where the work can be read in
-  full.
+  full. A chat row's "Open chat" does the same for a conversation the person started by hand.
+- `Start queue` remains available while a chat is running. The loop takes the project lock and
+  reports `RUNNING`, but holds its next claim until the chat ends; `Pause` and `Stop` still interrupt
+  the wait. Starting a queue beside a chat therefore never blocks or aborts the chat.
 - A pending question appears in two places, both already styled: above the work surface, and in the
   task's pane. It answers through `AskUserPanel`'s existing request shape rather than a second
   component.
-- Polling: 1 s while any project is running or a question is pending, 5 s otherwise, suspended
-  while the page is hidden and refreshed once on return. Each poll returns all project summaries,
-  so the project panel stays current without one request per project. No new SSE machinery.
+- Polling: 1 s while any project is running, a chat is running, or a question is pending, 5 s
+  otherwise, suspended while the page is hidden and refreshed once on return. Each poll returns all
+  project summaries, so the project panel stays current without one request per project. The shell
+  also polls live session ids in task mode, so a new or running conversation becomes a row without
+  a reload. No new SSE machinery.
 - Accessibility and responsiveness follow `docs/design.md`: semantic theme variables, visible focus,
   keyboard-only operation, reduced-motion respect, and the narrow layout keeps the queue in the
   center with the detail as a full-height sheet.
@@ -613,7 +650,10 @@ Testing is manual; the project keeps no tests and no test runner. Walk the queue
 task in one project, start its queue, and watch one attempt run to `agent_settled`; fail a
 verification command to confirm that project pauses; then create a task in a second project and
 start both queues at once, confirming the two tasks run concurrently while a third task in the
-first project waits behind the running one. Restart the server and confirm nothing is left
+first project waits behind the running one. Then start a chat in the first project while its queued
+task runs: the chat must keep running, and after the queued task ends the next queued task must wait
+until the chat is idle. Add a pending task and start only the chat: the queue should become running,
+wait, and claim the task when the chat ends. Restart the server and confirm nothing is left
 `IN_PROGRESS` and each project's state is consistent.
 
 ## Implementation phases
@@ -671,7 +711,7 @@ What it does not change here:
 
 | Decision               | Value                                                                                             |
 | ---------------------- | ------------------------------------------------------------------------------------------------- |
-| Execution boundary     | `pi --mode rpc` child process per task, one serial queue per working directory                    |
+| Execution boundary     | `pi --mode rpc` child process per queued task; one queued task at a time per working directory, chat may run in parallel |
 | Task working directory | Stored per task and the project key; different projects can run at the same time                  |
 | Abort outcome          | `BLOCKED`, loop paused                                                                            |
 | `ask_user`             | Queue default off, per-task override, wait indefinitely when enabled, Web Push, abort as the exit |

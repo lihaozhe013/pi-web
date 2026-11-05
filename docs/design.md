@@ -68,41 +68,46 @@ links, without cards, frames or gradients.
 
 ## The task workspace
 
-`?mode=tasks` replaces the conversation with the per-project task queues described in
+`?mode=tasks` replaces the conversation with the per-project task board described in
 [Tasks](tasks.md), chosen from the page's `Chat | Tasks` switch. It keeps the app's sidebar frame
 and toolbar: the left panel becomes a project list, the center column is the work surface that reads
-the selected task, and the same right-hand column that carries Runs in chat carries the Queue here,
-grouped by status. The result mirrors the chat page — panel, center, inspector — and the queue is
-the only task list, so the same row never appears twice.
+the selected task or chat, and the same right-hand column that carries Runs in chat carries the
+board here. The board has a Chats section above the queue groups, because a conversation is project
+work too. A conversation that has a queue task is represented by that task, so the same work never
+appears twice.
 
 The project panel is the task workspace's navigator. Each row is one working directory: its name,
-the running task or its path, a status dot and the number queued; projects with a running, paused,
-or queued task sit in an Active section above the rest. A project with tasks but no conversation is
-still a row. "Add project" opens the same directory picker the task form uses. A click switches
-`?cwd=`, and the board, the Queue panel, and the selection move together; the running task is
-selected automatically, so the project that needs attention is the one on screen. The panel uses
-the conversation sidebar's header and row language, not a second navigation style.
+the running task or chat, a status dot and the number queued; projects with a running chat, running
+or paused task, or queued work sit in an Active section above the rest. A project with tasks but no
+conversation is still a row. "Add project" opens the same directory picker the task form uses. A
+click switches `?cwd=`, and the board and the selection move together; a running chat is selected
+automatically, so the project that needs attention is the one on screen. The panel uses the
+conversation sidebar's header and row language, not a second navigation style.
 
 The queue panel is docked on desktop, open until the person collapses it, and resizable from its
 left edge with the same handle, limits and remembered width as the Runs panel. Its own header closes
-it. A `Queue` chip in the task bar shows its size and running mark while the panel is closed, and
+it. A `Task board` chip in the task bar shows its size and running mark while the panel is closed, and
 reopens it; the chip is not repeated while the panel is open, exactly like the Runs panel's toggle.
 Settings hides the panel without collapsing it, so closing Settings brings it back, and the queue's
 own collapse choice is independent of the Runs panel's.
 
-A queue row carries its status marker, title, working directory, and — once it has run — its
-attempts and elapsed time. The group heading already names queued, running, and done rows; a failed
-row names its status too, because its group also holds blocked ones. The row the surface is reading
-carries a tint and an accent bar at its left edge; its `⋯` menu appears on hover, focus, and on the
-active row, and also opens on right-click at the pointer and from `Shift+F10`. The arrow keys
-reorder it inside the pending segment, Enter edits, and Delete removes it. A running task is locked,
-and the controls say why.
+A chat row uses the same status marker, title, working directory, and message count as a queue
+task, with a status word on the right; running chats sort first. Selecting it opens a compact
+summary with an "Open chat" action, and double-clicking opens the conversation directly. A queue row
+also carries — once it has run — its attempts and elapsed time. The group heading already names
+queued, running, and done rows; a failed row names its status too, because its group also holds
+blocked ones. The row the surface is reading carries a tint and an accent bar at its left edge; its
+`⋯` menu appears on hover, focus, and on the active row, and also opens on right-click at the pointer
+and from `Shift+F10`. The arrow keys reorder it inside the pending segment, Enter edits, and Delete
+removes it. A running task is locked, and the controls say why.
 
-The task bar above the work surface holds the queue state, one model chip (the queue default, "Pi
-default: <model>" when unset), the clear-completed action, the queue-defaults opener, the
-start/pause/resume/stop controls, and New task. The bar starts with the project's name and path, so
-the queue is never ambiguous. The action that moves the queue is the bar's one strong control while
-tasks exist; New task is strong only when the queue is empty. A slider button
+The task bar above the work surface holds the queue state or the running-chat count, one model chip
+(the queue default, "Pi default: <model>" when unset), the clear-completed action, the
+queue-defaults opener, the start/pause/resume/stop controls, and New task. The bar starts with the
+project's name and path, so the board is never ambiguous. The action that moves the queue is the
+bar's one strong control while tasks exist; New task is strong only when the board is empty.
+Starting a queue while a conversation runs is allowed: the queue reports RUNNING, waits for the
+conversation to end, and never blocks chat. A slider button
 beside the model chip opens the queue's own defaults — model, timeouts, verification commands,
 question policy, and the standing task instructions — in the app's standard dialog shell, with its
 actions (including "Restore defaults") pinned to the bottom while the body scrolls. A timeout is a
@@ -112,10 +117,11 @@ queue default" in a task's form names the value it would inherit.
 
 The work surface reads one task: its title, a status line with attempts and elapsed time, the
 description, and a facts sheet for the working directory, result, verification output, verification
-commands, and the linked session. The pending question, the running activity line, and the collapsed
-live tail sit in the same surface. The task's actions follow that content in a footer that sticks to
-the bottom edge while a long tail scrolls. When nothing is selected — including an empty queue — the
-surface explains what it shows and offers New task, rather than leaving a blank column.
+commands, and the linked session. A selected chat instead shows its session id, last activity,
+message count, and an Open chat action. The pending question, the running activity line, and the
+collapsed live tail sit in the same surface. The task's actions follow that content in a footer that
+sticks to the bottom edge while a long tail scrolls. When nothing is selected — including an empty
+board — the surface explains what it shows and offers New task, rather than leaving a blank column.
 
 Shift+click extends a selection, Command/Ctrl+click adds one row, so bulk work does not require a
 checkbox column that would compete with the status marker. A multi-selection replaces the task
@@ -123,9 +129,10 @@ reading with the batch actions and names the count in the surface, because a tin
 state. Removing several tasks, completed ones included, asks once in the same popover the row menu
 uses: the queue has no undo, but the sessions themselves are only linked, never deleted.
 
-The queue polls: once a second while any project runs or a question waits, otherwise every five
-seconds, never while the page is hidden, and once when it returns. Every poll returns all project
-summaries, so the project panel stays current without one request per project. A waiting `ask_user` question renders
+The board polls: once a second while any queue or chat runs, or a question waits, otherwise every
+five seconds, never while the page is hidden, and once when it returns. Task mode also polls live
+session ids, so a new conversation becomes a task-shaped row without a reload. Every poll returns
+all project summaries, so the project panel stays current without one request per project. A waiting `ask_user` question renders
 through the same panel the composer uses, above the work surface and inside the task's pane, so a
 reload or a Web Push notification still finds it. Opening the task's session leaves the workspace
 for the ordinary conversation view, where the transcript is read-only until the task finishes. Where

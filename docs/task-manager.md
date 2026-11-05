@@ -14,7 +14,7 @@ starts and stops tasks, and reports what happened.
 
 It is not a new runtime. It is one Pi extension loaded into one working directory, ten tools over
 the existing queue controller, and a durable event log the extension reads. No subagents, no
-parallel execution inside a project, no second protocol, no separate daemon.
+parallel queued-task execution inside a project, no second protocol, no separate daemon.
 
 ## Boundary
 
@@ -25,7 +25,7 @@ narrows that refusal the same way [Tasks](tasks.md) already narrowed it for the 
   per-project queues through `lib/tasks/queue.ts` and `lib/tasks/orchestrator.ts`.
 - **Allowed:** starting, pausing, or inspecting different projects independently; the manager names
   a project by its working directory.
-- **Still refused:** subagent spawning or control, parallel execution inside a project, agent
+- **Still refused:** subagent spawning or control, parallel queued-task execution inside a project, agent
   profiles, worktrees, a second agent protocol, raw SQL access to the queue database, and the tools
   appearing in any other project or in a tool preset.
 
@@ -120,7 +120,7 @@ for operations on one task, because the task resolves its own project.
 
 Rules attached to the tool definitions, in `promptGuidelines` and in `AGENTS.md`:
 
-- `executionMode: 'sequential'` on every tool. Each project queue is serial; two concurrent claims
+- `executionMode: 'sequential'` on every tool. Each project queue allows one queued task at a time; two concurrent claims
   in one project are a bug.
 - Every result carries all project snapshots (state, active task, pending and attention counts) and
   the events newer than the session's cursor, so a single tool call always leaves the agent
@@ -279,7 +279,8 @@ Policy, decided and recorded here:
 ## Queue control policy
 
 - `start` is allowed. Driving the queues is the point of the feature; each project still pauses on
-  `BLOCKED`/`FAILED` and still runs one task at a time, while another project may be running.
+  `BLOCKED`/`FAILED` and still runs one queued task at a time, while a chat session may run beside
+  it and another project may be running.
 - `abort` requires `confirm`, and the digest that follows names the task and the reason.
 - `delete`, `markDone` and clearing completed tasks require `confirm` and a note. The board keeps
   its own confirmation, because a person's click is not the agent's claim.
@@ -304,7 +305,8 @@ Policy, decided and recorded here:
 - **Origin marker.** A task row shows a small "Chat" mark when a session queued it. It comes from
   the `created_by` column `task_create` writes, not from parsing descriptions.
 - **No new mode.** The manager is a chat session, so `?mode=tasks` and the queue board are
-  untouched. The board remains the place to look at the queue; chat is the place to talk about it.
+  untouched. The board remains the place to look at queue and chat work; chat is the place to talk
+  about it.
 
 ## Security and failure containment
 

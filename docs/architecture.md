@@ -90,19 +90,24 @@ extension UI paths. The one tool surface Pie registers itself is the queue's man
 [Task manager](task-manager.md); they act on the project queues, not on agents.
 
 One scheduled surface exists: the per-project task queues in [Tasks](tasks.md). A project never
-runs two tasks at once, but different projects may run one each; a task never reuses a session,
-and every attempt speaks only Pi's RPC records to a Pi CLI child process. It imports nothing from
-`lib/rpc-manager.ts`, so deleting `lib/tasks`, `server/api/tasks`, and the task workspace leaves chat
-behavior unchanged. A task's session is an ordinary Pi session and renders through the normal
-transcript; while its process runs, that session is read-only in chat so two writers never share one
-session file.
+runs two queued tasks at once, but chat sessions are first-class work on the same board: they can
+run in parallel with each other and with a queued task, and a started queue waits for running chat
+before its next claim. Different projects may run work at the same time; a queued task never reuses
+a session, and every attempt speaks only Pi's RPC records to a Pi CLI child process. The queue reads
+the live chat registry through the runtime-sessions hook before each claim; deleting `lib/tasks`,
+`server/api/tasks`, and the task workspace still leaves chat behavior unchanged. A task's session is
+an ordinary Pi session and renders through the normal transcript; while its process runs, that
+session is read-only in chat so two writers never share one session file. The queue waits for chat
+through `lib/tasks/runtime-sessions.ts`: the agent runtime registers a cwd-busy check when it loads,
+so the queue never imports the runtime directly.
 
 ## Per-project task queues
 
 The queues store tasks in SQLite (`<agentDir>/pie-tasks.db`, `node:sqlite`, WAL) with a
 `project_key` and a per-project rank. Each project's claim is one transaction that selects its
-lowest `PENDING` row and asserts no row in that project is `IN_PROGRESS`; another project's claim
-is a different transaction and may succeed at the same time. Each attempt starts a new
+lowest `PENDING` row and asserts no queued task in that project is `IN_PROGRESS`; before the claim,
+the loop waits while a chat session is running in the same project. Another project's claim is a
+different transaction and may succeed at the same time. Each attempt starts a new
 `pi --mode rpc` child in the task's working directory with a new session id; that project's loop
 waits for `agent_settled`, runs the configured verification commands, and settles the task.
 Standing instructions from the shared queue defaults are appended to every task prompt, so rules
@@ -121,7 +126,9 @@ Configuration, the project locks, and the chat-side contact points stay small:
 `<agentDir>/pie-task-locks/<sha256(projectKey)>.lock` is the `proper-lockfile` lock that keeps one
 process driving that project, and `lib/tasks/active-sessions.ts` is an in-memory set of session ids. `GET /api/agent/running` and
 `GET /api/sessions` include those ids so the composer in chat mode can disable itself, and the agent
-route refuses a prompt for a session in the set. `lib/tasks/config.ts` owns the defaults,
+route refuses a prompt for a session in the set. `lib/tasks/session-activity.ts` overlays running
+chat sessions on project summaries, and `lib/tasks/chat-watcher.ts` starts a project queue when a
+chat is running beside pending work; a paused queue is left alone. `lib/tasks/config.ts` owns the defaults,
 `lib/tasks/prompt.ts` the task prompt and standing instructions, `lib/tasks/gate.ts` the
 verification commands, and `lib/tasks/request.ts` the route validation and error mapping.
 `server/instrumentation.ts` uses the same shutdown signal to abort every live project loop's child
