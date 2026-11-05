@@ -31,8 +31,9 @@ subagent/queue feature. This document replaces that part of the boundary with a 
   claim.
 - **Allowed:** different projects running their own work concurrently, each in its own SDK session.
 - **Allowed:** one management surface for every queue, described in
-  [Task manager](task-manager.md): an ordinary chat session in its own project whose tools read and
-  change the queues. It controls the queues, not agents.
+  [Orchestrator](orchestrator.md): the Orchestrator preset in any project. It adds one
+  `task_manager` tool to the full coding loadout, scoped to that session's own queue. It controls the
+  queue, not agents.
 - **Still refused:** parallel queued tasks inside one project, a global worker pool, agent profiles,
   worktrees, subagent spawning or control, and any two-agent protocol. Task sessions are not
   subagents: they are ordinary sessions with queue metadata around them.
@@ -522,8 +523,8 @@ delivered in two steps so the chat surface is never destabilized by a navigation
   model chip: model, timeouts, the standing task instructions, verification commands, and the
   Autonomous decision mode switch, with Save pinned while the body scrolls.
 - The new-task form asks for a description only. Its first non-empty line becomes the title; an
-  explicit title from Task manager still wins, and a legacy title-only task opens with its title as
-  the description text. There is no separate title field on the board.
+  explicit title from the `task_manager` tool still wins, and a legacy title-only task opens with
+  its title as the description text. There is no separate title field on the board.
 - The working-directory field in that form is the chat shell's `DirectoryPicker` behind a "Choose
   folder" button, with the same validation call the composer uses. Typing a path works too: Save
   validates first, and a rejected directory leaves the form open with the reason under the field
@@ -672,17 +673,19 @@ and standard-mode tasks; autonomous tasks omit it and use the goal package alrea
 
 ## Agent orchestration
 
-The queue is operated by a person from `?mode=tasks`. [Task manager](task-manager.md) adds the
-second operator: a chat session in a dedicated project with queue tools and a durable event feed.
+The queue is operated by a person from `?mode=tasks`. [Orchestrator](orchestrator.md) adds the
+second operator: any chat session on the Orchestrator preset, with one project-scoped queue tool
+and a durable event feed.
 
 What it does not change here:
 
 - The queue still owns scheduling. The session's tools call the same `QueueController`, so the
   guards in this document apply to both operators.
-- The interface stays two modes. The manager is a chat session, so `?mode=tasks` and the queue board
-  keep working unchanged, and a session in another project never sees the tools.
-- The queue remains deletable: the feature lives in one extension factory, one project module and
-  one tool module, plus the tool list's one entry point in `lib/rpc-manager.ts`.
+- The interface stays two modes. The manager is a chat session on the Orchestrator preset, so
+  `?mode=tasks` and the queue board keep working unchanged, and a session not on that preset never
+  sees the tool.
+- The queue remains deletable: the feature lives in one extension factory, one tool module, and one
+  preset entry, plus the loadout branch in `lib/rpc-manager.ts`.
 
 ## Open decisions already settled
 

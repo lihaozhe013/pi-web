@@ -1,8 +1,8 @@
 /**
  * A task's title is a short label derived from the text that asks for the work.
  * The board no longer asks for a separate title, so the first non-empty line of
- * the description becomes the title; an explicit title from the task manager or
- * an older row still wins.
+ * the description becomes the title; an explicit title from the task_manager
+ * tool or an older row still wins.
  */
 export const TASK_TITLE_MAX_LENGTH = 200;
 

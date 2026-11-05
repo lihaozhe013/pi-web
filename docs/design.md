@@ -106,7 +106,7 @@ The task bar above the work surface starts with the project's name and path, so 
 ambiguous. Its status cluster puts the queue state (Idle, Running, or Paused) next to the
 Standard/Autonomous mode chip, because both describe the current work rather than a setting. A
 paused reason and a watching mark stay inline there instead of taking separate banner rows. The
-right side keeps the model chip and a row of icon controls: task manager, queue defaults, one
+right side keeps the model chip and a row of icon controls: queue defaults, one
 primary Start/Pause/Resume control that follows the state, a Stop control, and an add-task plus.
 Icon-only controls carry an accessible name and the same tooltip as their visible label. New task
 is strong only when the board is empty; otherwise the primary run control is the one strong button.
@@ -335,8 +335,10 @@ text it was, its mentions written out again.
 The composer's tool menu lists the built-in presets first, then the user's custom ones, each named
 with its tool count, and ends with a single entry that opens Settings at the Tools section.
 Autonomous is the built-ins' self-directed mode: full coding tools, refuses `ask_user`, and prompt
-guidance to decide and keep working. The control stays visible while a run is in progress — showing which preset the turn uses — but is
-disabled so the preset cannot be switched mid-run. The section lists the built-in presets read-only
+guidance to decide and keep working. Orchestrator adds one project-scoped `task_manager` tool for
+the queue of the session's own working directory. The control stays visible while a run is in
+progress — showing which preset the turn uses — but is disabled so the preset cannot be switched
+mid-run. The section lists the built-in presets read-only
 above the user's own, so the list doubles as a reference, and shows an editor for the selected
 custom one: a name, the built-in combinations to start from, and one checkbox per built-in coding
 tool. The draft stays local until Save replaces the whole list; Delete is a two-step button kept

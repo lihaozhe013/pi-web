@@ -163,6 +163,7 @@ const TOOL_PRESETS = [
   'configured',
   'plan',
   'autonomous',
+  'orchestrator',
   'chat-only',
   'read-only',
   'default',
@@ -173,6 +174,7 @@ const TOOL_PRESET_MAP: Record<ToolPresetLabel, ToolPresetSelection> = {
   configured: 'configured',
   plan: 'plan',
   autonomous: 'autonomous',
+  orchestrator: 'orchestrator',
   'chat-only': 'none',
   'read-only': 'read-only',
   default: 'default',
@@ -2109,7 +2111,9 @@ export const ChatInput = memo(
           ? t('chat.planMode')
           : builtin === 'autonomous'
             ? t('chat.autonomousMode')
-            : builtin;
+            : builtin === 'orchestrator'
+              ? t('chat.orchestratorMode')
+              : builtin;
     })();
 
     // Close dropdowns on outside click
@@ -3529,6 +3533,8 @@ export const ChatInput = memo(
                             else if (lvl === 'plan') desc = t('chat.planModeTools');
                             else if (lvl === 'autonomous')
                               desc = t('chat.autonomousModeTools');
+                            else if (lvl === 'orchestrator')
+                              desc = t('chat.orchestratorModeTools');
                             else if (lvl === 'chat-only') desc = t('chat.chatOnly');
                             else if (lvl === 'read-only')
                               desc = t('chat.readOnlyTools', { count: 4 });
@@ -3538,7 +3544,11 @@ export const ChatInput = memo(
                               <PresetMenuItem
                                 key={lvl}
                                 label={
-                                  lvl === 'autonomous' ? t('chat.autonomousMode') : lvl
+                                  lvl === 'autonomous'
+                                    ? t('chat.autonomousMode')
+                                    : lvl === 'orchestrator'
+                                      ? t('chat.orchestratorMode')
+                                      : lvl
                                 }
                                 description={desc}
                                 active={isActive}

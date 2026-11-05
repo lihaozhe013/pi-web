@@ -36,9 +36,10 @@ project, no global worker pool, and no second agent protocol. A task session is 
 the queue can be deleted without changing chat behavior. One global autonomous switch chooses the
 `autonomous` preset (full tools, questions refused, goal-driven) or the `full` preset; it is not a
 per-project setting.
-The queues also have one management surface, described in [Task manager](task-manager.md): an
-ordinary chat session in its own project whose tools read and change the queues. Those tools control
-the queues, not agents; they add no subagent runtime and no second way to start work.
+The queues also have one management surface, described in [Orchestrator](orchestrator.md): the
+**Orchestrator** preset in any project. It is the full coding toolset plus one `task_manager` tool,
+and that tool can read or change only the queue of the session's own working directory. It controls
+the queue, not agents; it adds no subagent runtime and no second way to start work.
 
 Historical management pages, settings, and project-specific style layers remain in the code. They
 are not product commitments. Review them individually and leave configuration to Pi or its CLI when
@@ -67,7 +68,7 @@ All project documentation is maintained in English, without translated copies.
 | [Runtime](runtime.md)                     | Vite, Hono, and how a request is served |
 | [Desktop shell](desktop.md)               | Tauri 2 window and desktop packaging  |
 | [Tasks](tasks.md)                         | Per-project task queues, execution boundary |
-| [Task manager](task-manager.md)           | Agent-driven queue control                  |
+| [Orchestrator](orchestrator.md)           | The Orchestrator preset and its queue tool  |
 | [Packaging](../packaging/README.md)       | Local portable builds                 |
 
 These documents replace the upstream snapshot, fork-specific design guide, translated guides,

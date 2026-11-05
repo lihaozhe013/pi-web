@@ -27,7 +27,7 @@ process. Bun manages dependencies and script invocation.
 | Saved session reading    | `lib/session-reader.ts`                                                                     |
 | Shared types             | `lib/types.ts`, `lib/pi-types.ts`                                                           |
 | Task queues              | `lib/tasks/`, `server/api/tasks/`, `components/TaskWorkspace.tsx`, `components/TaskProjectsSidebar.tsx` |
-| Task manager             | `lib/task-manager-extension.ts`, `lib/tasks/agent-tools.ts`, `lib/tasks/manager-project.ts` |
+| Orchestrator preset      | `lib/task-manager-extension.ts`, `lib/tasks/agent-tools.ts`                                 |
 | HTTP APIs                | `server/api/`, registered in `server/routes.ts`                                             |
 | Server assembly          | `server/app.ts`, `server/index.ts`, `server/middleware/security.ts`                         |
 | Browser entry            | `src/main.tsx`, `index.html`, `vite.config.mts`                                             |
@@ -86,8 +86,9 @@ model is selected again. Pi CLI sharing the agent directory does not apply the c
 Pie hosts ordinary Pi SDK sessions. It does not spawn or control subagents, maintain agent profiles,
 or create Git worktrees. There are no subagent HTTP routes or specialized transcript viewers.
 Installed extensions follow Pi's normal loading semantics and render through generic tool and
-extension UI paths. The one tool surface Pie registers itself is the queue's management tools in
-[Task manager](task-manager.md); they act on the project queues, not on agents.
+extension UI paths. The one tool surface Pie registers itself is the Orchestrator preset's
+`task_manager` tool in [Orchestrator](orchestrator.md); it acts on the session's own project queue,
+not on agents.
 
 One scheduled surface exists: the per-project task queues in [Tasks](tasks.md). A project never
 runs two queued tasks at once, but chat sessions are first-class work on the same board: they can
@@ -134,11 +135,12 @@ verification commands, and `lib/tasks/request.ts` the route validation and error
 `server/instrumentation.ts` uses the same shutdown signal to abort every live project loop's session
 and settle each task.
 
-The [task manager](task-manager.md) adds a third contact point: `lib/rpc-manager.ts` loads one
-extension factory when the session's working directory is `<agentDir>/task-manager`, so that
-project's chat sessions get the queue tools. The tools call the same controller the board uses, and
-the extension reads the queue's event table through the same polling design. Nothing else in the
-runtime learns that the feature exists.
+The [orchestrator](orchestrator.md) adds a third contact point: `lib/rpc-manager.ts` loads one
+extension factory when the session is on the Orchestrator preset, so that session gets the
+`task_manager` tool beside the full coding loadout. The tool calls the same controller the board
+uses, is scoped to the session's working directory, and reads the queue's event table through the
+same polling design. Switching to or away from Orchestrator rebuilds the session so the tool is
+registered or removed with the mode; nothing else in the runtime learns that the feature exists.
 
 Task mode requests `/api/sessions?includeTransient=1`, so an idle draft runtime created by the
 composer is visible as a New chat task before its first message exists. Chat mode keeps the default
@@ -190,12 +192,14 @@ first-token timing. The end-to-end speed continues to use Pi's recorded response
 
 ## Modes and questions
 
-`lib/tool-presets.ts` selects the coding tools a session may call. Plan and Autonomous also carry a
-work mode, because their tool lists alone would lose their behavior; the mode is stored in the
-session log (`lib/work-mode.ts`, `pie:work-mode`) and travels next to the tool list in
-`GET /api/sessions/[id]` and `get_tools`. Plan pins read-only tools and asks before acting.
+`lib/tool-presets.ts` selects the coding tools a session may call. Plan, Autonomous, and
+Orchestrator also carry a work mode, because their tool lists alone would lose their behavior; the
+mode is stored in the session log (`lib/work-mode.ts`, `pie:work-mode`) and travels next to the tool
+list in `GET /api/sessions/[id]` and `get_tools`. Plan pins read-only tools and asks before acting.
 Autonomous pins the full tool set, refuses `ask_user`, and adds guidance to decide and keep working;
 the task runner uses it with a goal so an idle foreground turn is not mistaken for completion.
+Orchestrator pins the full tool set and adds one project-scoped `task_manager` tool; it is the only
+mode that changes the extension loadout, so switching it rebuilds the session.
 
 Users combine the built-in coding tools into named custom presets beside the built-in ones. The list
 lives in `pie-tool-presets.json` in the agent directory (`lib/custom-tool-presets.ts`), is served

@@ -1150,7 +1150,9 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
             ? 'plan'
             : result.workMode === 'autonomous'
               ? 'autonomous'
-              : pinned
+              : result.workMode === 'orchestrator'
+                ? 'orchestrator'
+                : pinned
         );
         onSystemToolsChange?.(tools);
         return tools;

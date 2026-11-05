@@ -46,7 +46,6 @@ import { STREAM_SPEED_ENTRY, StreamSpeedTracker } from './session-stream-speed';
 import { getProjectTrustStatus, projectTrustReloadOptions } from './project-trust';
 import { notifySessionComplete } from './web-push';
 import { hasActiveSessionLivenessProvider } from './session-liveness';
-import { isTaskManagerProject } from './tasks/manager-project';
 import { setBusySessionCheck } from './tasks/runtime-sessions';
 import type { SlashCommandInfo } from '@earendil-works/pi-coding-agent';
 import type { AgentSessionLike, ExtensionUiContextLike, ToolInfo } from './pi-types';
@@ -2604,6 +2603,12 @@ export async function setRpcSessionTools(
 
   if (existing.isRunning()) throw new Error('Cannot change tools while the session is running');
 
+  const previousMode = readWorkMode(
+    existing.inner.sessionManager.getEntries() as unknown as SessionEntry[]
+  );
+  const nextMode = modeProvided ? workMode : previousMode;
+  const crossesOrchestratorBoundary =
+    (previousMode === 'orchestrator') !== (nextMode === 'orchestrator');
   const hasCurrentResourcePolicy =
     typeof existing.isChatOnly === 'function' &&
     typeof existing.setActiveToolSelection === 'function';
@@ -2613,8 +2618,8 @@ export async function setRpcSessionTools(
     existing.isChatOnly() !== (toolNames.length === 0);
   if (toolNames === undefined) appendClearedSessionToolSelection(existing.inner.sessionManager);
   else appendSessionToolSelection(existing.inner.sessionManager, toolNames);
-  // The mode is read by the plan-mode extension at call and prompt time, so changing it needs
-  // no rebuild: the same session applies it to the next message.
+  // Plan and Autonomous are read at call and prompt time, so they need no rebuild. Orchestrator
+  // is a loadout: the server adds or removes the task_manager extension in startRpcSession.
   if (modeProvided) {
     syncWorkMode(
       existing.inner.sessionManager,
@@ -2624,7 +2629,7 @@ export async function setRpcSessionTools(
   }
   invalidateSessionListCache();
 
-  if (toolNames !== undefined && !crossesChatOnlyBoundary) {
+  if (toolNames !== undefined && !crossesChatOnlyBoundary && !crossesOrchestratorBoundary) {
     existing.setActiveToolSelection(toolNames);
     return { session: existing, sessionId, recreated: false };
   }
@@ -2820,11 +2825,6 @@ export async function startRpcSession(
   if (persistedToolNames === undefined && requestedToolNames !== undefined) {
     appendSessionToolSelection(sessionManager, requestedToolNames);
   }
-  // The task manager project always runs with the full loadout. Its queue tools are
-  // injected by the server and cannot be selected, so a Chat-only choice would load no
-  // extension at all and silently remove them (docs/task-manager.md).
-  const managerProject = isTaskManagerProject(sessionCwd);
-  const activeToolNames = managerProject ? undefined : selectedToolNames;
   // A new session starts in the mode the caller asked for. A session file's own entry stays
   // authoritative, because reopening it must not repeat the choice that created it.
   if (options.mode !== undefined) {
@@ -2834,6 +2834,9 @@ export async function startRpcSession(
       validateWorkMode(options.mode)
     );
   }
+  const activeToolNames = selectedToolNames;
+  const orchestratorMode =
+    readWorkMode(sessionManager.getEntries() as unknown as SessionEntry[]) === 'orchestrator';
   const chatOnly = activeToolNames?.length === 0;
   const finishStartingSession = trackStartingSession(sessionCwd);
   const starting = (async () => {
@@ -2899,8 +2902,9 @@ export async function startRpcSession(
                 cwd: sessionCwd,
                 settings: settingsManager
               }),
-              // Only this project's sessions get the queue tools; the browser cannot ask for them.
-              ...(managerProject ? [createTaskManagerExtension()] : [])
+              // The orchestrator preset adds the project-scoped queue tool beside the
+              // full coding loadout. Other sessions never register it.
+              ...(orchestratorMode ? [createTaskManagerExtension()] : [])
             ],
             ...(goalPaths.length > 0 ? { additionalExtensionPaths: goalPaths } : {}),
             extensionsOverride: (base) => preferUserBashExtension(base)

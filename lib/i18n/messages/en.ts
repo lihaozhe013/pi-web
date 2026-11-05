@@ -669,6 +669,8 @@ export const enLocale: LocalePlugin = {
     'chat.planMode': 'Plan',
     'chat.autonomousMode': 'Autonomous',
     'chat.autonomousModeTools': 'Full tools, self-directed, no questions',
+    'chat.orchestratorMode': 'Orchestrator',
+    'chat.orchestratorModeTools': 'Full tools, plus this project task queue',
     'chat.goal': 'Goal',
     'chat.goalDialogDescription':
       'A goal keeps the agent working across turns until it reports the work done.',
@@ -1908,9 +1910,6 @@ export const enLocale: LocalePlugin = {
     'i18n.taskBlocked': 'A task is blocked.',
     'i18n.taskFailed': 'A task failed.',
     'i18n.taskQuestion': 'A task is waiting for your answer.',
-    'tasks.orchestrator': 'Task manager',
-    'tasks.orchestratorHint': 'A chat session that queues and runs tasks for you',
-    'tasks.orchestratorFailed': 'Could not open the task manager',
     'tasks.queuedByOrchestrator': 'Queued by a chat session',
     'tasks.queuedByOrchestratorShort': 'Chat',
     'tasks.watching': 'A chat session is watching this queue',

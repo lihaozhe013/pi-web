@@ -30,7 +30,6 @@ import {
   EyeIcon,
   MoreIcon,
   PlusIcon,
-  TerminalIcon,
   TrashIcon
 } from './SidebarIcons';
 import {
@@ -57,8 +56,6 @@ const EMPTY_IDS: ReadonlySet<string> = new Set();
 export interface TaskWorkspaceProps {
   /** Opens the task's ordinary Pi session in the chat view. */
   onOpenSession?: (sessionId: string) => void;
-  /** Ensures the task manager project and opens its chat session. */
-  onOpenTaskManager?: () => Promise<void> | void;
   /** `?task=<id>`: the task a deep link opens. */
   initialTaskId?: number | null;
   /** Test seam and first paint: the payload the first poll would return. */
@@ -251,7 +248,6 @@ function statusTone(status: TaskStatus): string {
 
 export function TaskWorkspace({
   onOpenSession,
-  onOpenTaskManager,
   initialTaskId = null,
   initialData = null,
   polling = true,
@@ -779,19 +775,6 @@ export function TaskWorkspace({
     sheetReturnFocus.current = null;
     if (target?.isConnected) requestAnimationFrame(() => target.focus());
   }, []);
-
-  const [orchestratorBusy, setOrchestratorBusy] = useState(false);
-  const openOrchestrator = useCallback(async () => {
-    if (!onOpenTaskManager || orchestratorBusy) return;
-    setOrchestratorBusy(true);
-    try {
-      await onOpenTaskManager();
-    } catch {
-      setError(t('tasks.orchestratorFailed'));
-    } finally {
-      setOrchestratorBusy(false);
-    }
-  }, [onOpenTaskManager, orchestratorBusy, t]);
 
   const toggleFinished = useCallback(() => {
     setFinishedOpen((current) => {
@@ -1837,19 +1820,6 @@ export function TaskWorkspace({
                 placement="auto"
               />
             </span>
-          )}
-          {onOpenTaskManager && (
-            <button
-              type="button"
-              className="task-icon-button"
-              data-task-action="open-orchestrator"
-              aria-label={t('tasks.orchestrator')}
-              title={t('tasks.orchestratorHint')}
-              disabled={busy || orchestratorBusy}
-              onClick={() => void openOrchestrator()}
-            >
-              <TerminalIcon size={14} />
-            </button>
           )}
           <button
             type="button"

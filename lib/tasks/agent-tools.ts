@@ -8,26 +8,18 @@
  *
  * Two invariants shape every method:
  *
+ * - The caller is confined to its session's project. Every task read or changed
+ *   belongs to `cwd`; another project's ids are refused, not resolved.
  * - No SQL. A tool that wrote the database directly would bypass the claim
  *   guard, the fencing token, and the working-directory allow-list.
- * - Every result carries every project's queue snapshot and the events newer
- *   than this session's cursor, so one call always leaves the model grounded in
- *   what actually happened.
  */
 import { basename } from 'node:path';
-import { getAgentDir } from '../session-reader';
-import { configChangeSummary, readTaskConfig, writeTaskConfig } from './config';
-import { parseTaskConfigPatch } from './config-fields';
-import {
-  listTaskProjects,
-  type TaskOrchestrator
-} from './orchestrator';
-import { clipOutputTail, TaskQueue } from './queue';
+import { listTaskProjects, type TaskOrchestrator } from './orchestrator';
+import { clipOutputTail, projectKeyOfCwd, TaskQueue } from './queue';
 import { resolveTaskProject } from './projects';
 import { TASK_EVENT_PAGE_LIMIT, type TaskStore } from './store';
 import type {
   QueueState,
-  TaskConfig,
   TaskEvent,
   TaskProjectSummary,
   TaskRecord,
@@ -35,22 +27,10 @@ import type {
   TaskStatus
 } from './types';
 
-export const TASK_MANAGER_TOOL_NAMES = [
-  'task_list',
-  'task_create',
-  'task_update',
-  'task_move',
-  'task_delete',
-  'task_control',
-  'task_answer',
-  'task_config',
-  'task_watch',
-  'task_events'
-] as const;
+/** The one tool an orchestrator session gets. */
+export const TASK_MANAGER_TOOL_NAME = 'task_manager';
 
-export type TaskManagerToolName = (typeof TASK_MANAGER_TOOL_NAMES)[number];
-
-/** `task_events` waits at most this long, inside one tool call. */
+/** The events action waits at most this long, inside one tool call. */
 export const TASK_EVENTS_MAX_WAIT_MS = 50_000;
 export const TASK_EVENTS_POLL_MS = 250;
 
@@ -64,8 +44,8 @@ export interface TaskToolOptions {
   orchestratorFor: (projectKey: string, cwd: string) => TaskOrchestrator;
   /** The calling session. Its cursor decides which events a result carries. */
   sessionId: string;
-  /** Where the queue defaults live; defaults to the shared agent directory. */
-  agentDir?: string;
+  /** The session's project. Every operation is scoped to this cwd. */
+  cwd: string;
 }
 
 /** One project's queue as a tool result or digest reports it. */
@@ -90,7 +70,7 @@ export interface TaskToolResult {
   code?: string;
   /** A sentence the model can act on; absent on success. */
   error?: string;
-  /** Every project's queue, so the model sees the whole system in one call. */
+  /** The session's own project queue, as it was after the call. */
   projects: TaskProjectSnapshot[];
   /** Events this session had not seen before this call. */
   events: TaskEvent[];
@@ -99,8 +79,6 @@ export interface TaskToolResult {
 
 export interface TaskListParams {
   status?: TaskStatus;
-  /** Limit the list to one project. Omit for every project. */
-  cwd?: string;
   includeRuns?: boolean;
 }
 
@@ -108,10 +86,7 @@ export interface TaskCreateParams {
   /** A short label; omit it to use the first line of the description. */
   title?: string;
   description?: string | null;
-  cwd: string;
   verifyCommands?: string[] | null;
-  /** Approve a directory the person named, instead of requiring the board first. */
-  authorizeCwd?: boolean;
 }
 
 export interface TaskUpdateParams extends Partial<TaskCreateParams> {
@@ -127,16 +102,13 @@ export interface TaskMoveParams {
 export interface TaskDeleteParams {
   id?: number;
   ids?: number[];
-  /** Delete every finished task in the project named by `cwd`. Requires `confirm`. */
+  /** Delete every finished task in this project. Requires `confirm`. */
   completed?: boolean;
-  cwd?: string;
   confirm?: boolean;
 }
 
 export interface TaskControlParams {
   action: 'start' | 'pause' | 'resume' | 'abort' | 'retry' | 'markDone';
-  /** The project whose queue is controlled; required for start/pause/resume. */
-  cwd?: string;
   id?: number;
   note?: string;
   confirm?: boolean;
@@ -146,10 +118,6 @@ export interface TaskAnswerParams {
   id: number;
   answer?: string;
   cancelled?: boolean;
-}
-
-export interface TaskConfigParams {
-  update?: Partial<TaskConfig>;
 }
 
 export interface TaskEventsParams {
@@ -236,47 +204,43 @@ export function projectSnapshot(project: TaskProjectSummary): TaskProjectSnapsho
   };
 }
 
-/** The whole system as a tool result or digest reports it. */
-export function projectSnapshots(store: TaskStore): TaskProjectSnapshot[] {
-  return listTaskProjects(store).map(projectSnapshot);
-}
-
 export class TaskTools {
   private readonly queue: TaskQueue;
   private readonly store: TaskStore;
   private readonly orchestratorFor: (projectKey: string, cwd: string) => TaskOrchestrator;
   private readonly sessionId: string;
-  private readonly agentDir: string;
+  /** The session's project; every tool call is confined to it. */
+  readonly cwd: string;
+  readonly projectKey: string;
 
   constructor(options: TaskToolOptions) {
     this.queue = options.queue;
     this.store = options.store;
     this.orchestratorFor = options.orchestratorFor;
     this.sessionId = options.sessionId;
-    this.agentDir = options.agentDir ?? getAgentDir();
+    this.cwd = options.cwd;
+    this.projectKey = projectKeyOfCwd(options.cwd);
   }
 
   // ------------------------------------------------------------------- reading
 
   async list(params: TaskListParams = {}): Promise<TaskToolResult> {
-    const project = params.cwd ? this.projectForCwd(params.cwd) : null;
     const tasks = this.queue
-      .listTasks(project?.projectKey)
+      .listTasks(this.projectKey)
       .filter((task) => !params.status || task.status === params.status)
       .map(taskSummary);
     const data: Record<string, unknown> = { tasks };
     if (params.includeRuns) {
-      data.runs = this.queue.listRuns(project?.projectKey).map(runSummary);
+      data.runs = this.queue.listRuns(this.projectKey).map(runSummary);
     }
     return this.success(data);
   }
 
   /**
-   * Read the events this session has not seen. `waitMs` is a bounded long poll:
-   * it exists so a caller can wait for a settle inside one turn, and it is not
-   * the mechanism the watcher uses. The cursor is global on purpose: filtering
-   * the page by project while advancing one cursor would hide another project's
-   * events forever.
+   * Read this project's events the session has not seen. `waitMs` is a bounded
+   * long poll: it exists so a caller can wait for a settle inside one turn, and
+   * it is not the mechanism the watcher uses. The cursor is the session's, and
+   * the store filters it by project, so another project's work is never read.
    */
   async events(params: TaskEventsParams = {}): Promise<TaskToolResult> {
     const limit = Math.min(
@@ -290,11 +254,11 @@ export class TaskTools {
 
     const read = () => {
       if (afterId !== undefined) {
-        const page = this.store.listEventsSince(afterId, limit);
+        const page = this.store.listEventsSince(afterId, limit, this.projectKey);
         if (page.length > 0) this.store.setEventCursor(this.sessionId, page[page.length - 1].id);
         return page;
       }
-      return this.store.readSessionEvents(this.sessionId, limit).events;
+      return this.store.readSessionEvents(this.sessionId, limit, this.projectKey).events;
     };
 
     try {
@@ -319,10 +283,9 @@ export class TaskTools {
       const task = await this.queue.createTask({
         title: params.title,
         description: params.description ?? null,
-        cwd: params.cwd,
+        cwd: this.cwd,
         verifyCommands: params.verifyCommands ?? null,
-        createdBy: this.sessionId,
-        authorizeCwd: params.authorizeCwd === true
+        createdBy: this.sessionId
       });
       return { task: taskSummary(task) };
     });
@@ -331,12 +294,11 @@ export class TaskTools {
   async update(params: TaskUpdateParams): Promise<TaskToolResult> {
     return this.attempt(async () => {
       const id = requireId(params.id);
+      this.taskFor(id);
       const task = await this.queue.updateTask(id, {
         title: params.title,
         description: params.description,
-        cwd: params.cwd,
-        verifyCommands: params.verifyCommands,
-        authorizeCwd: params.authorizeCwd === true
+        verifyCommands: params.verifyCommands
       });
       return { task: taskSummary(task) };
     });
@@ -345,7 +307,7 @@ export class TaskTools {
   async move(params: TaskMoveParams): Promise<TaskToolResult> {
     return this.attempt(() => {
       const id = requireId(params.id);
-      const task = this.queue.getTask(id);
+      const task = this.taskFor(id);
       const tasks = this.queue.moveTask(id, {
         direction: params.direction,
         position: params.position
@@ -363,18 +325,18 @@ export class TaskTools {
         refusal('confirmation_required', 'Deleting a task needs confirm: true; ask the user first');
       }
       if (params.completed === true) {
-        const project = this.requireProject(params.cwd, 'Pass cwd to clear completed tasks in one project');
         const done = this.queue
-          .listTasks(project.projectKey)
+          .listTasks(this.projectKey)
           .filter((task) => task.status === 'DONE');
         for (const task of done) this.queue.deleteTask(task.id);
-        return { deleted: done.map((task) => task.id), projectKey: project.projectKey };
+        return { deleted: done.map((task) => task.id), projectKey: this.projectKey };
       }
       const ids = params.ids ?? (params.id !== undefined ? [params.id] : []);
       if (ids.length === 0) refusal('invalid_input', 'Pass an id, ids, or completed: true');
       const deleted: number[] = [];
       for (const value of ids) {
         const id = requireId(value);
+        this.taskFor(id);
         this.queue.deleteTask(id);
         deleted.push(id);
       }
@@ -386,64 +348,57 @@ export class TaskTools {
     return this.attempt(async () => {
       switch (params.action) {
         case 'start': {
-          const project = this.requireProject(
-            params.cwd,
-            'Pass cwd to start a project queue'
-          );
-          const orchestrator = this.orchestratorFor(project.projectKey, project.cwd);
+          const orchestrator = this.orchestratorFor(this.projectKey, this.cwd);
           if (orchestrator.running) {
-            refusal('already_running', `The queue for ${projectLabel(project.cwd)} is already running`);
+            refusal('already_running', `The queue for ${projectLabel(this.cwd)} is already running`);
           }
           // The loop runs until the queue is empty or paused; awaiting it here
           // would hold the tool call open for the whole run.
           orchestrator.start().catch((error) => {
             console.warn('[pie] the task queue could not start:', error);
           });
-          return { action: 'start', projectKey: project.projectKey, cwd: project.cwd };
+          return { action: 'start', projectKey: this.projectKey, cwd: this.cwd };
         }
         case 'pause': {
-          const project = this.requireProject(params.cwd, 'Pass cwd to pause a project queue');
-          const status = await this.orchestratorFor(project.projectKey, project.cwd).pause(
+          const status = await this.orchestratorFor(this.projectKey, this.cwd).pause(
             params.note,
             this.sessionId
           );
           return { action: 'pause', projectKey: status.projectKey };
         }
         case 'resume': {
-          const project = this.requireProject(params.cwd, 'Pass cwd to resume a project queue');
-          const status = await this.orchestratorFor(project.projectKey, project.cwd).resume();
+          const status = await this.orchestratorFor(this.projectKey, this.cwd).resume();
           return { action: 'resume', projectKey: status.projectKey };
         }
         case 'abort': {
           if (params.confirm !== true) {
             refusal('confirmation_required', 'Aborting the running task needs confirm: true');
           }
-          const project = params.cwd
-            ? this.projectForCwd(params.cwd)
-            : params.id !== undefined
-              ? this.projectForTask(requireId(params.id))
-              : null;
-          if (!project) refusal('invalid_input', 'Pass cwd or id to abort a task');
-          const status = await this.orchestratorFor(project.projectKey, project.cwd).abort(
+          if (params.id !== undefined) this.taskFor(requireId(params.id));
+          const status = await this.orchestratorFor(this.projectKey, this.cwd).abort(
             this.sessionId
           );
           return { action: 'abort', projectKey: status.projectKey };
         }
-        case 'retry':
+        case 'retry': {
+          const id = requireId(params.id);
+          this.taskFor(id);
           return {
             action: 'retry',
-            task: taskSummary(this.queue.retryTask(requireId(params.id), this.sessionId))
+            task: taskSummary(this.queue.retryTask(id, this.sessionId))
           };
-        case 'markDone':
+        }
+        case 'markDone': {
           if (params.confirm !== true) {
             refusal('confirmation_required', 'Marking a task done needs confirm: true');
           }
+          const id = requireId(params.id);
+          this.taskFor(id);
           return {
             action: 'markDone',
-            task: taskSummary(
-              this.queue.markDone(requireId(params.id), params.note ?? null, this.sessionId)
-            )
+            task: taskSummary(this.queue.markDone(id, params.note ?? null, this.sessionId))
           };
+        }
         default:
           return refusal(
             'invalid_input',
@@ -459,7 +414,7 @@ export class TaskTools {
       if (params.cancelled !== true && !params.answer?.trim()) {
         refusal('invalid_input', 'An answer or cancelled: true is required');
       }
-      const task = this.queue.getTask(id);
+      const task = this.taskFor(id);
       await this.orchestratorFor(task.projectKey, task.cwd).answer(
         id,
         { answer: params.answer, cancelled: params.cancelled === true },
@@ -469,46 +424,24 @@ export class TaskTools {
     });
   }
 
-  async config(params: TaskConfigParams = {}): Promise<TaskToolResult> {
-    return this.attempt(() => {
-      if (!params.update || Object.keys(params.update).length === 0) {
-        return { config: readTaskConfig(this.agentDir) };
-      }
-      const before = readTaskConfig(this.agentDir);
-      const config = writeTaskConfig(parseTaskConfigPatch({ ...params.update }), this.agentDir);
-      this.store.appendEvent({
-        kind: 'config',
-        summary: configChangeSummary(before, config),
-        originSessionId: this.sessionId
-      });
-      return { config };
-    });
-  }
-
   // -------------------------------------------------------------------- results
 
-  /** Every project's queue, used by results and by the watcher digest. */
+  /** This project's queue, used by results and by the watcher digest. */
   projectsSnapshot(): TaskProjectSnapshot[] {
-    return this.projects().map(projectSnapshot);
+    return [projectSnapshot(this.project())];
   }
 
-  private projects(): TaskProjectSummary[] {
-    return listTaskProjects(this.store);
+  private project(): TaskProjectSummary {
+    return resolveTaskProject(listTaskProjects(this.store), this.cwd)!;
   }
 
-  private projectForCwd(cwd: string): TaskProjectSummary | null {
-    return resolveTaskProject(this.projects(), cwd);
-  }
-
-  private projectForTask(id: number): TaskProjectSummary | null {
+  /** A task that belongs to another project is not addressable from here. */
+  private taskFor(id: number): TaskRecord {
     const task = this.queue.getTask(id);
-    return resolveTaskProject(this.projects(), task.cwd);
-  }
-
-  private requireProject(cwd: string | undefined, message: string): TaskProjectSummary {
-    const project = cwd ? this.projectForCwd(cwd) : null;
-    if (!project) refusal('invalid_input', message);
-    return project;
+    if (task.projectKey !== this.projectKey) {
+      refusal('wrong_project', 'That task belongs to another project; this tool only manages its own project');
+    }
+    return task;
   }
 
   private async attempt(
@@ -524,7 +457,7 @@ export class TaskTools {
   /** The cursor read is best effort: a failure here must not hide the outcome. */
   private unseenEvents(): TaskEvent[] {
     try {
-      return this.store.readSessionEvents(this.sessionId).events;
+      return this.store.readSessionEvents(this.sessionId, TASK_EVENT_PAGE_LIMIT, this.projectKey).events;
     } catch (error) {
       console.warn('[pie] could not read task events:', error);
       return [];
@@ -579,7 +512,7 @@ function describeProject(project: TaskProjectSnapshot): string {
 }
 
 /**
- * A tool result as text: the outcome first, then the project queues, then the
+ * A tool result as text: the outcome first, then this project's queue, then the
  * data, then the news. The model reads this before deciding what to do next, so
  * the first line has to answer "did it work".
  */
@@ -599,11 +532,7 @@ export function formatTaskToolResult(result: TaskToolResult): string {
       project.blocked > 0 ||
       project.failed > 0
   );
-  lines.push(
-    active.length > 0
-      ? active.map(describeProject).join(' · ')
-      : 'all project queues idle'
-  );
+  lines.push(active.length > 0 ? active.map(describeProject).join(' · ') : 'project queue idle');
 
   if (result.data !== undefined) lines.push(JSON.stringify(result.data));
 
@@ -653,8 +582,8 @@ export function formatTaskEventDigest(
   );
   const queueLine =
     visible.length > 0
-      ? `queues: ${visible.map(describeProject).join('; ')}`
-      : 'all project queues idle';
+      ? `queue: ${visible.map(describeProject).join('; ')}`
+      : 'project queue idle';
   const parts = [queueLine];
   if (budget) parts.push(`wake ${budget.wakes} of ${budget.maxWakes}`);
   if (budget?.at) parts.push(`as of ${budget.at}`);

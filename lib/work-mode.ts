@@ -2,16 +2,17 @@ import type { SessionManager } from '@earendil-works/pi-coding-agent';
 import type { SessionEntry } from './types';
 
 /**
- * How the conversation should behave, independent of which tools it may call.
+ * The mode a preset carries beyond its tool list.
  *
- * Plan and Autonomous need storing: every other preset clears it. The value lives in the session
- * log so a resumed session keeps it, and the mode extensions read it at prompt time.
+ * Plan and Autonomous use it at prompt time; Orchestrator uses it when the server builds the
+ * loadout. Every other preset clears it. The value lives in the session log so a resumed session
+ * keeps it.
  */
-export type WorkMode = 'plan' | 'autonomous';
+export type WorkMode = 'plan' | 'autonomous' | 'orchestrator';
 
 export const WORK_MODE_TYPE = 'pie:work-mode';
 
-const WORK_MODES = new Set<string>(['plan', 'autonomous'] satisfies WorkMode[]);
+const WORK_MODES = new Set<string>(['plan', 'autonomous', 'orchestrator'] satisfies WorkMode[]);
 
 interface WorkModeData {
   version: 1;
@@ -47,7 +48,7 @@ export function readWorkMode(entries: readonly SessionEntry[]): WorkMode | undef
 export function validateWorkMode(value: unknown): WorkMode | undefined {
   if (value === undefined || value === null) return undefined;
   if (typeof value === 'string' && WORK_MODES.has(value)) return value as WorkMode;
-  throw new Error('mode must be "plan", "autonomous", or null');
+  throw new Error('mode must be "plan", "autonomous", "orchestrator", or null');
 }
 
 export function appendWorkMode(sessionManager: SessionManager, mode: WorkMode | undefined): void {

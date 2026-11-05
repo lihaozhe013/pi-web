@@ -31,10 +31,16 @@ export const PLAN_TOOL_PRESET = 'plan';
  * keeps working until the goal reports completion.
  */
 export const AUTONOMOUS_TOOL_PRESET = 'autonomous';
+/**
+ * The queue operator preset. It pins the full coding toolset and adds the one
+ * `task_manager` tool, scoped to the session's own project.
+ */
+export const ORCHESTRATOR_TOOL_PRESET = 'orchestrator';
 export const TOOL_PRESET_VALUES = [
   'configured',
   PLAN_TOOL_PRESET,
   AUTONOMOUS_TOOL_PRESET,
+  ORCHESTRATOR_TOOL_PRESET,
   'none',
   'read-only',
   'default',
@@ -96,7 +102,8 @@ export function getPresetFromToolNames(toolNames: readonly string[]): ConcreteTo
 export function getToolNamesForPreset(preset: ToolPreset): string[] | undefined {
   if (preset === CONFIGURED_TOOL_PRESET) return undefined;
   if (preset === PLAN_TOOL_PRESET) return [...PRESET_READ_ONLY];
-  if (preset === AUTONOMOUS_TOOL_PRESET) return [...PRESET_FULL];
+  if (preset === AUTONOMOUS_TOOL_PRESET || preset === ORCHESTRATOR_TOOL_PRESET)
+    return [...PRESET_FULL];
   if (preset === 'none') return [...PRESET_NONE];
   if (preset === 'read-only') return [...PRESET_READ_ONLY];
   if (preset === 'full') return [...PRESET_FULL];
@@ -104,9 +111,12 @@ export function getToolNamesForPreset(preset: ToolPreset): string[] | undefined 
 }
 
 /** The work mode a preset turns on, or undefined when the session has no special mode. */
-export function getWorkModeForPreset(preset: ToolPresetSelection): 'plan' | 'autonomous' | undefined {
+export function getWorkModeForPreset(
+  preset: ToolPresetSelection
+): 'plan' | 'autonomous' | 'orchestrator' | undefined {
   if (preset === PLAN_TOOL_PRESET) return 'plan';
   if (preset === AUTONOMOUS_TOOL_PRESET) return 'autonomous';
+  if (preset === ORCHESTRATOR_TOOL_PRESET) return 'orchestrator';
   return undefined;
 }
 
@@ -170,11 +180,12 @@ export function getToolNamesForSelection(
  */
 export function getPresetForSession(
   toolNames: readonly string[] | undefined,
-  workMode: 'plan' | 'autonomous' | undefined,
+  workMode: 'plan' | 'autonomous' | 'orchestrator' | undefined,
   customPresets: readonly CustomToolPresetRef[] = []
 ): ToolPresetSelection {
   if (workMode === 'plan') return PLAN_TOOL_PRESET;
   if (workMode === 'autonomous') return AUTONOMOUS_TOOL_PRESET;
+  if (workMode === 'orchestrator') return ORCHESTRATOR_TOOL_PRESET;
   if (toolNames === undefined) return CONFIGURED_TOOL_PRESET;
   if (toolNames.length === 0) return 'none';
   const key = canonicalCodingToolKey(toolNames);

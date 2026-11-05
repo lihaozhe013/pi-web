@@ -72,7 +72,6 @@ import * as tasksByIdAnswer from './api/tasks/[id]/answer/route';
 import * as tasksByIdOutput from './api/tasks/[id]/output/route';
 import * as tasksConfig from './api/tasks/config/route';
 import * as tasksControl from './api/tasks/control/route';
-import * as tasksManager from './api/tasks/manager/route';
 import * as toolsPresets from './api/tools/presets/route';
 import * as toolsSettings from './api/tools/settings/route';
 import * as webAuth from './api/web-auth/route';
@@ -219,9 +218,6 @@ export function registerApiRoutes(app: Hono): void {
 
   // server/api/tasks/control/route.ts
   app.post('/api/tasks/control', toHono(tasksControl.POST));
-
-  // server/api/tasks/manager/route.ts
-  app.post('/api/tasks/manager', toHono(tasksManager.POST));
 
   // server/api/tools/presets/route.ts
   app.get('/api/tools/presets', toHono(toolsPresets.GET));

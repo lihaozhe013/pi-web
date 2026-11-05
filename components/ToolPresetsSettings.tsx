@@ -47,7 +47,15 @@ const START_TOOLS: Record<'read-only' | 'default' | 'full', readonly string[]> =
  */
 const BUILT_IN_PRESETS: {
   id: string;
-  name: 'configured' | 'plan' | 'autonomous' | 'chat-only' | 'read-only' | 'default' | 'full';
+  name:
+    | 'configured'
+    | 'plan'
+    | 'autonomous'
+    | 'orchestrator'
+    | 'chat-only'
+    | 'read-only'
+    | 'default'
+    | 'full';
   descriptionKey: string;
   tools: readonly string[] | null;
 }[] = [
@@ -57,6 +65,12 @@ const BUILT_IN_PRESETS: {
     id: 'autonomous',
     name: 'autonomous',
     descriptionKey: 'chat.autonomousModeTools',
+    tools: PRESET_FULL
+  },
+  {
+    id: 'orchestrator',
+    name: 'orchestrator',
+    descriptionKey: 'chat.orchestratorModeTools',
     tools: PRESET_FULL
   },
   { id: 'chat-only', name: 'chat-only', descriptionKey: 'chat.chatOnly', tools: [] },
@@ -239,9 +253,11 @@ export function ToolPresetsSettings({ embedded, onClose, onSaved }: Props) {
       ? t('chat.planMode')
       : preset.name === 'autonomous'
         ? t('chat.autonomousMode')
-        : preset.name === 'chat-only'
-          ? t('chat.chatOnly')
-          : preset.name;
+        : preset.name === 'orchestrator'
+          ? t('chat.orchestratorMode')
+          : preset.name === 'chat-only'
+            ? t('chat.chatOnly')
+            : preset.name;
   const builtInDescription = (preset: (typeof BUILT_IN_PRESETS)[number]): string =>
     preset.descriptionKey === 'chat.readOnlyTools' || preset.descriptionKey === 'chat.builtInTools'
       ? t(preset.descriptionKey, { count: 4 })
