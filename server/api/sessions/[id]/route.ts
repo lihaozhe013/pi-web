@@ -16,7 +16,10 @@ import { computeSessionStats } from '@/lib/session-stats';
 import { startServerPerf } from '@/lib/perf';
 import { computeSessionRevision } from '@/lib/session-revision';
 import type { SessionEntry } from '@/lib/types';
-import { readSessionToolSelection } from '@/lib/session-tool-selection';
+import {
+  readSessionExtensionToolsPolicy,
+  readSessionToolSelection
+} from '@/lib/session-tool-selection';
 import { readWorkMode } from '@/lib/work-mode';
 import { readGoalFacts } from '@/lib/goal-driver';
 import { deleteSessions } from '@/lib/session-delete';
@@ -118,6 +121,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       ? await resolveSessionIdByPath(header.parentSession)
       : undefined;
     const toolNames = readSessionToolSelection(entries as never);
+    const extensionTools = readSessionExtensionToolsPolicy(entries as never);
     // Plan and Read-only pin the same tools, so the stored mode is reported beside them.
     const workMode = readWorkMode(entries as never);
     // The goal is branch state like the work mode, and an installed goal package
@@ -175,7 +179,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
           context,
           stats,
           totalActiveMs,
-          ...(toolNames !== undefined ? { toolNames } : {}),
+          ...(toolNames !== undefined ? { toolNames, extensionTools } : {}),
           ...(workMode !== undefined ? { mode: workMode } : {}),
           ...(goal ? { goal } : {}),
           ...(wrapperRebuilt ? { wrapperRebuilt: true } : {})
@@ -192,7 +196,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         context,
         stats,
         totalActiveMs,
-        ...(toolNames !== undefined ? { toolNames } : {}),
+        ...(toolNames !== undefined ? { toolNames, extensionTools } : {}),
         ...(workMode !== undefined ? { mode: workMode } : {}),
         ...(goal ? { goal } : {}),
         ...(wrapperRebuilt ? { wrapperRebuilt: true } : {})

@@ -652,29 +652,49 @@ export function AppShell() {
     });
   }, []);
 
+  const requestSystemInformation = useCallback((): boolean => {
+    const load = systemInfoLoaderRef.current;
+    if (!load) return false;
+    const loadId = ++systemInfoLoadIdRef.current;
+    setSystemInfoLoading(true);
+    void load()
+      .catch((error) => {
+        console.error('Failed to load system information:', error);
+      })
+      .finally(() => {
+        if (systemInfoLoadIdRef.current === loadId) {
+          setSystemInfoLoading(false);
+        }
+      });
+    return true;
+  }, []);
+
   const handleSystemInfoToggle = useCallback(
     (modal: 'system' | 'tools') => {
       const opening = activeModal !== modal;
       if (isMobile) setSidebarOpen(false);
       setActiveModal((cur) => (cur === modal ? null : modal));
       if (!opening || systemInfoLoading) return;
-
-      const load = systemInfoLoaderRef.current;
-      if (!load) return;
-      const loadId = ++systemInfoLoadIdRef.current;
-      setSystemInfoLoading(true);
-      void load()
-        .catch((error) => {
-          console.error('Failed to load system information:', error);
-        })
-        .finally(() => {
-          if (systemInfoLoadIdRef.current === loadId) {
-            setSystemInfoLoading(false);
-          }
-        });
+      requestSystemInformation();
     },
-    [activeModal, isMobile, systemInfoLoading]
+    [activeModal, isMobile, requestSystemInformation, systemInfoLoading]
   );
+
+  // Settings › Tools lists the tools of the current session, including installed
+  // extensions, so opening it asks the session for its loadout once. A failure keeps
+  // the editor's static fallback and does not retry in a loop.
+  const settingsToolsLoadRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (settingsSection !== 'tools') {
+      settingsToolsLoadRef.current = null;
+      return;
+    }
+    if (systemTools !== null) return;
+    const key = selectedSession?.id ?? 'new-session';
+    if (settingsToolsLoadRef.current === key) return;
+    if (!requestSystemInformation()) return;
+    settingsToolsLoadRef.current = key;
+  }, [requestSystemInformation, selectedSession?.id, settingsSection, systemTools]);
 
   const openSessionStatsPanel = useCallback(() => {
     if (isMobile) setSidebarOpen(false);
@@ -1782,6 +1802,8 @@ export function AppShell() {
           onOpenTrustDialog={openProjectTrustDialog}
           onProjectTrustChanged={handleProjectTrustChanged}
           onToolPresetsChanged={() => setToolPresetsRefreshKey((key) => key + 1)}
+          availableTools={systemTools}
+          toolsLoading={systemInfoLoading}
         />
       )}
       {/* After Settings, so it opens above it (z-index 1100 over 1000) when Settings › MCP asks for it. */}

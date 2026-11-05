@@ -1,8 +1,16 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useI18n } from '@/hooks/useI18n';
-import { PRESET_DEFAULT, PRESET_FULL, PRESET_READ_ONLY } from '@/lib/tool-presets';
 import {
   CANONICAL_CODING_TOOLS,
+  PIE_EXTENSION_TOOL_NAMES,
+  PRESET_DEFAULT,
+  PRESET_FULL,
+  PRESET_READ_ONLY,
+  isSelectableToolName,
+  sortToolNames,
+  type ToolEntry
+} from '@/lib/tool-presets';
+import {
   CUSTOM_TOOL_PRESET_MAX_COUNT,
   CUSTOM_TOOL_PRESET_TOOLS,
   customPresetNameError,
@@ -38,6 +46,18 @@ const START_TOOLS: Record<'read-only' | 'default' | 'full', readonly string[]> =
   default: ['read', SHELL_TOOL, 'edit', 'write'],
   full: CUSTOM_TOOL_PRESET_TOOLS
 };
+
+const EXTENSION_TOOL_NAMES = new Set<string>(PIE_EXTENSION_TOOL_NAMES);
+
+type ToolGroup = 'coding' | 'extension';
+
+interface ToolRow {
+  name: string;
+  group: ToolGroup;
+  description: string;
+  /** Present in the current session's registered tools. */
+  available: boolean;
+}
 
 /**
  * The built-in presets, shown read-only beside the user's own so the list
@@ -89,6 +109,13 @@ interface Props {
   onClose: () => void;
   /** The list was saved; the session's composer reloads its copy. */
   onSaved: () => void;
+  /** The current session's tools, including extension tools, for descriptions and availability. */
+  availableTools?: ToolEntry[] | null;
+  toolsLoading?: boolean;
+}
+
+function toolLabel(name: string): string {
+  return name === SHELL_TOOL ? 'shell' : name;
 }
 
 /**
@@ -97,7 +124,13 @@ interface Props {
  * selected one. Custom edits stay in the draft until Save replaces the whole
  * server-side list; Delete is a two-step button kept apart from Save.
  */
-export function ToolPresetsSettings({ embedded, onClose, onSaved }: Props) {
+export function ToolPresetsSettings({
+  embedded,
+  onClose,
+  onSaved,
+  availableTools,
+  toolsLoading
+}: Props) {
   const { t } = useI18n();
   const [loaded, setLoaded] = useState<CustomToolPreset[] | null>(null);
   const [draft, setDraft] = useState<CustomToolPreset[]>([]);
@@ -108,6 +141,7 @@ export function ToolPresetsSettings({ embedded, onClose, onSaved }: Props) {
   const [error, setError] = useState<string | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const nameErrorId = useId();
+  const includeExtensionsId = useId();
 
   useEffect(() => {
     const controller = new AbortController();
@@ -137,14 +171,70 @@ export function ToolPresetsSettings({ embedded, onClose, onSaved }: Props) {
     return () => controller.abort();
   }, []);
 
+  const liveTools = useMemo(() => {
+    const map = new Map<string, ToolEntry>();
+    for (const tool of availableTools ?? []) {
+      if (tool.exposure === 'hidden' || !isSelectableToolName(tool.name)) continue;
+      map.set(tool.name, tool);
+    }
+    return map;
+  }, [availableTools]);
+
+  /**
+   * Every tool the editor can show. The coding set is always present; the
+   * extension order starts with the tools Pie ships and then keeps whatever
+   * the live session registered, such as a project's MCP tools.
+   */
+  const catalog = useMemo(() => {
+    const describe = (name: string, fallback: string | undefined): string => {
+      const key = `toolPresets.tool.${name}`;
+      const translated = t(key);
+      if (translated !== key) return translated;
+      return fallback?.trim() || t('toolPresets.unknownTool');
+    };
+    const rows: ToolRow[] = [];
+    for (const name of CANONICAL_CODING_TOOLS) {
+      rows.push({
+        name,
+        group: 'coding',
+        description: describe(name, liveTools.get(name)?.description),
+        available: availableTools == null || liveTools.has(name)
+      });
+    }
+    for (const name of PIE_EXTENSION_TOOL_NAMES) {
+      rows.push({
+        name,
+        group: 'extension',
+        description: describe(name, liveTools.get(name)?.description),
+        available: availableTools == null || liveTools.has(name)
+      });
+    }
+    for (const [name, tool] of liveTools) {
+      if (CANONICAL_CODING_TOOLS.includes(name) || EXTENSION_TOOL_NAMES.has(name)) continue;
+      rows.push({
+        name,
+        group: 'extension',
+        description: tool.description?.trim() || t('toolPresets.unknownTool'),
+        available: true
+      });
+    }
+    return rows;
+  }, [availableTools, liveTools, t]);
+
+  const autoExtensionRows = useMemo(
+    () =>
+      catalog.filter(
+        (row) =>
+          row.group === 'extension' &&
+          row.name !== 'task_manager' &&
+          (availableTools == null || row.available)
+      ),
+    [availableTools, catalog]
+  );
+
   const selectedBuiltIn = selectedId?.startsWith('builtin:')
     ? (BUILT_IN_PRESETS.find((preset) => `builtin:${preset.id}` === selectedId) ?? null)
     : null;
-  // Extracted so the tool list's non-null type survives into the JSX callbacks.
-  const builtInView =
-    selectedBuiltIn && selectedBuiltIn.tools !== null
-      ? { ...selectedBuiltIn, tools: selectedBuiltIn.tools }
-      : null;
   const selected = draft.find((preset) => preset.id === selectedId) ?? null;
   const dirty =
     loaded !== null &&
@@ -154,6 +244,7 @@ export function ToolPresetsSettings({ embedded, onClose, onSaved }: Props) {
         return (
           !saved ||
           saved.name !== preset.name ||
+          saved.includeExtensions !== preset.includeExtensions ||
           saved.tools.length !== preset.tools.length ||
           saved.tools.some((tool, index) => tool !== preset.tools[index])
         );
@@ -167,18 +258,57 @@ export function ToolPresetsSettings({ embedded, onClose, onSaved }: Props) {
     setSavedOk(false);
   };
 
-  const toggleTool = (tool: string) => {
-    if (!selected) return;
-    const tools = selected.tools.includes(tool)
-      ? selected.tools.filter((name) => name !== tool)
-      : CUSTOM_TOOL_PRESET_TOOLS.filter((name) => selected.tools.includes(name) || name === tool);
+  const toggleTool = (row: ToolRow) => {
+    if (!selected || !isRowEditable(row)) return;
+    const tools = selected.tools.includes(row.name)
+      ? selected.tools.filter((name) => name !== row.name)
+      : sortToolNames([...selected.tools, row.name]);
     updateSelected({ tools });
   };
+
+  const isRowEditable = (row: ToolRow): boolean => {
+    if (!selected) return false;
+    if (row.group === 'coding') return true;
+    // An include-all custom preset keeps every extension tool except task_manager
+    // on automatically; the user turns the switch off to choose individually.
+    return !(selected.includeExtensions && row.name !== 'task_manager');
+  };
+
+  const showingTool = (row: ToolRow): boolean => {
+    if (!selected) return false;
+    if (row.group === 'extension' && selected.includeExtensions && row.name !== 'task_manager') {
+      return true;
+    }
+    return selected.tools.includes(row.name);
+  };
+
+  const customRows = useMemo(() => {
+    if (!selected) return catalog;
+    const known = new Set(catalog.map((row) => row.name));
+    return [
+      ...catalog,
+      ...selected.tools
+        .filter((name) => !known.has(name))
+        .map((name) => ({
+          name,
+          group: 'extension' as const,
+          description: t('toolPresets.unknownTool'),
+          available: false
+        }))
+    ];
+  }, [catalog, selected, t]);
+
+  const effectivePresetCount = (preset: CustomToolPreset): number =>
+    preset.includeExtensions
+      ? new Set([...preset.tools, ...autoExtensionRows.map((row) => row.name)]).size
+      : preset.tools.length;
 
   const addPreset = () => {
     const preset: CustomToolPreset = {
       id: makeCustomToolPresetId(),
       name: t('toolPresets.untitled'),
+      // A new custom preset is explicit; the old all-extension behavior is available as a switch.
+      includeExtensions: false,
       tools: [...START_TOOLS['read-only']]
     };
     setDraft((current) => [...current, preset]);
@@ -246,6 +376,11 @@ export function ToolPresetsSettings({ embedded, onClose, onSaved }: Props) {
     }
   };
 
+  const startFrom = (preset: 'read-only' | 'default' | 'full') => {
+    const extras = preset === 'full' ? autoExtensionRows.map((row) => row.name) : [];
+    updateSelected({ tools: sortToolNames([...START_TOOLS[preset], ...extras]) });
+  };
+
   const atLimit = draft.length >= CUSTOM_TOOL_PRESET_MAX_COUNT;
   const nameError = selected ? customPresetNameError(draft, selected.id, selected.name) : undefined;
   const builtInName = (preset: (typeof BUILT_IN_PRESETS)[number]): string =>
@@ -262,6 +397,80 @@ export function ToolPresetsSettings({ embedded, onClose, onSaved }: Props) {
     preset.descriptionKey === 'chat.readOnlyTools' || preset.descriptionKey === 'chat.builtInTools'
       ? t(preset.descriptionKey, { count: 4 })
       : t(preset.descriptionKey);
+
+  const builtInRows = (preset: (typeof BUILT_IN_PRESETS)[number]): ToolRow[] => {
+    if (preset.tools === null || preset.name === 'chat-only') return [];
+    const names = new Set(preset.tools);
+    if (preset.name !== 'configured') {
+      for (const row of catalog) {
+        if (
+          row.group === 'extension' &&
+          row.name !== 'task_manager' &&
+          (availableTools == null || row.available)
+        ) {
+          names.add(row.name);
+        }
+      }
+    }
+    if (preset.name === 'orchestrator') names.add('task_manager');
+    return catalog.filter((row) => names.has(row.name));
+  };
+
+  const renderToolRows = (rows: ToolRow[], readOnly: boolean) => {
+    const coding = rows.filter((row) => row.group === 'coding');
+    const extension = rows.filter((row) => row.group === 'extension');
+    return (
+      <>
+        {coding.length > 0 && (
+          <fieldset className="tool-presets-tools">
+            <ConfigSectionTitle>{t('toolPresets.codingTools')}</ConfigSectionTitle>
+            {coding.map((row) => renderToolRow(row, readOnly))}
+          </fieldset>
+        )}
+        {extension.length > 0 && (
+          <fieldset className="tool-presets-tools">
+            <ConfigSectionTitle>{t('toolPresets.extensionTools')}</ConfigSectionTitle>
+            {extension.map((row) => renderToolRow(row, readOnly))}
+          </fieldset>
+        )}
+      </>
+    );
+  };
+
+  const renderToolRow = (row: ToolRow, readOnly: boolean) => {
+    const auto =
+      !readOnly &&
+      selected !== null &&
+      selected.includeExtensions &&
+      row.group === 'extension' &&
+      row.name !== 'task_manager';
+    const checked = readOnly ? true : selected ? showingTool(row) : false;
+    const disabled = readOnly || auto;
+    return (
+      <label
+        key={row.name}
+        className={`tool-presets-tool${readOnly || auto ? ' is-readonly' : ''}${
+          auto ? ' is-auto' : ''
+        }`}
+        title={row.available ? undefined : t('toolPresets.toolUnavailable')}
+      >
+        <input
+          type="checkbox"
+          checked={checked}
+          disabled={disabled}
+          readOnly={disabled}
+          onChange={() => toggleTool(row)}
+        />
+        <code>{toolLabel(row.name)}</code>
+        <span>
+          {row.description}
+          {auto && (
+            <span className="tool-presets-auto-label"> · {t('toolPresets.autoIncluded')}</span>
+          )}
+        </span>
+      </label>
+    );
+  };
 
   return (
     <ConfigPanelShell
@@ -287,7 +496,7 @@ export function ToolPresetsSettings({ embedded, onClose, onSaved }: Props) {
                   {builtInName(preset)}
                 </ConfigSidebarText>
                 <ConfigSidebarText className="tool-presets-item-count">
-                  {preset.tools === null ? '' : preset.tools.length}
+                  {preset.tools === null ? '' : builtInRows(preset).length}
                 </ConfigSidebarText>
               </ConfigSidebarItem>
             ))}
@@ -305,7 +514,7 @@ export function ToolPresetsSettings({ embedded, onClose, onSaved }: Props) {
                   {preset.name || t('toolPresets.untitled')}
                 </ConfigSidebarText>
                 <ConfigSidebarText className="tool-presets-item-count">
-                  {t('chat.toolCount', { count: preset.tools.length })}
+                  {t('chat.toolCount', { count: effectivePresetCount(preset) })}
                 </ConfigSidebarText>
               </ConfigSidebarItem>
             ))}
@@ -324,40 +533,29 @@ export function ToolPresetsSettings({ embedded, onClose, onSaved }: Props) {
         </ConfigSidebar>
 
         <ConfigDetail>
-          {builtInView ? (
+          {selectedBuiltIn ? (
             <div className="tool-presets-form">
               <ConfigDetailHeader>
                 <ConfigDetailHeaderInfo>
-                  <ConfigDetailTitle>{builtInName(builtInView)}</ConfigDetailTitle>
+                  <ConfigDetailTitle>{builtInName(selectedBuiltIn)}</ConfigDetailTitle>
                   <span className="tool-presets-tag">{t('toolPresets.builtIn')}</span>
                 </ConfigDetailHeaderInfo>
               </ConfigDetailHeader>
               <p className="tool-presets-summary">
-                {builtInDescription(builtInView)}
-                {builtInView.tools.length > 0 && (
+                {builtInDescription(selectedBuiltIn)}
+                {selectedBuiltIn.tools !== null && selectedBuiltIn.tools.length > 0 && (
                   <>
                     {' · '}
-                    {t('toolPresets.summary', { tools: builtInView.tools.join(', ') })}
+                    {t('toolPresets.summary', { tools: selectedBuiltIn.tools.join(', ') })}
                   </>
                 )}
               </p>
-              {builtInView.tools.length > 0 && (
-                <fieldset className="tool-presets-tools">
-                  <ConfigSectionTitle>{t('toolPresets.tools')}</ConfigSectionTitle>
-                  {CANONICAL_CODING_TOOLS.map((tool) => (
-                    <label key={tool} className="tool-presets-tool is-readonly">
-                      <input
-                        type="checkbox"
-                        checked={builtInView.tools.includes(tool)}
-                        disabled
-                        readOnly
-                      />
-                      <code>{tool === SHELL_TOOL ? 'shell' : tool}</code>
-                      <span>{t(`toolPresets.tool.${tool}`)}</span>
-                    </label>
-                  ))}
-                </fieldset>
+              {toolsLoading && (
+                <p className="tool-presets-summary">{t('toolPresets.loadingTools')}</p>
               )}
+              {selectedBuiltIn.tools !== null && selectedBuiltIn.tools.length > 0
+                ? renderToolRows(builtInRows(selectedBuiltIn), true)
+                : null}
             </div>
           ) : selected ? (
             <div className="tool-presets-form">
@@ -386,36 +584,49 @@ export function ToolPresetsSettings({ embedded, onClose, onSaved }: Props) {
               <ConfigField label={t('toolPresets.startFrom')}>
                 <div className="tool-presets-start">
                   {(['read-only', 'default', 'full'] as const).map((preset) => (
-                    <ConfigButton
-                      key={preset}
-                      size="small"
-                      onClick={() => updateSelected({ tools: [...START_TOOLS[preset]] })}
-                    >
+                    <ConfigButton key={preset} size="small" onClick={() => startFrom(preset)}>
                       {t(`toolPresets.start.${preset}`)}
                     </ConfigButton>
                   ))}
                 </div>
               </ConfigField>
 
-              <fieldset className="tool-presets-tools">
-                <ConfigSectionTitle>{t('toolPresets.tools')}</ConfigSectionTitle>
-                {CANONICAL_CODING_TOOLS.map((tool) => {
-                  const checked = selected.tools.includes(tool);
-                  return (
-                    <label key={tool} className="tool-presets-tool">
-                      <input type="checkbox" checked={checked} onChange={() => toggleTool(tool)} />
-                      <code>{tool === SHELL_TOOL ? 'shell' : tool}</code>
-                      <span>{t(`toolPresets.tool.${tool}`)}</span>
-                    </label>
-                  );
-                })}
-              </fieldset>
+              <div className="tool-presets-tool tool-presets-include-all">
+                <input
+                  id={includeExtensionsId}
+                  type="checkbox"
+                  checked={selected.includeExtensions}
+                  onChange={() =>
+                    updateSelected({ includeExtensions: !selected.includeExtensions })
+                  }
+                />
+                <label htmlFor={includeExtensionsId} className="tool-presets-include-all-text">
+                  <span className="tool-presets-include-all-title">
+                    {t('toolPresets.includeExtensions')}
+                  </span>
+                  <span className="tool-presets-include-all-hint">
+                    {t('toolPresets.includeExtensionsHint')}
+                  </span>
+                </label>
+              </div>
+
+              {renderToolRows(customRows, false)}
 
               <p className="tool-presets-summary">
                 {selected.tools.length > 0
-                  ? t('toolPresets.summary', { tools: selected.tools.join(', ') })
+                  ? t('toolPresets.summary', {
+                      tools: sortToolNames([
+                        ...selected.tools,
+                        ...(selected.includeExtensions
+                          ? autoExtensionRows.map((row) => row.name)
+                          : [])
+                      ]).join(', ')
+                    })
                   : t('toolPresets.summaryEmpty')}
               </p>
+              {toolsLoading && (
+                <p className="tool-presets-summary">{t('toolPresets.loadingTools')}</p>
+              )}
             </div>
           ) : (
             <ConfigEmptyState>

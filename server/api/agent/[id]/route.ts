@@ -33,6 +33,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       throw new Error('toolNames must be an array of strings');
     }
     const toolNames = requestedToolNames as string[] | undefined;
+    const requestedExtensionTools = body.extensionTools;
     // `null` clears a stored work mode; an absent field leaves it alone.
     const requestedMode = 'mode' in body ? body.mode : undefined;
 
@@ -43,7 +44,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       if (!existing?.isAlive() && !filePath) {
         return json({ error: 'Session not found' }, { status: 404 });
       }
-      const changed = await setRpcSessionTools(id, filePath, toolNames, requestedMode);
+      const changed = await setRpcSessionTools(
+        id,
+        filePath,
+        toolNames,
+        requestedMode,
+        requestedExtensionTools
+      );
       return json({
         success: true,
         data: { sessionId: changed.sessionId, recreated: changed.recreated }
@@ -67,7 +74,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
 
     const { session } = await startRpcSession(id, filePath, undefined, {
-      ...(toolNames !== undefined ? { toolNames } : {})
+      ...(toolNames !== undefined
+        ? {
+            toolNames,
+            ...(requestedExtensionTools !== undefined
+              ? { extensionTools: requestedExtensionTools as 'all' | 'selected' }
+              : {})
+          }
+        : {})
     });
     const result = await session.send(body);
     promptAccepted = body.type === 'prompt';

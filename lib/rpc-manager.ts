@@ -95,9 +95,11 @@ import {
 import {
   appendClearedSessionToolSelection,
   appendSessionToolSelection,
-  readSessionToolSelection,
+  readSessionExtensionToolsPolicy,
+  readSessionToolSelectionDetails,
   validateSessionToolSelection
 } from './session-tool-selection';
+import type { SessionExtensionToolsPolicy } from './tool-presets';
 
 // ============================================================================
 // Types
@@ -262,6 +264,8 @@ const COMMANDS_ALLOWED_DURING_SESSION_REPLACEMENT = new Set([
 
 export interface RpcSessionStartOptions {
   toolNames?: string[];
+  /** Whether unnamed installed extension tools stay active; defaults to all. */
+  extensionTools?: SessionExtensionToolsPolicy;
   /** The work mode a newly pinned session starts in; omitted leaves the stored one alone. */
   mode?: WorkMode;
   initialModel?: { provider: string; modelId: string };
@@ -341,17 +345,19 @@ const CUSTOM_UI_KEYBINDINGS = new TuiKeybindingsManager(TUI_KEYBINDINGS);
 const SESSION_TOOL_NAMES = new Set<string>(['codemode', 'tool_search']);
 
 /**
- * The active tools for a coding tool selection. The selection replaces only the coding
- * tools: every other tool named in `carry` that is still registered and not withdrawn stays
- * active, so a tool an extension, `tool_search`, or `defaultTools` activated survives, and a
- * tool one switched off stays off. Nothing else is added: pi itself activates the extension
- * tools it registers (all of them when it builds or reloads a session, then each new one), so
- * `carry` already holds them. An empty selection is Chat only.
+ * The active tools for a pinned selection. The coding names choose the shell
+ * and the read/edit set; extension names in `requested` are honored when they
+ * are registered and visible. With `extensionTools: "all"` (built-in presets
+ * and legacy selections) every other registered extension tool in `carry`
+ * stays active, as Pi does. With `"selected"` (custom presets that turn the
+ * option off) only the named tools remain active. An empty selection is Chat
+ * only.
  */
 export function resolveActiveToolNames(
   session: AgentSessionLike,
   requested: readonly string[],
-  carry: readonly string[]
+  carry: readonly string[],
+  extensionTools: SessionExtensionToolsPolicy = 'all'
 ): string[] {
   if (requested.length === 0) return [];
 
@@ -361,12 +367,20 @@ export function resolveActiveToolNames(
     requested.filter((name) => codingToolNames.has(name)),
     session.settingsManager.getDefaultTools()
   );
-  const carriedToolNames = carry.filter((name) => {
+  const requestedExtensionToolNames = requested.filter((name) => {
+    if (codingToolNames.has(name)) return false;
     const tool = registered.get(name);
-    return tool !== undefined && !codingToolNames.has(name) && tool.exposure !== 'hidden';
+    return tool !== undefined && tool.exposure !== 'hidden';
   });
+  const carriedToolNames =
+    extensionTools === 'all'
+      ? carry.filter((name) => {
+          const tool = registered.get(name);
+          return tool !== undefined && !codingToolNames.has(name) && tool.exposure !== 'hidden';
+        })
+      : [];
 
-  return [...new Set([...selectedToolNames, ...carriedToolNames])];
+  return [...new Set([...selectedToolNames, ...requestedExtensionToolNames, ...carriedToolNames])];
 }
 
 // ============================================================================
@@ -770,12 +784,15 @@ export class AgentSessionWrapper {
     }
   }
 
-  /** Apply a coding tool selection; `carry` defaults to the tools active now. */
+  /** Apply a pinned selection; `carry` defaults to the tools active now. */
   setActiveToolSelection(
     toolNames: string[],
-    carry: readonly string[] = this.inner.getActiveToolNames()
+    carry: readonly string[] = this.inner.getActiveToolNames(),
+    extensionTools: SessionExtensionToolsPolicy = 'all'
   ): void {
-    this.inner.setActiveToolsByName(resolveActiveToolNames(this.inner, toolNames, carry));
+    this.inner.setActiveToolsByName(
+      resolveActiveToolNames(this.inner, toolNames, carry, extensionTools)
+    );
   }
 
   private async navigateTreeKeepingToolSelection(
@@ -788,10 +805,12 @@ export class AgentSessionWrapper {
 
     const entries = this.inner.sessionManager.getEntries() as unknown as SessionEntry[];
     const activeAfter = this.inner.getActiveToolNames();
-    this.setActiveToolSelection(readSessionToolSelection(entries) ?? activeAfter, [
-      ...activeAfter,
-      ...activeBefore.filter((name) => SESSION_TOOL_NAMES.has(name))
-    ]);
+    const selection = readSessionToolSelectionDetails(entries);
+    this.setActiveToolSelection(
+      selection?.tools ?? activeAfter,
+      [...activeAfter, ...activeBefore.filter((name) => SESSION_TOOL_NAMES.has(name))],
+      selection?.extensionTools ?? 'all'
+    );
     return { cancelled: false };
   }
 
@@ -1500,6 +1519,7 @@ export class AgentSessionWrapper {
           const hiddenDeclarations: unknown = Reflect.get(this.inner, '_hiddenDeclarations');
           const hidden =
             hiddenDeclarations instanceof Set ? hiddenDeclarations : new Set<unknown>();
+          const entries = this.inner.sessionManager.getEntries() as unknown as SessionEntry[];
           return {
             tools: all.map((t) => ({
               ...t,
@@ -1508,9 +1528,9 @@ export class AgentSessionWrapper {
               declarationHidden: hidden.has(t.name)
             })),
             // Plan and Read-only pin the same tools, so the mode travels with the list.
-            workMode: readWorkMode(
-              this.inner.sessionManager.getEntries() as unknown as SessionEntry[]
-            )
+            workMode: readWorkMode(entries),
+            // Custom presets can pin extension tools; the client needs the policy to label them.
+            extensionTools: readSessionExtensionToolsPolicy(entries)
           };
         }
 
@@ -2572,10 +2592,21 @@ export async function setRpcSessionTools(
   sessionId: string,
   sessionFile: string | undefined,
   requestedToolNames: unknown,
-  requestedMode?: unknown
+  requestedMode?: unknown,
+  requestedExtensionTools?: unknown
 ): Promise<SetRpcSessionToolsResult> {
   const toolNames =
-    requestedToolNames === undefined ? undefined : validateSessionToolSelection(requestedToolNames);
+    requestedToolNames === undefined
+      ? undefined
+      : validateSessionToolSelection(requestedToolNames, requestedExtensionTools);
+  const extensionTools =
+    requestedExtensionTools === undefined
+      ? undefined
+      : requestedExtensionTools === 'all' || requestedExtensionTools === 'selected'
+        ? requestedExtensionTools
+        : (() => {
+            throw new Error('extensionTools must be "all" or "selected"');
+          })();
   const modeProvided = requestedMode !== undefined;
   const workMode = modeProvided ? validateWorkMode(requestedMode) : undefined;
   const existing = getRpcSession(sessionId);
@@ -2588,11 +2619,17 @@ export async function setRpcSessionTools(
     const pending = closingRpcSessionWait(sessionId) ?? getLocks().get(sessionId);
     if (pending) {
       await pending.catch(() => undefined);
-      return setRpcSessionTools(sessionId, sessionFile, requestedToolNames, requestedMode);
+      return setRpcSessionTools(
+        sessionId,
+        sessionFile,
+        requestedToolNames,
+        requestedMode,
+        requestedExtensionTools
+      );
     }
     const manager = SessionManager.open(sessionFile, undefined);
     if (toolNames === undefined) appendClearedSessionToolSelection(manager);
-    else appendSessionToolSelection(manager, toolNames);
+    else appendSessionToolSelection(manager, toolNames, extensionTools ?? 'all');
     if (modeProvided) {
       syncWorkMode(manager, manager.getEntries() as unknown as SessionEntry[], workMode);
     }
@@ -2603,12 +2640,22 @@ export async function setRpcSessionTools(
 
   if (existing.isRunning()) throw new Error('Cannot change tools while the session is running');
 
-  const previousMode = readWorkMode(
-    existing.inner.sessionManager.getEntries() as unknown as SessionEntry[]
-  );
+  const entries = existing.inner.sessionManager.getEntries() as unknown as SessionEntry[];
+  const previousMode = readWorkMode(entries);
+  const previousSelection = readSessionToolSelectionDetails(entries);
+  const previousExtensionTools = previousSelection?.extensionTools ?? 'all';
   const nextMode = modeProvided ? workMode : previousMode;
+  const nextExtensionTools = extensionTools ?? previousExtensionTools;
+  const previousTaskManager =
+    previousMode === 'orchestrator' || previousSelection?.tools.includes('task_manager') === true;
+  const nextTaskManager =
+    nextMode === 'orchestrator' || toolNames?.includes('task_manager') === true;
   const crossesOrchestratorBoundary =
-    (previousMode === 'orchestrator') !== (nextMode === 'orchestrator');
+    (previousMode === 'orchestrator') !== (nextMode === 'orchestrator') ||
+    previousTaskManager !== nextTaskManager;
+  // Switching between "all" and "only selected" must rebuild: a session that already
+  // turned extension tools off has no active names to carry back when all is restored.
+  const crossesExtensionPolicyBoundary = previousExtensionTools !== nextExtensionTools;
   const hasCurrentResourcePolicy =
     typeof existing.isChatOnly === 'function' &&
     typeof existing.setActiveToolSelection === 'function';
@@ -2617,9 +2664,10 @@ export async function setRpcSessionTools(
     !hasCurrentResourcePolicy ||
     existing.isChatOnly() !== (toolNames.length === 0);
   if (toolNames === undefined) appendClearedSessionToolSelection(existing.inner.sessionManager);
-  else appendSessionToolSelection(existing.inner.sessionManager, toolNames);
+  else appendSessionToolSelection(existing.inner.sessionManager, toolNames, nextExtensionTools);
   // Plan and Autonomous are read at call and prompt time, so they need no rebuild. Orchestrator
-  // is a loadout: the server adds or removes the task_manager extension in startRpcSession.
+  // is a loadout: the server adds or removes the task_manager extension in startRpcSession. A
+  // custom preset can also opt into that tool, so adding or removing it rebuilds as well.
   if (modeProvided) {
     syncWorkMode(
       existing.inner.sessionManager,
@@ -2629,8 +2677,13 @@ export async function setRpcSessionTools(
   }
   invalidateSessionListCache();
 
-  if (toolNames !== undefined && !crossesChatOnlyBoundary && !crossesOrchestratorBoundary) {
-    existing.setActiveToolSelection(toolNames);
+  if (
+    toolNames !== undefined &&
+    !crossesChatOnlyBoundary &&
+    !crossesOrchestratorBoundary &&
+    !crossesExtensionPolicyBoundary
+  ) {
+    existing.setActiveToolSelection(toolNames, undefined, nextExtensionTools);
     return { session: existing, sessionId, recreated: false };
   }
 
@@ -2647,7 +2700,7 @@ export async function setRpcSessionTools(
   }
 
   const started = await startRpcSession(`__recreate__${randomUUID()}`, '', sessionCwd, {
-    ...(toolNames !== undefined ? { toolNames } : {}),
+    ...(toolNames !== undefined ? { toolNames, extensionTools: nextExtensionTools } : {}),
     ...(workMode ? { mode: workMode } : {}),
     ...(model ? { initialModel: { provider: model.provider, modelId: model.id } } : {}),
     allowInitialModelFallback: true,
@@ -2785,7 +2838,13 @@ export async function startRpcSession(
 ): Promise<{ session: AgentSessionWrapper; realSessionId: string }> {
   const { initialModel, allowInitialModelFallback, thinkingLevel } = options;
   const requestedToolNames =
-    options.toolNames === undefined ? undefined : validateSessionToolSelection(options.toolNames);
+    options.toolNames === undefined
+      ? undefined
+      : validateSessionToolSelection(options.toolNames, options.extensionTools);
+  const requestedExtensionTools = options.extensionTools ?? 'all';
+  if (requestedExtensionTools !== 'all' && requestedExtensionTools !== 'selected') {
+    throw new Error('extensionTools must be "all" or "selected"');
+  }
   const registry = getRegistry();
   const locks = getLocks();
 
@@ -2820,10 +2879,11 @@ export async function startRpcSession(
   }
   const sessionCwd = sessionManager.getCwd();
   const sessionEntries = sessionManager.getEntries() as unknown as SessionEntry[];
-  const persistedToolNames = readSessionToolSelection(sessionEntries);
-  const selectedToolNames = persistedToolNames ?? requestedToolNames;
-  if (persistedToolNames === undefined && requestedToolNames !== undefined) {
-    appendSessionToolSelection(sessionManager, requestedToolNames);
+  const persistedSelection = readSessionToolSelectionDetails(sessionEntries);
+  const selectedToolNames = persistedSelection?.tools ?? requestedToolNames;
+  const extensionTools = persistedSelection?.extensionTools ?? requestedExtensionTools;
+  if (persistedSelection === undefined && requestedToolNames !== undefined) {
+    appendSessionToolSelection(sessionManager, requestedToolNames, requestedExtensionTools);
   }
   // A new session starts in the mode the caller asked for. A session file's own entry stays
   // authoritative, because reopening it must not repeat the choice that created it.
@@ -2837,6 +2897,9 @@ export async function startRpcSession(
   const activeToolNames = selectedToolNames;
   const orchestratorMode =
     readWorkMode(sessionManager.getEntries() as unknown as SessionEntry[]) === 'orchestrator';
+  // A custom preset can opt into the queue tool without the Orchestrator work mode. The mode
+  // still adds it; the name only controls whether its extension is loaded.
+  const taskManagerMode = orchestratorMode || activeToolNames?.includes('task_manager') === true;
   const chatOnly = activeToolNames?.length === 0;
   const finishStartingSession = trackStartingSession(sessionCwd);
   const starting = (async () => {
@@ -2904,7 +2967,7 @@ export async function startRpcSession(
               }),
               // The orchestrator preset adds the project-scoped queue tool beside the
               // full coding loadout. Other sessions never register it.
-              ...(orchestratorMode ? [createTaskManagerExtension()] : [])
+              ...(taskManagerMode ? [createTaskManagerExtension()] : [])
             ],
             ...(goalPaths.length > 0 ? { additionalExtensionPaths: goalPaths } : {}),
             extensionsOverride: (base) => preferUserBashExtension(base)
@@ -3041,7 +3104,12 @@ export async function startRpcSession(
     if (!chatOnly) {
       const initialToolNames = inner.getActiveToolNames();
       inner.setActiveToolsByName(
-        resolveActiveToolNames(inner, activeToolNames ?? initialToolNames, initialToolNames)
+        resolveActiveToolNames(
+          inner,
+          activeToolNames ?? initialToolNames,
+          initialToolNames,
+          extensionTools
+        )
       );
     }
 

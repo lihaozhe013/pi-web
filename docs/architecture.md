@@ -198,18 +198,26 @@ mode is stored in the session log (`lib/work-mode.ts`, `pie:work-mode`) and trav
 list in `GET /api/sessions/[id]` and `get_tools`. Plan pins read-only tools and asks before acting.
 Autonomous pins the full tool set, refuses `ask_user`, and adds guidance to decide and keep working;
 the task runner uses it with a goal so an idle foreground turn is not mistaken for completion.
-Orchestrator pins the full tool set and adds one project-scoped `task_manager` tool; it is the only
-mode that changes the extension loadout, so switching it rebuilds the session.
+Orchestrator pins the full tool set and adds one project-scoped `task_manager` tool. A custom preset
+can also opt into that tool; either way the extension loadout changes, so adding or removing it
+rebuilds the session.
 
-Users combine the built-in coding tools into named custom presets beside the built-in ones. The list
-lives in `pie-tool-presets.json` in the agent directory (`lib/custom-tool-presets.ts`), is served
-whole by `GET/PUT /api/tools/presets`, and stores canonical tool names (`bash` stands for whatever
-shell the PowerShell setting selects). Settings › Tools edits the list
-(`components/ToolPresetsSettings.tsx`), and a save bumps a refresh key so the session's composer
-reloads its copy. A pick is stored and pinned like any preset: the UI carries it as `custom:<id>`
-and resolves it against the list (`getToolNamesForSelection`), while the session itself keeps
-pinning plain tool names, so a deleted preset simply releases the sessions that still prefer it back
-to the configured defaults.
+Users combine the built-in coding tools and installed extension tools into named custom presets
+beside the built-in ones. The list lives in `pie-tool-presets.json` in the agent directory
+(`lib/custom-tool-presets.ts`), is served whole by `GET/PUT /api/tools/presets`, and stores canonical
+tool names (`bash` stands for whatever shell the PowerShell setting selects). Settings › Tools
+edits the list (`components/ToolPresetsSettings.tsx`), reading the current session's registered tools
+for names and descriptions; a save bumps a refresh key so the session's composer reloads its copy. A
+pick is stored and pinned like any preset: the UI carries it as `custom:<id>` and resolves it against
+the list (`getToolNamesForSelection`), while the session itself keeps pinning plain tool names, so a
+deleted preset simply releases the sessions that still prefer it back to the configured defaults.
+
+Built-in presets replace the coding tools and keep installed extension tools available, as Pi does.
+A custom preset chooses this explicitly: `includeExtensions: true` keeps the same behavior, while
+`false` makes the checked list exact. The choice travels in the session's `pie:tool-selection` entry
+as `extensionTools: "all" | "selected"`; changing it rebuilds the session because a selection that
+already turned extension tools off has no active names to restore. The `task_manager` tool is
+opt-in: its extension is loaded when Orchestrator is active or a custom preset names the tool.
 
 `lib/plan-mode-extension.ts` reads that entry on every prompt and tool call:
 

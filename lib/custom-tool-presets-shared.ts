@@ -1,7 +1,7 @@
-import { CANONICAL_CODING_TOOLS } from './tool-presets';
+import { CANONICAL_CODING_TOOLS, isSelectableToolName, sortToolNames } from './tool-presets';
 
 /**
- * User-defined tool presets: combinations of the built-in coding tools, saved in
+ * User-defined tool presets: combinations of coding and extension tools, saved in
  * `pie-tool-presets.json` in the agent directory and offered beside the built-in
  * presets in the composer's tool dropdown. `lib/custom-tool-presets.ts` holds the
  * file; these rules are shared with the client, whose editor validates a draft
@@ -14,20 +14,24 @@ export const CUSTOM_TOOL_PRESET_NAME_MAX = 40;
 export const CUSTOM_TOOL_PRESET_ID_MAX = 64;
 
 /**
- * Stored tool names are the canonical ones. `powershell` is accepted on input as the
- * shell alias and stored as `bash`, which the session resolution turns back into
- * `powershell` where the user's defaultTools enables it (`resolveShellTools`).
+ * The coding tools a new preset can start from. A saved preset may also name
+ * extension tools, which `isSelectableToolName` admits; `powershell` remains
+ * the shell alias and is stored as `bash`.
  */
 export const CUSTOM_TOOL_PRESET_TOOLS: readonly string[] = CANONICAL_CODING_TOOLS;
 
 export { CANONICAL_CODING_TOOLS } from './tool-presets';
 
-const ALLOWED_TOOLS = new Set(CUSTOM_TOOL_PRESET_TOOLS);
 const ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
 
 export interface CustomToolPreset {
   id: string;
   name: string;
+  /**
+   * Whether installed extension tools the preset does not name stay active.
+   * Missing in an older file means true, the behavior those presets had.
+   */
+  includeExtensions: boolean;
   tools: string[];
 }
 
@@ -43,19 +47,19 @@ export function makeCustomToolPresetId(): string {
   return uuid ? `p${uuid.replaceAll('-', '')}` : `p${Date.now().toString(36)}`;
 }
 
-/** The selected names in `CUSTOM_TOOL_PRESET_TOOLS` order, deduplicated, `powershell` as `bash`. */
+/** The selected names, deduplicated, coding tools first and `powershell` as `bash`. */
 export function normalizeCustomPresetTools(tools: unknown): string[] | undefined {
   if (!Array.isArray(tools)) return undefined;
   const selected = new Set<string>();
   for (const tool of tools) {
     if (typeof tool !== 'string') return undefined;
     const name = tool === 'powershell' ? 'bash' : tool;
-    if (!ALLOWED_TOOLS.has(name)) return undefined;
+    if (!isSelectableToolName(name)) return undefined;
     selected.add(name);
   }
   // An empty combination is not stored: Chat only is the built-in preset for that.
   if (selected.size === 0) return undefined;
-  return CUSTOM_TOOL_PRESET_TOOLS.filter((name) => selected.has(name));
+  return sortToolNames([...selected]);
 }
 
 /** Trimmed and length-checked, so a name is never whitespace or over the limit. */
@@ -95,13 +99,15 @@ export function parseCustomToolPresetDocument(value: unknown): CustomToolPreset[
     const id = parsePresetId(fields.id);
     const name = normalizeCustomPresetName(fields.name);
     const tools = normalizeCustomPresetTools(fields.tools);
+    const includeExtensions = fields.includeExtensions;
+    if (includeExtensions !== undefined && typeof includeExtensions !== 'boolean') return undefined;
     if (id === undefined || name === undefined || tools === undefined) return undefined;
     const idKey = id.toLowerCase();
     const nameKey = name.toLowerCase();
     if (ids.has(idKey) || names.has(nameKey)) return undefined;
     ids.add(idKey);
     names.add(nameKey);
-    presets.push({ id, name, tools });
+    presets.push({ id, name, tools, includeExtensions: includeExtensions ?? true });
   }
   return presets;
 }
@@ -111,7 +117,7 @@ export function validateCustomToolPresetDocument(value: unknown): CustomToolPres
   const presets = parseCustomToolPresetDocument(value);
   if (presets === undefined) {
     throw new Error(
-      `Expected a tool preset document: { version: ${CUSTOM_TOOL_PRESETS_VERSION}, presets: [{ id, name, tools }] } with at most ${CUSTOM_TOOL_PRESET_MAX_COUNT} presets, unique ids and names, non-empty names up to ${CUSTOM_TOOL_PRESET_NAME_MAX} characters, and non-empty tool lists of: ${CUSTOM_TOOL_PRESET_TOOLS.join(', ')}`
+      `Expected a tool preset document: { version: ${CUSTOM_TOOL_PRESETS_VERSION}, presets: [{ id, name, tools, includeExtensions? }] } with at most ${CUSTOM_TOOL_PRESET_MAX_COUNT} presets, unique ids and names, non-empty names up to ${CUSTOM_TOOL_PRESET_NAME_MAX} characters, and non-empty lists of valid tool names`
     );
   }
   return presets;

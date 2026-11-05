@@ -338,10 +338,12 @@ Autonomous is the built-ins' self-directed mode: full coding tools, refuses `ask
 guidance to decide and keep working. Orchestrator adds one project-scoped `task_manager` tool for
 the queue of the session's own working directory. The control stays visible while a run is in
 progress — showing which preset the turn uses — but is disabled so the preset cannot be switched
-mid-run. The section lists the built-in presets read-only
-above the user's own, so the list doubles as a reference, and shows an editor for the selected
-custom one: a name, the built-in combinations to start from, and one checkbox per built-in coding
-tool. The draft stays local until Save replaces the whole list; Delete is a two-step button kept
+mid-run. The section lists the built-in presets read-only above the user's own, so the list doubles
+as a reference, and shows an editor for the selected custom one: a name, the built-in combinations
+to start from, one switch for keeping other installed extension tools, and checkboxes grouped into
+coding and extension tools. Rows carry the tool's short description, including the goal, queue,
+question, codemode, search, MCP, and other tools the session has registered; the queue tool is
+opt-in. The draft stays local until Save replaces the whole list; Delete is a two-step button kept
 apart from Save. Deleting a preset keeps the sessions pinned to its tools and resolves their label
 to the configured defaults once the composer reloads its copy.
 

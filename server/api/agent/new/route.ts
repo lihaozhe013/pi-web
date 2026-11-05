@@ -5,6 +5,7 @@ import { randomUUID } from 'crypto';
 import { allowFileRoot } from '@/lib/file-access';
 import { invalidateSessionListCache } from '@/lib/session-reader';
 import { startRpcSession } from '@/lib/rpc-manager';
+import type { SessionExtensionToolsPolicy } from '@/lib/tool-presets';
 import { validateWorkMode } from '@/lib/work-mode';
 
 const THINKING_LEVELS = new Set<ThinkingLevel>([
@@ -56,14 +57,16 @@ export async function POST(req: Request) {
     }
 
     // Use a one-time key so startRpcSession's lock doesn't conflict with real session ids
-    const { provider, modelId, toolNames, thinkingLevel, mode, ...promptCommand } = command as {
-      provider?: string;
-      modelId?: string;
-      toolNames?: string[];
-      thinkingLevel?: unknown;
-      mode?: unknown;
-      [key: string]: unknown;
-    };
+    const { provider, modelId, toolNames, extensionTools, thinkingLevel, mode, ...promptCommand } =
+      command as {
+        provider?: string;
+        modelId?: string;
+        toolNames?: string[];
+        extensionTools?: unknown;
+        thinkingLevel?: unknown;
+        mode?: unknown;
+        [key: string]: unknown;
+      };
     if ((provider && !modelId) || (!provider && modelId)) {
       throw new Error('provider and modelId must be provided together');
     }
@@ -74,7 +77,14 @@ export async function POST(req: Request) {
     // requests in the same millisecond, merging two new sessions into one.
     const tempKey = `__new__${randomUUID()}`;
     const { session, realSessionId } = await startRpcSession(tempKey, '', cwd, {
-      ...(toolNames ? { toolNames } : {}),
+      ...(toolNames
+        ? {
+            toolNames,
+            ...(extensionTools !== undefined
+              ? { extensionTools: extensionTools as SessionExtensionToolsPolicy }
+              : {})
+          }
+        : {}),
       ...(mode ? { mode: validateWorkMode(mode) } : {}),
       ...(provider && modelId ? { initialModel: { provider, modelId } } : {}),
       ...(explicitThinkingLevel ? { thinkingLevel: explicitThinkingLevel } : {})

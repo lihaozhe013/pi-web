@@ -27,7 +27,8 @@ the person will not run two orchestrators against one queue at the same time.
 
 ## Boundary
 
-- **Allowed:** one `task_manager` tool in any session on the Orchestrator preset.
+- **Allowed:** one `task_manager` tool in any session on the Orchestrator preset, or in a custom
+  preset that opts into it.
 - **Allowed:** reading and changing every task in the session's own project, starting and stopping
   that project's queue, and receiving that project's queue events.
 - **Still refused:** subagent spawning or control, parallel queued-task execution inside a project,
@@ -75,26 +76,30 @@ The work mode (`lib/work-mode.ts`, custom entry `pie:work-mode`) is how a tool l
 `full` is still recognized as Orchestrator. The mode travels with the session in
 `GET /api/sessions/[id]` and `get_tools`, just as Plan and Autonomous do.
 
-`startRpcSession` reads the stored mode and adds the extension only for that mode:
+`startRpcSession` loads the extension for the Orchestrator mode, or when a custom preset names the
+`task_manager` tool:
 
 ```ts
 const orchestratorMode =
   readWorkMode(sessionManager.getEntries() as SessionEntry[]) === 'orchestrator';
+const taskManagerMode = orchestratorMode || activeToolNames?.includes('task_manager') === true;
 
 // ...
 extensionFactories: [
   ...builtins,
   // ...
-  ...(orchestratorMode ? [createTaskManagerExtension()] : [])
+  ...(taskManagerMode ? [createTaskManagerExtension()] : [])
 ]
 ```
 
-Switching to or away from Orchestrator crosses a loadout boundary. `setRpcSessionTools` rebuilds
-the session in that case, so the tool is registered or removed immediately. Plan and Autonomous
-still change only prompt behavior and do not need a rebuild.
+Switching to or away from Orchestrator, or adding/removing `task_manager` in a custom preset,
+crosses a loadout boundary. `setRpcSessionTools` rebuilds the session in that case, so the tool is
+registered or removed immediately. Plan and Autonomous still change only prompt behavior and do
+not need a rebuild.
 
-The other built-in presets never register `task_manager`. A task session started by the queue uses
-the full or autonomous preset and therefore has no queue control tool.
+The other built-in presets never register `task_manager`. A custom preset may opt in by checking
+the tool in Settings › Tools. A task session started by the queue uses the full or autonomous
+preset and therefore has no queue control tool.
 
 ## Scope: one project, no cwd argument
 
@@ -224,8 +229,9 @@ Policy:
 - The queue controller remains the write path, so path validation, command bounds, the one-running
   claim, and fencing tokens are unchanged.
 - `delete`, `abort`, and `mark_done` require `confirm: true`; the model is told to ask first.
-- The tool is absent from every preset except Orchestrator and from every task run. The browser
-  cannot add it with `set_tools`, because `set_tools` accepts only coding tool names.
+- The built-in presets other than Orchestrator, and every task run, do not load the tool. A custom
+  preset can opt in explicitly; the browser can then include `task_manager` in `set_tools`, but no
+  other tool name is added implicitly.
 - Two orchestrator sessions can still issue conflicting queue commands. That is deliberate: the
   queue's state guards make each command safe, and the person is expected not to run two at once.
 - The watch is bounded in wakes and time and is released on `session_shutdown`.

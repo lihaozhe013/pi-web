@@ -2,6 +2,7 @@ import { setEnterSendMode, useEnterSendMode } from '@/hooks/useEnterSendMode';
 import { setTranscriptToolDisplay, useTranscriptToolDisplay } from '@/hooks/useTranscriptMode';
 import { useI18n } from '@/hooks/useI18n';
 import { sendAgentCommand } from '@/lib/agent-client';
+import type { ToolEntry } from '@/lib/tool-presets';
 import type { ProjectTrustStatus, ToolSettingsResponse } from '@/lib/api-types';
 import { setupPushSubscription } from '@/lib/push-client';
 import {
@@ -38,6 +39,9 @@ interface Props {
   onProjectTrustChanged?: (cwd: string, status: ProjectTrustStatus) => void;
   /** Settings › Tools saved the custom tool presets; the composer reloads its copy. */
   onToolPresetsChanged?: () => void;
+  /** The current session's tools, including extension tools, for the preset editor. */
+  availableTools?: ToolEntry[] | null;
+  toolsLoading?: boolean;
 }
 
 export function SettingsSectionIcon({
@@ -481,7 +485,9 @@ export function SettingsPanel({
   projectTrust,
   onOpenTrustDialog,
   onProjectTrustChanged,
-  onToolPresetsChanged
+  onToolPresetsChanged,
+  availableTools,
+  toolsLoading
 }: Props) {
   const { t } = useI18n();
   const [section, setSection] = useState<SettingsSection>(initialSection);
@@ -698,6 +704,8 @@ export function SettingsPanel({
                 embedded
                 onClose={onClose}
                 onSaved={() => onToolPresetsChanged?.()}
+                availableTools={availableTools}
+                toolsLoading={toolsLoading}
               />
             )}
             {/* Visited sections stay mounted, so the ones whose answer depends on trust take the page's

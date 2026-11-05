@@ -67,7 +67,11 @@ export function getCustomToolPresetsPath(agentDir = getAgentDir()): string {
 }
 
 function copyPresets(presets: CustomToolPreset[]): CustomToolPreset[] {
-  return presets.map((preset) => ({ ...preset, tools: [...preset.tools] }));
+  return presets.map((preset) => ({
+    ...preset,
+    includeExtensions: preset.includeExtensions,
+    tools: [...preset.tools]
+  }));
 }
 
 function parsePresetsText(path: string, text: string): CustomToolPreset[] {

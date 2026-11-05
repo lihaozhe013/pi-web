@@ -1,5 +1,9 @@
 import type { SessionManager } from '@earendil-works/pi-coding-agent';
-import { PRESET_FULL } from './tool-presets';
+import {
+  isSelectableToolName,
+  sortToolNames,
+  type SessionExtensionToolsPolicy
+} from './tool-presets';
 import type { SessionEntry } from './types';
 
 export const TOOL_SELECTION_TYPE = 'pie:tool-selection';
@@ -7,6 +11,13 @@ export const TOOL_SELECTION_TYPE = 'pie:tool-selection';
 export interface SessionToolSelectionData {
   version: 1;
   tools: string[];
+  /** Missing in entries written before custom presets could pin extension tools. */
+  extensionTools?: SessionExtensionToolsPolicy;
+}
+
+export interface SessionToolSelection {
+  tools: string[];
+  extensionTools: SessionExtensionToolsPolicy;
 }
 
 /**
@@ -19,20 +30,32 @@ export interface ClearedSessionToolSelectionData {
   cleared: true;
 }
 
-const BUILTIN_TOOL_NAMES = new Set(PRESET_FULL);
 const CLEARED = Symbol('cleared-tool-selection');
 
-function parseToolSelectionData(data: unknown): string[] | typeof CLEARED | undefined {
+function isExtensionToolsPolicy(value: unknown): value is SessionExtensionToolsPolicy {
+  return value === 'all' || value === 'selected';
+}
+
+function parseToolSelectionData(data: unknown): SessionToolSelection | typeof CLEARED | undefined {
   if (typeof data !== 'object' || data === null || Array.isArray(data)) return undefined;
-  const candidate = data as { version?: unknown; tools?: unknown; cleared?: unknown };
+  const candidate = data as {
+    version?: unknown;
+    tools?: unknown;
+    cleared?: unknown;
+    extensionTools?: unknown;
+  };
   if (candidate.version !== 1) return undefined;
   if (candidate.cleared === true) return CLEARED;
   if (
     !Array.isArray(candidate.tools) ||
-    candidate.tools.some((tool) => typeof tool !== 'string' || !BUILTIN_TOOL_NAMES.has(tool))
+    candidate.tools.some((tool) => !isSelectableToolName(tool)) ||
+    (candidate.extensionTools !== undefined && !isExtensionToolsPolicy(candidate.extensionTools))
   )
     return undefined;
-  return [...new Set(candidate.tools as string[])];
+  return {
+    tools: sortToolNames(candidate.tools as string[]),
+    extensionTools: candidate.extensionTools ?? 'all'
+  };
 }
 
 /**
@@ -40,32 +63,51 @@ function parseToolSelectionData(data: unknown): string[] | typeof CLEARED | unde
  * selection of its own - legacy sessions, sessions created without an override, and
  * sessions explicitly returned to the configured defaults all resolve that way.
  */
-export function readSessionToolSelection(entries: readonly SessionEntry[]): string[] | undefined {
+export function readSessionToolSelectionDetails(
+  entries: readonly SessionEntry[]
+): SessionToolSelection | undefined {
   for (let index = entries.length - 1; index >= 0; index -= 1) {
     const entry = entries[index];
     if (entry.type !== 'custom' || entry.customType !== TOOL_SELECTION_TYPE) continue;
-    const tools = parseToolSelectionData(entry.data);
-    if (tools === undefined) continue;
-    return tools === CLEARED ? undefined : tools;
+    const selection = parseToolSelectionData(entry.data);
+    if (selection === undefined) continue;
+    return selection === CLEARED ? undefined : selection;
   }
   return undefined;
 }
 
-export function validateSessionToolSelection(tools: unknown): string[] {
-  const parsed = parseToolSelectionData({ version: 1, tools });
+/** The newest selection's tools, or undefined for no pin. */
+export function readSessionToolSelection(entries: readonly SessionEntry[]): string[] | undefined {
+  return readSessionToolSelectionDetails(entries)?.tools;
+}
+
+/** How the newest selection treats unnamed extension tools; no pin keeps Pi's `all`. */
+export function readSessionExtensionToolsPolicy(
+  entries: readonly SessionEntry[]
+): SessionExtensionToolsPolicy {
+  return readSessionToolSelectionDetails(entries)?.extensionTools ?? 'all';
+}
+
+export function validateSessionToolSelection(
+  tools: unknown,
+  extensionTools: unknown = 'all'
+): string[] {
+  const parsed = parseToolSelectionData({ version: 1, tools, extensionTools });
   if (parsed === undefined || parsed === CLEARED) {
-    throw new Error('toolNames must contain only built-in tool names');
+    throw new Error('toolNames must contain only valid tool names');
   }
-  return parsed;
+  return parsed.tools;
 }
 
 export function appendSessionToolSelection(
   sessionManager: SessionManager,
-  tools: readonly string[]
+  tools: readonly string[],
+  extensionTools: SessionExtensionToolsPolicy = 'all'
 ): void {
   sessionManager.appendCustomEntry(TOOL_SELECTION_TYPE, {
     version: 1,
-    tools: [...tools]
+    tools: [...tools],
+    extensionTools
   } satisfies SessionToolSelectionData);
 }
 

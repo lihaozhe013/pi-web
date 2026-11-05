@@ -31,9 +31,11 @@ import { clearDraft, getDraft, rekeyDraft, restoreDraftSubmission } from '@/lib/
 import { getPreferredToolPreset, setPreferredToolPreset } from '@/lib/tool-preset-preference';
 import {
   CONFIGURED_TOOL_PRESET,
+  getExtensionToolsPolicyForSelection,
   getPresetForSession,
   getToolNamesForSelection,
   getWorkModeForPreset,
+  type SessionExtensionToolsPolicy,
   type ToolEntry,
   type ToolPresetSelection
 } from '@/lib/tool-presets';
@@ -90,6 +92,8 @@ export interface SessionData {
   tree: SessionTreeNode[];
   leafId: string | null;
   toolNames?: string[];
+  /** Whether a custom preset keeps unnamed extension tools active. */
+  extensionTools?: SessionExtensionToolsPolicy;
   /** The stored work mode. Plan pins the same tools as Read-only, so it travels separately. */
   mode?: WorkMode;
   /** The goal an installed goal package last wrote on this branch. */
@@ -987,7 +991,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
           setSavedGoal(d.goal);
           sessionToolsPinnedRef.current = d.toolNames !== undefined;
           setToolPresetState(
-            getPresetForSession(d.toolNames, d.mode, customToolPresetsRef.current)
+            getPresetForSession(d.toolNames, d.mode, customToolPresetsRef.current, d.extensionTools)
           );
           setCurrentModelOverride((current) => (modelSwitchPendingRef.current ? current : null));
           setCurrentThinkingOverride(null);
@@ -1133,16 +1137,19 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     async (sid: string) => {
       try {
         // Plan and Autonomous pin tool lists that would otherwise lose their mode.
-        const result = await sendAgentCommand<{ tools: ToolEntry[]; workMode?: WorkMode }>(sid, {
-          type: 'get_tools'
-        });
+        const result = await sendAgentCommand<{
+          tools: ToolEntry[];
+          workMode?: WorkMode;
+          extensionTools?: SessionExtensionToolsPolicy;
+        }>(sid, { type: 'get_tools' });
         const tools = result?.tools;
         if (!tools || !sessionHookMountedRef.current || sessionIdRef.current !== sid) return null;
         const pinned = sessionToolsPinnedRef.current
           ? getPresetForSession(
               tools.filter((tool) => tool.active).map((tool) => tool.name),
               undefined,
-              customToolPresetsRef.current
+              customToolPresetsRef.current,
+              result.extensionTools
             )
           : CONFIGURED_TOOL_PRESET;
         setToolPresetState(
@@ -1210,6 +1217,10 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       // so pi resolves settings.json defaultTools instead of being pinned to ours (#700).
       // A custom preset that was deleted resolves the same way.
       const toolNames = getToolNamesForSelection(toolPreset, customToolPresetsRef.current);
+      const extensionTools = getExtensionToolsPolicyForSelection(
+        toolPreset,
+        customToolPresetsRef.current
+      );
       const workMode = getWorkModeForPreset(toolPreset);
       sessionToolsPinnedRef.current = toolNames !== undefined;
       const res = await fetch('/api/agent/new', {
@@ -1218,7 +1229,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         body: JSON.stringify({
           cwd: newSessionCwd,
           type: 'ensure_session',
-          ...(toolNames !== undefined ? { toolNames } : {}),
+          ...(toolNames !== undefined ? { toolNames, extensionTools } : {}),
           ...(workMode ? { mode: workMode } : {}),
           ...(selectedModel
             ? { provider: selectedModel.provider, modelId: selectedModel.modelId }
@@ -3112,6 +3123,10 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   const handleToolPresetChange = useCallback(
     async (preset: ToolPresetSelection) => {
       const toolNames = getToolNamesForSelection(preset, customToolPresetsRef.current);
+      const extensionTools = getExtensionToolsPolicyForSelection(
+        preset,
+        customToolPresetsRef.current
+      );
       setPreferredToolPreset(preset);
       setToolPresetState(preset);
       const sid = sessionIdRef.current ?? (await ensuringNewSessionRef.current);
@@ -3125,7 +3140,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         // clears a stored Plan or Autonomous mode, which needs no rebuild.
         const result = await sendAgentCommand<{ sessionId?: string; recreated?: boolean }>(sid, {
           type: 'set_tools',
-          ...(toolNames !== undefined ? { toolNames } : {}),
+          ...(toolNames !== undefined ? { toolNames, extensionTools } : {}),
           mode: getWorkModeForPreset(preset) ?? null
         });
         sessionToolsPinnedRef.current = toolNames !== undefined;

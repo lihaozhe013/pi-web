@@ -2702,6 +2702,35 @@ select.mcp-add-input {
   border: 0;
 }
 
+.tool-presets-include-all {
+  align-items: flex-start;
+  min-height: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--bg-panel) 74%, transparent);
+}
+
+.tool-presets-include-all-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  cursor: pointer;
+}
+
+.tool-presets-include-all-title {
+  color: var(--text);
+  font-size: calc(12px + var(--ui-font-size-offset, 0px));
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.tool-presets-include-all-hint {
+  color: var(--text-dim);
+  font-size: calc(11px + var(--ui-font-size-offset, 0px));
+  line-height: 1.5;
+}
+
 .tool-presets-tool {
   display: flex;
   align-items: baseline;
@@ -2770,6 +2799,21 @@ select.mcp-add-input {
 .tool-presets-tool.is-readonly code,
 .tool-presets-tool.is-readonly span {
   color: var(--text-dim);
+}
+
+.tool-presets-tool.is-auto span {
+  color: var(--text-muted);
+}
+
+.tool-presets-tool.is-auto input[type='checkbox'] {
+  opacity: 1;
+  accent-color: var(--text-dim);
+}
+
+.tool-presets-auto-label {
+  color: var(--text-dim);
+  font-size: calc(10px + var(--ui-font-size-offset, 0px));
+  white-space: nowrap;
 }
 
 .tool-presets-summary {
