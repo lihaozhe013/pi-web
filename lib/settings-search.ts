@@ -1,5 +1,5 @@
 import type { SettingsSection } from './settings-navigation';
-import { THEME_OPTIONS } from './theme';
+import { THEME_OPTIONS } from './theme.mts';
 import { enLocale } from './i18n/messages/en';
 import { zhCNLocale } from './i18n/messages/zh-CN';
 import { zhTWLocale } from './i18n/messages/zh-TW';

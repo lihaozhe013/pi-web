@@ -11,7 +11,7 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const hostname = process.argv.includes('--lan') ? '0.0.0.0' : (process.env.PIE_HOSTNAME ?? '127.0.0.1');
 const viteBin = join(root, 'node_modules', 'vite', 'bin', 'vite.js');
 const serverEntry = join(root, 'build', 'server', 'index.mjs');
-const serverConfig = join(root, 'vite.server.config.ts');
+const serverConfig = join(root, 'vite.server.config.mts');
 
 const children = [];
 

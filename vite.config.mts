@@ -1,7 +1,7 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig, type Plugin } from 'vite';
-import { THEME_INIT_SCRIPT } from './lib/theme';
+import { THEME_INIT_SCRIPT } from './lib/theme.mts';
 import { buildInfoDefine, root } from './scripts/build-info.mjs';
 
 // The development URL matches the one a release serves, so a link, a bookmark, and the desktop
@@ -11,7 +11,7 @@ const API_PORT = 30142;
 
 /**
  * The saved palette has to apply before first paint, so the inline script runs from `<head>`
- * instead of from the bundle. Its source is `lib/theme.ts` so the page and the app apply the
+ * instead of from the bundle. Its source is `lib/theme.mts` so the page and the app apply the
  * same rules.
  */
 function themeInit(): Plugin {

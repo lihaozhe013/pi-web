@@ -25,7 +25,7 @@ source directory. Add new files to Git before packaging. Deleted files are skipp
 `bun.lock` is copied.
 
 It installs frozen dependencies, builds outside the development checkout (`vite build` for the
-interface, `vite build --config vite.server.config.ts` for the server bundle), packs using the
+interface, `vite build --config vite.server.config.mts` for the server bundle), packs using the
 package file allow-list, and installs production dependencies in isolation. That production tree is
 then pruned of files the server never reads: source maps. The temporary source copy has no `.git`,
 so the packager forwards the source commit as `PIE_COMMIT` and the build's version carries its short

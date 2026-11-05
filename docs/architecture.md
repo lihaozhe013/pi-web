@@ -30,7 +30,7 @@ process. Bun manages dependencies and script invocation.
 | Task manager             | `lib/task-manager-extension.ts`, `lib/tasks/agent-tools.ts`, `lib/tasks/manager-project.ts` |
 | HTTP APIs                | `server/api/`, registered in `server/routes.ts`                                             |
 | Server assembly          | `server/app.ts`, `server/index.ts`, `server/middleware/security.ts`                         |
-| Browser entry            | `src/main.tsx`, `index.html`, `vite.config.ts`                                              |
+| Browser entry            | `src/main.tsx`, `index.html`, `vite.config.mts`                                             |
 | Styles                   | `styles/`, imported once by `src/main.tsx`                                                  |
 | Local launcher           | `bin/pie.js`                                                                                |
 | Portable packaging       | `packaging/`                                                                                |

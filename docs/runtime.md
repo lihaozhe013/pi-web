@@ -75,7 +75,7 @@ can never ship a route the registry does not know about.
 ## The interface
 
 `index.html` carries the head the deleted `app/layout.tsx` produced: the theme init script (from
-`lib/theme.ts`, injected by a Vite plugin), the manifest and icon links, viewport settings, and the
+`lib/theme.mts`, injected by a Vite plugin), the manifest and icon links, viewport settings, and the
 translation opt-out. `src/main.tsx` imports the stylesheets, picks the login form or the app shell
 from the path, and mounts React.
 
@@ -86,7 +86,7 @@ and links keep working as links.
 ## Build metadata
 
 `scripts/build-info.mjs` reads the package version, the Git commit, and the installed Pi release, and
-`vite.config.ts` defines them as `process.env.VITE_APP_VERSION`, `VITE_APP_COMMIT`,
+`vite.config.mts` defines them as `process.env.VITE_APP_VERSION`, `VITE_APP_COMMIT`,
 `VITE_PI_VERSION`, and `VITE_PIE_DESKTOP`. `lib/build-info.ts` is the only module that reads them.
 The portable packager forwards the commit as `PIE_COMMIT`, because its source copy has no `.git`; the
 desktop build sets `VITE_PIE_DESKTOP=1` so the service worker stays unregistered in a webview.

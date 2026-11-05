@@ -12,6 +12,7 @@ import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import lockfile from 'proper-lockfile';
+import { notifyTaskEvent } from '../web-push';
 import { getAgentDir } from '../session-reader';
 import { getProjectTrustStatus } from '../project-trust';
 import { markTaskSessionActive, clearTaskSessionActive } from './active-sessions';
@@ -104,8 +105,9 @@ function defaultAskUserExtensionPath(): string | null {
 }
 
 async function defaultNotifier(notification: TaskNotification): Promise<void> {
+  // The server bundle is a single file and `lib/rpc-manager.ts` already imports web push
+  // statically, so there is nothing left to defer; the try/catch keeps notifications best-effort.
   try {
-    const { notifyTaskEvent } = await import('../web-push');
     await notifyTaskEvent(notification);
   } catch {
     // Notifications are best-effort; the queue does not depend on them.

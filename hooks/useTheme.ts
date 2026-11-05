@@ -4,9 +4,9 @@ import {
   isThemePreference,
   type ThemePreference,
   type ResolvedTheme
-} from '@/lib/theme';
+} from '@/lib/theme.mts';
 
-export type { ThemePreference, ResolvedTheme } from '@/lib/theme';
+export type { ThemePreference, ResolvedTheme } from '@/lib/theme.mts';
 
 type ThemeState = {
   preference: ThemePreference;
