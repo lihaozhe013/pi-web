@@ -8,23 +8,20 @@
  * Nothing here calls an LLM to decide anything.
  */
 import { createHash, randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import lockfile from 'proper-lockfile';
 import { notifyTaskEvent } from '../web-push';
 import { getAgentDir } from '../session-reader';
 import { projectIdentityKey } from '../project-identity';
-import { getProjectTrustStatus } from '../project-trust';
 import { markTaskSessionActive, clearTaskSessionActive } from './active-sessions';
 import { readTaskConfig, resolveTaskPolicy } from './config';
 import { runVerificationGate } from './gate';
 import { buildTaskPrompt } from './prompt';
 import { TaskQueue, clipOutputTail, TaskLockedError } from './queue';
 import { getTaskStore, type TaskStore } from './store';
-import { startTaskRun, type TaskRunHandle, type TaskRunOutcome } from './runner';
+import { startTaskRun, TASK_ABORT_GRACE_MS, type TaskRunHandle, type TaskRunOutcome } from './runner';
 import { hasBusySessionForCwd } from './runtime-sessions';
-import { DEFAULT_GRACE_MS } from './rpc-session';
 import type { spawn } from 'node:child_process';
 import type {
   OrchestratorStatus,
@@ -91,14 +88,11 @@ export interface TaskOrchestratorOptions {
   cwd?: string;
   lockPath?: string;
   notifier?: TaskNotifier;
-  askUserExtensionPath?: string | null;
-  /** Tests replace the child process and the clock. */
-  childCommand?: Parameters<typeof startTaskRun>[0]['childCommand'];
+  /** Tests replace the gate process and the clock. */
   spawnFn?: typeof spawn;
   platform?: NodeJS.Platform;
   env?: NodeJS.ProcessEnv;
   now?: () => Date;
-  graceMs?: number;
 }
 
 export const TASK_LOCK_DIR_NAME = 'pie-task-locks';
@@ -114,17 +108,6 @@ export function projectLockPath(
   return join(agentDir, TASK_LOCK_DIR_NAME, `${name}.lock`);
 }
 
-function defaultAskUserExtensionPath(): string | null {
-  const candidates: string[] = [];
-  try {
-    const moduleDir = dirname(fileURLToPath(import.meta.url));
-    candidates.push(join(dirname(moduleDir), 'ask-user-cli-extension.ts'));
-  } catch {
-    // `import.meta.url` is not always available in the compiled server chunk.
-  }
-  candidates.push(join(process.cwd(), 'lib', 'ask-user-cli-extension.ts'));
-  return candidates.find((candidate) => existsSync(candidate)) ?? null;
-}
 
 async function defaultNotifier(notification: TaskNotification): Promise<void> {
   // The server bundle is a single file and `lib/rpc-manager.ts` already imports web push
@@ -334,7 +317,7 @@ export class TaskOrchestrator {
         try {
           outcome = await this.executeTask(task);
         } catch (error) {
-          // A thrown error must never leave a row IN_PROGRESS with no child.
+          // A thrown error must never leave a row IN_PROGRESS with no session.
           const reason = error instanceof Error ? error.message : String(error);
           try {
             this.queue.settle(task.id, task.claimedToken ?? '', {
@@ -367,18 +350,6 @@ export class TaskOrchestrator {
     }
     const config = this.config();
     const policy = resolveTaskPolicy(config, task);
-    // An unreadable trust store means "not trusted": an unattended run must not
-    // be the first thing that executes a repository's local extensions.
-    const trust = (() => {
-      try {
-        return getProjectTrustStatus(task.cwd, this.agentDir);
-      } catch {
-        return { requiresTrust: true, trusted: false };
-      }
-    })();
-    const askUserExtensionPath = policy.allowAskUser
-      ? (this.options.askUserExtensionPath ?? defaultAskUserExtensionPath())
-      : null;
 
     markTaskSessionActive(sessionId);
     this.currentActivity = null;
@@ -388,20 +359,15 @@ export class TaskOrchestrator {
       prompt: buildTaskPrompt({
         task,
         verifyCommands: policy.verifyCommands,
-        allowAskUser: policy.allowAskUser
+        autonomous: policy.autonomous
       }),
       cwd: task.cwd,
       sessionId,
       model: policy.model,
       sessionName: `T${task.id} ${task.title}`.replace(/\s+/g, ' ').slice(0, 160),
-      projectTrusted: trust.requiresTrust && trust.trusted,
+      autonomous: policy.autonomous,
       systemPromptAppend: policy.instructions,
-      askUserExtensionPath,
       timeoutMs: policy.taskTimeoutMs,
-      childCommand: this.options.childCommand,
-      spawnFn: this.options.spawnFn,
-      platform: this.options.platform,
-      env: this.options.env,
       now: this.options.now,
       onActivity: (activity) => {
         this.currentActivity = activity;
@@ -621,20 +587,20 @@ export class TaskOrchestrator {
     try {
       this.queue.resolveQuestion(taskId, { ...input, originSessionId });
     } catch (error) {
-      // The answer reached the child; a failed bookkeeping write must not undo it.
+      // The answer reached the session; a failed bookkeeping write must not undo it.
       console.warn('[pie] could not record the task answer:', error);
     }
   }
 
-  /** Kill the active child and settle its task, so a restart leaves no zombie agent. */
-  async shutdown(graceMs = DEFAULT_GRACE_MS): Promise<void> {
+  /** Abort the active session and settle its task, so a restart leaves no zombie agent. */
+  async shutdown(graceMs = TASK_ABORT_GRACE_MS): Promise<void> {
     this.stopping = true;
     const active = this.activeRun;
     if (active) {
       try {
         await active.handle.abort();
       } catch {
-        // The child may already be gone.
+        // The session may already be gone.
       }
     }
     if (this.loop) {
@@ -786,7 +752,7 @@ async function recoverTaskQueues(agentDir: string): Promise<void> {
   }
 }
 
-/** Shutdown hook: kill every active child and settle its task. */
+/** Shutdown hook: abort every active session and settle its task. */
 export async function shutdownTaskOrchestrators(): Promise<void> {
   await Promise.allSettled(
     activeTaskOrchestrators().map((orchestrator) => orchestrator.shutdown())

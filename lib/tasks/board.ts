@@ -47,12 +47,12 @@ export interface ChatTask {
 /** How many conversations the board keeps visible without the chat sidebar. */
 export const CHAT_TASK_LIMIT = 30;
 
-/** Queue children identify their prompt this way; a deleted task must not leave a chat row. */
+/** Queue tasks identify their prompt this way; a deleted task must not leave a chat row. */
 const QUEUED_TASK_PROMPT_PREFIX = 'You are running task #';
 
 /**
  * The project's conversations that the queue does not already represent.
- * Task children own their session rows, so they are filtered out to keep one
+ * Task sessions own their session rows, so they are filtered out to keep one
  * row per piece of work. Running chats come first; recent idle chats follow.
  */
 export function chatTasksForProject(

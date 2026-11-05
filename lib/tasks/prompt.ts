@@ -1,11 +1,11 @@
 /**
  * The prompt a task run receives.
  *
- * A task runs in a fresh process with nobody at the keyboard, so the prompt
- * carries the rules that a chat session gets from the person: where to work,
- * whether a question is available, and what the final message must report.
- * Standing instructions are not here: the child receives them through Pi's
- * `--append-system-prompt` flag, so they live in the system prompt.
+ * A task runs in a fresh SDK session rather than a conversation someone drives
+ * turn by turn, so the prompt carries the rules a chat session gets from the
+ * person: where to work, whether autonomous decisions replace questions, and
+ * what the final message must report. Standing instructions are not here: the session receives them
+ * as a system-prompt append, so they live with the rest of the instructions.
  */
 import { verificationShellName } from './gate';
 import type { TaskRecord } from './types';
@@ -13,14 +13,14 @@ import type { TaskRecord } from './types';
 export interface TaskPromptInput {
   task: Pick<TaskRecord, 'id' | 'title' | 'description' | 'cwd' | 'attempts'>;
   verifyCommands: string[];
-  allowAskUser: boolean;
+  autonomous: boolean;
 }
 
-export function buildTaskPrompt({ task, verifyCommands, allowAskUser }: TaskPromptInput): string {
+export function buildTaskPrompt({ task, verifyCommands, autonomous }: TaskPromptInput): string {
   const lines: string[] = [];
   const verificationShell = verificationShellName();
   lines.push(
-    `You are running task #${task.id} from Pie's project task queue, unattended, in one fresh session.`,
+    `You are running task #${task.id} from Pie's project task queue in one fresh session.`,
     ''
   );
   lines.push(`Task: ${task.title}`);
@@ -43,10 +43,12 @@ export function buildTaskPrompt({ task, verifyCommands, allowAskUser }: TaskProm
             ', '
           )}. They run in ${verificationShell}, not in this session's shell, so keep them portable: \`echo\`, \`node -e\` and the project's own scripts work there; interactive or POSIX-only tools may not.`
       : '- No verification commands are configured for this task; the result is judged from your report.',
-    allowAskUser
-      ? '- You may use ask_user if a decision is genuinely unclear. The person is not watching, so the queue waits for their answer.'
-      : '- The ask_user tool is not available in this run. If something is unclear, make the most reasonable assumption and state it in your final message.',
-    '- Finish with a short report: what changed, what you verified, and what is left.'
+    autonomous
+      ? '- Autonomous mode is on. Make the most reasonable assumption yourself, do not ask the user, and keep working through clear low-risk next steps until the task is actually done.'
+      : '- You may use ask_user if a decision is genuinely unclear. The queue waits for the answer, so ask only when the choice changes what you would build.',
+    autonomous
+      ? '- A goal is active for this task. Do not stop after a plan or a partial result: continue until the work is complete, then mark the goal complete only after checking the result.'
+      : '- Finish with a short report: what changed, what you verified, and what is left.'
   );
   return lines.join('\n');
 }

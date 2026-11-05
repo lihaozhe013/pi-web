@@ -81,8 +81,8 @@ export function parseTaskConfigPatch(body: Record<string, unknown>): Partial<Tas
   if ('taskTimeoutMs' in body) {
     patch.taskTimeoutMs = timeoutMs(body.taskTimeoutMs, 'taskTimeoutMs');
   }
-  if ('allowAskUser' in body) {
-    patch.allowAskUser = booleanField(body.allowAskUser, 'allowAskUser');
+  if ('autonomous' in body) {
+    patch.autonomous = booleanField(body.autonomous, 'autonomous');
   }
   if ('instructions' in body) {
     patch.instructions = instructionsField(body.instructions, 'instructions');

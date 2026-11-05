@@ -25,7 +25,6 @@
     "build/server",
     "dist",
     "package.json",
-    "lib/ask-user-cli-extension.ts",
     "lib/ask-user-labels.ts",
     "lib/ask-user-extension.ts",
     "lib/ask-user-presentation.ts"

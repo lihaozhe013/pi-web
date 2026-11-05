@@ -130,12 +130,6 @@ function cleanCommands(value: unknown): string[] | null {
   return commands;
 }
 
-function cleanOptionalBoolean(value: unknown, field: string): boolean | null {
-  if (value === null || value === undefined) return null;
-  if (typeof value !== 'boolean') throw new TaskInputError(`${field} must be a boolean or null`);
-  return value;
-}
-
 export function clipOutputTail(text: string, limit = TASK_OUTPUT_TAIL_MAX_LENGTH): string {
   if (text.length <= limit) return text;
   return `…${text.slice(text.length - limit)}`;
@@ -242,7 +236,6 @@ export class TaskQueue {
       projectKey,
       cwd,
       rank: this.store.nextRank(projectKey),
-      allowAskUser: cleanOptionalBoolean(input?.allowAskUser, 'allow_ask_user'),
       verifyCommands: cleanCommands(input?.verifyCommands),
       createdBy: input?.createdBy ?? null,
       now: this.timestamp()
@@ -264,9 +257,6 @@ export class TaskQueue {
         fields.projectKey = projectKey;
         fields.rank = this.store.nextRank(projectKey);
       }
-    }
-    if (input?.allowAskUser !== undefined) {
-      fields.allowAskUser = cleanOptionalBoolean(input.allowAskUser, 'allow_ask_user');
     }
     if (input?.verifyCommands !== undefined) {
       fields.verifyCommands = cleanCommands(input.verifyCommands);

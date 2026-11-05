@@ -24,7 +24,7 @@ export interface RunningProjectSession extends TaskActiveSession {
   modified: string;
 }
 
-/** A queue child's first prompt; it must never look like a human chat. */
+/** A queue task's first prompt; it must never look like a human chat. */
 const QUEUED_TASK_PROMPT_PREFIX = 'You are running task #';
 
 function sessionTitle(session: SessionInfo): string {

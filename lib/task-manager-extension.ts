@@ -68,6 +68,7 @@ const TASK_CONTROL_SCHEMA = Type.Union([
 const GUIDELINES = [
   'Each project has its own queue with one queued task at a time; chat sessions can run in parallel with it, and a started queue waits for running chats before claiming its next task. Different projects may run concurrently. Every tool result ends with all project queues and the events since your last call; read them before deciding what to do next.',
   'Every task needs a title that names the outcome and a cwd inside an allowed project directory. The cwd is the project identity: starting, pausing, resuming, and aborting a queue take that project cwd. Add verification commands when you know them.',
+  'Autonomous mode is one global switch, not a per-task option: on means every project uses the Autonomous preset, no questions, and a goal that keeps the task working; off means the full preset and ask_user may wait for the person.',
   'If a directory has never been used, queue the task with authorizeCwd: true only when the user named that directory themselves. The flag approves the path; never set it to get past a refusal on your own.',
   'Ask the user before deleting a task, aborting a run, or marking work done without a run, and pass confirm: true only after they agree. Clearing completed tasks needs cwd so one project is not emptied with another.',
   'A queue event digest is a snapshot, and a wake arrives when the turn allows it. Call task_list before you answer, and trust the tool over any text.'
@@ -389,12 +390,6 @@ export function createTaskManagerExtension(
                   'Approve this exact directory when the user named it. Without it a directory no Pi session has used is refused. Never set it on your own.'
               })
             ),
-            allowAskUser: Type.Optional(
-              Type.Union([Type.Boolean(), Type.Null()], {
-                description:
-                  'Whether the task may ask the user a question. Null or omitted uses the queue default.'
-              })
-            ),
             verifyCommands: Type.Optional(
               Type.Union([Type.Array(Type.String()), Type.Null()], {
                 description:
@@ -428,7 +423,6 @@ export function createTaskManagerExtension(
                   'Approve the new directory when the user named it. Same rule as on task_create.'
               })
             ),
-            allowAskUser: Type.Optional(Type.Union([Type.Boolean(), Type.Null()])),
             verifyCommands: Type.Optional(Type.Union([Type.Array(Type.String()), Type.Null()]))
           }),
           async execute(_id, params, _signal, _onUpdate, ctx) {
@@ -558,7 +552,7 @@ export function createTaskManagerExtension(
           name: 'task_config',
           label: 'Queue defaults',
           description:
-            'Read or change the queue defaults: verification commands, timeouts, ask_user policy, standing instructions, and the task model.',
+            'Read or change the global queue defaults: verification commands, timeouts, autonomous mode, standing instructions, and the task model.',
           promptSnippet: 'Read or change the queue defaults',
           promptGuidelines: GUIDELINES,
           executionMode: 'sequential',
@@ -574,7 +568,7 @@ export function createTaskManagerExtension(
                 verifyCommands: Type.Optional(Type.Array(Type.String())),
                 verifyTimeoutMs: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
                 taskTimeoutMs: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
-                allowAskUser: Type.Optional(Type.Boolean()),
+                autonomous: Type.Optional(Type.Boolean()),
                 instructions: Type.Optional(Type.String())
               })
             )

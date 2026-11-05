@@ -2,8 +2,8 @@
  * Session ids the queue is currently driving.
  *
  * This is the only module the chat runtime knows about. The agent route asks it
- * before accepting a prompt, so two writers never append to one session file.
- * A queue-less build loses the protection and keeps the client-side notice.
+ * before accepting a prompt, so two writers never append to one session. A
+ * queue-less build loses the protection and keeps the client-side notice.
  */
 
 const KEY: symbol = Symbol.for('pie:task-active-sessions');

@@ -15,6 +15,7 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import { McpHost, type McpHostOptions } from './mcp-host';
 import { createAskUserExtension } from './ask-user-extension';
+import { createAutonomousModeExtension } from './autonomous-mode-extension';
 import { createPlanModeExtension } from './plan-mode-extension';
 import { createPieMcpTransportFactory } from './mcp-transport';
 import { createWriteDiffExtension } from './write-diff-extension';
@@ -431,6 +432,8 @@ function createMcpBuiltins(
 export interface PieBuiltinExtensionsOptions {
   agentDir: string;
   mcpHost?: Pick<McpHostOptions, 'idleMs' | 'promptWaitMs'>;
+  /** False omits ask_user entirely, as autonomous task runs require. */
+  askUser?: boolean;
 }
 
 export interface PieBuiltinExtensions {
@@ -449,8 +452,9 @@ export async function createPieBuiltinExtensions(
   });
   return {
     extensions: [
-      createAskUserExtension(),
+      ...(options.askUser === false ? [] : [createAskUserExtension()]),
       createPlanModeExtension(),
+      createAutonomousModeExtension(),
       createWriteDiffExtension(),
       builtin('codemode', sandbox.available ? createCodemodeExtension() : unavailableExtension),
       ...extensions

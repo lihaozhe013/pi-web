@@ -64,7 +64,6 @@ export async function POST(req: Request) {
       title: typeof body.title === 'string' ? body.title : '',
       description: typeof body.description === 'string' ? body.description : null,
       cwd: typeof body.cwd === 'string' ? body.cwd : '',
-      allowAskUser: typeof body.allow_ask_user === 'boolean' ? body.allow_ask_user : null,
       verifyCommands: Array.isArray(body.verify_commands)
         ? body.verify_commands.filter((entry): entry is string => typeof entry === 'string')
         : null

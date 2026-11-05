@@ -667,6 +667,8 @@ export const enLocale: LocalePlugin = {
     'chat.outputModel': 'output sent to model',
     'chat.configuredTools': 'From settings.json defaultTools',
     'chat.planMode': 'Plan',
+    'chat.autonomousMode': 'Autonomous',
+    'chat.autonomousModeTools': 'Full tools, self-directed, no questions',
     'chat.goal': 'Goal',
     'chat.goalDialogDescription':
       'A goal keeps the agent working across turns until it reports the work done.',
@@ -1968,7 +1970,13 @@ export const enLocale: LocalePlugin = {
     'tasks.verifyCommandsLabel': 'Verification commands',
     'tasks.verifyCommandsHint':
       'One command per line, run after the task exits, in cmd.exe on Windows and /bin/sh elsewhere. Use portable commands such as echo or node -e.',
-    'tasks.allowAskUser': 'Questions during the task',
+    'tasks.mode': 'Task mode',
+    'tasks.autonomous': 'Autonomous decision mode',
+    'tasks.autonomousHint':
+      'Use the Autonomous preset: full tools, no questions, and a goal that keeps the agent working until it reports the task done. Off uses the full preset and can ask you a question.',
+    'tasks.modeFull': 'Full',
+    'tasks.modeAutonomous': 'Autonomous',
+    'tasks.modeHint': 'The global task mode. It applies to every project and queue.',
     'tasks.inherit': 'Use queue default',
     'tasks.enabled': 'Enabled',
     'tasks.disabled': 'Disabled',
@@ -2034,10 +2042,10 @@ export const enLocale: LocalePlugin = {
     'tasks.queueSettings': 'Queue settings',
     'tasks.queueDefaults': 'Queue defaults',
     'tasks.queueDefaultsHint':
-      'What a task inherits unless it sets its own value. Changes apply to the next run.',
+      'Global defaults for every project and queue. Changes apply to the next run.',
     'tasks.limits': 'Limits',
     'tasks.taskTimeout': 'Task timeout',
-    'tasks.taskTimeoutHint': 'A task still running after this is stopped and left blocked.',
+    'tasks.taskTimeoutHint': 'A task still running after this is stopped and marked failed.',
     'tasks.verifyTimeout': 'Verification timeout',
     'tasks.verifyTimeoutHint': 'Applies to each verification command, not to the whole gate.',
     'tasks.verificationDefaults': 'Verification commands',
@@ -2047,7 +2055,7 @@ export const enLocale: LocalePlugin = {
     'tasks.instructionsPlaceholder':
       'For example: run the tests before you report done, and leave the tree ready to review.',
     'tasks.instructionsHint':
-      'Appended to every task prompt as standing instructions. Use it for soft rules the queue does not enforce itself, and only rules that apply to every task: a git rule costs a step in a directory that is not a repository.',
+      'Appended to every task session as standing system instructions. Use it for soft rules the queue does not enforce itself, and only rules that apply to every task: a git rule costs a step in a directory that is not a repository.',
     'tasks.defaults': 'Run behaviour',
     'tasks.timeoutInvalid': 'A timeout needs a positive number, or choose "No limit".',
     'tasks.timeoutUnit': 'Timeout unit',

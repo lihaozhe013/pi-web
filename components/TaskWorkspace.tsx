@@ -88,15 +88,13 @@ interface TaskFormState {
   description: string;
   cwd: string;
   verifyCommands: string;
-  allowAskUser: 'default' | 'yes' | 'no';
 }
 
 const EMPTY_FORM: TaskFormState = {
   title: '',
   description: '',
   cwd: '',
-  verifyCommands: '',
-  allowAskUser: 'default'
+  verifyCommands: ''
 };
 
 function taskForm(task: TaskRecord): TaskFormState {
@@ -104,13 +102,7 @@ function taskForm(task: TaskRecord): TaskFormState {
     title: task.title,
     description: task.description ?? '',
     cwd: task.cwd,
-    verifyCommands: (task.verifyCommands ?? []).join('\n'),
-    allowAskUser:
-      task.allowAskUser === null || task.allowAskUser === undefined
-        ? 'default'
-        : task.allowAskUser
-          ? 'yes'
-          : 'no'
+    verifyCommands: (task.verifyCommands ?? []).join('\n')
   };
 }
 
@@ -207,7 +199,6 @@ interface TaskClipboard {
   description: string | null;
   cwd: string;
   verifyCommands: string[] | null;
-  allowAskUser: boolean | null;
 }
 
 const TASK_CLIPBOARD_KEY = 'pie:task-clipboard';
@@ -217,8 +208,7 @@ function clipboardFromTask(task: TaskRecord): TaskClipboard {
     title: task.title,
     description: task.description,
     cwd: task.cwd,
-    verifyCommands: task.verifyCommands,
-    allowAskUser: task.allowAskUser
+    verifyCommands: task.verifyCommands
   };
 }
 
@@ -227,8 +217,7 @@ function taskBody(clipboard: TaskClipboard, title: string): Record<string, unkno
     title,
     description: clipboard.description,
     cwd: clipboard.cwd,
-    verify_commands: clipboard.verifyCommands,
-    allow_ask_user: clipboard.allowAskUser
+    verify_commands: clipboard.verifyCommands
   };
 }
 
@@ -806,8 +795,7 @@ export function TaskWorkspace({
       title: form.title,
       description: form.description || null,
       cwd,
-      verify_commands: verifyCommands,
-      allow_ask_user: form.allowAskUser === 'default' ? null : form.allowAskUser === 'yes'
+      verify_commands: verifyCommands
     };
     if (draft?.mode === 'new') {
       const result = (await call('/api/tasks', {
@@ -1711,6 +1699,15 @@ export function TaskWorkspace({
               />
             </span>
           )}
+          {payload && (
+            <span
+              className="task-mode-chip"
+              data-mode={payload.config.autonomous ? 'autonomous' : 'full'}
+              title={t('tasks.modeHint')}
+            >
+              {payload.config.autonomous ? t('tasks.modeAutonomous') : t('tasks.modeFull')}
+            </span>
+          )}
           {doneTasks.length > 0 && (
             <button
               type="button"
@@ -2357,24 +2354,6 @@ export function TaskWorkspace({
             value={form.verifyCommands}
             onChange={(event) => setForm({ ...form, verifyCommands: event.target.value })}
           />
-        </label>
-        <label className="task-field">
-          <span>{t('tasks.allowAskUser')}</span>
-          <select
-            value={form.allowAskUser}
-            onChange={(event) =>
-              setForm({
-                ...form,
-                allowAskUser: event.target.value as TaskFormState['allowAskUser']
-              })
-            }
-          >
-            <option value="default">
-              {`${t('tasks.inherit')} (${payload?.config.allowAskUser ? t('tasks.enabled') : t('tasks.disabled')})`}
-            </option>
-            <option value="yes">{t('tasks.enabled')}</option>
-            <option value="no">{t('tasks.disabled')}</option>
-          </select>
         </label>
         <div className="task-detail-actions">
           <button type="submit" className="task-control is-primary" disabled={busy}>

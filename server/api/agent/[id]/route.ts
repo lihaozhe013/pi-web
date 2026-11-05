@@ -12,7 +12,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   try {
     const body = (await req.json()) as { type: string; [key: string]: unknown };
     commandType = typeof body.type === 'string' ? body.type : undefined;
-    // A session the queue is driving already has a writer: this child process.
+    // A session the queue is driving already has a writer: the task runner.
     // The only contact point between chat and the queue is this read-only check.
     if (body.type === 'prompt' && isTaskSessionActive(id)) {
       return json(

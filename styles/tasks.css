@@ -113,6 +113,26 @@
   max-width: 208px;
 }
 
+/* The global task mode is one quiet chip beside the model. */
+.task-mode-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--workspace-line, var(--border));
+  border-radius: 10px;
+  color: var(--text-muted);
+  font-size: calc(11px + var(--ui-font-size-offset, 0px));
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.task-mode-chip[data-mode='autonomous'] {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg));
+  color: var(--accent);
+}
+
 .task-control {
   display: inline-flex;
   align-items: center;
@@ -990,6 +1010,50 @@
 
 .queue-settings-unlimited input {
   accent-color: var(--accent);
+}
+
+/* One global switch: at the computer (full) or away (autonomous). */
+.queue-settings-mode {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--workspace-line, var(--border));
+  border-radius: 12px;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.queue-settings-mode > span {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.queue-settings-mode strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.queue-settings-mode input {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  accent-color: var(--accent);
+}
+
+.queue-settings-mode.is-active {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent) 7%, var(--bg));
+}
+
+.queue-settings-mode:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .queue-settings-field {

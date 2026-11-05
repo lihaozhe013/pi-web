@@ -81,6 +81,7 @@ import {
   type GoalBridge
 } from './goal-driver';
 import { createPieBuiltinExtensions } from './builtin-extensions';
+import { createAppendSystemPromptExtension } from './append-system-prompt-extension';
 import { createTaskManagerExtension } from './task-manager-extension';
 import { goalExtensionPaths } from './goal-package';
 import type { McpHost } from './mcp-host';
@@ -267,6 +268,12 @@ export interface RpcSessionStartOptions {
   initialModel?: { provider: string; modelId: string };
   allowInitialModelFallback?: boolean;
   thinkingLevel?: ThinkingLevel;
+  /** A stable id for a new session; the SDK otherwise generates one. */
+  newSessionId?: string;
+  /** Standing instructions appended to the system prompt on every run. */
+  systemPromptAppend?: string | null;
+  /** False omits ask_user, for an autonomous task run. Defaults to true. */
+  askUser?: boolean;
 }
 
 const CODING_TOOL_NAMES = ['read', 'bash', 'powershell', 'edit', 'write', 'grep', 'find', 'ls'];
@@ -2800,7 +2807,11 @@ export async function startRpcSession(
     sessionManager = SessionManager.open(sessionFile, undefined);
   } else {
     if (!cwd) throw new Error('cwd is required for a new session');
-    sessionManager = SessionManager.create(cwd, undefined);
+    sessionManager = SessionManager.create(
+      cwd,
+      undefined,
+      options.newSessionId ? { id: options.newSessionId } : undefined
+    );
   }
   const sessionCwd = sessionManager.getCwd();
   const sessionEntries = sessionManager.getEntries() as unknown as SessionEntry[];
@@ -2849,7 +2860,12 @@ export async function startRpcSession(
     );
     // codemode, tool-search, and mcp, as the pi CLI loads them, and the host that decides
     // which MCP servers the session connects (ADR 0006).
-    const builtins = chatOnly ? undefined : await createPieBuiltinExtensions({ agentDir });
+    const builtins = chatOnly
+      ? undefined
+      : await createPieBuiltinExtensions({
+          agentDir,
+          ...(options.askUser === false ? { askUser: false } : {})
+        });
     // The goal package Pie ships is loaded as an extension path, the way a
     // person's own package is. Their configured goal package, if any, wins: two
     // of them in one session would run two loops over one switch.
@@ -2870,6 +2886,13 @@ export async function startRpcSession(
           }
         : {
             extensionFactories: [
+              ...(options.systemPromptAppend?.trim()
+                ? [
+                    createAppendSystemPromptExtension(
+                      `Pie task queue instructions:\n${options.systemPromptAppend.trim()}`
+                    )
+                  ]
+                : []),
               ...(builtins?.extensions ?? []),
               createReadOnlyMcpPolicyExtension(),
               createProjectCommandBashExtension({

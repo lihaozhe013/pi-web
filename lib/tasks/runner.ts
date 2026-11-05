@@ -1,20 +1,22 @@
 /**
- * One task attempt in one child process.
+ * One task attempt, executed by the same in-process Pi SDK session chat uses.
  *
- * The runner owns the conversation with a single Pi CLI child: it sends the
- * prompt, tracks what the child is doing for the board, answers an `ask_user`
- * question on the person's behalf, and reports one outcome. It does not touch the
- * database or the queue; the orchestrator does that around it.
+ * The runner owns the conversation with one SDK session: it starts the session
+ * with the task's preset, sends the prompt (or a goal in autonomous mode),
+ * tracks what the agent is doing for the board, answers an `ask_user` dialog,
+ * and reports one outcome. The orchestrator owns the database and the queue.
  */
-import type { spawn } from 'node:child_process';
-import { ASK_USER_OTHER_LABEL } from '../ask-user-labels';
-import { buildTaskChildCommand, TaskRpcSession, type TaskChildCommand } from './rpc-session';
+import { readGoalFacts, goalCommand, MAX_GOAL_OBJECTIVE_CHARS } from '../goal-driver';
+import { getToolNamesForPreset, AUTONOMOUS_TOOL_PRESET } from '../tool-presets';
+import type { WorkMode } from '../work-mode';
+import type { AgentSessionWrapper } from '../rpc-manager';
 import type { TaskActivity, TaskActivityKind, TaskAnswerInput, PendingQuestion } from './types';
 
 export type TaskRunStatus = 'succeeded' | 'failed' | 'timeout' | 'aborted';
 
 export interface TaskRunOutcome {
   status: TaskRunStatus;
+  /** The SDK session has no process exit code; successful runs report 0. */
   exitCode: number | null;
   /** A short human-readable report for the board. */
   summary: string;
@@ -26,21 +28,16 @@ export interface TaskRunRequest {
   taskId: number;
   prompt: string;
   cwd: string;
-  /** The queue's model for this run; omitted, the child uses Pi's default. */
+  /** The queue's model for this run; omitted, the SDK uses Pi's default. */
   model?: { provider: string; modelId: string } | null;
   sessionId: string;
   sessionName: string;
-  projectTrusted: boolean;
-  /** Appended to the child's system prompt; empty adds nothing. */
+  /** True uses the Autonomous preset, omits ask_user, and starts a goal. */
+  autonomous: boolean;
+  /** Appended to the session's system prompt; empty adds nothing. */
   systemPromptAppend?: string | null;
-  askUserExtensionPath?: string | null;
   /** `null` leaves the run without a watchdog. */
   timeoutMs: number | null;
-  /** Tests supply a fixture child instead of the installed CLI. */
-  childCommand?: TaskChildCommand;
-  env?: NodeJS.ProcessEnv;
-  platform?: NodeJS.Platform;
-  spawnFn?: typeof spawn;
   now?: () => Date;
   onActivity?: (activity: TaskActivity) => void;
   onQuestion?: (question: PendingQuestion | null) => void;
@@ -48,7 +45,7 @@ export interface TaskRunRequest {
 }
 
 export interface TaskRunHandle {
-  session: TaskRpcSession;
+  sessionId: string;
   result: Promise<TaskRunOutcome>;
   answer(input: TaskAnswerInput): Promise<void>;
   abort(): Promise<void>;
@@ -56,10 +53,13 @@ export interface TaskRunHandle {
   output(): string;
 }
 
+/** How long an abort waits for the SDK to settle before forcing the session down. */
+export const TASK_ABORT_GRACE_MS = 5_000;
+
 const SUMMARY_LIMIT = 4_000;
+const TASK_TAIL_LIMIT = 64 * 1024;
 const TOOL_READ = new Set(['read', 'ls', 'grep', 'find', 'glob']);
 const TOOL_WRITE = new Set(['write', 'edit', 'apply_patch', 'patch']);
-const TIMEOUT = Symbol('timeout');
 
 class NoPendingQuestionError extends Error {
   readonly code = 'no_pending_question';
@@ -92,9 +92,7 @@ function toolDetail(name: string, args: unknown): string | null {
   void name;
   for (const key of ['file_path', 'filePath', 'path', 'command', 'pattern', 'query']) {
     const value = record[key];
-    if (typeof value === 'string' && value.trim()) {
-      return value.trim().slice(0, 160);
-    }
+    if (typeof value === 'string' && value.trim()) return value.trim().slice(0, 160);
   }
   return null;
 }
@@ -105,34 +103,49 @@ function activityKindForTool(name: string): TaskActivityKind {
   return 'running';
 }
 
+function appendTail(current: string, text: string): string {
+  const next = current + text;
+  return next.length <= TASK_TAIL_LIMIT ? next : next.slice(next.length - TASK_TAIL_LIMIT);
+}
+
+function clipSummary(text: string): string {
+  return text.length <= SUMMARY_LIMIT ? text : `${text.slice(0, SUMMARY_LIMIT)}…`;
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    timer.unref?.();
+  });
+}
+
+/** The objective a goal gets: the task prompt, clipped to the package's limit. */
+function goalObjective(prompt: string): string {
+  return prompt.length <= MAX_GOAL_OBJECTIVE_CHARS
+    ? prompt
+    : `${prompt.slice(0, MAX_GOAL_OBJECTIVE_CHARS - 1)}…`;
+}
+
 export function startTaskRun(request: TaskRunRequest): TaskRunHandle {
   const now = request.now ?? (() => new Date());
-  const command =
-    request.childCommand ??
-    buildTaskChildCommand({
-      cwd: request.cwd,
-      sessionId: request.sessionId,
-      sessionName: request.sessionName,
-      projectTrusted: request.projectTrusted,
-      model: request.model ?? null,
-      systemPromptAppend: request.systemPromptAppend ?? null,
-      askUserExtensionPath: request.askUserExtensionPath ?? null
-    });
-
-  const session = new TaskRpcSession({
-    command,
-    cwd: request.cwd,
-    env: request.env,
-    platform: request.platform,
-    spawnFn: request.spawnFn
-  });
-
+  let session: AgentSessionWrapper | null = null;
+  let unsubscribe: (() => void) | null = null;
   let latestActivity: TaskActivity | null = null;
   let pendingQuestion: PendingQuestion | null = null;
-  let typedAnswer: string | null = null;
-  let abortRequested = false;
-  let lastAssistantText = '';
   let outputTail = '';
+  let lastAssistantText = '';
+  let activeSessionId = request.sessionId;
+  let abortRequested = false;
+  let timedOut = false;
+  let finished = false;
+  let goalSeen = false;
+  let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
+  let timeoutKillTimer: ReturnType<typeof setTimeout> | undefined;
+  let resolveResult!: (outcome: TaskRunOutcome) => void;
+
+  const result = new Promise<TaskRunOutcome>((resolve) => {
+    resolveResult = resolve;
+  });
 
   const setActivity = (kind: TaskActivityKind, detail: string | null) => {
     latestActivity = { taskId: request.taskId, kind, detail, at: now().toISOString() };
@@ -152,10 +165,9 @@ export function startTaskRun(request: TaskRunRequest): TaskRunHandle {
     }
   };
 
-  const appendTail = (text: string) => {
+  const append = (text: string) => {
     if (!text) return;
-    session.appendTail(text);
-    outputTail = session.getTail();
+    outputTail = appendTail(outputTail, text);
     try {
       request.onOutput?.(outputTail);
     } catch {
@@ -164,9 +176,109 @@ export function startTaskRun(request: TaskRunRequest): TaskRunHandle {
   };
 
   const respond = (id: string, payload: Record<string, unknown>) => {
-    void session.sendRaw({ type: 'extension_ui_response', id, ...payload }).catch(() => {
-      // The child may have exited; nothing left to answer.
+    void session?.send({ type: 'extension_ui_response', id, ...payload }).catch(() => {
+      // The session may have shut down; nothing left to answer.
     });
+  };
+
+  const finish = (outcome: TaskRunOutcome) => {
+    if (finished) return;
+    finished = true;
+    if (timeoutTimer) clearTimeout(timeoutTimer);
+    if (timeoutKillTimer) clearTimeout(timeoutKillTimer);
+    unsubscribe?.();
+    unsubscribe = null;
+    setActivity('waiting', null);
+    resolveResult(outcome);
+  };
+
+  /**
+   * A timed-out agent gets a short graceful abort, then its runtime is destroyed.
+   * Without the second step a hung session could keep writing after the queue
+   * already settled the task as failed.
+   */
+  const finishTimeout = () => {
+    if (finished) return;
+    timedOut = true;
+    // Finish first: `finish` unsubscribes, so destroying the session cannot
+    // re-enter this handler through its own terminal event.
+    finish(outcome('timeout', timeoutSummary(request.timeoutMs)));
+    try {
+      session?.destroy();
+    } catch {
+      // The wrapper may already be gone; the result still records the timeout.
+    }
+  };
+
+  const outcome = (
+    status: TaskRunStatus,
+    summary: string,
+    exitCode: number | null = null
+  ): TaskRunOutcome => ({
+    status,
+    exitCode,
+    summary,
+    outputTail,
+    sessionId: activeSessionId
+  });
+
+  const goalFacts = () => {
+    if (!session) return undefined;
+    try {
+      return readGoalFacts(session.inner.sessionManager.getBranch() as never);
+    } catch {
+      return undefined;
+    }
+  };
+
+  const settleIfFinished = (record: Record<string, unknown>) => {
+    if (record.type !== 'agent_settled') return false;
+    const aborted = record.aborted === true;
+    if (abortRequested) {
+      finish(outcome('aborted', 'aborted by user'));
+      return true;
+    }
+    if (timedOut) {
+      finishTimeout();
+      return true;
+    }
+    if (!request.autonomous) {
+      if (aborted) {
+        finish(outcome('failed', 'The agent stopped before completing the task'));
+      } else {
+        finish(
+          outcome(
+            'succeeded',
+            clipSummary(lastAssistantText || 'The task finished without a final message'),
+            0
+          )
+        );
+      }
+      return true;
+    }
+
+    const facts = goalFacts();
+    if (facts?.status === 'complete') {
+      finish(
+        outcome(
+          'succeeded',
+          clipSummary(lastAssistantText || 'The goal completed without a final message'),
+          0
+        )
+      );
+      return true;
+    }
+    if (!facts && goalSeen) {
+      finish(outcome('failed', 'The goal was cleared before it completed'));
+      return true;
+    }
+    if (aborted) {
+      finish(outcome('failed', 'The goal stopped before completing the task'));
+      return true;
+    }
+    // A goal continuation is queued. Keep the task running; only its completion
+    // (or the watchdog/abort) settles it.
+    return false;
   };
 
   const handleUiRequest = (record: Record<string, unknown>) => {
@@ -174,53 +286,46 @@ export function startTaskRun(request: TaskRunRequest): TaskRunHandle {
     if (!id) return;
     const method = record.method;
     const title = typeof record.title === 'string' ? record.title : '';
-    if (method === 'select') {
-      const options = Array.isArray(record.options)
-        ? record.options.filter((option): option is string => typeof option === 'string')
-        : [];
-      if (options.includes(ASK_USER_OTHER_LABEL)) {
-        setQuestion({
-          requestId: id,
-          question: title,
-          options: options.filter((option) => option !== ASK_USER_OTHER_LABEL),
-          awaitingInput: false,
-          askedAt: now().toISOString()
-        });
-        appendTail(`\n[question] ${title}\n`);
-        return;
-      }
-      // A dialog nobody can answer in an unattended run is dismissed, never guessed.
+    const metadata =
+      record.question && typeof record.question === 'object'
+        ? (record.question as { options?: unknown })
+        : null;
+    if (!metadata || (method !== 'select' && method !== 'input')) {
+      // Only ask_user is rendered on the task board. Any other extension dialog
+      // receives the same "no one can answer" treatment a task always gave it.
       respond(id, { cancelled: true });
       return;
     }
-    if (method === 'input') {
-      if (typedAnswer !== null) {
-        const answer = typedAnswer;
-        typedAnswer = null;
-        respond(id, { value: answer });
-        setQuestion(null);
-        return;
-      }
-      setQuestion({
-        requestId: id,
-        question: title,
-        options: [],
-        awaitingInput: false,
-        askedAt: now().toISOString()
-      });
-      appendTail(`\n[question] ${title}\n`);
-      return;
-    }
-    if (method === 'confirm' || method === 'editor') {
-      respond(id, { cancelled: true });
-    }
-    // notify, setStatus, setWidget and setTitle are fire-and-forget: ignore them.
+    const options = Array.isArray(metadata.options)
+      ? metadata.options.filter((option): option is string => typeof option === 'string')
+      : [];
+    setQuestion({
+      requestId: id,
+      question: title,
+      options,
+      awaitingInput: false,
+      askedAt: now().toISOString()
+    });
+    append(`\n[question] ${title}\n`);
   };
 
-  session.onRecord((record) => {
+  const handleEvent = (record: Record<string, unknown>) => {
     const type = record.type;
     if (type === 'extension_ui_request') {
       handleUiRequest(record);
+      return;
+    }
+    if (type === 'extension_ui_closed') {
+      const id = typeof record.id === 'string' ? record.id : null;
+      if (id && pendingQuestion?.requestId === id) {
+        setQuestion(null);
+        append('\n[question] closed\n');
+      }
+      return;
+    }
+    if (type === 'entry_appended') {
+      const facts = goalFacts();
+      if (facts) goalSeen = true;
       return;
     }
     if (type === 'agent_start') {
@@ -234,13 +339,14 @@ export function startTaskRun(request: TaskRunRequest): TaskRunHandle {
     }
     if (type === 'message_update') {
       const update = record.assistantMessageEvent as
-        { type?: unknown; delta?: unknown; toolCall?: { toolName?: unknown } } | undefined;
+        | { type?: unknown; delta?: unknown; toolCall?: { toolName?: unknown } }
+        | undefined;
       const updateType = update && typeof update.type === 'string' ? update.type : undefined;
       if (updateType && updateType.startsWith('thinking')) {
         setActivity('thinking', null);
       } else if (updateType && updateType.startsWith('text')) {
         setActivity('thinking', null);
-        if (typeof update?.delta === 'string') appendTail(update.delta);
+        if (typeof update?.delta === 'string') append(update.delta);
       } else if (updateType === 'toolcall_end') {
         const name = update?.toolCall?.toolName;
         if (typeof name === 'string') setActivity(activityKindForTool(name), name);
@@ -250,182 +356,161 @@ export function startTaskRun(request: TaskRunRequest): TaskRunHandle {
     if (type === 'tool_execution_start') {
       const name = typeof record.toolName === 'string' ? record.toolName : 'tool';
       setActivity(activityKindForTool(name), toolDetail(name, record.args));
-      appendTail(`\n[${name}] ${toolDetail(name, record.args) ?? ''}\n`);
+      append(`\n[${name}] ${toolDetail(name, record.args) ?? ''}\n`);
       return;
     }
     if (type === 'message_end') {
       const text = assistantText(record.message);
       if (text) {
         lastAssistantText = text;
-        appendTail(`\n${text}\n`);
+        append(`\n${text}\n`);
       }
       setActivity('waiting', null);
       return;
     }
     if (type === 'agent_end') {
       setActivity('waiting', null);
+      return;
     }
-  });
+    if (type === 'agent_settled') {
+      settleIfFinished(record);
+    }
+  };
 
-  const result = (async (): Promise<TaskRunOutcome> => {
+  const abortSession = async () => {
+    if (!session) return;
     try {
-      session.start();
-    } catch (error) {
-      return {
-        status: 'failed',
-        exitCode: null,
-        summary: error instanceof Error ? error.message : String(error),
-        outputTail,
-        sessionId: request.sessionId
-      };
+      await session.send({ type: 'abort' });
+    } catch {
+      // The session may already have settled.
     }
-    setActivity('starting', null);
-    try {
-      const response = await session.prompt(request.prompt);
-      const data = response.data as { disposition?: unknown } | undefined;
-      if (response.success !== true) {
-        return {
-          status: 'failed',
-          exitCode: null,
-          summary: `Pi rejected the prompt: ${String(response.error ?? 'unknown error')}`,
-          outputTail,
-          sessionId: request.sessionId
-        };
-      }
-      if (data?.disposition === 'handled') {
-        await session.close();
-        return {
-          status: 'failed',
-          exitCode: session.exitCode,
-          summary: 'The prompt was handled by an extension instead of starting a run',
-          outputTail,
-          sessionId: request.sessionId
-        };
-      }
-    } catch (error) {
-      await session.close();
-      return {
-        status: abortRequested ? 'aborted' : 'failed',
-        exitCode: session.exitCode,
-        summary: maskStop(abortRequested, errorMessage(error, session)),
-        outputTail,
-        sessionId: request.sessionId
-      };
-    }
+  };
 
-    let timer: NodeJS.Timeout | undefined;
-    let settled: typeof TIMEOUT | Error | { aborted: boolean };
-    if (request.timeoutMs === null) {
-      // No watchdog: only an abort or the child's own end settles the run.
-      settled = await session.waitForSettled().catch((error) => error);
-    } else {
-      const timeout = new Promise<typeof TIMEOUT>((resolve) => {
-        timer = setTimeout(() => resolve(TIMEOUT), Math.max(request.timeoutMs as number, 0));
-        timer.unref?.();
+  const run = async () => {
+    try {
+      const { startRpcSession } = await import('../rpc-manager');
+      const started = await startRpcSession(request.sessionId, '', request.cwd, {
+        newSessionId: request.sessionId,
+        toolNames: getToolNamesForPreset(
+          request.autonomous ? AUTONOMOUS_TOOL_PRESET : 'full'
+        ),
+        ...(request.autonomous ? { mode: 'autonomous' as WorkMode } : {}),
+        ...(request.model ? { initialModel: request.model } : {}),
+        ...(request.systemPromptAppend?.trim()
+          ? { systemPromptAppend: request.systemPromptAppend }
+          : {}),
+        askUser: !request.autonomous
       });
-      settled = await Promise.race([session.waitForSettled().catch((error) => error), timeout]);
-      if (timer) clearTimeout(timer);
-    }
+      session = started.session;
+      activeSessionId = started.realSessionId || session.sessionId || request.sessionId;
+      unsubscribe = session.onEvent(handleEvent);
+      await session.waitUntilReady();
 
-    if (settled === TIMEOUT) {
-      await session.abort();
-      return {
-        status: 'timeout',
-        exitCode: session.exitCode,
-        summary: `The task did not finish within ${Math.round((request.timeoutMs ?? 0) / 60000)} minutes`,
-        outputTail,
-        sessionId: request.sessionId
-      };
-    }
-    if (settled instanceof Error) {
-      const wasStopped = abortRequested || session.stopWasRequested;
-      await session.close();
-      return {
-        status: wasStopped ? 'aborted' : 'failed',
-        exitCode: session.exitCode,
-        summary: maskStop(abortRequested, settled.message),
-        outputTail,
-        sessionId: request.sessionId
-      };
-    }
-    if (settled.aborted && abortRequested) {
-      await session.close();
-      return {
-        status: 'aborted',
-        exitCode: session.exitCode,
-        summary: 'aborted by user',
-        outputTail,
-        sessionId: request.sessionId
-      };
-    }
+      if (abortRequested) {
+        await abortSession();
+        finish(outcome('aborted', 'aborted by user'));
+        return;
+      }
 
-    // Pi stays alive in RPC mode until stdin closes, so an orderly shutdown both
-    // ends the process and gives the exit status this outcome reports.
-    await session.close();
-    const exitCode = session.exitCode;
-    if (abortRequested) {
-      return {
-        status: 'aborted',
-        exitCode,
-        summary: 'aborted by user',
-        outputTail,
-        sessionId: request.sessionId
-      };
+      try {
+        await session.send({ type: 'set_session_name', name: request.sessionName });
+      } catch {
+        // A title is a convenience; the task does not depend on it.
+      }
+
+      if (request.autonomous) {
+        const commandResult = (await session.send({ type: 'get_commands' })) as {
+          commands?: Array<{ name?: unknown }>;
+        };
+        const goalAvailable = (commandResult?.commands ?? []).some(
+          (command) => command.name === 'goal'
+        );
+        if (!goalAvailable) {
+          finish(
+            outcome(
+              'failed',
+              'Autonomous mode needs a goal package, but no goal command is registered in this session'
+            )
+          );
+          return;
+        }
+      }
+
+      if (abortRequested) {
+        await abortSession();
+        finish(outcome('aborted', 'aborted by user'));
+        return;
+      }
+
+      setActivity('starting', null);
+      const kickoff = request.autonomous
+        ? goalCommand('start', goalObjective(request.prompt))
+        : request.prompt;
+      await session.send({ type: 'prompt', message: kickoff });
+
+      if (request.timeoutMs !== null) {
+        timeoutTimer = setTimeout(() => {
+          if (finished) return;
+          timedOut = true;
+          void abortSession();
+          timeoutKillTimer = setTimeout(finishTimeout, TASK_ABORT_GRACE_MS);
+          timeoutKillTimer.unref?.();
+        }, Math.max(request.timeoutMs, 0));
+        timeoutTimer.unref?.();
+      }
+
+      if (abortRequested) await abortSession();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      finish(
+        outcome(
+          abortRequested ? 'aborted' : 'failed',
+          abortRequested ? 'aborted by user' : message
+        )
+      );
+      try {
+        session?.destroy();
+      } catch {
+        // A start that failed may have left no wrapper to close.
+      }
     }
-    if (exitCode !== 0) {
-      return {
-        status: 'failed',
-        exitCode,
-        summary: `The Pi process exited with code ${exitCode ?? 'null'}${settled.aborted ? ' after an abort' : ''}`,
-        outputTail,
-        sessionId: request.sessionId
-      };
-    }
-    return {
-      status: 'succeeded',
-      exitCode,
-      summary: clipSummary(lastAssistantText || 'The task finished without a final message'),
-      outputTail,
-      sessionId: request.sessionId
-    };
-  })();
+  };
+
+  void run();
 
   return {
-    session,
+    sessionId: activeSessionId,
     result,
     async answer(input: TaskAnswerInput): Promise<void> {
       const question = pendingQuestion;
-      if (!question || question.awaitingInput) throw new NoPendingQuestionError();
+      if (!question) throw new NoPendingQuestionError();
       const answer = typeof input.answer === 'string' ? input.answer.trim() : '';
       if (input.cancelled) {
         respond(question.requestId, { cancelled: true });
         setQuestion(null);
-        appendTail('\n[question] dismissed\n');
+        append('\n[question] dismissed\n');
         return;
       }
       if (!answer) throw new Error('An answer is required');
-      if (question.options.includes(answer)) {
-        respond(question.requestId, { value: answer });
-        setQuestion(null);
-        appendTail(`\n[answer] ${answer}\n`);
-        return;
-      }
-      if (question.options.length === 0) {
-        respond(question.requestId, { value: answer });
-        setQuestion(null);
-        appendTail(`\n[answer] ${answer}\n`);
-        return;
-      }
-      // The typed answer takes the same two steps the TUI uses: choose the
-      // sentinel, then answer the follow-up input request with the text.
-      typedAnswer = answer;
-      setQuestion({ ...question, awaitingInput: true });
-      respond(question.requestId, { value: ASK_USER_OTHER_LABEL });
-      appendTail(`\n[answer] ${answer}\n`);
+      // The inline ask_user card sends an option or typed text in one response;
+      // this is the same value the chat view's question card delivers.
+      respond(question.requestId, { value: answer });
+      setQuestion(null);
+      append(`\n[answer] ${answer}\n`);
     },
     async abort(): Promise<void> {
       abortRequested = true;
-      await session.abort();
+      await abortSession();
+      const forced = delay(TASK_ABORT_GRACE_MS);
+      await Promise.race([result, forced]);
+      if (!finished) {
+        finish(outcome('aborted', 'aborted by user'));
+        try {
+          session?.destroy();
+        } catch {
+          // The wrapper may already be gone.
+        }
+      }
     },
     activity(): TaskActivity | null {
       return latestActivity;
@@ -436,16 +521,12 @@ export function startTaskRun(request: TaskRunRequest): TaskRunHandle {
   };
 }
 
-function clipSummary(text: string): string {
-  return text.length <= SUMMARY_LIMIT ? text : `${text.slice(0, SUMMARY_LIMIT)}…`;
-}
-
-function maskStop(abortRequested: boolean, message: string): string {
-  return abortRequested ? 'aborted by user' : message;
-}
-
-function errorMessage(error: unknown, session: TaskRpcSession): string {
-  const message = error instanceof Error ? error.message : String(error);
-  const stderr = session.stderr.trim();
-  return stderr ? `${message}\n${stderr}` : message;
+function timeoutSummary(timeoutMs: number | null): string {
+  const ms = timeoutMs ?? 0;
+  if (ms < 60_000) {
+    const seconds = Math.max(1, Math.round(ms / 1_000));
+    return `The task did not finish within ${seconds} seconds`;
+  }
+  const minutes = Math.round(ms / 60_000);
+  return `The task did not finish within ${minutes} minutes`;
 }

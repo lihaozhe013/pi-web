@@ -49,7 +49,6 @@ interface TaskRowInsert {
   projectKey: string;
   cwd: string;
   rank: number;
-  allowAskUser: boolean | null;
   verifyCommands: string[] | null;
   createdBy?: string | null;
   now: string;
@@ -60,7 +59,6 @@ export interface TaskFieldUpdate {
   description?: string | null;
   cwd?: string;
   projectKey?: string;
-  allowAskUser?: boolean | null;
   verifyCommands?: string[] | null;
   sessionId?: string | null;
   claimedToken?: string | null;
@@ -71,16 +69,6 @@ export interface TaskFieldUpdate {
 
 function nowIso(): string {
   return new Date().toISOString();
-}
-
-function nullableBoolean(value: unknown): boolean | null {
-  if (value === null || value === undefined) return null;
-  return Number(value) !== 0;
-}
-
-function booleanOrNull(value: boolean | null | undefined): number | null {
-  if (value === null || value === undefined) return null;
-  return value ? 1 : 0;
 }
 
 function parseCommands(value: unknown): string[] | null {
@@ -130,7 +118,6 @@ function taskFromRow(row: Row): TaskRecord {
     rank: Number(row.rank),
     projectKey: row.project_key === null || row.project_key === undefined ? '' : String(row.project_key),
     cwd: String(row.cwd),
-    allowAskUser: nullableBoolean(row.allow_ask_user),
     verifyCommands: parseCommands(row.verify_commands),
     sessionId: row.session_id === null ? null : String(row.session_id),
     claimedToken: row.claimed_token === null ? null : String(row.claimed_token),
@@ -414,6 +401,21 @@ const MIGRATIONS: Array<(db: DatabaseSync) => void> = [
       CREATE INDEX IF NOT EXISTS task_events_project ON task_events (project_key, id);
     `);
     if (tableExists(db, 'queue_state')) db.exec('DROP TABLE queue_state;');
+  },
+  // The question policy is now one global mode: full (ask_user available) or
+  // autonomous (no questions, goal-driven). The per-task override has no reader.
+  (db) => {
+    if (hasColumn(db, 'tasks', 'allow_ask_user')) {
+      db.exec(`ALTER TABLE tasks DROP COLUMN allow_ask_user;`);
+    }
+  },
+  // An intermediate build advanced user_version without dropping the column;
+  // this idempotent step repairs that database. Fresh and v5 databases have
+  // already lost it and make this a no-op.
+  (db) => {
+    if (hasColumn(db, 'tasks', 'allow_ask_user')) {
+      db.exec(`ALTER TABLE tasks DROP COLUMN allow_ask_user;`);
+    }
   }
 ];
 
@@ -467,10 +469,13 @@ export class TaskStore {
   private migrate(): void {
     const row = this.db.prepare('PRAGMA user_version').get() as Row | undefined;
     let version = row ? Number(row.user_version) : 0;
-    // Project queues rewrite ranks and drop the old queue_state table. Keep a
-    // complete copy before that one-way step; a fresh database has nothing to
-    // preserve. `VACUUM INTO` is safe with WAL and produces one usable file.
-    if (version > 0 && version < 5) this.backupBeforeProjectQueues();
+    // Project queues rewrite ranks and drop the old queue_state table, and the
+    // autonomous-mode migration drops a per-task column. Keep a complete copy
+    // before any pending one-way step; a fresh database has nothing to preserve.
+    // `VACUUM INTO` is safe with WAL and produces one usable file.
+    if (version > 0 && version < MIGRATIONS.length) {
+      this.backupBeforeMigration(version);
+    }
     for (let index = version; index < MIGRATIONS.length; index++) {
       this.transaction(() => {
         MIGRATIONS[index](this.db);
@@ -480,10 +485,10 @@ export class TaskStore {
     }
   }
 
-  private backupBeforeProjectQueues(): void {
+  private backupBeforeMigration(version: number): void {
     if (this.path === ':memory:') return;
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const target = `${this.path}.v4-${stamp}.bak`;
+    const target = `${this.path}.v${version}-${stamp}.bak`;
     try {
       this.db.exec(`VACUUM INTO '${target.replaceAll("'", "''")}'`);
       console.log(`[pie] backed up the task database to ${target}`);
@@ -839,9 +844,9 @@ export class TaskStore {
   insertTask(input: TaskRowInsert): TaskRecord {
     const result = this.db
       .prepare(
-        `INSERT INTO tasks (title, description, status, rank, project_key, cwd, allow_ask_user,
+        `INSERT INTO tasks (title, description, status, rank, project_key, cwd,
                             verify_commands, created_by, created_at, updated_at)
-         VALUES (?, ?, 'PENDING', ?, ?, ?, ?, ?, ?, ?, ?)`
+         VALUES (?, ?, 'PENDING', ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         input.title,
@@ -849,7 +854,6 @@ export class TaskStore {
         input.rank,
         input.projectKey,
         input.cwd,
-        booleanOrNull(input.allowAskUser),
         serialize(input.verifyCommands),
         input.createdBy ?? null,
         input.now,
@@ -886,8 +890,6 @@ export class TaskStore {
       fields.projectKey ??
       (fields.cwd !== undefined ? projectIdentityKey(fields.cwd) : undefined);
     if (nextProject !== undefined) push('project_key', nextProject);
-    if (fields.allowAskUser !== undefined)
-      push('allow_ask_user', booleanOrNull(fields.allowAskUser));
     if (fields.verifyCommands !== undefined)
       push('verify_commands', serialize(fields.verifyCommands));
     if (fields.rank !== undefined) push('rank', fields.rank);
@@ -931,7 +933,7 @@ export class TaskStore {
 
   /**
    * Clear the pending question and record who answered it. The answer text is
-   * kept short: it is a digest line, and the child already received the full one.
+   * kept short: it is a digest line, and the run already received the full one.
    */
   resolveQuestion(
     id: number,
@@ -1197,7 +1199,7 @@ export class TaskStore {
   }
 
   /**
-   * At start-up, a row left running belongs to a child that died with the old
+   * At start-up, a row left running belongs to a session that died with the old
    * server. It never becomes DONE: the run did not survive. Only this project's
    * rows and state are touched.
    */

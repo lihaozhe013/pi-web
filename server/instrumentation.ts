@@ -23,8 +23,8 @@ export function registerNodeInstrumentation(): void {
   process.on('SIGINT', shutdownStreams);
   process.on('SIGTERM', shutdownStreams);
 
-  // A bounded task child must not outlive the server that owns it: kill the
-  // active child and settle its task before the process goes away. This creates
+  // A running task session must not outlive the server that owns it: abort the
+  // active run and settle its task before the process goes away. This creates
   // no orchestrator when the queue was never used.
   const shutdownTasks = () => {
     stopTaskChatWatcher();

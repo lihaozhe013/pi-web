@@ -10,9 +10,6 @@ function updateFromBody(body: Record<string, unknown>): TaskUpdateInput {
     update.description = typeof body.description === 'string' ? body.description : null;
   }
   if (typeof body.cwd === 'string') update.cwd = body.cwd;
-  if ('allow_ask_user' in body) {
-    update.allowAskUser = typeof body.allow_ask_user === 'boolean' ? body.allow_ask_user : null;
-  }
   if ('verify_commands' in body) {
     update.verifyCommands = Array.isArray(body.verify_commands)
       ? body.verify_commands.filter((entry): entry is string => typeof entry === 'string')

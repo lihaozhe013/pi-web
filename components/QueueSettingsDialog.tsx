@@ -11,7 +11,7 @@ export interface QueueSettingsDialogProps {
   /** The CLI's own model, shown on the "default" row of the selector. */
   defaultModelLabel: string | null;
   onClose: () => void;
-  /** Reload the board so a task form's "use queue default" reads the new value. */
+  /** Reload the board so the queue's chip and next run read the new value. */
   onSaved: () => void;
 }
 
@@ -51,11 +51,10 @@ export function timeoutMsFrom(draft: TimeoutDraft): number | null {
 }
 
 /**
- * One page for the defaults a task inherits: the model, the two timeouts, the
- * verification commands, the question policy, and the standing instructions
- * every task prompt carries. The same values appear as "use queue default" in a
- * task's form, so they have to be readable and editable somewhere the board
- * already opens.
+ * One page for the global task defaults: the model, the two timeouts, the
+ * verification commands, the autonomous switch, and the standing instructions
+ * every task session carries. These are global on purpose: the useful choice is
+ * whether the person is at the computer, not a different policy per project.
  */
 export function QueueSettingsDialog({
   config,
@@ -73,7 +72,7 @@ export function QueueSettingsDialog({
     timeoutDraftFrom(config.verifyTimeoutMs, TASK_CONFIG_DEFAULTS.verifyTimeoutMs ?? 600_000)
   );
   const [commands, setCommands] = useState(() => config.verifyCommands.join('\n'));
-  const [allowAskUser, setAllowAskUser] = useState(config.allowAskUser);
+  const [autonomous, setAutonomous] = useState(config.autonomous);
   const [instructions, setInstructions] = useState(config.instructions);
   const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -103,7 +102,7 @@ export function QueueSettingsDialog({
             .split('\n')
             .map((line) => line.trim())
             .filter(Boolean),
-          allowAskUser,
+          autonomous,
           instructions: instructions.trim()
         })
       });
@@ -129,7 +128,7 @@ export function QueueSettingsDialog({
       )
     );
     setCommands(TASK_CONFIG_DEFAULTS.verifyCommands.join('\n'));
-    setAllowAskUser(TASK_CONFIG_DEFAULTS.allowAskUser);
+    setAutonomous(TASK_CONFIG_DEFAULTS.autonomous);
     setInstructions(TASK_CONFIG_DEFAULTS.instructions);
     setProblem(null);
   };
@@ -304,16 +303,18 @@ export function QueueSettingsDialog({
         </section>
 
         <section className="queue-settings-section">
-          <h3>{t('tasks.defaults')}</h3>
-          <label className="task-field">
-            <span>{t('tasks.allowAskUser')}</span>
-            <select
-              value={allowAskUser ? 'yes' : 'no'}
-              onChange={(event) => setAllowAskUser(event.target.value === 'yes')}
-            >
-              <option value="no">{t('tasks.disabled')}</option>
-              <option value="yes">{t('tasks.enabled')}</option>
-            </select>
+          <h3>{t('tasks.mode')}</h3>
+          <label className={`queue-settings-mode${autonomous ? ' is-active' : ''}`}>
+            <span>
+              <strong>{t('tasks.autonomous')}</strong>
+              <span className="task-hint">{t('tasks.autonomousHint')}</span>
+            </span>
+            <input
+              type="checkbox"
+              aria-label={t('tasks.autonomous')}
+              checked={autonomous}
+              onChange={(event) => setAutonomous(event.target.checked)}
+            />
           </label>
         </section>
 

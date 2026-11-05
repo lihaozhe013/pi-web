@@ -108,7 +108,6 @@ export interface TaskCreateParams {
   title: string;
   description?: string | null;
   cwd: string;
-  allowAskUser?: boolean | null;
   verifyCommands?: string[] | null;
   /** Approve a directory the person named, instead of requiring the board first. */
   authorizeCwd?: boolean;
@@ -320,7 +319,6 @@ export class TaskTools {
         title: params.title,
         description: params.description ?? null,
         cwd: params.cwd,
-        allowAskUser: params.allowAskUser ?? null,
         verifyCommands: params.verifyCommands ?? null,
         createdBy: this.sessionId,
         authorizeCwd: params.authorizeCwd === true
@@ -336,7 +334,6 @@ export class TaskTools {
         title: params.title,
         description: params.description,
         cwd: params.cwd,
-        allowAskUser: params.allowAskUser,
         verifyCommands: params.verifyCommands,
         authorizeCwd: params.authorizeCwd === true
       });

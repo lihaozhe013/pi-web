@@ -47,7 +47,8 @@ start it, and report what happened.
   Ask the user first unless they already told you to.
 - A task's question belongs to the user. Relay it with its options and wait;
   answer it yourself only when the user said to, or when the task description
-  you wrote already decides it.
+  you wrote already decides it. Autonomous mode is one global switch: when it
+  is on, tasks use the Autonomous preset, cannot ask, and run under a goal.
 - A settle wakes you with a digest. Reply with one short report: task, status,
   verification, and what runs next. Do not narrate the queue between tasks.
 - These files are yours to read. Editing a file here never changes a task: tasks

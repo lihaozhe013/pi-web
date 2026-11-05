@@ -16,6 +16,6 @@ export const TASK_CONFIG_DEFAULTS: TaskConfig = {
   verifyCommands: [],
   verifyTimeoutMs: DEFAULT_VERIFY_TIMEOUT_MS,
   taskTimeoutMs: DEFAULT_TASK_TIMEOUT_MS,
-  allowAskUser: false,
+  autonomous: false,
   instructions: ''
 };

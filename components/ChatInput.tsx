@@ -159,11 +159,20 @@ export interface ChatInputHandle {
 }
 
 // "configured" sends no override, so the session follows settings.json defaultTools.
-const TOOL_PRESETS = ['configured', 'plan', 'chat-only', 'read-only', 'default', 'full'] as const;
+const TOOL_PRESETS = [
+  'configured',
+  'plan',
+  'autonomous',
+  'chat-only',
+  'read-only',
+  'default',
+  'full'
+] as const;
 type ToolPresetLabel = (typeof TOOL_PRESETS)[number];
 const TOOL_PRESET_MAP: Record<ToolPresetLabel, ToolPresetSelection> = {
   configured: 'configured',
   plan: 'plan',
+  autonomous: 'autonomous',
   'chat-only': 'none',
   'read-only': 'read-only',
   default: 'default',
@@ -2098,7 +2107,9 @@ export const ChatInput = memo(
         ? t('chat.chatOnly')
         : builtin === 'plan'
           ? t('chat.planMode')
-          : builtin;
+          : builtin === 'autonomous'
+            ? t('chat.autonomousMode')
+            : builtin;
     })();
 
     // Close dropdowns on outside click
@@ -3516,6 +3527,8 @@ export const ChatInput = memo(
                             let desc: string;
                             if (lvl === 'configured') desc = t('chat.configuredTools');
                             else if (lvl === 'plan') desc = t('chat.planModeTools');
+                            else if (lvl === 'autonomous')
+                              desc = t('chat.autonomousModeTools');
                             else if (lvl === 'chat-only') desc = t('chat.chatOnly');
                             else if (lvl === 'read-only')
                               desc = t('chat.readOnlyTools', { count: 4 });
@@ -3524,7 +3537,9 @@ export const ChatInput = memo(
                             return (
                               <PresetMenuItem
                                 key={lvl}
-                                label={lvl}
+                                label={
+                                  lvl === 'autonomous' ? t('chat.autonomousMode') : lvl
+                                }
                                 description={desc}
                                 active={isActive}
                                 onSelect={() => {

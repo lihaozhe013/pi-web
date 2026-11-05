@@ -3,8 +3,8 @@
  *
  * Every field is optional. The file is written by the app or edited by the
  * person, never by a task, so the values are trusted configuration rather than
- * an input-validation boundary. Verification commands and the question policy
- * are the only fields a single task may override.
+ * an input-validation boundary. Verification commands are the only field a
+ * single task may override; the autonomous switch is global on purpose.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -52,8 +52,8 @@ function boolean(value: unknown, fallback: boolean): boolean {
 
 /**
  * Free-form standing instructions; malformed values fall back to none. The text
- * travels as one child argument, so a manual edit is clamped rather than allowed
- * to exceed the platform's command-line limit.
+ * travels in one system-prompt block, so a manual edit is clamped rather than
+ * allowed to grow without bound.
  */
 function instructions(value: unknown): string {
   if (typeof value !== 'string') return DEFAULT_TASK_CONFIG.instructions;
@@ -81,7 +81,7 @@ export function normalizeTaskConfig(raw: unknown): TaskConfig {
     verifyCommands: commandList(record.verifyCommands, DEFAULT_TASK_CONFIG.verifyCommands),
     verifyTimeoutMs: timeoutOrNull(record.verifyTimeoutMs, DEFAULT_VERIFY_TIMEOUT_MS),
     taskTimeoutMs: timeoutOrNull(record.taskTimeoutMs, DEFAULT_TASK_TIMEOUT_MS),
-    allowAskUser: boolean(record.allowAskUser, DEFAULT_TASK_CONFIG.allowAskUser),
+    autonomous: boolean(record.autonomous, DEFAULT_TASK_CONFIG.autonomous),
     instructions: instructions(record.instructions)
   };
 }
@@ -122,7 +122,7 @@ export function configChangeSummary(before: TaskConfig, after: TaskConfig): stri
   }
   if (before.verifyTimeoutMs !== after.verifyTimeoutMs) fields.push('verification timeout');
   if (before.taskTimeoutMs !== after.taskTimeoutMs) fields.push('task timeout');
-  if (before.allowAskUser !== after.allowAskUser) fields.push('ask_user policy');
+  if (before.autonomous !== after.autonomous) fields.push('autonomous mode');
   if (before.instructions !== after.instructions) fields.push('instructions');
   return fields.length > 0
     ? `queue defaults changed: ${fields.join(', ')}`
@@ -133,13 +133,11 @@ export function configChangeSummary(before: TaskConfig, after: TaskConfig): stri
 export function resolveTaskPolicy(
   config: TaskConfig,
   task: {
-    allowAskUser: boolean | null;
     verifyCommands: string[] | null;
   }
 ): TaskConfig {
   return {
     ...config,
-    allowAskUser: task.allowAskUser ?? config.allowAskUser,
     verifyCommands: task.verifyCommands ?? config.verifyCommands
   };
 }

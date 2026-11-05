@@ -3,7 +3,7 @@
  *
  * These types cross every boundary the queue owns: the database row mapper, the
  * queue controller, the HTTP routes, and the browser board. Nothing here knows
- * about Pi; the runner and the RPC session add that.
+ * about Pi; the runner and the SDK session add that.
  */
 
 export type TaskStatus = 'PENDING' | 'IN_PROGRESS' | 'DONE' | 'BLOCKED' | 'FAILED';
@@ -12,12 +12,12 @@ export type QueueState = 'IDLE' | 'RUNNING' | 'PAUSED';
 
 /** A question asked by the running task's `ask_user` tool, kept across reloads. */
 export interface PendingQuestion {
-  /** The RPC request id the answer must repeat. */
+  /** The extension UI request id the answer must repeat. */
   requestId: string;
   question: string;
   /** The offered options without the "write my own answer" sentinel. */
   options: string[];
-  /** False while the child waits for the free-form follow-up `input` request. */
+  /** False while the session waits for a free-form follow-up `input` request. */
   awaitingInput: boolean;
   askedAt: string;
 }
@@ -31,8 +31,6 @@ export interface TaskRecord {
   /** The normalized cwd identity every project-scoped query groups by. */
   projectKey: string;
   cwd: string;
-  /** Null means "use the queue default". */
-  allowAskUser: boolean | null;
   verifyCommands: string[] | null;
   sessionId: string | null;
   claimedToken: string | null;
@@ -98,7 +96,7 @@ export interface TaskProjectSummary {
   updatedAt: string | null;
 }
 
-/** The model a task's child starts with; `null` keeps Pi's own default. */
+/** The model a task's session starts with; `null` keeps Pi's own default. */
 export interface TaskModelSelection {
   provider: string;
   modelId: string;
@@ -110,10 +108,11 @@ export interface TaskConfig {
   verifyCommands: string[];
   /** `null` runs each verification command without a timeout. */
   verifyTimeoutMs: number | null;
-  /** `null` runs a task with no watchdog; only an abort or the child's own end stops it. */
+  /** `null` runs a task with no watchdog; only an abort or the session's own end stops it. */
   taskTimeoutMs: number | null;
-  allowAskUser: boolean;
-  /** Standing instructions injected into every task prompt; empty for none. */
+  /** One global switch: use the Autonomous preset, ask nothing, and start a goal. */
+  autonomous: boolean;
+  /** Standing instructions appended to every task session's system prompt; empty for none. */
   instructions: string;
 }
 
@@ -185,7 +184,6 @@ export interface TaskCreateInput {
   title: string;
   description?: string | null;
   cwd: string;
-  allowAskUser?: boolean | null;
   verifyCommands?: string[] | null;
   /** Set by the orchestrator's tool, so the board can mark who queued the work. */
   createdBy?: string | null;
@@ -200,7 +198,6 @@ export interface TaskUpdateInput {
   title?: string;
   description?: string | null;
   cwd?: string;
-  allowAskUser?: boolean | null;
   verifyCommands?: string[] | null;
   /** As on create: approve a directory the person named. */
   authorizeCwd?: boolean;
