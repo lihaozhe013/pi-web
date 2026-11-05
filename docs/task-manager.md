@@ -265,7 +265,7 @@ the session is idle. It remains as a fallback tool, not the mechanism.
 
 ## Letting the agent answer a task
 
-In full mode a task can still reach a person through the board and Web Push; that path is unchanged.
+In Standard mode a task can still reach a person through the board and Web Push; that path is unchanged.
 The orchestrator learns about the question in the same digest and has `task_answer`. In autonomous
 mode there is no `ask_user` tool and no question to relay; the task runs under a goal instead.
 
@@ -294,7 +294,7 @@ Policy, decided and recorded here:
 
 ## Interface
 
-- **Entry point.** The task bar in `components/TaskWorkspace.tsx` has a "Task manager" action. It
+- **Entry point.** The task bar in `components/TaskWorkspace.tsx` has an icon action labelled "Task manager". It
   calls `POST /api/tasks/manager`, opens the newest conversation in that project, or a fresh
   composer when there is none. The project also appears in the sidebar under its alias.
 - **Forced loadout.** The composer's tool selector stays as it is, but in that project the server
@@ -322,7 +322,7 @@ Policy, decided and recorded here:
   explicit (`authorizeCwd`, allowed on create and on update), it is the person's directory by the
   rule in `AGENTS.md`, and it is recorded in durable storage rather than in a hidden process cache.
 - A task session never loads the task manager extension: injection is keyed to the manager project,
-  and a task in another project loads the ordinary built-ins, `ask_user` in full mode only.
+  and a task in another project loads the ordinary built-ins, `ask_user` in Standard mode only.
 - `AGENTS.md` is created once and never rewritten, matching the project rule that user data is not
   rebuilt. Deleting it restores Pi's default behaviour, not a crash.
 - The watcher is unbounded in duration but bounded in wakes and time, and it is visible and

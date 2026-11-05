@@ -25,7 +25,14 @@ import { DirectoryPicker } from './DirectoryPicker';
 import { ModelSelector, type ModelSelectorOption } from './ModelSelector';
 import { QueueSettingsDialog } from './QueueSettingsDialog';
 import { SidebarMenu, type SidebarMenuAnchor, type SidebarMenuItem } from './SidebarMenu';
-import { MoreIcon } from './SidebarIcons';
+import {
+  ChevronIcon,
+  EyeIcon,
+  MoreIcon,
+  PlusIcon,
+  TerminalIcon,
+  TrashIcon
+} from './SidebarIcons';
 import {
   chatTasksForProject,
   completedTaskIds,
@@ -34,6 +41,7 @@ import {
   hasVerification,
   isTaskLocked,
   projectLabelFromPath,
+  queuePrimaryAction,
   questionRequestFor,
   rangeSelection,
   reorderPending,
@@ -192,6 +200,18 @@ const MENU_ICON = {
   )
 };
 
+/** Run controls use a filled play/stop glyph; their buttons carry the label. */
+const RUN_ICON = {
+  play: menuIcon(<path d="m8 5 11 7-11 7Z" fill="currentColor" stroke="none" />),
+  pause: menuIcon(
+    <>
+      <path d="M9 5v14" />
+      <path d="M15 5v14" />
+    </>
+  ),
+  stop: menuIcon(<rect x="7" y="7" width="10" height="10" rx="1" fill="currentColor" stroke="none" />)
+};
+
 /** What "Copy" keeps: the fields "Paste" would send back to the queue. */
 interface TaskClipboard {
   title: string;
@@ -201,6 +221,7 @@ interface TaskClipboard {
 }
 
 const TASK_CLIPBOARD_KEY = 'pie:task-clipboard';
+const TASK_FINISHED_KEY = 'pie:tasks-finished-open';
 
 function clipboardFromTask(task: TaskRecord): TaskClipboard {
   return {
@@ -278,6 +299,7 @@ export function TaskWorkspace({
   );
   const [modelBusy, setModelBusy] = useState(false);
   const [queueSettingsOpen, setQueueSettingsOpen] = useState(false);
+  const [finishedOpen, setFinishedOpen] = useState(false);
   // Ids selected on top of the anchor (`selectedId`); together they are the
   // selection a batch action works on.
   const [extraSelectedIds, setExtraSelectedIds] = useState<number[]>([]);
@@ -330,6 +352,14 @@ export function TaskWorkspace({
       if (raw) setClipboard(JSON.parse(raw) as TaskClipboard);
     } catch {
       // An unreadable clipboard only means there is nothing to paste.
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      setFinishedOpen(window.localStorage.getItem(TASK_FINISHED_KEY) === 'true');
+    } catch {
+      // The section stays collapsed when browser storage is unavailable.
     }
   }, []);
 
@@ -419,10 +449,10 @@ export function TaskWorkspace({
     );
   }, [chats, initialTaskId, selectedChatId, selectedId]);
   const selectedSessionCount = status?.activeSessions?.length ?? 0;
-  const projectBusy =
-    status?.activeTaskId != null ||
-    status?.state === 'RUNNING' ||
-    selectedSessionCount > 0;
+  // A stored RUNNING state without a live loop is an interrupted queue; it
+  // reads as idle and the primary action is Start, not Pause.
+  const queueState =
+    status?.state === 'RUNNING' && !status.running ? 'IDLE' : (status?.state ?? 'IDLE');
   useEffect(() => {
     if (selectedChatId && !chats.some((chat) => chat.session.id === selectedChatId)) {
       setSelectedChatId(null);
@@ -494,6 +524,26 @@ export function TaskWorkspace({
   }, [polling, runningTask]);
 
   const groups = useMemo(() => groupTasks(tasks), [tasks]);
+  // An archive reads newest first; the queue's stored rank is for pending work.
+  const finishedTasks = useMemo(
+    () =>
+      [...groups.done].sort(
+        (a, b) =>
+          (b.finishedAt ?? b.updatedAt).localeCompare(a.finishedAt ?? a.updatedAt) ||
+          b.id - a.id
+      ),
+    [groups.done]
+  );
+  const primaryAction = queuePrimaryAction(status);
+  const primaryLabel =
+    primaryAction === 'pause'
+      ? t('tasks.pause')
+      : primaryAction === 'resume'
+        ? t('tasks.resume')
+        : t('tasks.start');
+  const primaryDisabled =
+    busy || !hasProject || (primaryAction === 'start' && groups.queued.length === 0);
+  const stopDisabled = busy || !hasProject || !(runningTask || loopRunning);
   const selected = useMemo(
     () =>
       selectedChat
@@ -742,6 +792,18 @@ export function TaskWorkspace({
       setOrchestratorBusy(false);
     }
   }, [onOpenTaskManager, orchestratorBusy, t]);
+
+  const toggleFinished = useCallback(() => {
+    setFinishedOpen((current) => {
+      const next = !current;
+      try {
+        window.localStorage.setItem(TASK_FINISHED_KEY, String(next));
+      } catch {
+        // The section still toggles for this page without persistence.
+      }
+      return next;
+    });
+  }, []);
 
   const startNewTask = useCallback(() => {
     const cwd = projectCwd ?? selected?.cwd ?? runningTask?.cwd ?? '';
@@ -1557,6 +1619,56 @@ export function TaskWorkspace({
     );
   };
 
+  /** Finished work is an archive at the panel's bottom edge, not another
+   * always-open group in the active list. */
+  const renderFinished = () => {
+    if (finishedTasks.length === 0) return null;
+    return (
+      <section
+        className="task-finished"
+        data-open={finishedOpen ? 'true' : undefined}
+        aria-label={t('tasks.finished')}
+      >
+        <div className="task-finished-head">
+          <button
+            type="button"
+            className="task-finished-toggle"
+            aria-expanded={finishedOpen}
+            aria-controls="task-finished-list"
+            onClick={toggleFinished}
+          >
+            <ChevronIcon
+              size={12}
+              strokeWidth={3}
+              className={`task-finished-chevron${finishedOpen ? ' is-open' : ''}`}
+            />
+            <span className="task-finished-label">{t('tasks.finished')}</span>
+            <span className="task-finished-count">{finishedTasks.length}</span>
+          </button>
+          <button
+            type="button"
+            className="task-finished-clear"
+            data-task-action="clear-completed"
+            aria-label={t('tasks.clearCompletedCount', { count: finishedTasks.length })}
+            title={t('tasks.clearCompletedCount', { count: finishedTasks.length })}
+            aria-haspopup="dialog"
+            disabled={busy}
+            onClick={(event) =>
+              openConfirm('completed', completedTaskIds(tasks), event.currentTarget)
+            }
+          >
+            <TrashIcon size={13} />
+          </button>
+        </div>
+        {finishedOpen && (
+          <div className="task-finished-list" id="task-finished-list">
+            {finishedTasks.map((task) => renderRow(task, boardOrder))}
+          </div>
+        )}
+      </section>
+    );
+  };
+
   /** The one queue list: the center column where the panel cannot dock, or the
    * shell's right panel through a portal. Both read the same state. */
   const renderQueueList = (showHeading: boolean) => (
@@ -1600,10 +1712,13 @@ export function TaskWorkspace({
             {groupSection('running', groups.running)}
             {groupSection('queued', groups.queued)}
             {groupSection('blocked', groups.blocked)}
-            {groupSection('done', groups.done)}
+            {!finishedOpen && finishedTasks.length === tasks.length && chats.length === 0 && (
+              <p className="task-empty">{t('tasks.allFinished')}</p>
+            )}
           </>
         )}
       </div>
+      {renderFinished()}
       <p className="task-queue-hint">{t('tasks.reorderHint')}</p>
     </div>
   );
@@ -1616,22 +1731,48 @@ export function TaskWorkspace({
       <div className="task-header">
         <div className="task-header-summary">
           {projectName && (
-            <span className="task-project-chip" title={projectCwd ?? undefined}>
+            <span className="task-header-project" title={projectCwd ?? undefined}>
               <span className="task-project-name">{projectName}</span>
               {projectCwd && <span className="task-project-path">{projectCwd}</span>}
             </span>
           )}
-          {status && (
-            <span
-              className="task-header-state"
-              data-state={selectedSessionCount > 0 ? 'RUNNING' : status.state}
-              data-busy={projectBusy ? 'true' : undefined}
-            >
-              {selectedSessionCount > 0
-                ? t('tasks.chatRunning', { count: selectedSessionCount })
-                : t(`tasks.queueState.${status.state.toLowerCase()}`)}
-            </span>
-          )}
+          <div className="task-header-state-group">
+            {status && (
+              <span
+                className="task-header-state"
+                data-state={selectedSessionCount > 0 ? 'RUNNING' : queueState}
+                title={status.pausedReason ?? undefined}
+              >
+                {selectedSessionCount > 0
+                  ? t('tasks.chatRunning', { count: selectedSessionCount })
+                  : t(`tasks.queueState.${queueState.toLowerCase()}`)}
+              </span>
+            )}
+            {payload && (
+              <span
+                className="task-mode-chip"
+                data-mode={payload.config.autonomous ? 'autonomous' : 'standard'}
+                title={t('tasks.modeHint')}
+              >
+                {payload.config.autonomous ? t('tasks.modeAutonomous') : t('tasks.modeStandard')}
+              </span>
+            )}
+            {payload?.watch && (
+              <span
+                className="task-header-watch"
+                role="img"
+                aria-label={t('tasks.watching')}
+                title={t('tasks.watching')}
+              >
+                <EyeIcon size={13} />
+              </span>
+            )}
+            {status?.state === 'PAUSED' && status.pausedReason && (
+              <span className="task-header-reason" title={status.pausedReason}>
+                {status.pausedReason}
+              </span>
+            )}
+          </div>
           {queueDocked && !queuePanelOpen && onToggleQueuePanel && (
             <button
               type="button"
@@ -1697,50 +1838,22 @@ export function TaskWorkspace({
               />
             </span>
           )}
-          {payload && (
-            <span
-              className="task-mode-chip"
-              data-mode={payload.config.autonomous ? 'autonomous' : 'full'}
-              title={t('tasks.modeHint')}
-            >
-              {payload.config.autonomous ? t('tasks.modeAutonomous') : t('tasks.modeFull')}
-            </span>
-          )}
-          {doneTasks.length > 0 && (
+          {onOpenTaskManager && (
             <button
               type="button"
-              className="task-queue-settings"
-              data-task-action="clear-completed"
-              aria-label={t('tasks.clearCompletedCount', { count: doneTasks.length })}
-              title={t('tasks.clearCompletedCount', { count: doneTasks.length })}
-              aria-haspopup="dialog"
-              onClick={(event) =>
-                openConfirm('completed', completedTaskIds(tasks), event.currentTarget)
-              }
+              className="task-icon-button"
+              data-task-action="open-orchestrator"
+              aria-label={t('tasks.orchestrator')}
+              title={t('tasks.orchestratorHint')}
+              disabled={busy || orchestratorBusy}
+              onClick={() => void openOrchestrator()}
             >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M3 6h18" />
-                <path d="M8 6V4h8v2" />
-                <path d="M19 6l-1 14H6L5 6" />
-              </svg>
-              <span className="task-clear-count" aria-hidden="true">
-                {doneTasks.length}
-              </span>
+              <TerminalIcon size={14} />
             </button>
           )}
           <button
             type="button"
-            className="task-queue-settings"
+            className="task-icon-button"
             aria-label={t('tasks.queueSettings')}
             title={t('tasks.queueSettings')}
             aria-haspopup="dialog"
@@ -1764,89 +1877,44 @@ export function TaskWorkspace({
             </svg>
           </button>
           <div className="task-header-actions">
-            {loopRunning ? (
-              <button
-                type="button"
-                className={tasks.length > 0 ? 'task-control is-primary' : 'task-control'}
-                disabled={busy || !hasProject}
-                onClick={() => void control('pause')}
-              >
-                {t('tasks.pause')}
-              </button>
-            ) : (
-              <button
-                type="button"
-                className={
-                  tasks.length > 0 && status?.state !== 'PAUSED'
-                    ? 'task-control is-primary'
-                    : 'task-control'
-                }
-                disabled={
-                  busy ||
-                  !hasProject ||
-                  status?.state === 'PAUSED' ||
-                  groups.queued.length === 0
-                }
-                onClick={() => void control('start')}
-              >
-                {t('tasks.start')}
-              </button>
-            )}
             <button
               type="button"
-              className={
-                tasks.length > 0 && status?.state === 'PAUSED'
-                  ? 'task-control is-primary'
-                  : 'task-control'
-              }
-              data-task-action="resume"
-              disabled={busy || !hasProject || status?.state !== 'PAUSED'}
-              onClick={() => void control('resume')}
+              className={`task-icon-button task-run-control${
+                primaryAction !== 'start' || groups.queued.length > 0 ? ' is-primary' : ''
+              }`}
+              aria-label={primaryLabel}
+              title={primaryLabel}
+              disabled={primaryDisabled}
+              onClick={() => void control(primaryAction)}
             >
-              {t('tasks.resume')}
+              {primaryAction === 'pause' ? RUN_ICON.pause : RUN_ICON.play}
             </button>
             <button
               type="button"
-              className="task-control is-danger"
-              disabled={busy || !hasProject || !runningTask}
+              className="task-icon-button is-danger"
+              data-task-action="abort"
+              aria-label={t('tasks.abort')}
+              title={t('tasks.abort')}
+              disabled={stopDisabled}
               onClick={() => void control('abort')}
             >
-              {t('tasks.abort')}
+              {RUN_ICON.stop}
             </button>
-            {onOpenTaskManager && (
-              <button
-                type="button"
-                className="task-control"
-                data-task-action="open-orchestrator"
-                title={t('tasks.orchestratorHint')}
-                disabled={busy || orchestratorBusy}
-                onClick={() => void openOrchestrator()}
-              >
-                {t('tasks.orchestrator')}
-              </button>
-            )}
             <button
               type="button"
-              className={tasks.length === 0 ? 'task-control is-primary' : 'task-control'}
+              className={`task-icon-button${tasks.length === 0 ? ' is-primary' : ''}`}
+              data-task-action="new"
+              aria-label={t('tasks.new')}
+              title={t('tasks.new')}
               disabled={busy}
               onClick={startNewTask}
             >
-              {t('tasks.new')}
+              <PlusIcon size={15} />
             </button>
           </div>
         </div>
       </div>
 
-      {status?.pausedReason && status.state === 'PAUSED' && (
-        <div className="task-banner" role="status">
-          {t('tasks.pausedReason')}: {status.pausedReason}
-        </div>
-      )}
-      {payload?.watch && (
-        <div className="task-banner" role="status" data-task-watch={payload.watch.sessionId}>
-          {t('tasks.watching')}
-        </div>
-      )}
       {error && (
         <div className="task-banner is-error" role="alert">
           {error}

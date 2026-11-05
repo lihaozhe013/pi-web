@@ -142,19 +142,16 @@ export function reorderPending(
 }
 
 /**
- * What the queue does next, in one sentence the board can show beside the
- * controls. Derived from stored state only; nothing is inferred from timing.
+ * The one primary queue action: start from idle, pause while the loop runs,
+ * resume after a pause. Stopping the active task is a separate destructive
+ * control, so this never returns `abort`.
  */
-export function queueControl(
+export function queuePrimaryAction(
   status: OrchestratorStatus | null
-): 'start' | 'pause' | 'resume' | 'abort' {
+): 'start' | 'pause' | 'resume' {
   if (!status) return 'start';
   if (status.state === 'PAUSED') return 'resume';
-  // A stored RUNNING state after a restart has no loop behind it; offering
-  // Pause there would pause nothing.
-  if (status.state === 'RUNNING' && status.running) {
-    return status.activeTaskId === null ? 'pause' : 'abort';
-  }
+  if (status.state === 'RUNNING' && status.running) return 'pause';
   return 'start';
 }
 

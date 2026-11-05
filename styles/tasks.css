@@ -19,11 +19,12 @@
 .task-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
   flex-shrink: 0;
-  min-height: 44px;
-  padding: 6px 12px;
+  min-height: 52px;
+  padding: 7px 14px;
   border-bottom: 1px solid var(--workspace-line, var(--border));
   background: var(--bg);
 }
@@ -31,7 +32,25 @@
 .task-header-summary {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+}
+
+.task-header-project {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  min-width: 0;
+  max-width: min(34vw, 360px);
+}
+
+.task-header-state-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
   flex-wrap: wrap;
 }
@@ -72,6 +91,24 @@
   color: var(--text);
 }
 
+.task-header-watch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: var(--text-dim);
+}
+
+.task-header-reason {
+  max-width: 210px;
+  overflow: hidden;
+  color: var(--text-dim);
+  font-size: calc(11px + var(--ui-font-size-offset, 0px));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .task-header-notice {
   overflow: hidden;
   color: var(--accent);
@@ -86,17 +123,17 @@
   gap: 6px;
   margin-left: auto;
   min-width: 0;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
 }
 
 .task-header-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  padding-left: 10px;
-  margin-left: 2px;
+  gap: 4px;
+  flex-wrap: nowrap;
+  padding-left: 9px;
+  margin-left: 1px;
   border-left: 1px solid var(--workspace-line, var(--border));
 }
 
@@ -117,10 +154,11 @@
 .task-mode-chip {
   display: inline-flex;
   align-items: center;
-  height: 30px;
-  padding: 0 10px;
+  height: 22px;
+  padding: 0 8px;
   border: 1px solid var(--workspace-line, var(--border));
-  border-radius: 10px;
+  border-radius: 999px;
+  background: var(--bg-subtle);
   color: var(--text-muted);
   font-size: calc(11px + var(--ui-font-size-offset, 0px));
   font-weight: 500;
@@ -1080,8 +1118,9 @@
   margin-right: auto;
 }
 
-/* The queue's own settings live beside its controls, not in the app bar. */
-.task-queue-settings {
+/* Icon-only controls share one square hit area; the label lives in the
+ * accessible name and the tooltip. */
+.task-icon-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1096,31 +1135,142 @@
   cursor: pointer;
   transition:
     background var(--workspace-motion, 120ms ease),
+    border-color var(--workspace-motion, 120ms ease),
     color var(--workspace-motion, 120ms ease);
 }
 
-.task-queue-settings:hover {
+.task-icon-button:hover:not(:disabled) {
   background: var(--bg-hover);
   color: var(--text);
 }
 
-.task-queue-settings:focus-visible {
+.task-icon-button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
 
-/* The completed count lives in the button, so the icon alone is not a riddle. */
-.task-queue-settings .task-clear-count {
-  margin-left: 4px;
+.task-icon-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.task-icon-button.is-primary {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 9%, var(--bg));
+  color: var(--accent);
+}
+
+.task-icon-button.is-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 15%, var(--bg));
+}
+
+.task-icon-button.is-danger {
+  color: var(--danger, #dc2626);
+}
+
+.task-icon-button svg {
+  display: block;
+}
+
+/* ── Finished archive ────────────────────────────────────────────────────── */
+
+/* The finished list is a drawer at the panel's bottom edge, like the chat
+ * sidebar's archive: one always-reachable row, opened on demand. */
+.task-finished {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  min-height: 0;
+  padding: 3px 6px 4px;
+  border-top: 1px solid var(--workspace-line, var(--border));
+}
+
+.task-finished-head {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.task-finished-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
   color: var(--text-muted);
+  font: inherit;
+  font-size: calc(12px + var(--ui-font-size-offset, 0px));
+  text-align: left;
+  cursor: pointer;
+}
+
+.task-finished-toggle:hover,
+.task-finished-clear:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.task-finished-toggle:focus-visible,
+.task-finished-clear:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.task-finished-chevron {
+  flex: none;
+  color: var(--text-dim);
+  transition: transform var(--workspace-motion, 120ms ease);
+}
+
+.task-finished-chevron.is-open {
+  transform: rotate(90deg);
+}
+
+.task-finished-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-finished-count {
+  flex: none;
+  color: var(--text-dim);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
 }
 
-.task-queue-settings:has(.task-clear-count) {
-  width: auto;
-  padding: 0 9px;
-  gap: 2px;
+.task-finished-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.task-finished-clear:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.task-finished-list {
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 2px 2px 0;
+  scrollbar-gutter: stable;
 }
 
 /* ── Narrower windows ────────────────────────────────────────────────────── */
@@ -1134,7 +1284,30 @@
   .task-header-tools {
     width: 100%;
     margin-left: 0;
+    flex-wrap: wrap;
     justify-content: flex-start;
+  }
+
+  .task-header-project {
+    max-width: 100%;
+  }
+
+  .task-icon-button {
+    width: 32px;
+    height: 32px;
+  }
+
+  .task-finished-toggle {
+    height: 40px;
+  }
+
+  .task-finished-clear {
+    width: 32px;
+    height: 32px;
+  }
+
+  .task-finished-list {
+    max-height: 180px;
   }
 
   .task-header-actions {
@@ -1166,7 +1339,8 @@
 
 @media (max-width: 420px) {
   .task-header-actions {
-    width: 100%;
+    width: auto;
+    margin-left: auto;
     justify-content: flex-end;
   }
 }
@@ -1180,9 +1354,10 @@
   }
 
   .task-control,
+  .task-icon-button,
+  .task-finished-chevron,
   .task-row,
   .task-row-more,
-  .task-queue-settings,
   .task-queue-toggle {
     transition: none;
   }
@@ -1367,27 +1542,13 @@
   line-height: 1;
 }
 
-/* The board's project chip: the name is the anchor; the path is context and
+/* The project's identity: the name is the anchor; the path is context and
  * gives way first when the toolbar gets tight. */
-.task-project-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  max-width: min(48vw, 520px);
-  height: 26px;
-  padding: 0 10px;
-  border: 1px solid var(--workspace-line, var(--border));
-  border-radius: 8px;
-  background: var(--bg-subtle);
-}
-
 .task-project-name {
-  flex: none;
-  max-width: 220px;
+  min-width: 0;
   overflow: hidden;
   color: var(--text);
-  font-size: calc(12px + var(--ui-font-size-offset, 0px));
+  font-size: calc(13px + var(--ui-font-size-offset, 0px));
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1403,7 +1564,7 @@
 }
 
 @media (max-width: 720px) {
-  .task-project-chip {
+  .task-header-project {
     max-width: 100%;
   }
 

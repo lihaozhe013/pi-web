@@ -117,7 +117,7 @@ resumes it; other projects keep running, and a restart settles any row left `IN_
 `BLOCKED` once it confirms no other server holds that project's lock.
 
 Run controls travel through the same session commands chat uses (`abort`, goal pause/resume), and
-`ask_user` reaches the browser through the normal extension UI channel. Full mode leaves the tool
+`ask_user` reaches the browser through the normal extension UI channel. Standard mode leaves the tool
 available; autonomous mode omits it and starts a goal. The queue owns no model behavior: prompts,
 tools, models, and extensions are Pi's, resolved from the same agent directory chat uses.
 

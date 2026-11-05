@@ -55,7 +55,7 @@ starts a session through the same SDK factory and tool presets chat uses. Deleti
 - **Durable queue.** Survives reloads and server restarts; every transition is a single SQLite
   transaction with the state guard in the SQL itself.
 - **Human interruption.** The running task can be stopped for real (abort, then a forced session
-  shutdown after a grace period), and a full-mode task may ask a question in chat.
+  shutdown after a grace period), and a standard-mode task may ask a question in chat.
 - **Reviewable work.** Each task leaves an ordinary Pi session that the chat view can render, plus a
   verification result and a final report.
 
@@ -67,7 +67,7 @@ starts a session through the same SDK factory and tool presets chat uses. Deleti
 - Pull requests, branches, worktrees, or pushes. The queue never publishes; whether a run commits is
   a standing instruction the person writes into the task prompt.
 - Multi-user operation, remote execution, or a hosted service.
-- Per-task or per-project tool configuration. One global switch chooses full or autonomous for every
+- Per-task or per-project tool configuration. One global switch chooses standard or autonomous for every
   queue, matching the two useful states: at the computer or away.
 - Providing a task-specific rendering of agent output. A task's session renders through the ordinary
   chat transcript.
@@ -302,7 +302,7 @@ one is paused: nothing global gates the loops.
 `run(task)`:
 
 1. Build the prompt (`lib/tasks/prompt.ts`): the description (or the title when it has none), the
-   verification commands, and the working directory. Full mode says a question is available;
+   verification commands, and the working directory. Standard mode says a question is available;
    autonomous mode says to decide and keep working. Both require the work to happen in this directory and a final report.
 2. Start a fresh SDK session through `startRpcSession` with its stable session id and title, the
    selected preset, the queue's model, and the standing instructions as a system-prompt append. The session
@@ -395,7 +395,7 @@ whether the person is at the computer, not a different policy for each project.
   dialog did not touch.
 - **Autonomous decision mode** is one switch for every project and queue. On: tasks use the
   `autonomous` tool preset (full coding tools), `ask_user` is absent, and a goal is started so the
-  agent keeps working until it reports completion. Off: tasks use the `full` preset and may ask a
+  agent keeps working until it reports completion. Off: tasks use standard mode (`full` preset) and may ask a
   question, which leaves the task waiting for a person.
 - A timeout is one number plus a unit (minutes or hours; switching converts the number so the
   duration survives), or **No limit**, which replaces the number with `∞` and stores `null`. `null`
@@ -474,9 +474,9 @@ delivered in two steps so the chat surface is never destabilized by a navigation
   chat, and the number queued. A project with tasks but no conversation is still listed, and "Add
   project" opens the same directory picker the task form uses. The center column is one work
   surface for the task being read, and the board sits in the same right-hand panel the Runs panel
-  uses in chat. The board has a Chats section above the queue groups (running, queued, blocked,
-  done); a conversation that also has a queue task is represented by that task, so the same work
-  never appears twice. A fresh conversation appears immediately as a "New chat" row even before its
+  uses in chat. The board has a Chats section above the active queue groups (running, queued, and
+  blocked) and a Finished drawer below them; a conversation that also has a queue task is
+  represented by that task, so the same work never appears twice. A fresh conversation appears immediately as a "New chat" row even before its
   first message is persisted; only task mode asks for transient draft sessions, so the chat
   sidebar's behaviour is unchanged.
 - Clicking a project switches the board and the work surface to that project. The project is a URL
@@ -494,10 +494,12 @@ delivered in two steps so the chat surface is never destabilized by a navigation
 - The chat rows use the same row language as queue tasks: status marker, title, working directory,
   message count, and a status word. Running chats sort first. Selecting one opens a small summary
   with the full title, session id, last activity, and an "Open chat" action; double-clicking the row
-  opens the conversation directly. The queue groups carry a status marker, title, working directory,
-  and, once a task has run, its attempts and elapsed time. The group heading carries the status for
-  queued, running, and done rows; a failed row names its status because its group also holds blocked
-  ones. The arrow keys reorder. Keyboard: `↑`/`↓` move within the queue, `Enter` edits, `Delete`
+  opens the conversation directly. The active queue groups carry a status marker, title, working
+  directory, and, once a task has run, its attempts and elapsed time. The group heading carries the
+  status for queued and running rows; a failed row names its status because its group also holds
+  blocked ones. Finished tasks live in one collapsed drawer at the panel's bottom edge; its header
+  keeps the count and the clear action reachable, opens newest first, and remembers the fold. The
+  arrow keys reorder. Keyboard: `↑`/`↓` move within the queue, `Enter` edits, `Delete`
   removes, all disabled with an explanation while a row is running.
 - Several tasks can be acted on at once. Shift+click selects the range between the anchor and the
   row clicked, Command/Ctrl+click adds or removes one row, `Command/Ctrl+A` selects the queue and
@@ -506,10 +508,10 @@ delivered in two steps so the chat surface is never destabilized by a navigation
   with the batch actions (duplicate, delete, clear) and states how many tasks are selected, so the
   count is never color-only. Duplicating a selection appends the copies and selects them; deleting
   several asks once in the same popover the row menu uses, because there is no undo.
-- Completed tasks have one action of their own: a trash button in the header, carrying the count,
+- Completed tasks fold into the Finished drawer. Its header carries the count and a trash button
   that removes every `DONE` record in a single confirmation. It is the answer to a queue that
-  accumulates finished work; the tasks that are still queued, running, or waiting on a person are
-  never part of it.
+  accumulates finished work; tasks that are still queued, running, or waiting on a person are never
+  part of it.
 - Every queue row also carries a menu (`⋯`, right-click, or the keyboard's `Shift+F10`/menu key)
   with select/deselect, edit, move up/down, duplicate, copy, paste, open session, and delete. Move is
   offered only inside the queued segment; duplicate and paste append a copy at the end and select
@@ -566,9 +568,11 @@ and the queue's move into the right-hand inspector slot, and leaves the per-tab 
   stays in the sidebar footer, so the task view has no second Settings entry. A task's "Open
   session" leaves for that conversation; the `Chat` segment returns to the conversation the active
   project last had open.
-- The task bar, directly below the shell toolbar and the same height, carries the queue state, the
-  model chip, the queue-defaults opener, the clear-completed action, and the start/pause/resume/stop
-  controls plus New task. Its empty or unselected surface explains what it shows instead of leaving
+- The task bar, directly below the shell toolbar and the same height, groups the project identity
+  with the queue state and the Standard/Autonomous mode chip, then the model chip and icon controls.
+  One primary icon starts, pauses, or resumes according to the queue state; Stop and New task are
+  separate icons. Finished tasks have their own collapsed drawer instead of an always-open group.
+  Its empty or unselected surface explains what it shows instead of leaving
   the column blank.
 - The session actions that used to share the header (full history, generate title, branches, system
   prompt, tools, token statistics) moved into the Runs panel, above the runs: a two-column grid of
@@ -652,7 +656,7 @@ wait, and claim the task when the chat ends. Restart the server and confirm noth
 Queue defaults live in `<agentDir>/pie-task-orchestrator.json`, one global file read on every run so
 an edit applies to the next task in every project. Each project's lock is
 `<agentDir>/pie-task-locks/<sha256(projectKey)>.lock`. The shared runtime loads `ask_user` for chat
-and full-mode tasks; autonomous tasks omit it and use the goal package already shipped with Pie.
+and standard-mode tasks; autonomous tasks omit it and use the goal package already shipped with Pie.
 
 ## Invariants to preserve
 
@@ -687,7 +691,7 @@ What it does not change here:
 | Execution boundary     | In-process Pi SDK session per queued task; one queued task at a time per working directory, chat may run in parallel |
 | Task working directory | Stored per task and the project key; different projects can run at the same time                  |
 | Abort outcome          | `BLOCKED`, loop paused                                                                            |
-| `ask_user`             | Full mode only; wait indefinitely, Web Push, abort as the exit. Autonomous mode omits it and starts a goal. |
+| `ask_user`             | Standard mode only; wait indefinitely, Web Push, abort as the exit. Autonomous mode omits it and starts a goal. |
 | Verification commands  | One global config plus per-task override; no per-project config in the first version              |
 | Task instructions      | Free text in the queue defaults, appended to every task system prompt; soft constraints only      |
 | Storage                | `node:sqlite` database in the agent directory                                                     |

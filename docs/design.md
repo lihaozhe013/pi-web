@@ -95,27 +95,33 @@ own collapse choice is independent of the Runs panel's.
 A chat row uses the same status marker, title, working directory, and message count as a queue
 task, with a status word on the right; running chats sort first. Selecting it opens a compact
 summary with an "Open chat" action, and double-clicking opens the conversation directly. A queue row
-also carries — once it has run — its attempts and elapsed time. The group heading already names
-queued, running, and done rows; a failed row names its status too, because its group also holds
-blocked ones. The row the surface is reading carries a tint and an accent bar at its left edge; its
+also carries — once it has run — its attempts and elapsed time. The group heading names queued,
+running, and blocked work; finished rows live in the separate Finished drawer, and a failed row
+names its status because its group also holds blocked ones. The row the surface is reading carries a tint and an accent bar at its left edge; its
 `⋯` menu appears on hover, focus, and on the active row, and also opens on right-click at the pointer
 and from `Shift+F10`. The arrow keys reorder it inside the pending segment, Enter edits, and Delete
 removes it. A running task is locked, and the controls say why.
 
-The task bar above the work surface holds the queue state or the running-chat count, one model chip
-(the queue default, "Pi default: <model>" when unset), a quiet Full/Autonomous mode chip, the
-clear-completed action, the queue-defaults opener, the start/pause/resume/stop controls, and New
-task. The bar starts with the
-project's name and path, so the board is never ambiguous. The action that moves the queue is the
-bar's one strong control while tasks exist; New task is strong only when the board is empty.
+The task bar above the work surface starts with the project's name and path, so the board is never
+ambiguous. Its status cluster puts the queue state (Idle, Running, or Paused) next to the
+Standard/Autonomous mode chip, because both describe the current work rather than a setting. A
+paused reason and a watching mark stay inline there instead of taking separate banner rows. The
+right side keeps the model chip and a row of icon controls: task manager, queue defaults, one
+primary Start/Pause/Resume control that follows the state, a Stop control, and an add-task plus.
+Icon-only controls carry an accessible name and the same tooltip as their visible label. New task
+is strong only when the board is empty; otherwise the primary run control is the one strong button.
 Starting a queue while a conversation runs is allowed: the queue reports RUNNING, waits for the
-conversation to end, and never blocks chat. A slider button
-beside the model chip opens the global task defaults — model, timeouts, verification commands,
-the Autonomous decision mode switch, and the standing task instructions — in the app's standard
-dialog shell, with its
-actions (including "Restore defaults") pinned to the bottom while the body scrolls. A timeout is a
-number plus a unit, or an explicit "No limit" chip that replaces the number with `∞`; the unit
-converts the number, and the form never relies on a browser tooltip for a bad value.
+conversation to end, and never blocks chat. A slider button opens the global task defaults — model,
+timeouts, verification commands, the Autonomous decision mode switch, and the standing task
+instructions — in the app's standard dialog shell, with its actions (including "Restore defaults")
+pinned to the bottom while the body scrolls. A timeout is a number plus a unit, or an explicit
+"No limit" chip that replaces the number with `∞`; the unit converts the number, and the form never
+relies on a browser tooltip for a bad value.
+
+Finished work folds into one Finished drawer at the bottom of the queue panel, mirroring the chat
+sidebar's archive. Its header keeps the count and the clear-finished action reachable while the
+list is closed; opening it reveals the completed rows newest first, and the fold is remembered in
+the browser.
 
 The work surface reads one task: its title, a status line with attempts and elapsed time, the
 description, and a facts sheet for the working directory, result, verification output, verification
