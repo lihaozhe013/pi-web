@@ -1146,6 +1146,9 @@ button.extension-widget-trigger:focus-visible {
 
 :root {
   --font-ui-default: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  /* The @fontsource-variable/noto-sans-mono import in src/main.tsx registers this family;
+     the variable keeps the default mono stack pointing at it in one place. */
+  --font-noto-mono: 'Noto Sans Mono Variable';
   --font-mono-default:
     var(--font-noto-mono), 'JetBrains Mono', 'Fira Code', 'Consolas', ui-monospace, 'PingFang SC',
     'Microsoft YaHei', monospace;
