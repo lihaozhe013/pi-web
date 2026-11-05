@@ -28,7 +28,8 @@ parallel protocol.
 - Reuse a healthy development server. Do not start a second server in the same checkout or run a
   production build in an active development checkout; portable builds run in isolation. The desktop
   shell follows the same rule: `bun run desktop:dev` attaches to the running development server, and
-  `bun run desktop:build` builds in a copy. Read [desktop shell](docs/desktop.md) before changing
+  `bun run desktop:build` builds the payload in a temporary directory while writing the Rust binary
+  to `src-tauri/target`. Read [desktop shell](docs/desktop.md) before changing
   `src-tauri/` or `packaging/desktop.mjs`; the shell has no Tauri IPC and must keep its navigation
   guard, payload extraction, and server shutdown intact.
 - Report what you changed and the manual checks the owner should perform.

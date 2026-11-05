@@ -193,6 +193,15 @@ second server in the checkout. `PIE_DESKTOP_SERVER_URL` overrides the address.
 `payload.json` (version, size, SHA-256), builds the release binary, and packages the host platform.
 `--payload <archive>` reuses an existing archive and `--skip-payload` reuses `build/desktop`.
 
+On Windows the payload step is what makes a build slow: both staging installs materialize tens of
+thousands of files, and creating or reading them costs more there than the reflink on macOS or the
+hardlink on Linux. Bun's default hardlink backend is still the fastest option, because a copied
+tree is scanned again when the archive reads it and ends up slower overall. The effective fix is
+excluding the Bun cache, the repository, and `%TEMP%` from real-time antivirus scanning, not
+changing the installer backend. Use `--skip-payload` (or `--payload`) when only the shell changed.
+The Rust binary is built in the checkout's `src-tauri/target`; only the payload is built in a
+temporary directory.
+
 | Platform | Output                                                               | Notes                                                                                             |
 | -------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | macOS    | `.app` and `.dmg` in `src-tauri/target/release/bundle/`              | Ad-hoc signed, not notarized; minimum macOS 13                                                    |
