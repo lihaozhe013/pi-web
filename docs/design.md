@@ -348,7 +348,9 @@ The goal is written and managed in a dialog, never in an always-visible switch b
 picker. The composer's one opener — the dots entry that also holds compaction — opens on two cards,
 **Compact** and **Goal**; the goal card opens the goal's own page. A session whose package registers
 no goal command has no goal card, and a session with nothing to compact opens the dialog straight on
-the goal.
+the goal. A new session offers the goal card before its first message too: the objective written
+there becomes the conversation's first work, so the person need not send a message just to make the
+card appear.
 
 The goal page states where things stand and takes the commands: the package's status word, the
 tokens it counted against the budget it was given, the objective, and one row of actions — **Start

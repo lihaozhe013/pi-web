@@ -243,6 +243,11 @@ and `GET /api/sessions/[id]` reads the same record for a session with no live ru
 own status and widget are filtered out of the status bar, because the dialog already says where the
 goal stands.
 
+A new session has no runtime, so its goal card stands on the package this build ships until the first
+command answers: `hooks/useAgentSession.ts` creates the session and opens its event stream, sends the
+command, and promotes the draft to a sidebar row once the package accepts it. A build without a goal
+package refuses the command with the wrapper's own error, which the composer shows as a notice.
+
 A goal an earlier process left `active` is paused when its session is opened again: the wrapper
 sends the package's own `/goal pause` after binding, so reopening a session cannot resume an
 unattended run (and its cost) on its own. Stop pauses it the same way, through the package's abort

@@ -2436,20 +2436,33 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
    */
   const goalAction = useCallback(
     async (action: GoalAction, objective?: string) => {
-      const sid = sessionIdRef.current;
-      if (!sid) return;
       try {
+        // A new session has no runtime yet, so the package's own `/goal` command
+        // has nowhere to run until this creates the session the way a first
+        // prompt does. The stream opens first, so the goal the package writes is
+        // reported back to this composer.
+        const sid = sessionIdRef.current ?? (await ensureNewSession());
+        if (!sid) return;
+        if (sessionHookMountedRef.current) {
+          await ensureEventsConnected(sid).catch((error) => {
+            if (sessionHookMountedRef.current) throw error;
+          });
+        }
         await sendAgentCommand(
           sid,
           objective === undefined ? { type: 'goal', action } : { type: 'goal', action, objective }
         );
+        // A goal started in a new session is that session's first work, so the
+        // draft becomes a real session with a sidebar row, exactly as the first
+        // prompt does.
+        if (action === 'start') promoteNewSession(1, objective);
       } catch (e) {
         // A missing package or an empty objective is what the server says here,
         // and the person needs to read it.
         addNotice({ message: e instanceof Error ? e.message : String(e), type: 'warning' });
       }
     },
-    [addNotice]
+    [addNotice, ensureEventsConnected, ensureNewSession, promoteNewSession]
   );
 
   const handleFork = useCallback(
@@ -3534,8 +3547,11 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     extensionStatuses.find((status) => status.key === GOAL_STATUS_KEY)?.text
   );
   // Without a live session, a saved goal still means the package is installed.
+  // A new session has no runtime to ask, so its card stands on the goal package
+  // this build ships: the first goal command creates the session that loads it,
+  // and the wrapper's answer replaces this guess once the package reports back.
   const goalBridge: GoalBridge = goalStatus ?? {
-    available: savedGoal !== undefined,
+    available: isNew || savedGoal !== undefined,
     ...(savedGoal ? { goal: savedGoal } : {})
   };
   const goal = goalBridge.goal;
