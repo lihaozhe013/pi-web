@@ -2656,6 +2656,8 @@ export async function setRpcSessionTools(
   // Switching between "all" and "only selected" must rebuild: a session that already
   // turned extension tools off has no active names to carry back when all is restored.
   const crossesExtensionPolicyBoundary = previousExtensionTools !== nextExtensionTools;
+  const crossesAutonomousBoundary =
+    (previousMode === 'autonomous') !== (nextMode === 'autonomous');
   const hasCurrentResourcePolicy =
     typeof existing.isChatOnly === 'function' &&
     typeof existing.setActiveToolSelection === 'function';
@@ -2665,9 +2667,10 @@ export async function setRpcSessionTools(
     existing.isChatOnly() !== (toolNames.length === 0);
   if (toolNames === undefined) appendClearedSessionToolSelection(existing.inner.sessionManager);
   else appendSessionToolSelection(existing.inner.sessionManager, toolNames, nextExtensionTools);
-  // Plan and Autonomous are read at call and prompt time, so they need no rebuild. Orchestrator
-  // is a loadout: the server adds or removes the task_manager extension in startRpcSession. A
-  // custom preset can also opt into that tool, so adding or removing it rebuilds as well.
+  // Plan is read at call and prompt time, so it needs no rebuild. Autonomous also changes the
+  // loadout: startRpcSession omits ask_user in that mode, so entering or leaving it rebuilds.
+  // Orchestrator adds or removes the task_manager extension, and a custom preset can opt into
+  // that tool, so those changes rebuild as well.
   if (modeProvided) {
     syncWorkMode(
       existing.inner.sessionManager,
@@ -2681,7 +2684,8 @@ export async function setRpcSessionTools(
     toolNames !== undefined &&
     !crossesChatOnlyBoundary &&
     !crossesOrchestratorBoundary &&
-    !crossesExtensionPolicyBoundary
+    !crossesExtensionPolicyBoundary &&
+    !crossesAutonomousBoundary
   ) {
     existing.setActiveToolSelection(toolNames, undefined, nextExtensionTools);
     return { session: existing, sessionId, recreated: false };
@@ -2895,8 +2899,11 @@ export async function startRpcSession(
     );
   }
   const activeToolNames = selectedToolNames;
-  const orchestratorMode =
-    readWorkMode(sessionManager.getEntries() as unknown as SessionEntry[]) === 'orchestrator';
+  const workMode = readWorkMode(sessionManager.getEntries() as unknown as SessionEntry[]);
+  const orchestratorMode = workMode === 'orchestrator';
+  // Autonomous chat is not allowed to ask, so it starts without the tool rather than
+  // registering one that the mode extension would only reject at call time.
+  const autonomousMode = workMode === 'autonomous';
   // A custom preset can opt into the queue tool without the Orchestrator work mode. The mode
   // still adds it; the name only controls whether its extension is loaded.
   const taskManagerMode = orchestratorMode || activeToolNames?.includes('task_manager') === true;
@@ -2930,7 +2937,7 @@ export async function startRpcSession(
       ? undefined
       : await createPieBuiltinExtensions({
           agentDir,
-          ...(options.askUser === false ? { askUser: false } : {})
+          ...(options.askUser === false || autonomousMode ? { askUser: false } : {})
         });
     // The goal package Pie ships is loaded as an extension path, the way a
     // person's own package is. Their configured goal package, if any, wins: two

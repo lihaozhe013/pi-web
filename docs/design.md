@@ -336,7 +336,7 @@ text it was, its mentions written out again.
 
 The composer's tool menu lists the built-in presets first, then the user's custom ones, each named
 with its tool count, and ends with a single entry that opens Settings at the Tools section.
-Autonomous is the built-ins' self-directed mode: full coding tools, refuses `ask_user`, and prompt
+Autonomous is the built-ins' self-directed mode: full coding tools, omits `ask_user`, and prompt
 guidance to decide and keep working. Orchestrator adds one project-scoped `task_manager` tool for
 the queue of the session's own working directory. The control stays visible while a run is in
 progress — showing which preset the turn uses — but is disabled so the preset cannot be switched

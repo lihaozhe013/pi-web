@@ -406,6 +406,8 @@ export function ToolPresetsSettings({
         if (
           row.group === 'extension' &&
           row.name !== 'task_manager' &&
+          // Autonomous starts without ask_user; its guard only covers legacy states.
+          !(preset.name === 'autonomous' && row.name === 'ask_user') &&
           (availableTools == null || row.available)
         ) {
           names.add(row.name);

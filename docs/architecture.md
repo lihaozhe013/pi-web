@@ -199,7 +199,7 @@ first-token timing. The end-to-end speed continues to use Pi's recorded response
 Orchestrator also carry a work mode, because their tool lists alone would lose their behavior; the
 mode is stored in the session log (`lib/work-mode.ts`, `pie:work-mode`) and travels next to the tool
 list in `GET /api/sessions/[id]` and `get_tools`. Plan pins read-only tools and asks before acting.
-Autonomous pins the full tool set, refuses `ask_user`, and adds guidance to decide and keep working;
+Autonomous pins the full tool set, omits `ask_user`, and adds guidance to decide and keep working;
 the task runner uses it with a goal so an idle foreground turn is not mistaken for completion.
 Orchestrator pins the full tool set and adds one project-scoped `task_manager` tool. A custom preset
 can also opt into that tool; either way the extension loadout changes, so adding or removing it
@@ -230,10 +230,11 @@ opt-in: its extension is loaded when Orchestrator is active or a custom preset n
   `readOnlyHint` policy, and other installed extension tools keep their own semantics.
 - Leaving the mode needs no rebuild; the next message simply runs without the guidelines.
 
-`lib/ask-user-extension.ts` registers `ask_user` in every normal (non-Chat-only) session. The model
-asks one focused question with optional options. `lib/ask-user-presentation.ts` scopes presentation
-metadata to its standard Pi select/input calls using AsyncLocalStorage, shared across extension
-loader module instances. The runtime adds that metadata to the existing extension UI request;
+`lib/ask-user-extension.ts` registers `ask_user` in every normal session except Autonomous; a
+Chat-only session loads no extensions. The model asks one focused question with optional options.
+`lib/ask-user-presentation.ts` scopes presentation metadata to its standard Pi select/input calls
+using AsyncLocalStorage, shared across extension loader module instances. The runtime adds that
+metadata to the existing extension UI request;
 `components/AskUserPanel.tsx` renders only these tagged requests above the composer. Options and
 free-form text return through the existing response channel, without a second text dialog in the web
 UI. Other Pi UI hosts keep the select/input fallback. Reconnect replay preserves the tag; abort and
