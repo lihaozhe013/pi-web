@@ -93,13 +93,13 @@ One scheduled surface exists: the per-project task queues in [Tasks](tasks.md). 
 runs two queued tasks at once, but chat sessions are first-class work on the same board: they can
 run in parallel with each other and with a queued task, and a started queue waits for running chat
 before its next claim. Different projects may run work at the same time; a queued task never reuses
-a session, and every attempt speaks only Pi's RPC records to a Pi CLI child process. The queue reads
-the live chat registry through the runtime-sessions hook before each claim; deleting `lib/tasks`,
-`server/api/tasks`, and the task workspace still leaves chat behavior unchanged. A task's session is
-an ordinary Pi session and renders through the normal transcript; while its process runs, that
-session is read-only in chat so two writers never share one session file. The queue waits for chat
-through `lib/tasks/runtime-sessions.ts`: the agent runtime registers a cwd-busy check when it loads,
-so the queue never imports the runtime directly.
+a session, and every attempt starts through the same in-process SDK runtime chat uses. The queue
+reads the live chat registry through the runtime-sessions hook before each claim; deleting
+`lib/tasks`, `server/api/tasks`, and the task workspace still leaves chat behavior unchanged. A
+task's session is an ordinary Pi session and renders through the normal transcript; while the task
+runner drives it, prompts from chat are refused so two writers never share one run. The queue waits
+for chat through `lib/tasks/runtime-sessions.ts`: the agent runtime registers a cwd-busy check when
+it loads, so the queue never imports the runtime directly.
 
 ## Per-project task queues
 
@@ -107,19 +107,19 @@ The queues store tasks in SQLite (`<agentDir>/pie-tasks.db`, `node:sqlite`, WAL)
 `project_key` and a per-project rank. Each project's claim is one transaction that selects its
 lowest `PENDING` row and asserts no queued task in that project is `IN_PROGRESS`; before the claim,
 the loop waits while a chat session is running in the same project. Another project's claim is a
-different transaction and may succeed at the same time. Each attempt starts a new
-`pi --mode rpc` child in the task's working directory with a new session id; that project's loop
-waits for `agent_settled`, runs the configured verification commands, and settles the task.
-Standing instructions from the shared queue defaults are appended to every task prompt, so rules
-such as committing when the work is done are soft constraints the agent follows rather than queue
-code. `FAILED` and `BLOCKED` pause that project's loop until a person resumes it; other projects
-keep running, and a restart settles any row left `IN_PROGRESS` as `BLOCKED` once it confirms no
-other server holds that project's lock.
+different transaction and may succeed at the same time. Each attempt starts a new SDK session in the
+task's working directory with a new session id; that project's loop waits for `agent_settled` (and,
+in autonomous mode, for the goal to complete), runs the configured verification commands, and
+settles the task. Standing instructions from the shared queue defaults are appended to every task
+system prompt, so rules such as committing when the work is done are soft constraints the agent
+follows rather than queue code. `FAILED` and `BLOCKED` pause that project's loop until a person
+resumes it; other projects keep running, and a restart settles any row left `IN_PROGRESS` as
+`BLOCKED` once it confirms no other server holds that project's lock.
 
-Run controls travel as RPC commands (`abort`), and `ask_user` reaches the browser through Pi's
-extension UI sub-protocol, so the tool keeps one implementation for both the in-process chat session
-and a task child. The queue owns no model behavior: prompts, tools, models, and extensions are Pi's,
-resolved from the same agent directory chat uses.
+Run controls travel through the same session commands chat uses (`abort`, goal pause/resume), and
+`ask_user` reaches the browser through the normal extension UI channel. Full mode leaves the tool
+available; autonomous mode omits it and starts a goal. The queue owns no model behavior: prompts,
+tools, models, and extensions are Pi's, resolved from the same agent directory chat uses.
 
 Configuration, the project locks, and the chat-side contact points stay small:
 `<agentDir>/pie-task-orchestrator.json` holds the shared queue defaults and is re-read per run,
@@ -131,7 +131,7 @@ chat sessions on project summaries, and `lib/tasks/chat-watcher.ts` starts a pro
 chat is running beside pending work; a paused queue is left alone. `lib/tasks/config.ts` owns the defaults,
 `lib/tasks/prompt.ts` the task prompt and standing instructions, `lib/tasks/gate.ts` the
 verification commands, and `lib/tasks/request.ts` the route validation and error mapping.
-`server/instrumentation.ts` uses the same shutdown signal to abort every live project loop's child
+`server/instrumentation.ts` uses the same shutdown signal to abort every live project loop's session
 and settle each task.
 
 The [task manager](task-manager.md) adds a third contact point: `lib/rpc-manager.ts` loads one
@@ -190,10 +190,12 @@ first-token timing. The end-to-end speed continues to use Pi's recorded response
 
 ## Modes and questions
 
-`lib/tool-presets.ts` selects the coding tools a session may call. Plan is the one preset that also
-carries a work mode, because it pins the same read-only tools as Read-only; the mode is stored in
-the session log (`lib/work-mode.ts`, `pie:work-mode`) and travels next to the tool list in
-`GET /api/sessions/[id]` and `get_tools`.
+`lib/tool-presets.ts` selects the coding tools a session may call. Plan and Autonomous also carry a
+work mode, because their tool lists alone would lose their behavior; the mode is stored in the
+session log (`lib/work-mode.ts`, `pie:work-mode`) and travels next to the tool list in
+`GET /api/sessions/[id]` and `get_tools`. Plan pins read-only tools and asks before acting.
+Autonomous pins the full tool set, refuses `ask_user`, and adds guidance to decide and keep working;
+the task runner uses it with a goal so an idle foreground turn is not mistaken for completion.
 
 Users combine the built-in coding tools into named custom presets beside the built-in ones. The list
 lives in `pie-tool-presets.json` in the agent directory (`lib/custom-tool-presets.ts`), is served
@@ -287,8 +289,8 @@ version that supports lockfile version 3.
   data.
 - Session forking and in-session branch navigation are different operations.
 - Closing a runtime must release resources and allow extensions to shut down.
-- The task queues keep each claim atomic, their one-child-per-project rule, and their
-  independence from the chat runtime; a task's session is never reused for a second attempt.
+- The task queues keep each claim atomic, their one-queued-task-per-project rule, and their
+  independence from chat scheduling; a task's session is never reused for a second attempt.
 - Shared file APIs still support attachments, inline media, uploads, and references. A removed file
   browser does not make every file helper unused.
 - Path authorization, origin validation, and credential handling remain security boundaries.

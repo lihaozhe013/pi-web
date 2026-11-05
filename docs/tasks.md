@@ -2,8 +2,10 @@
 
 A local task board for one person: a small Jira per project. Each working directory has its own
 queue, and queued tasks in one project are claimed one at a time. Every queued task is executed by
-a brand-new Pi agent process with its own session. When the process ends, its context ends with it;
-the next queued task in that project starts from an empty window.
+a brand-new Pi SDK session created by the same in-process runtime chat uses. A task never reuses a
+session: the next queued task in that project starts from an empty window. Because the session is
+an ordinary SDK session, it appears in chat immediately, can be read while it runs, and can be
+continued after it finishes.
 
 Chat sessions are first-class work on the same board. A conversation appears as a task-shaped row
 in its project, and any running conversation keeps that project active. Chat may run in parallel:
@@ -23,21 +25,20 @@ the differences noted where the built version is narrower than the original plan
 subagent/queue feature. This document replaces that part of the boundary with a narrower rule:
 
 - **Allowed:** one queue per working directory with one active queued task at a time, executed as a
-  Pi CLI child process driven over Pi's own RPC protocol.
+  fresh Pi SDK session through the same runtime chat uses.
 - **Allowed:** ordinary chat sessions in the same project, including several running at once and a
   chat that starts beside a queued task. A started queue waits for running chats before its next
   claim.
-- **Allowed:** different projects running their own work concurrently, each in its own child
-  process and its own session.
+- **Allowed:** different projects running their own work concurrently, each in its own SDK session.
 - **Allowed:** one management surface for every queue, described in
   [Task manager](task-manager.md): an ordinary chat session in its own project whose tools read and
   change the queues. It controls the queues, not agents.
 - **Still refused:** parallel queued tasks inside one project, a global worker pool, agent profiles,
-  worktrees, a second agent protocol, subagent spawning or control, and any orchestration of Pi
-  internals.
+  worktrees, subagent spawning or control, and any two-agent protocol. Task sessions are not
+  subagents: they are ordinary sessions with queue metadata around them.
 
 The queue owns scheduling, persistence, and progress reporting. It owns no agent capability: it
-starts the installed Pi CLI and speaks Pi's documented RPC records. Deleting `lib/tasks`,
+starts a session through the same SDK factory and tool presets chat uses. Deleting `lib/tasks`,
 `server/api/tasks`, and `components/TaskWorkspace*` must leave the chat experience untouched.
 
 ## Goals
@@ -49,12 +50,12 @@ starts the installed Pi CLI and speaks Pi's documented RPC records. Deleting `li
   `/repo/packages/app` are separate queues.
 - **Projects run in parallel.** A queue for another project may run while the first one is busy;
   the concurrency limit is the number of projects with work.
-- **Zero context bleeding.** Every task runs in a fresh OS process with a fresh session; a queue
-  never reuses a session to save tokens.
+- **Zero context bleeding.** Every task runs in a fresh SDK session; a queue never reuses a session
+  to save tokens.
 - **Durable queue.** Survives reloads and server restarts; every transition is a single SQLite
   transaction with the state guard in the SQL itself.
-- **Human interruption.** The running task can be stopped for real (process tree killed), and a task
-  may ask a question when the user allowed it.
+- **Human interruption.** The running task can be stopped for real (abort, then a forced session
+  shutdown after a grace period), and a full-mode task may ask a question in chat.
 - **Reviewable work.** Each task leaves an ordinary Pi session that the chat view can render, plus a
   verification result and a final report.
 
@@ -66,8 +67,10 @@ starts the installed Pi CLI and speaks Pi's documented RPC records. Deleting `li
 - Pull requests, branches, worktrees, or pushes. The queue never publishes; whether a run commits is
   a standing instruction the person writes into the task prompt.
 - Multi-user operation, remote execution, or a hosted service.
-- Per-task model or tool configuration in the first version (the Pi settings decide).
-- Providing a task-specific rendering of agent output. The transcript is Pi's.
+- Per-task or per-project tool configuration. One global switch chooses full or autonomous for every
+  queue, matching the two useful states: at the computer or away.
+- Providing a task-specific rendering of agent output. A task's session renders through the ordinary
+  chat transcript.
 
 ## Layering and coupling
 
@@ -79,89 +82,61 @@ server/api/tasks/**                thin routes: validation, delegation, no logic
 lib/tasks/orchestrator.ts          the only loop: claim → run → gate → settle
         ├── lib/tasks/queue.ts     QueueController: CRUD, ordering, state guards
         ├── lib/tasks/store.ts     SQLite (WAL), migrations, the only module with SQL
-        ├── lib/tasks/runner.ts    one task → one RPC child → one outcome
-        ├── lib/tasks/rpc-session.ts  spawn/read/write/kill the child, append standing instructions
-        ├── lib/tasks/prompt.ts    the task prompt and the unattended rules
+        ├── lib/tasks/runner.ts    one task → one SDK session → one outcome
+        ├── lib/tasks/prompt.ts    the task prompt and its rules
         └── lib/tasks/gate.ts      verification commands
 ```
 
 | Boundary                             | Cost                                                                                                                                                                                                                                   |
 | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Agent runtime (`lib/rpc-manager.ts`) | No direct import in either direction. The runtime registers a cwd-busy check through `lib/tasks/runtime-sessions.ts`, and the agent route consults a read-only guard so a running task's session stays read-only (see below). |
-| Pi                                   | Uses the installed CLI and its documented RPC records. No new protocol, no SDK internals.                                                                                                                                              |
+| Agent runtime (`lib/rpc-manager.ts`) | The runner starts a task through the same `startRpcSession` factory chat uses, so the session joins the ordinary registry and event stream. The runtime registers a cwd-busy check through `lib/tasks/runtime-sessions.ts`, and the agent route consults a read-only guard for a running task. |
+| Pi                                   | Uses the same SDK, extensions, settings, and tool presets chat uses. No child protocol and no second agent implementation.                                                                                                              |
 | Web layer                            | Eight REST routes underneath one client hook. The board can be removed without touching chat.                                                                                                                                          |
-| Packaging                            | No new dependency. Storage uses Node's built-in `node:sqlite`; the CLI is resolved from the app's own `node_modules`.                                                                                                                  |
+| Packaging                            | No new dependency. Storage uses Node's built-in `node:sqlite`; the SDK is already the app's runtime.                                                                                                                                   |
 | Desktop shell                        | None. `src-tauri/` and `packaging/desktop.mjs` are untouched.                                                                                                                                                                          |
 
 ### Alternatives considered
 
-| Option                                                       | Rejected because                                                                                                                                                                                                                  |
-| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| In-process SDK sessions via `startRpcSession`                | A hung or looping agent cannot be killed, only asked to stop; an unattended run can block on `ask_user`; the task would share the server's process and its idle timers.                                                           |
-| `pi --mode json` child                                       | One-shot and one-directional: no interactive question channel, so this design's `ask_user` requirement fails.                                                                                                                     |
-| `pi --mode rpc` child, `RpcClient` from the SDK              | Still the chosen mode; the SDK client is rejected because it does not surface `extension_ui_request` records (checked in 1.4.0), which is exactly the channel a question needs. The orchestrator ships a small client of its own. |
-| A separate daemon spawned by `bin/pie.js`                    | Duplicate lifecycle, agent-directory resolution, and shutdown handling with no benefit: the UI needs the server anyway.                                                                                                           |
-| Reading the session file instead of the child's event stream | Loses the question channel, adds partial-write races, and reports progress later than the events do.                                                                                                                              |
+| Option                                              | Rejected because                                                                                                                                                                                                                  |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A `pi --mode rpc` child per task                    | It duplicated the agent runtime. Task sessions had a different runtime lifecycle from chat, were hard to open and intervene in, and used a CLI-only question channel instead of the SDK's extension UI.                           |
+| A fake task-only agent loop                         | The queue would become an agent implementation rather than a scheduler; prompts, tools, models, and extensions would drift from chat.                                                                                             |
+| A separate daemon spawned by `bin/pie.js`           | Duplicate lifecycle, agent-directory resolution, and shutdown handling with no benefit: the UI needs the server anyway.                                                                                                           |
+| Reading the session file instead of the event stream | Loses the question and activity channel, adds partial-write races, and reports progress later than the events do.                                                                                                                 |
 
-## Process model
+## Session model
 
-Each queued task spawns exactly one Pi child:
+Each queued task starts one new SDK session through `startRpcSession` in the server process:
 
-```
-node <app>/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js \
-  --mode rpc \
-  --session-id <new uuid> \
-  --name "T<id> <title>" \
-  [--no-approve | --approve] \
-  [-e <app>/lib/ask-user-cli-extension.ts]
-```
+- The session's `cwd` is the task's `cwd`, so Pi discovers that project's settings, skills, prompt
+  templates, and `AGENTS.md` exactly as it does for chat.
+- The session gets a stable id (`newSessionId`) and a name (`T<id> <title>`), so the task row and the
+  chat sidebar point at the same session from the first prompt.
+- Project trust is the same decision chat uses. An untrusted project's local extensions are not
+  loaded; a queued run must not be the first thing that executes a repository's
+  `.pi/extensions`.
+- The session is persisted and stays an ordinary Pi session: it appears in chat immediately, renders
+  through the normal transcript, and can be continued after the task finishes. The next task still
+  starts from a fresh session.
+- The task runner subscribes to the same SDK events chat uses. It maps tool activity to the board's
+  activity line and keeps a bounded output tail for `/api/tasks/[id]/output`.
+- `full` mode pins the `full` preset and leaves `ask_user` available. `autonomous` mode pins the
+  `autonomous` preset, omits `ask_user`, and starts a goal; the goal package owns continuation and
+  the agent must mark it complete before the task settles.
+- A task timeout sends `abort`; the runner then waits a short grace period and destroys the SDK
+  session if it has not settled. A server restart aborts the same way and settles the task as
+  blocked, so no task is left `IN_PROGRESS`.
 
-- The CLI script is resolved from the app's own `node_modules` and started with `process.execPath`,
-  never through a shell, so Windows needs no `.cmd` handling and a portable install works the same.
-  This mirrors the reasoning in `lib/node-cli.ts`.
-- The child's working directory is the task's `cwd`, so Pi discovers that project's settings,
-  skills, prompt templates, and `AGENTS.md` exactly as a CLI run would.
-- Approving project-local files is refused by default (`--no-approve`) unless `lib/project-trust.ts`
-  reports that the directory requires trust and a decision already trusts it. A folder with no
-  trust-gated resources loads nothing either way. An unattended run must not be the first thing that
-  executes a repository's `.pi/extensions`.
-- The session is persisted. It is an ordinary Pi session: it appears in the sidebar once the session
-  list refreshes (its cache TTL is 30 s), renders through the normal transcript, and can be read
-  after the task finished.
+### Why the SDK, not a child
 
-### Why RPC and not print/JSON mode
+The SDK is the same runtime chat uses. It gives the task the same extension UI, tool presets,
+project trust, session registry, event stream, and MCP host as a conversation. A task can therefore
+be opened in chat while it runs, its `ask_user` card can be answered from either surface, and the
+goal controls work without a second protocol. The old CLI-child model had none of that.
 
-| Need                                  | `--mode json`                    | `--mode rpc`                                 |
-| ------------------------------------- | -------------------------------- | -------------------------------------------- |
-| Fresh process, real kill, exit status | yes                              | yes                                          |
-| Live events for the board             | yes                              | yes                                          |
-| Soft stop while a run is active       | no                               | yes (`abort`)                                |
-| Extension dialogs (a question)        | no UI host, `ctx.hasUI` is false | `ctx.hasUI` is true over the UI sub-protocol |
-
-RPC is the only mode that satisfies both the isolation requirement and the interactive-question
-requirement. Print and JSON modes remain useful for one-off scripting, not for this queue.
-
-### RPC client obligations
-
-Pi's `docs/rpc.md` and `docs/rpc-extension-ui.md` are the authority. The client must:
-
-- Frame on LF only. Do not use `readline`: it also splits on U+2028/U+2029, which are legal inside
-  JSON strings. Strip a preceding CR.
-- Correlate commands by their `id`; command handling is asynchronous.
-- Read stdout continuously and honor stdin backpressure; a stalled reader stalls the child.
-- Treat stderr as diagnostics, never as protocol data.
-- Know that `agent_end` ends one low-level run, while `agent_settled` is the point after which Pi
-  will not continue automatically. A task run ends at `agent_settled` with no pending question.
-- Close stdin for an orderly shutdown; escalate to signals when the child does not exit.
-- Handle a dead child at any point, including between `prompt` and `agent_settled`.
-
-### Killing
-
-- Graceful: `{"type":"abort"}`, then close stdin, then wait.
-- Hard: after the grace period (5 s by default), kill the whole tree —
-  `process.kill(-pid, 'SIGKILL')` on POSIX (requires a detached child), `taskkill /PID <pid> /T /F`
-  on Windows.
-- Any exit the queue did not ask for is a failure, and the task is settled accordingly.
+The trade-off is that a hung agent shares the server process. The runner bounds this with a timeout
+and a forced destroy after abort; the task queue itself never relies on a hard process kill. The
+verification gate still runs as a separate process with its own shell.
 
 ## Storage
 
@@ -183,7 +158,6 @@ CREATE TABLE tasks (
   rank             INTEGER NOT NULL,
   project_key      TEXT NOT NULL,        -- projectIdentityKey(cwd)
   cwd              TEXT NOT NULL,
-  allow_ask_user   INTEGER,              -- NULL: use the queue default
   verify_commands  TEXT,                 -- JSON array; NULL: use the queue default
   session_id       TEXT,                 -- the Pi session of the current attempt
   claimed_token    TEXT,                 -- fencing token for the active claim
@@ -238,8 +212,10 @@ CREATE INDEX task_events_project ON task_events (project_key, id);
 
 The live queue state moved from one global row to one row per project. A server can drive several
 projects at once; each project's pause reason, active task, and running loop are independent. The
-database migration from the old single queue is one-way (`user_version = 5`), and it first writes a
-`VACUUM INTO <db>.v4-<stamp>.bak` backup.
+database migration from the old single queue is one-way (`user_version = 7`), and every pending
+migration first writes a `VACUUM INTO <db>.v<old>-<stamp>.bak` backup. The autonomous-mode step
+drops the former per-task `allow_ask_user` column; an idempotent repair step covers a database that
+an intermediate build advanced without dropping it.
 
 `rank` stays an integer and is scoped to a project: inserts take that project's
 `max(rank) + 10`, and any reorder rewrites only that project's pending segment as 10, 20, 30, …
@@ -261,14 +237,14 @@ a stale caller cannot win a race it lost.
 | `settle`             | One transaction: the final status, `result_summary`, `exit_code`, `finished_at`, a `task_runs` row, and the project's `project_queue_state`. The update is conditioned on the task still being `IN_PROGRESS` with the caller's token.                                                                       |
 | `retryTask`          | `BLOCKED`/`FAILED` → `PENDING`. Attempts are counted at claim time.                                                                                                                                                                                                                                         |
 | `markDone`           | Human override, recorded with a note; the board asks for confirmation.                                                                                                                                                                                                                                      |
-| `recoverInterrupted` | At start-up, a row left `IN_PROGRESS` in one project becomes `BLOCKED` with `result_summary = "orchestrator restarted during the run"`, because its child died with the old server.                                                                                                                         |
+| `recoverInterrupted` | At start-up, a row left `IN_PROGRESS` in one project becomes `BLOCKED` with `result_summary = "orchestrator restarted during the run"`, because its session ended with the old server.                                                                                                                          |
 
 ### State machine
 
 ```
 PENDING ──claim──► IN_PROGRESS ──gate passed──► DONE
                         │
-                        ├── non-zero exit / crash / timeout ──► FAILED
+                        ├── failed run / lost session / timeout ──► FAILED
                         ├── verification command failed ─────► BLOCKED
                         └── aborted by the person ───────────► BLOCKED
 
@@ -278,8 +254,8 @@ IN_PROGRESS ──edit/delete/reorder──► refused (HTTP 409, code task_lock
 ```
 
 `FAILED` and `BLOCKED` are distinct because they mean different things to the person reading the
-board: the process did not survive versus the process succeeded but the work did not pass. Both
-pause the loop; neither retries on its own.
+board: the run did not finish versus the agent finished but the work did not pass. Both pause the
+loop; neither retries on its own.
 
 ## Orchestrator loop
 
@@ -325,14 +301,16 @@ one is paused: nothing global gates the loops.
 
 `run(task)`:
 
-1. Build the prompt (`lib/tasks/prompt.ts`): title, description, the verification commands, the
-   working directory, and the unattended rules. The rules forbid asking when `ask_user` is off,
-   require the work to happen in this directory, and require the final message to state what
-   changed, what was verified, and what is left.
-2. Start the child (`lib/tasks/rpc-session.ts`) with a new session id, the task name, and the
-   queue's standing instructions as `--append-system-prompt`.
-3. Send `prompt` and wait for `agent_settled`. Events update `last_activity` for the board and fill
-   a bounded in-memory ring buffer (64 KiB) for the live tail. A watchdog settles the task as
+1. Build the prompt (`lib/tasks/prompt.ts`): title, description, the verification commands, and the
+   working directory. Full mode says a question is available; autonomous mode says to decide and
+   keep working. Both require the work to happen in this directory and a final report.
+2. Start a fresh SDK session through `startRpcSession` with the task's id and name, the selected
+   preset, the queue's model, and the standing instructions as a system-prompt append. The session
+   immediately joins the ordinary registry, so chat can open it.
+3. Send the prompt and wait for `agent_settled`. In autonomous mode, send
+   `/goal <task prompt>` instead and wait for the goal package to report `complete` before settling;
+   an intermediate `agent_settled` is a continuation point, not task completion. Events update the
+   board activity and a bounded in-memory tail (64 KiB). A watchdog aborts and settles the task as
    `FAILED` after the task timeout (60 min default).
 4. `lib/tasks/gate.ts` runs the verification commands in the task's `cwd`. Non-zero or timeout means
    `BLOCKED`. The failure carries the command's own output: its first line goes into the pause
@@ -341,7 +319,8 @@ one is paused: nothing global gates the loops.
    is one command line for `cmd.exe` on Windows and `/bin/sh` elsewhere — not the session's own bash
    — so quoted arguments and `&&` chains work everywhere, while POSIX-only tools (`sleep`, `bc`) do
    not. The run prompt says so, and the queue defaults dialog repeats it.
-5. `settle`, including the session id, exit code, and a short summary.
+5. `settle`, including the session id and a short summary. Successful SDK runs report exit code 0;
+   an abort or a failed run reports no process exit code.
 
 Control operations:
 
@@ -350,7 +329,7 @@ Control operations:
 | `start`   | Acquires the lock, recovers, runs the loop. Refused while one is running.                                         |
 | `pause`   | Sets `PAUSED`; takes effect between tasks, never mid-run.                                                         |
 | `resume`  | Clears the pause and restarts the loop.                                                                           |
-| `abort`   | Sends `abort`, waits, then kills the tree; settles the task as `BLOCKED` (`aborted by user`) and pauses the loop. |
+| `abort`   | Sends `abort`, waits for the session to settle, then destroys it after the grace period; settles the task as `BLOCKED` (`aborted by user`) and pauses the loop. |
 
 Aborting settles as `BLOCKED` rather than rolling back to `PENDING`, because an abort usually means
 "this task is wrong": rolling it back would let `resume` immediately repeat the same mistake.
@@ -358,57 +337,40 @@ Explicit `retry` is the way back.
 
 Shutdown: `server/instrumentation.ts` already owns SIGINT/SIGTERM handling for streams and
 sessions. It calls `shutdownTaskOrchestrators()`, which aborts every live project loop in turn and
-settles each active child as `BLOCKED`, so a server restart never leaves a zombie agent writing
-into a directory the user believes is idle.
+settles each active task as `BLOCKED`, so a server restart never leaves an agent writing into a
+directory the user believes is idle.
 
 Notifications reuse the existing Web Push path (`lib/web-push.ts`, `server/api/push`): queue complete,
 task failed or blocked, and — importantly — a question waiting.
 
 ## A question during a task
 
-`ask_user` is not rewritten. `lib/ask-user-extension.ts` is already transport-agnostic: it calls
-`ctx.ui.select(...)`/`ctx.ui.input(...)` and appends the `ASK_USER_OTHER_LABEL` sentinel option. In
-RPC mode those calls become `extension_ui_request` records with `ctx.hasUI === true`, so the same
-code works in a child.
+Tasks use the same `ask_user` extension and the same extension-UI channel chat uses.
 
-The only addition is a two-line entry point that lets the CLI load the same module as a file
-extension (Pi loads TypeScript extensions with jiti and requires a default-export factory):
+- **Recognition.** The runner treats a `select` or `input` request carrying the ask-user
+  presentation metadata as a question. Any other extension dialog receives `cancelled: true`
+  because nobody is guaranteed to be watching.
+- **Presentation.** The question is stored on the task (`pending_question`, JSON with the request
+  id, question, and options), so a reload of the board still shows it. It renders through the task
+  workspace and, because the task session is an ordinary session, above the chat composer too.
+- **Answering.** Choosing an option or typing text sends one `extension_ui_response` with `value`;
+  the inline ask_user card accepts both in one response. Dismissing sends `cancelled: true`, which
+  the tool reports as "not an answer".
+- **Policy.** There is one global mode. `full` keeps `ask_user` available and the queue waits for
+  the answer; `autonomous` omits the tool and starts a goal instead, so the agent must decide and
+  keep working. The timeout stays a watchdog, not an answer.
+- **Intervention.** A running task's session is read-only for prompts in chat, but it is fully
+  visible: the transcript streams live, the question card is answerable, and goal pause/resume
+  controls work through the same session commands.
 
-```ts
-// lib/ask-user-cli-extension.ts
-import { createAskUserExtension } from './ask-user-extension';
-
-export default createAskUserExtension().factory;
-```
-
-Parent-side handling:
-
-- **Recognition.** A `select` request whose options include `ASK_USER_OTHER_LABEL` is a question; a
-  bare `input` request from the same child is its free-form follow-up. No protocol extension and no
-  duplicated tool definition.
-- **Presentation.** The question is stored on the task (`pending_question`, JSON with the RPC
-  request id, question, and options), so a reload of the board still shows it, and it is rendered by
-  the existing `AskUserPanel` in the workspace and above the composer while Web Push announces it.
-- **Answering.** Choosing an option replies with `value` directly. Writing an answer replies with
-  the sentinel first and then with the text to the follow-up `input` request — the same two-step
-  flow the TUI uses, so the child needs no special case.
-- **Dismissing.** A dismissed question replies `cancelled: true`, which the tool already reports as
-  "not an answer"; the agent continues with a stated assumption rather than treating silence as
-  consent.
-- **Policy.** The queue has a default (`allowAskUser`, off) and each task may override it. When it
-  is off the extension is not loaded at all, so the tool does not exist and the prompt says
-  questions are not available. When it is on, the queue waits indefinitely — a task that stops for
-  a person is the point — while `abort` remains the escape hatch. The `timeout` field RPC supports
-  is deliberately unused: a wall clock should not answer for the user.
-
-One question at a time: the tool is already `executionMode: 'sequential'`, and a project runs one
-queued task at a time. A chat session may run beside the waiting task; that does not answer the
-question.
+One question at a time: the tool is `executionMode: 'sequential'`, and a project runs one queued
+task at a time. A chat session may run beside the waiting task; that does not answer the question.
 
 ## Verification gate
 
-Defaults live in `<agentDir>/pie-task-orchestrator.json`; every field is optional and a task may
-override `verify_commands` and `allowAskUser`.
+Defaults live in `<agentDir>/pie-task-orchestrator.json`; every field is optional. The only
+per-task override is `verify_commands`. The autonomous switch is global on purpose: it describes
+whether the person is at the computer, not a different policy for each project.
 
 ```json
 {
@@ -417,54 +379,57 @@ override `verify_commands` and `allowAskUser`.
   "verifyTimeoutMs": 600000,
   "taskTimeoutMs": 3600000,
   "// timeouts": "a positive number of milliseconds, or null for no limit",
-  "allowAskUser": false,
+  "autonomous": false,
   "instructions": ""
 }
 ```
 
 - `model` is the queue's own model for the next run, `{ "provider", "modelId" }` or `null` for Pi's
   default. The board writes it through `PUT /api/tasks/config` (the chip in its header, and the same
-  selector inside the queue defaults dialog), the child receives it as `--model provider/id`, and a
-  run already in flight keeps the model it started with.
+  selector inside the queue defaults dialog); the SDK session starts on it, and a run already in
+  flight keeps the model it started with.
 - The board's **Queue defaults** dialog (`components/QueueSettingsDialog.tsx`, opened from the
-  slider button beside the model chip) edits every default a task can inherit: the model, both
-  timeouts, the standing task instructions, the verification commands, and `allowAskUser`. The route
+  slider button beside the model chip) edits the global defaults: the model, both timeouts, the
+  standing task instructions, the verification commands, and **Autonomous decision mode**. The route
   validates each field and writes only the ones it was sent, so a patch never rewrites a field the
-  dialog did not touch. A task form's "Use queue default" option names the effective value
-  (`Use queue default (Enabled)`), so the choice is readable without opening the dialog.
+  dialog did not touch.
+- **Autonomous decision mode** is one switch for every project and queue. On: tasks use the
+  `autonomous` tool preset (full coding tools), `ask_user` is absent, and a goal is started so the
+  agent keeps working until it reports completion. Off: tasks use the `full` preset and may ask a
+  question, which leaves the task waiting for a person.
 - A timeout is one number plus a unit (minutes or hours; switching converts the number so the
   duration survives), or **No limit**, which replaces the number with `∞` and stores `null`. `null`
-  means the watchdog is absent, not zero: `runTask` races no timer and the gate spawns each command
-  without a kill timer, so the child runs until it ends or is aborted. A malformed value in the file
-  still falls back to the built-in number, so a typo cannot silently remove a limit. **Restore
-  defaults** fills the dialog from `lib/tasks/defaults.ts` without saving; Save still decides,
-  Cancel leaves the stored values alone.
+  means the watchdog is absent, not zero: the runner arms no abort timer and the gate spawns each
+  command without a kill timer. A malformed value in the file still falls back to the built-in
+  number, so a typo cannot silently remove a limit. **Restore defaults** fills the dialog from
+  `lib/tasks/defaults.ts` without saving; Save still decides, Cancel leaves the stored values alone.
 - Each command runs in the task's `cwd` through the platform shell (`cmd /c` on Windows, `sh -c`
   elsewhere), with the process tree killed on timeout. The timeout applies per command. Commands are
   the user's own configuration, so this is not an input-validation boundary; the file is written by
   the app or edited by the user, never by a task.
-- An empty list means "no gate": the task is `DONE` when the agent exits cleanly, and the board says
-  so plainly rather than implying verification happened.
+- An empty list means "no gate": the task is `DONE` when the session settles successfully (and, in
+  autonomous mode, its goal reports complete), and the board says so plainly rather than implying
+  verification happened.
 - A failure settles `BLOCKED` with the tail of the failing command's output.
 - Reading verification commands from a project's `.pi/` directory is not part of the first version:
-  an unattended run must not be configured by files inside the repository it is changing.
+  a queued run must not be configured by files inside the repository it is changing.
 
 ## Task instructions
 
 The queue does not commit, branch, push, or otherwise interpret Git. A person who wants a run to
 commit writes that rule as a standing instruction in the queue defaults; the agent sees it in every
-task prompt and decides how to follow it.
+task session and decides how to follow it.
 
 - Write only rules that apply to every task in the queue. A git rule ("commit your changes") costs a
   full step in a directory that is not a repository, and the queue cannot know which one it is.
 - `instructions` is free text (up to 20,000 characters) stored in
   `<agentDir>/pie-task-orchestrator.json` and edited in the **Queue defaults** dialog. An absent or
   malformed value means no instructions.
-- `lib/tasks/rpc-session.ts` passes it to every task child as `--append-system-prompt`, prefixed
-  with a `Pie task queue instructions:` label. An empty value adds no flag, so the child's system
-  prompt is exactly Pi's own. The task prompt in `lib/tasks/prompt.ts` stays task-specific.
+- `lib/append-system-prompt-extension.ts` appends it to every task session's system prompt, prefixed
+  with a `Pie task queue instructions:` label. An empty value adds no extension, so the session's
+  system prompt is exactly Pi's own. The task prompt in `lib/tasks/prompt.ts` stays task-specific.
 - It is a soft constraint by design: the queue still verifies with `verifyCommands` and settles from
-  the child's exit, but it never inspects `.git`, stages files, or creates commits. Examples:
+  the session outcome, but it never inspects `.git`, stages files, or creates commits. Examples:
   "commit your changes when the task is done", "leave the working tree clean", "run the tests before
   you report".
 - The built-in prompt still forbids branches, worktrees, pull requests, and pushes. Instructions
@@ -478,7 +443,7 @@ check, the optional web password, and the `json()` helper in `server/http.ts`.
 | Route                         | Purpose                                                                                                                     |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | `GET /api/tasks?cwd=…`        | One project: `{ project, tasks, runs, orchestrator, projects, config, watch }`; `no-store`. `projects` is every queue's summary; `orchestrator.activeSessions` and each summary's `activeSessions` overlay running chat. Without `cwd`, the running or most recently updated project is chosen. |
-| `POST /api/tasks`             | Create. Body: title, description, cwd, allow_ask_user, verify_commands. Returns `{ task, project }`.                         |
+| `POST /api/tasks`             | Create. Body: title, description, cwd, verify_commands. Returns `{ task, project }`.                                        |
 | `GET /api/tasks/[id]`         | One task and the project it belongs to; used to resolve a `?task=` deep link that has no `cwd`.                              |
 | `PATCH /api/tasks/[id]`       | `{ action: 'update' \| 'move' \| 'retry' \| 'markDone' }`. `409 task_locked` while running.                                 |
 | `DELETE /api/tasks/[id]`      | Same guard, same error.                                                                                                     |
@@ -549,9 +514,9 @@ delivered in two steps so the chat surface is never destabilized by a navigation
   it; copy keeps the editable fields in `localStorage`, so the clipboard survives a reload. On a
   phone the same menu is a bottom sheet, and an empty queue's right-click offers "New task" and
   "Paste".
-- The queue defaults the form inherits from are edited in one dialog opened from the queue's own
-  bar, next to the model chip: model, timeouts, the standing task instructions, verification
-  commands, and the question policy, with Save pinned while the body scrolls.
+- The global task defaults are edited in one dialog opened from the queue's own bar, next to the
+  model chip: model, timeouts, the standing task instructions, verification commands, and the
+  Autonomous decision mode switch, with Save pinned while the body scrolls.
 - The working-directory field in that form is the chat shell's `DirectoryPicker` behind a "Choose
   folder" button, with the same validation call the composer uses. Typing a path works too: Save
   validates first, and a rejected directory leaves the form open with the reason under the field
@@ -615,21 +580,22 @@ and the queue's move into the right-hand inspector slot, and leaves the per-tab 
 
 ### A running task's session is read-only in chat
 
-While a task is `IN_PROGRESS`, its session file is being appended by a child process. Opening it in
-chat mode shows the transcript as it stood when read; sending a prompt there would make two writers
-share one JSONL. The composer is therefore disabled for that session with an explanation, and the
-agent route refuses a prompt for a session the queue is driving. Reading, copying, exporting, and
-forking remain available.
+While a task is `IN_PROGRESS`, its session is the same SDK session chat opens, but the task runner
+owns the run. Opening it in chat streams the live transcript; sending a prompt there would put two
+writers on one run. The composer is therefore disabled for that session with an explanation, and
+the agent route refuses a prompt for a session the queue is driving. Reading, copying, exporting,
+asking a question, and using the goal controls remain available. After the task settles the guard
+is released and the session is an ordinary chat again.
 
 This is the only place the chat runtime learns that the queue exists: the prompt handler asks one
-read-only function (`lib/tasks/active-sessions.ts`, a global set of session ids the queue is
+read-only function (`lib/tasks/active-sessions.ts`, a global set of session ids the task runner is
 driving). Deleting the queue removes that single call, and the behavior degrades to the client-side
 disabled composer instead of breaking.
 
 ## Security and failure containment
 
-- An unattended run is never the first thing to trust a repository's local extensions:
-  `--no-approve` unless the directory is already trusted.
+- A task session is never the first thing to trust a repository's local extensions: it uses the
+  same project-trust decision chat uses, so an untrusted project's extensions are not loaded.
 - A task's `cwd` is validated like any other working directory and stays inside the same allow-list
   the file routes use. That allow-list is durable: approvals are written to
   `<agentDir>/pie-allowed-roots.json`, so a directory picked once stays allowed after a restart, and
@@ -639,12 +605,12 @@ disabled composer instead of breaking.
   the one spelling of that resolution.
 - The queue writes only inside its own database, its per-project lock files, its agent sessions, and — when
   explicitly enabled — the task's repository index.
-- A verified task never becomes `DONE` because of a crashed process; a crash is always `FAILED`.
+- A verified task never becomes `DONE` because of a lost session; a failed run is always `FAILED`.
 - Verification is a separate process with its own shell. It inherits the environment, so a command
   cannot borrow the task session's shell configuration or its working state.
 - Nothing in the queue calls an LLM to decide anything. Every transition is mechanical.
-- The child runs with the same credentials as the user's own CLI. The queue must not be exposed to
-  an untrusted network: it starts agents that can edit files on the machine.
+- A task session runs with the same credentials as the user's own sessions. The queue must not be
+  exposed to an untrusted network: it starts agents that can edit files on the machine.
 
 ## Verification
 
@@ -660,39 +626,39 @@ wait, and claim the task when the chat ends. Restart the server and confirm noth
 
 ## Implementation phases
 
-| Phase        | Deliverable                                                 | Exit criterion                                                                                  |
-| ------------ | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| 1            | `store` + `queue`                                           | Guards and ordering verified without any process involved.                                      |
-| 2            | `rpc-session` + `runner` + `prompt` + a scripted child      | A real CLI child runs one prompt to `agent_settled`, asks a question, and dies on request.      |
-| 3            | `gate` + `orchestrator` + lifecycle wiring + routes         | A queue drains unattended; a failed gate pauses it; a restart leaves nothing running.           |
-| 4            | `TaskWorkspace` + `?mode=tasks` + i18n + docs               | The queue is fully operable from the browser, keyboard included.                                |
-| 5 (optional) | Mode switch, toolbar migration, inspector panel             | Chat is unchanged in behavior, with the moved actions still reachable when the panel is hidden. |
+| Phase        | Deliverable                                            | Exit criterion                                                                                  |
+| ------------ | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| 1            | `store` + `queue`                                      | Guards and ordering verified without any agent involved.                                        |
+| 2            | `runner` + `prompt` + SDK session integration          | A real task runs one prompt to `agent_settled`, asks a question, and aborts on request.          |
+| 3            | `gate` + `orchestrator` + lifecycle wiring + routes    | A queue drains on its own; a failed gate pauses it; a restart leaves nothing running.    |
+| 4            | `TaskWorkspace` + `?mode=tasks` + i18n + docs          | The queue is fully operable from the browser, keyboard included.                                |
+| 5 (optional) | Mode switch, toolbar migration, inspector panel        | Chat is unchanged in behavior, with the moved actions still reachable when the panel is hidden. |
 
 ## Implementation status
 
 | Phase        | What exists now                                                                                                                                                                                                                                                    |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1            | `lib/tasks/store.ts` and `lib/tasks/queue.ts`. Schema `user_version = 5` (per-project queues and events), WAL, per-process singleton, SQL guards for claim/update/delete/rank scoped by project.                                                       |
-| 2            | `lib/ask-user-cli-extension.ts`, `lib/tasks/rpc-session.ts`, `lib/tasks/runner.ts`, `lib/tasks/prompt.ts`, and a scripted child. LF framing, U+2028 inside a string, correlation, tree kill, question round-trip. |
-| 3            | `lib/tasks/gate.ts`, `lib/tasks/orchestrator.ts` (one loop and one lock per project), `server/instrumentation.ts` shutdown, and the `/api/tasks` routes. `lib/project-trust.ts` decides `--approve`; `lib/tasks/active-sessions.ts` is the only module chat imports. |
+| 1            | `lib/tasks/store.ts` and `lib/tasks/queue.ts`. Schema `user_version = 7` (per-project queues, events, autonomous column removal), WAL, per-process singleton, SQL guards for claim/update/delete/rank scoped by project. |
+| 2            | `lib/tasks/runner.ts`, `lib/tasks/prompt.ts`, and the shared `startRpcSession` runtime. One SDK session per attempt, ordinary session registry and event stream, `ask_user` round-trip, abort and forced shutdown. |
+| 3            | `lib/tasks/gate.ts`, `lib/tasks/orchestrator.ts` (one loop and one lock per project), `server/instrumentation.ts` shutdown, and the `/api/tasks` routes. Project trust is the same decision chat uses; `lib/tasks/active-sessions.ts` is the only module chat imports. |
 | 4            | `components/TaskWorkspace.tsx`, `components/TaskProjectsSidebar.tsx`, `?mode=tasks`/`?cwd=`/`?task=` in `AppShell`, `styles/tasks.css`, and task keys in all three locales.                                                                                          |
-| 5 (optional) | The `Chat                                                                                                                                                                                                                                                          | Tasks` switch in both page headers, and the session actions moved into the Runs panel (`components/SessionPanelActions.tsx`). Not built: the mode-specific inspector and the per-tab mode memory. |
+| 5 (optional) | The `Chat | Tasks` switch in both page headers, and the session actions moved into the Runs panel (`components/SessionPanelActions.tsx`). Not built: the mode-specific inspector and the per-tab mode memory. |
 
 Queue defaults live in `<agentDir>/pie-task-orchestrator.json`, one global file read on every run so
 an edit applies to the next task in every project. Each project's lock is
-`<agentDir>/pie-task-locks/<sha256(projectKey)>.lock`. The `ask_user` extension is loaded from
-`lib/ask-user-cli-extension.ts`; `package.json.files` ships that file and the two modules it
-imports, so a portable install can start the same child.
+`<agentDir>/pie-task-locks/<sha256(projectKey)>.lock`. The shared runtime loads `ask_user` for chat
+and full-mode tasks; autonomous tasks omit it and use the goal package already shipped with Pie.
 
 ## Invariants to preserve
 
 - One `IN_PROGRESS` row per project at most, enforced by the project-scoped claim transaction, not
   by the loop.
-- Every task attempt is a new session id and a new process; a session is never reused for a second
-  attempt. Different projects may have one attempt each at the same time.
+- Every task attempt is a new SDK session; a session is never reused for a second attempt. Different
+  projects may have one attempt each at the same time.
 - `IN_PROGRESS` tasks cannot be edited, deleted, or reordered — from any client.
 - A task's terminal state is written with its run record in one transaction.
-- Killing the server leaves no live child process.
+- An aborted or restarted task leaves no running SDK session; the runner sends abort and destroys
+  the session after the grace period.
 - The chat experience and the Pi agent runtime keep working if the queue is deleted.
 
 ## Agent orchestration
@@ -713,11 +679,11 @@ What it does not change here:
 
 | Decision               | Value                                                                                             |
 | ---------------------- | ------------------------------------------------------------------------------------------------- |
-| Execution boundary     | `pi --mode rpc` child process per queued task; one queued task at a time per working directory, chat may run in parallel |
+| Execution boundary     | In-process Pi SDK session per queued task; one queued task at a time per working directory, chat may run in parallel |
 | Task working directory | Stored per task and the project key; different projects can run at the same time                  |
 | Abort outcome          | `BLOCKED`, loop paused                                                                            |
-| `ask_user`             | Queue default off, per-task override, wait indefinitely when enabled, Web Push, abort as the exit |
+| `ask_user`             | Full mode only; wait indefinitely, Web Push, abort as the exit. Autonomous mode omits it and starts a goal. |
 | Verification commands  | One global config plus per-task override; no per-project config in the first version              |
-| Task instructions      | Free text in the queue defaults, appended to every task prompt; soft constraints only             |
+| Task instructions      | Free text in the queue defaults, appended to every task system prompt; soft constraints only      |
 | Storage                | `node:sqlite` database in the agent directory                                                     |
 | Interface roll-out     | Task workspace first, two-mode top bar second                                                     |

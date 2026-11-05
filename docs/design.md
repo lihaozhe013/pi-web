@@ -103,18 +103,19 @@ and from `Shift+F10`. The arrow keys reorder it inside the pending segment, Ente
 removes it. A running task is locked, and the controls say why.
 
 The task bar above the work surface holds the queue state or the running-chat count, one model chip
-(the queue default, "Pi default: <model>" when unset), the clear-completed action, the
-queue-defaults opener, the start/pause/resume/stop controls, and New task. The bar starts with the
+(the queue default, "Pi default: <model>" when unset), a quiet Full/Autonomous mode chip, the
+clear-completed action, the queue-defaults opener, the start/pause/resume/stop controls, and New
+task. The bar starts with the
 project's name and path, so the board is never ambiguous. The action that moves the queue is the
 bar's one strong control while tasks exist; New task is strong only when the board is empty.
 Starting a queue while a conversation runs is allowed: the queue reports RUNNING, waits for the
 conversation to end, and never blocks chat. A slider button
-beside the model chip opens the queue's own defaults — model, timeouts, verification commands,
-question policy, and the standing task instructions — in the app's standard dialog shell, with its
+beside the model chip opens the global task defaults — model, timeouts, verification commands,
+the Autonomous decision mode switch, and the standing task instructions — in the app's standard
+dialog shell, with its
 actions (including "Restore defaults") pinned to the bottom while the body scrolls. A timeout is a
 number plus a unit, or an explicit "No limit" chip that replaces the number with `∞`; the unit
-converts the number, and the form never relies on a browser tooltip for a bad value. Every "use
-queue default" in a task's form names the value it would inherit.
+converts the number, and the form never relies on a browser tooltip for a bad value.
 
 The work surface reads one task: its title, a status line with attempts and elapsed time, the
 description, and a facts sheet for the working directory, result, verification output, verification
@@ -136,7 +137,8 @@ session ids, so a new conversation becomes a task-shaped row without a reload. E
 all project summaries, so the project panel stays current without one request per project. A waiting `ask_user` question renders
 through the same panel the composer uses, above the work surface and inside the task's pane, so a
 reload or a Web Push notification still finds it. Opening the task's session leaves the workspace
-for the ordinary conversation view, where the transcript is read-only until the task finishes. Where
+for the ordinary conversation view, where the live transcript is readable and the composer is
+disabled until the task finishes. Where
 the panel cannot dock, the queue takes the center column and the work surface becomes a full-height
 sheet with its own bar and Close button, so the queue stays the page's navigator.
 
@@ -325,8 +327,9 @@ text it was, its mentions written out again.
 ## Tool presets in the composer
 
 The composer's tool menu lists the built-in presets first, then the user's custom ones, each named
-with its tool count, and ends with a single entry that opens Settings at the Tools section. The
-control stays visible while a run is in progress — showing which preset the turn uses — but is
+with its tool count, and ends with a single entry that opens Settings at the Tools section.
+Autonomous is the built-ins' self-directed mode: full coding tools, refuses `ask_user`, and prompt
+guidance to decide and keep working. The control stays visible while a run is in progress — showing which preset the turn uses — but is
 disabled so the preset cannot be switched mid-run. The section lists the built-in presets read-only
 above the user's own, so the list doubles as a reference, and shows an editor for the selected
 custom one: a name, the built-in combinations to start from, and one checkbox per built-in coding

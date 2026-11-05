@@ -28,11 +28,14 @@ or comprehensive configuration center. Pie does not implement or manage subagent
 extensions remain Pi's responsibility. Prefer a good default over speculative settings.
 
 The one exception is a task queue per project, described in [Tasks](tasks.md): one active queued
-task at a time in each working directory, each executed by a fresh Pi CLI child process over Pi's
-own RPC protocol. Chat sessions are shown on the same board and may run in parallel; a started
-queue waits while a chat is running before its next claim, so chat always has priority. Different
-projects may run at the same time; there is no parallel queued-task execution inside a project, no
-global worker pool, and no second agent protocol. The chat experience must keep working without it.
+task at a time in each working directory, each executed by a fresh in-process Pi SDK session through
+the same runtime chat uses. Chat sessions are shown on the same board and may run in parallel; a
+started queue waits while a chat is running before its next claim, so chat always has priority.
+Different projects may run at the same time; there is no parallel queued-task execution inside a
+project, no global worker pool, and no second agent protocol. A task session is visible in chat and
+the queue can be deleted without changing chat behavior. One global autonomous switch chooses the
+`autonomous` preset (full tools, questions refused, goal-driven) or the `full` preset; it is not a
+per-project setting.
 The queues also have one management surface, described in [Task manager](task-manager.md): an
 ordinary chat session in its own project whose tools read and change the queues. Those tools control
 the queues, not agents; they add no subagent runtime and no second way to start work.

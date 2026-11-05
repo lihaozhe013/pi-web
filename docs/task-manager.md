@@ -102,7 +102,7 @@ remedy; `authorizeCwd: true` approves the one the person named, and the approval
 | Tool           | Arguments                                                                          | Backing code                                                          |
 | -------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
 | `task_list`    | `status?`, `cwd?`, `includeRuns?`                                                  | `queue.listTasks`, the runs table, every project's orchestrator status |
-| `task_create`  | `title`, `description`, `cwd`, `authorizeCwd?`, `allowAskUser?`, `verifyCommands?` | `queue.createTask`                                                    |
+| `task_create`  | `title`, `description`, `cwd`, `authorizeCwd?`, `verifyCommands?`                    | `queue.createTask`                                                    |
 | `task_update`  | `id`, the create fields                                                            | `queue.updateTask`                                                    |
 | `task_move`    | `id`, `direction` or `position`                                                    | `queue.moveTask`                                                      |
 | `task_delete`  | `id` \| `ids` \| `completed`, `cwd?`, `confirm`                                     | `queue.deleteTask`, `completedTaskIds`                                |
@@ -262,8 +262,9 @@ the session is idle. It remains as a fallback tool, not the mechanism.
 
 ## Letting the agent answer a task
 
-A task with `allowAskUser` can still reach a person through the board and Web Push; that path is
-unchanged. The orchestrator learns about the question in the same digest and has `task_answer`.
+In full mode a task can still reach a person through the board and Web Push; that path is unchanged.
+The orchestrator learns about the question in the same digest and has `task_answer`. In autonomous
+mode there is no `ask_user` tool and no question to relay; the task runs under a goal instead.
 
 Policy, decided and recorded here:
 
@@ -311,15 +312,14 @@ Policy, decided and recorded here:
 ## Security and failure containment
 
 - The tools exist only in one directory. They are not reachable from the browser's `set_tools`, from
-  a custom preset, from a task's child process, or from any other project.
+  a custom preset, from a task session, or from any other project.
 - The agent uses the queue controller, so `cwd` validation, command length bounds, the per-project one-running
   claim and the fencing tokens apply unchanged. No raw SQL passes through a tool.
 - Approving a directory is the one decision the agent can make that widens its own reach, so it is
   explicit (`authorizeCwd`, allowed on create and on update), it is the person's directory by the
   rule in `AGENTS.md`, and it is recorded in durable storage rather than in a hidden process cache.
-- A task's child process never loads the task manager extension: injection happens in the in-process
-  session path only, and task children are spawned CLI processes that load `ask_user` and nothing
-  from Pie's own extension factories.
+- A task session never loads the task manager extension: injection is keyed to the manager project,
+  and a task in another project loads the ordinary built-ins, `ask_user` in full mode only.
 - `AGENTS.md` is created once and never rewritten, matching the project rule that user data is not
   rebuilt. Deleting it restores Pi's default behaviour, not a crash.
 - The watcher is unbounded in duration but bounded in wakes and time, and it is visible and
