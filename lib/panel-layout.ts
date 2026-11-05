@@ -6,8 +6,9 @@ export const SIDEBAR_MIN_WIDTH = 180;
 export const SIDEBAR_MAX_WIDTH = 480;
 
 export const RIGHT_PANEL_FALLBACK_WIDTH = 560;
-export const RIGHT_PANEL_DEFAULT_WIDTH = 400;
-export const RIGHT_PANEL_MIN_WIDTH = 300;
+/** Matches the sidebar: the panel docks at the same quiet default width. */
+export const RIGHT_PANEL_DEFAULT_WIDTH = SIDEBAR_DEFAULT_WIDTH;
+export const RIGHT_PANEL_MIN_WIDTH = 220;
 export const RIGHT_PANEL_MAX_WIDTH = 1200;
 
 const COMPACT_CHAT_MIN_WIDTH = 320;
@@ -17,10 +18,6 @@ export function clampPanelWidth(width: number, minWidth: number, maxWidth: numbe
   const finiteWidth = Number.isFinite(width) ? width : minWidth;
   const effectiveMax = Math.max(minWidth, maxWidth);
   return Math.round(Math.max(minWidth, Math.min(effectiveMax, finiteWidth)));
-}
-
-export function getDefaultRightPanelWidth(viewportWidth: number): number {
-  return clampPanelWidth(viewportWidth * 0.42, 360, 640);
 }
 
 export function getSidebarMaxWidth(options: {

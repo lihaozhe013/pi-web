@@ -754,8 +754,8 @@
 .session-info-sidebar {
   /* The user's own width (drag, keys, or the stored one); a window, a wide
      sidebar or an overlay layout caps what it shows. */
-  flex: 0 0 var(--runs-panel-width, 400px);
-  width: var(--runs-panel-width, 400px);
+  flex: 0 0 var(--runs-panel-width, 260px);
+  width: var(--runs-panel-width, 260px);
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -767,7 +767,7 @@
 .session-info-sidebar.is-overlay {
   position: fixed;
   inset: 0 0 0 auto;
-  width: min(var(--runs-panel-width, 400px), 100vw);
+  width: min(var(--runs-panel-width, 260px), 100vw);
   z-index: 600;
 }
 .session-info-backdrop {
@@ -864,37 +864,29 @@
 }
 
 /* Docked Runs panel toggle button on the right edge */
+/* The Runs panel's edge toggle: the sidebar's panel button mirrored into the
+   page toolbar, so a closed panel opens from the corner it docks in. The
+   toolbar skin gives it its capsule surface, like the sidebar toggle. */
 .runs-panel-toggle-btn {
-  position: absolute;
-  top: 12px;
-  right: 0;
-  z-index: 40;
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px 6px 8px;
-  border: 1px solid var(--border);
-  border-right: none;
-  border-radius: 6px 0 0 6px;
-  background: var(--bg-panel);
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin-left: auto;
+  padding: 0;
+  border: none;
+  background: none;
   color: var(--text-muted);
-  font-size: 11px;
-  line-height: 1;
   font-family: inherit;
   cursor: pointer;
-  box-shadow: -2px 2px 8px rgba(0, 0, 0, 0.08);
-  transition:
-    color 0.15s,
-    background 0.15s,
-    transform 0.15s,
-    box-shadow 0.15s;
+  flex-shrink: 0;
+  transition: color 0.12s;
 }
 
 .runs-panel-toggle-btn:hover {
   color: var(--text);
-  background: var(--bg-hover);
-  transform: translateX(-2px);
-  box-shadow: -4px 3px 12px rgba(0, 0, 0, 0.12);
 }
 
 .runs-panel-toggle-btn:focus-visible {
@@ -902,17 +894,15 @@
   outline-offset: -2px;
 }
 
-.runs-toggle-label {
-  font-weight: 500;
-  user-select: none;
-}
-
 .runs-toggle-dot {
+  position: absolute;
+  top: 5px;
+  right: 5px;
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: var(--accent);
-  box-shadow: 0 0 6px var(--accent);
+  box-shadow: 0 0 0 2px var(--bg);
   animation: runs-dot-pulse 1.8s infinite ease-in-out;
 }
 

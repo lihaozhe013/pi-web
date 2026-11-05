@@ -1928,6 +1928,43 @@ export function AppShell() {
                 <WorkspaceSwitch mode={taskMode ? 'tasks' : 'chat'} />
               </div>
               {!isMobile && renderProjectTrustWarning(false)}
+              {/* The Runs panel's toggle mirrors the sidebar's: a panel icon at
+                  the page's right edge, where the panel docks. */}
+              {!taskMode && !runsPanelOpen && (
+                <button
+                  ref={runsPanelToggleRef}
+                  type="button"
+                  onClick={toggleRunsPanel}
+                  className="runs-panel-toggle-btn"
+                  data-runs-panel-toggle="true"
+                  title={`${translate('runs.title')}: ${translate('sidebar.show')}`}
+                  aria-label={`${translate('runs.title')}: ${translate('sidebar.show')}`}
+                  aria-expanded={false}
+                  aria-controls="session-information"
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                    style={{
+                      color: runInProgress ? 'var(--accent)' : undefined,
+                      flexShrink: 0
+                    }}
+                  >
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <line x1="15" y1="3" x2="15" y2="21" />
+                  </svg>
+                  {(runInProgress || sessionCompaction.isCompacting) && (
+                    <span className="runs-toggle-dot" aria-hidden="true" />
+                  )}
+                </button>
+              )}
             </div>
             {isMobile && renderProjectTrustWarning(true)}
           </div>
@@ -1960,62 +1997,6 @@ export function AppShell() {
             </div>
           ) : (
             <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-              {!runsPanelOpen && (
-                <button
-                  ref={runsPanelToggleRef}
-                  type="button"
-                  onClick={toggleRunsPanel}
-                  className="runs-panel-toggle-btn is-collapsed"
-                  data-runs-panel-toggle="true"
-                  title={`${translate('runs.title')}: ${translate('sidebar.show')}`}
-                  aria-label={`${translate('runs.title')}: ${translate('sidebar.show')}`}
-                  aria-expanded={false}
-                  aria-controls="session-information"
-                >
-                  <svg
-                    width="12"
-                    height="12"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                    style={{
-                      color: runInProgress ? 'var(--accent)' : 'currentColor',
-                      flexShrink: 0
-                    }}
-                  >
-                    <polyline points="15 18 9 12 15 6" />
-                  </svg>
-                  <svg
-                    width="12"
-                    height="12"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                    style={{
-                      color:
-                        runInProgress || sessionCompaction.isCompacting
-                          ? 'var(--accent)'
-                          : 'currentColor',
-                      flexShrink: 0
-                    }}
-                  >
-                    <path d="m4 17 6-6-6-6" />
-                    <line x1="12" y1="19" x2="20" y2="19" />
-                  </svg>
-                  <span className="runs-toggle-label">{translate('runs.label')}</span>
-                  {(runInProgress || sessionCompaction.isCompacting) && (
-                    <span className="runs-toggle-dot" aria-label="Running" />
-                  )}
-                </button>
-              )}
               {showChat ? (
                 <ChatWindow
                   key={sessionKey}

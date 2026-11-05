@@ -11,18 +11,19 @@ groups help locate conversations; they are not project management. A new session
 directory; Git repository relationships do not change its identity.
 
 The right panel is dedicated exclusively to Runs and execution context (including Goal and
-Compaction status) and opens 400px wide. It is part of the default desktop page: it is open on load,
-before any command runs, and only the user's own collapse in that page closes it. It overlays the
-conversation when space is limited and fills phone widths; there it starts closed so the
-conversation stays visible, and opens only when the user asks for it. Docked, its left edge is a
-resize handle: the panel stretches between 300px and the width that still leaves the conversation
-420px, and it gives way to a sidebar that grows, returning to the size the user chose when there is
-room again. That size is remembered in the browser and kept while a smaller window shows less. The
-separator takes keyboard focus: the arrow keys resize, `Home` and `End` reach the limits, and Enter
-or a double click restores the default. Settings hides the panel without collapsing it, so closing
-Settings brings it back. A docked collapse/expand toggle on the right side reopens a closed panel;
-the panel header also includes a collapse button. A surface that belongs to the default page — the
-Runs panel — never takes focus; one the user opens does.
+Compaction status) and opens at the sidebar's default width, 260px. It is part of the default
+desktop page: it is open on load, before any command runs, and only the user's own collapse in that
+page closes it. It overlays the conversation when space is limited and fills phone widths; there it
+starts closed so the conversation stays visible, and opens only when the user asks for it. Docked,
+its left edge is a resize handle: the panel stretches between 220px and the width that still leaves
+the conversation 420px, and it gives way to a sidebar that grows, returning to the size the user
+chose when there is room again. That size is remembered in the browser and kept while a smaller
+window shows less. The separator takes keyboard focus: the arrow keys resize, `Home` and `End` reach
+the limits, and Enter or a double click restores the default. Settings hides the panel without
+collapsing it, so closing Settings brings it back. A panel-icon toggle at the toolbar's right edge —
+the sidebar's toggle mirrored — reopens a closed panel, and the panel header also includes a
+collapse button. A surface that belongs to the default page — the Runs panel — never takes focus;
+one the user opens does.
 
 The panel also carries the session actions, as one quiet group above the runs: full history,
 generate title, branches when the session has them, system prompt, and tool definitions, plus a
@@ -30,10 +31,10 @@ statistics card with input, output, cache read, cost, and the context bar. They 
 rather than the next message, and every one of them opens a focused dialog above the conversation:
 the dialog is still the place to read, not the panel. The card's tooltip keeps the full breakdown;
 the panel keeps only what fits. Collapsing the panel, or opening the conversation on a phone where
-the panel starts closed, leaves the actions one click away behind the edge toggle. Active goals and
-compaction state report inside the Runs panel rather than below the chat input, keeping the main
-composer clean. The composer options button (`...`) sits in the right toolbar between the tools
-preset selector and the sound toggle.
+the panel starts closed, leaves the actions one click away behind the toolbar's right-edge toggle.
+Active goals and compaction state report inside the Runs panel rather than below the chat input,
+keeping the main composer clean. The composer options button (`...`) sits in the right toolbar
+between the tools preset selector and the sound toggle.
 
 The sidebar's session list scrolls; what belongs to the whole list rather than to one project sits
 below it, outside that scroll: the archive's entry holds the bottom edge above the sidebar's own
@@ -76,7 +77,7 @@ center, inspector — and the queue is the only task list, so the same row never
 The queue panel is docked on desktop, open until the person collapses it, and resizable from its
 left edge with the same handle, limits and remembered width as the Runs panel. Its own header closes
 it. A `Queue` chip in the task bar shows its size and running mark while the panel is closed, and
-reopens it; the chip is not repeated while the panel is open, exactly like the Runs edge toggle.
+reopens it; the chip is not repeated while the panel is open, exactly like the Runs panel's toggle.
 Settings hides the panel without collapsing it, so closing Settings brings it back, and the queue's
 own collapse choice is independent of the Runs panel's.
 
@@ -200,22 +201,22 @@ Current main-transcript behavior:
   progress the user asked for. Writes, edits, and patches are the only calls that keep such a card.
 - Every other call draws no card in the transcript, running, successful or failed. The composer
   status row names it while it runs, and the Runs panel keeps its history: the panel is part of the
-  default page, so it is already open, and the edge toggle appears only while it is closed. It stays
-  open across sessions and turns; a run never reopens a panel the user collapsed, and a reload
-  restores the default. Where the sidebar would overlay the conversation the panel starts closed, so
-  a phone shows the conversation; the toggle or a phone action opens it there. The panel separates
-  active runs from history, with independent scrolling and newest first in each. History starts
-  collapsed into a compact footer, leaving the active area more room; its heading toggles the
-  section, and the choice stays in effect when the panel is closed and reopened. An expanded history
-  is resizable from its top edge, which is a separator like the panel's: the history keeps the
-  height the user drags to, between 120px and the room that leaves the active list its title and a
-  card, the active list takes the rest, and the height is remembered in the browser. Active cards
-  default open; completed cards remain in the active section for two seconds, showing their final
-  status, then move to history and default closed. Multiple runs can remain active at once. Active
-  and historical cards use blue for running, green for success, and red for errors, alongside status
-  words and marks; cancelled runs remain neutral. Codemode's nested calls use their own status
-  colors as compact subcards ahead of a script disclosure. Closing the panel does not discard
-  anything.
+  default page, so it is already open, and the toolbar's panel toggle appears only while it is
+  closed. It stays open across sessions and turns; a run never reopens a panel the user collapsed,
+  and a reload restores the default. Where the sidebar would overlay the conversation the panel
+  starts closed, so a phone shows the conversation; the toggle or a phone action opens it there. The
+  panel separates active runs from history, with independent scrolling and newest first in each.
+  History starts collapsed into a compact footer, leaving the active area more room; its heading
+  toggles the section, and the choice stays in effect when the panel is closed and reopened. An
+  expanded history is resizable from its top edge, which is a separator like the panel's: the
+  history keeps the height the user drags to, between 120px and the room that leaves the active list
+  its title and a card, the active list takes the rest, and the height is remembered in the browser.
+  Active cards default open; completed cards remain in the active section for two seconds, showing
+  their final status, then move to history and default closed. Multiple runs can remain active at
+  once. Active and historical cards use blue for running, green for success, and red for errors,
+  alongside status words and marks; cancelled runs remain neutral. Codemode's nested calls use their
+  own status colors as compact subcards ahead of a script disclosure. Closing the panel does not
+  discard anything.
 - Write/edit/patch cards default to expanded. A write that replaces a file shows the changed lines
   as a diff; its final content is not repeated.
 - Settings › General can move those cards to the Runs panel too

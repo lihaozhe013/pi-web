@@ -519,8 +519,8 @@ and the queue's move into the right-hand inspector slot, and leaves the per-tab 
   quiet action rows and one statistics card that opens the session dialog. They describe the
   session, not the next message, and the panel is part of the default page.
 - Because that panel can be collapsed, closed on phones, and hidden by Settings, the moved actions
-  are one click away rather than always visible: the edge toggle reopens the panel. There is no
-  separate overflow button; the retired phone `more` popover is gone with it.
+  are one click away rather than always visible: the toolbar's right-edge toggle reopens the
+  panel. There is no separate overflow button; the retired phone `more` popover is gone with it.
 - `?mode=tasks` wins over the remembered session: the tab-memory restore is skipped in that view, so
   a reload of the task workspace cannot replace its URL with `?session=`.
 - Not built: `?mode=chat`, a mode-specific inspector that shows the task detail in task mode, and
