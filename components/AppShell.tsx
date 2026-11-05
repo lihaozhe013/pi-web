@@ -56,6 +56,7 @@ import {
 } from '@/lib/tab-session';
 import { type ToolEntry } from '@/lib/tool-presets';
 import type { BlockingExtensionUiRequest, SessionInfo, SessionTreeNode } from '@/lib/types';
+import type { TaskProjectSummary } from '@/lib/tasks/types';
 import {
   clearLastOpen,
   getLastOpenSession,
@@ -84,6 +85,7 @@ import {
 } from './SessionSidebar';
 import { SettingsPanel, SettingsSectionIcon } from './SettingsPanel';
 import { SystemPromptPanel } from './SystemPromptPanel';
+import { TaskProjectsSidebar } from './TaskProjectsSidebar';
 import { TaskWorkspace } from './TaskWorkspace';
 import { ToolDefinitionsPanel } from './ToolDefinitionsPanel';
 import { WorkspaceSwitch } from './WorkspaceSwitch';
@@ -106,12 +108,42 @@ export function AppShell() {
   // `?mode=tasks` switches the whole workspace. With the parameter absent,
   // nothing about the conversation view changes.
   const taskMode = searchParams.get('mode') === 'tasks';
+  // The task board's project is URL state, like a conversation's id. The board
+  // reports the server's default choice here so a reload returns to it.
+  const taskCwd = taskMode ? (searchParams.get('cwd') || null) : null;
+  const [taskProjects, setTaskProjects] = useState<TaskProjectSummary[]>([]);
+  const handleTaskProjectsChange = useCallback((projects: TaskProjectSummary[]) => {
+    setTaskProjects(projects);
+  }, []);
+  const handleTaskProjectChange = useCallback(
+    (cwd: string | null) => {
+      const next = new URLSearchParams(window.location.search);
+      next.set('mode', 'tasks');
+      if (cwd) next.set('cwd', cwd);
+      else next.delete('cwd');
+      router.replace(`?${next.toString()}`, { scroll: false });
+    },
+    [router]
+  );
   // Keep the system-theme subscription mounted for the lifetime of the app.
   useTheme();
   // Restore fonts even when Settings and the chat composer have not been opened.
   useFontPreferences();
   const { locale, t: translate } = useI18n();
   const isMobile = useIsMobile();
+  const handleTaskProjectSelect = useCallback(
+    (cwd: string) => {
+      const next = new URLSearchParams(window.location.search);
+      next.set('mode', 'tasks');
+      next.set('cwd', cwd);
+      // A project switch is a new board; a task deep link from another project
+      // must not reopen over it.
+      next.delete('task');
+      router.replace(`?${next.toString()}`, { scroll: false });
+      if (isMobile) setSidebarOpen(false);
+    },
+    [isMobile, router]
+  );
   useViewportHeight();
 
   // Once the user has granted notification permission, register a Web Push
@@ -164,6 +196,26 @@ export function AppShell() {
       return refreshed ? mergeCatalogRow(current, refreshed) : current;
     });
   }, []);
+  // In chat the sidebar owns the catalogue fetch. Task mode renders the
+  // project panel instead, so it needs the same list for its project rows.
+  useEffect(() => {
+    if (!taskMode || sessionCatalog.length > 0) return;
+    let cancelled = false;
+    void fetch('/api/sessions', { cache: 'no-store' })
+      .then((response) =>
+        response.ok ? (response.json() as Promise<{ sessions: SessionInfo[] }>) : null
+      )
+      .then((data) => {
+        if (!cancelled && data) handleSessionsChange(data.sessions);
+      })
+      .catch(() => {
+        // The panel still offers Add project; the next mode switch retries.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [handleSessionsChange, sessionCatalog.length, taskMode]);
+
   const [runningSessionIds, setRunningSessionIds] = useState<Set<string>>(() => new Set());
   // Sessions a task child is writing. The composer stays read-only for them so
   // two writers never share one session file.
@@ -1391,25 +1443,34 @@ export function AppShell() {
 
   const sidebarContent = (
     <>
-      <SessionSidebar
-        selectedSessionId={selectedSession?.id ?? null}
-        onSelectSession={handleSelectSession}
-        onNewSession={handleNewSession}
-        controlRef={sidebarControlRef}
-        onNewSessionContextChange={handleSidebarNewSessionContext}
-        initialSessionId={initialSessionId}
-        initialSessionLinked={initialLinkedSessionId !== null}
-        skipInitialProjectSelection={initialNavigation.requestedCwd !== null}
-        onInitialRestoreDone={handleInitialRestoreDone}
-        refreshKey={refreshKey}
-        onSessionDeleted={handleSessionDeleted}
-        selectedCwd={selectedSession?.cwd ?? newSessionCwd ?? null}
-        onCwdChange={handleCwdChange}
-        onBackgroundTaskDone={handleBackgroundTaskDone}
-        onRunningSessionIdsChange={handleRunningSessionIdsChange}
-        onTaskSessionIdsChange={handleTaskSessionIdsChange}
-        onSessionsChange={handleSessionsChange}
-      />
+      {taskMode ? (
+        <TaskProjectsSidebar
+          sessions={sessionCatalog}
+          taskProjects={taskProjects}
+          selectedCwd={taskCwd}
+          onSelectProject={handleTaskProjectSelect}
+        />
+      ) : (
+        <SessionSidebar
+          selectedSessionId={selectedSession?.id ?? null}
+          onSelectSession={handleSelectSession}
+          onNewSession={handleNewSession}
+          controlRef={sidebarControlRef}
+          onNewSessionContextChange={handleSidebarNewSessionContext}
+          initialSessionId={initialSessionId}
+          initialSessionLinked={initialLinkedSessionId !== null}
+          skipInitialProjectSelection={initialNavigation.requestedCwd !== null}
+          onInitialRestoreDone={handleInitialRestoreDone}
+          refreshKey={refreshKey}
+          onSessionDeleted={handleSessionDeleted}
+          selectedCwd={selectedSession?.cwd ?? newSessionCwd ?? null}
+          onCwdChange={handleCwdChange}
+          onBackgroundTaskDone={handleBackgroundTaskDone}
+          onRunningSessionIdsChange={handleRunningSessionIdsChange}
+          onTaskSessionIdsChange={handleTaskSessionIdsChange}
+          onSessionsChange={handleSessionsChange}
+        />
+      )}
       <div
         style={{
           padding: '8px',
@@ -1925,7 +1986,12 @@ export function AppShell() {
                 )}
               </button>
               <div className="workspace-toolbar-mode">
-                <WorkspaceSwitch mode={taskMode ? 'tasks' : 'chat'} />
+                <WorkspaceSwitch
+                  mode={taskMode ? 'tasks' : 'chat'}
+                  tasksHref={
+                    taskCwd ? `/?mode=tasks&cwd=${encodeURIComponent(taskCwd)}` : '/?mode=tasks'
+                  }
+                />
               </div>
               {!isMobile && renderProjectTrustWarning(false)}
               {/* The Runs panel's toggle mirrors the sidebar's: a panel icon at
@@ -1980,6 +2046,9 @@ export function AppShell() {
                 queuePanelOpen={taskQueuePanelOpen}
                 queuePanelSlot={taskQueuePanelSlot}
                 onToggleQueuePanel={toggleTaskQueuePanel}
+                selectedCwd={taskCwd}
+                onProjectChange={handleTaskProjectChange}
+                onProjectsChange={handleTaskProjectsChange}
                 onOpenTaskManager={handleOpenTaskManager}
                 onOpenSession={(sessionId) => {
                   // The sidebar already lists the conversation when the task's

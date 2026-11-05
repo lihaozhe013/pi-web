@@ -7,17 +7,22 @@ import type { ExtensionUiRequest } from '../types';
 import type {
   OrchestratorStatus,
   TaskConfig,
+  TaskProjectSummary,
   TaskRecord,
   TaskRunRecord,
   TaskWatchRecord
 } from './types';
 
 export interface TaskQueuePayload {
+  /** The project this board is reading; null before any project exists. */
+  project: { projectKey: string; cwd: string } | null;
   tasks: TaskRecord[];
   runs: TaskRunRecord[];
-  orchestrator: OrchestratorStatus;
+  orchestrator: OrchestratorStatus | null;
+  /** Every project's queue, for the project switcher and its running marks. */
+  projects: TaskProjectSummary[];
   config: TaskConfig;
-  /** The session watching the queue, when one is. */
+  /** The session watching the queues, when one is. */
   watch?: TaskWatchRecord | null;
 }
 
@@ -72,11 +77,16 @@ export function reorderPending(
  * What the queue does next, in one sentence the board can show beside the
  * controls. Derived from stored state only; nothing is inferred from timing.
  */
-export function queueControl(status: OrchestratorStatus): 'start' | 'pause' | 'resume' | 'abort' {
-  if (status.state === 'RUNNING') {
+export function queueControl(
+  status: OrchestratorStatus | null
+): 'start' | 'pause' | 'resume' | 'abort' {
+  if (!status) return 'start';
+  if (status.state === 'PAUSED') return 'resume';
+  // A stored RUNNING state after a restart has no loop behind it; offering
+  // Pause there would pause nothing.
+  if (status.state === 'RUNNING' && status.running) {
     return status.activeTaskId === null ? 'pause' : 'abort';
   }
-  if (status.state === 'PAUSED') return 'resume';
   return 'start';
 }
 
@@ -142,4 +152,12 @@ export function taskElapsedMs(task: TaskRecord, now = Date.now()): number | null
 /** A task runs its verification commands only when the list is not empty. */
 export function hasVerification(task: TaskRecord, config: TaskConfig): boolean {
   return (task.verifyCommands ?? config.verifyCommands).length > 0;
+}
+
+/** The last path segment of a project root, for display beside the queue. */
+export function projectLabelFromPath(root: string): string {
+  const trimmed = root.replace(/[\\/]+$/, '');
+  if (!trimmed) return root;
+  const index = Math.max(trimmed.lastIndexOf('/'), trimmed.lastIndexOf('\\'));
+  return index >= 0 ? trimmed.slice(index + 1) || trimmed : trimmed;
 }

@@ -31,13 +31,14 @@ import {
   groupTasks,
   hasVerification,
   isTaskLocked,
+  projectLabelFromPath,
   questionRequestFor,
   rangeSelection,
   reorderPending,
   taskElapsedMs,
   type TaskQueuePayload
 } from '@/lib/tasks/board';
-import type { TaskRecord, TaskStatus } from '@/lib/tasks/types';
+import type { TaskProjectSummary, TaskRecord, TaskStatus } from '@/lib/tasks/types';
 
 export interface TaskWorkspaceProps {
   /** Opens the task's ordinary Pi session in the chat view. */
@@ -58,6 +59,12 @@ export interface TaskWorkspaceProps {
   queuePanelSlot?: HTMLElement | null;
   /** Opens or collapses the docked queue panel. */
   onToggleQueuePanel?: () => void;
+  /** The project this board reads; null asks the server to pick one. */
+  selectedCwd?: string | null;
+  /** The shell owns the URL, so the board reports a project change to it. */
+  onProjectChange?: (cwd: string | null) => void;
+  /** Every project's queue summary, bubbled to the shell's project list. */
+  onProjectsChange?: (projects: TaskProjectSummary[]) => void;
 }
 
 type Draft = { mode: 'new' } | { mode: 'edit'; taskId: number } | null;
@@ -228,12 +235,28 @@ export function TaskWorkspace({
   queuePanelDocked = false,
   queuePanelOpen = false,
   queuePanelSlot = null,
-  onToggleQueuePanel
+  onToggleQueuePanel,
+  selectedCwd = null,
+  onProjectChange,
+  onProjectsChange
 }: TaskWorkspaceProps) {
   const { t } = useI18n();
   const isMobile = useIsMobile();
   const [payload, setPayload] = useState<TaskQueuePayload | null>(initialData);
   const [selectedId, setSelectedId] = useState<number | null>(initialTaskId);
+  // A project switch invalidates the previous board before the next poll
+  // lands, so a quick click cannot start or pause the project just left.
+  useEffect(() => {
+    if (!selectedCwd) return;
+    setPayload((current) =>
+      current && current.project?.cwd !== selectedCwd ? null : current
+    );
+  }, [selectedCwd]);
+  // A `?task=` deep link without a project needs one read to find its cwd. The
+  // default-project effect must not win that race.
+  const [deepLinkReady, setDeepLinkReady] = useState(
+    initialTaskId === null || selectedCwd !== null
+  );
   const [sheetOpen, setSheetOpen] = useState(initialTaskId !== null);
   const [draft, setDraft] = useState<Draft>(null);
   const [form, setForm] = useState<TaskFormState>(EMPTY_FORM);
@@ -266,23 +289,32 @@ export function TaskWorkspace({
   const [output, setOutput] = useState('');
   const rowRefs = useRef(new Map<number, HTMLButtonElement>());
   const pendingFocusId = useRef<number | null>(null);
+  const pendingSelectId = useRef<number | null>(null);
+  const selectedCwdRef = useRef(selectedCwd);
+  selectedCwdRef.current = selectedCwd;
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const sheetReturnFocus = useRef<HTMLElement | null>(null);
   const folderButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const refresh = useCallback(async () => {
+    const requestedCwd = selectedCwd;
     try {
-      const response = await fetch('/api/tasks', { cache: 'no-store' });
+      const query = requestedCwd ? `?cwd=${encodeURIComponent(requestedCwd)}` : '';
+      const response = await fetch(`/api/tasks${query}`, { cache: 'no-store' });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = (await response.json()) as TaskQueuePayload;
+      // A slow response for the project just left must not repaint the board.
+      if (selectedCwdRef.current !== requestedCwd) return null;
       setPayload(data);
       setError(null);
       return data;
     } catch (refreshError) {
-      setError(refreshError instanceof Error ? refreshError.message : String(refreshError));
+      if (selectedCwdRef.current === requestedCwd) {
+        setError(refreshError instanceof Error ? refreshError.message : String(refreshError));
+      }
       return null;
     }
-  }, []);
+  }, [selectedCwd]);
 
   // The clipboard outlives a reload; nothing renders from it until a menu opens.
   useEffect(() => {
@@ -335,7 +367,16 @@ export function TaskWorkspace({
   const tasks = useMemo(() => payload?.tasks ?? [], [payload]);
   const runningTask = tasks.find((task) => task.status === 'IN_PROGRESS') ?? null;
   const questionPending = Boolean(runningTask?.pendingQuestion);
-  const interval = runningTask || questionPending ? 1_000 : 5_000;
+  const anyProjectRunning =
+    payload?.projects.some(
+      (project) => project.activeTaskId !== null || project.state === 'RUNNING'
+    ) ?? false;
+  const interval = runningTask || questionPending || anyProjectRunning ? 1_000 : 5_000;
+  const projectKey = payload?.project?.projectKey ?? null;
+  const projectCwd = selectedCwd ?? payload?.project?.cwd ?? null;
+  const projectName = projectCwd ? projectLabelFromPath(projectCwd) : null;
+  const hasProject = Boolean(projectCwd);
+  const loopRunning = Boolean(status?.state === 'RUNNING' && status.running);
 
   // Polling: fast while work happens, slow otherwise, suspended with the page.
   useEffect(() => {
@@ -431,6 +472,71 @@ export function TaskWorkspace({
         .map((task) => task.id),
     [tasks]
   );
+
+  // The shell's project list needs every queue, not only the selected one.
+  // The signature keeps a poll that changed nothing from rerendering the shell.
+  const projectsSignature = useMemo(
+    () => JSON.stringify(payload?.projects ?? []),
+    [payload?.projects]
+  );
+  // Keep the array's identity while its contents are unchanged, so the shell
+  // does not rerender on every one-second poll.
+  const projects = useMemo(
+    () => payload?.projects ?? null,
+    // oxlint-disable-next-line react/exhaustive-deps -- the signature is the content key.
+    [projectsSignature]
+  );
+  useEffect(() => {
+    if (projects) onProjectsChange?.(projects);
+  }, [projects, onProjectsChange]);
+
+  // A task deep link with no cwd: read the task once, then open its project.
+  useEffect(() => {
+    if (initialTaskId === null || selectedCwd !== null || deepLinkReady) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch(`/api/tasks/${initialTaskId}`, { cache: 'no-store' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = (await response.json()) as { task?: TaskRecord };
+        if (!cancelled && data.task) {
+          pendingSelectId.current = data.task.id;
+          onProjectChange?.(data.task.cwd);
+        }
+      } catch {
+        // A deleted task leaves the board on its default project.
+      } finally {
+        if (!cancelled) setDeepLinkReady(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [deepLinkReady, initialTaskId, onProjectChange, selectedCwd]);
+
+  // With no project in the URL the server chooses the running or most recent
+  // one; record that choice in the URL so a reload returns to it.
+  useEffect(() => {
+    if (!deepLinkReady) return;
+    const resolved = payload?.project?.cwd ?? null;
+    if (!resolved) return;
+    if (selectedCwd === resolved) return;
+    if (selectedCwd === null) onProjectChange?.(resolved);
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- only a resolved default should move the URL.
+  }, [deepLinkReady, payload?.project?.cwd, selectedCwd, onProjectChange]);
+
+  // A project switch is a new board: drop the previous selection, draft, and
+  // sheet. The running task is then selected by the `selected` fallback below.
+  useEffect(() => {
+    const pending = pendingSelectId.current;
+    pendingSelectId.current = null;
+    setSelectedId(pending ?? initialTaskId);
+    setExtraSelectedIds([]);
+    setDraft(null);
+    setSheetOpen(false);
+    setOutput('');
+    setError(null);
+  }, [initialTaskId, projectKey]);
 
   // A poll can remove a selected task; the selection must not keep its id.
   useEffect(() => {
@@ -582,12 +688,12 @@ export function TaskWorkspace({
   }, [onOpenTaskManager, orchestratorBusy, t]);
 
   const startNewTask = useCallback(() => {
-    const cwd = selected?.cwd ?? runningTask?.cwd ?? '';
+    const cwd = projectCwd ?? selected?.cwd ?? runningTask?.cwd ?? '';
     setForm({ ...EMPTY_FORM, cwd });
     setCwdError(null);
     setDraft({ mode: 'new' });
     openSheet();
-  }, [openSheet, runningTask?.cwd, selected?.cwd]);
+  }, [openSheet, projectCwd, runningTask?.cwd, selected?.cwd]);
 
   const startEdit = useCallback(
     (task: TaskRecord) => {
@@ -639,12 +745,19 @@ export function TaskWorkspace({
       const result = (await call('/api/tasks', {
         method: 'POST',
         body: JSON.stringify(body)
-      })) as { task?: TaskRecord } | null;
+      })) as
+        | { task?: TaskRecord; project?: { projectKey: string; cwd: string } }
+        | null;
       if (result?.task) {
-        setSelectedId(result.task.id);
+        if (result.project && result.project.cwd !== projectCwd) {
+          pendingSelectId.current = result.task.id;
+          onProjectChange?.(result.project.cwd);
+        } else {
+          setSelectedId(result.task.id);
+          setSheetOpen(true);
+        }
         setDraft(null);
         setCwdError(null);
-        setSheetOpen(true);
       }
       return;
     }
@@ -652,13 +765,19 @@ export function TaskWorkspace({
       const result = (await call(`/api/tasks/${draft.taskId}`, {
         method: 'PATCH',
         body: JSON.stringify({ action: 'update', ...body })
-      })) as { task?: TaskRecord } | null;
+      })) as
+        | { task?: TaskRecord; project?: { projectKey: string; cwd: string } }
+        | null;
       if (result?.task) {
+        if (result.project && result.project.cwd !== projectCwd) {
+          pendingSelectId.current = result.task.id;
+          onProjectChange?.(result.project.cwd);
+        }
         setDraft(null);
         setCwdError(null);
       }
     }
-  }, [call, draft, form, validateCwdPath]);
+  }, [call, draft, form, onProjectChange, projectCwd, validateCwdPath]);
 
   const removeTask = useCallback(
     async (task: TaskRecord) => {
@@ -926,12 +1045,21 @@ export function TaskWorkspace({
 
   const control = useCallback(
     async (action: 'start' | 'pause' | 'resume' | 'abort') => {
+      const cwd = projectCwd;
+      if (!cwd) {
+        setError(t('tasks.noProjectSelected'));
+        return;
+      }
       await call('/api/tasks/control', {
         method: 'POST',
-        body: JSON.stringify({ action })
+        body: JSON.stringify({
+          action,
+          cwd,
+          ...(action === 'abort' && runningTask ? { id: runningTask.id } : {})
+        })
       });
     },
-    [call]
+    [call, projectCwd, runningTask, t]
   );
 
   const answerQuestion = useCallback(
@@ -1325,12 +1453,19 @@ export function TaskWorkspace({
       {showHeading && (
         <div className="task-queue-heading">
           <span>{t('tasks.queue')}</span>
+          {projectName && (
+            <span className="task-queue-project" title={projectCwd ?? undefined}>
+              {projectName}
+            </span>
+          )}
           <span className="task-group-count">{tasks.length}</span>
         </div>
       )}
       <div className="task-queue-scroll">
         {tasks.length === 0 ? (
-          <p className="task-empty">{t('tasks.empty')}</p>
+          <p className="task-empty">
+            {hasProject ? t('tasks.empty') : t('tasks.chooseProject')}
+          </p>
         ) : (
           <>
             {groupSection('running', groups.running)}
@@ -1351,6 +1486,12 @@ export function TaskWorkspace({
           queue itself needs. */}
       <div className="task-header">
         <div className="task-header-summary">
+          {projectName && (
+            <span className="task-project-chip" title={projectCwd ?? undefined}>
+              <span className="task-project-name">{projectName}</span>
+              {projectCwd && <span className="task-project-path">{projectCwd}</span>}
+            </span>
+          )}
           {status && (
             <span className="task-header-state" data-state={status.state}>
               {t(`tasks.queueState.${status.state.toLowerCase()}`)}
@@ -1477,11 +1618,11 @@ export function TaskWorkspace({
             </svg>
           </button>
           <div className="task-header-actions">
-            {status?.state === 'RUNNING' ? (
+            {loopRunning ? (
               <button
                 type="button"
                 className={tasks.length > 0 ? 'task-control is-primary' : 'task-control'}
-                disabled={busy}
+                disabled={busy || !hasProject}
                 onClick={() => void control('pause')}
               >
                 {t('tasks.pause')}
@@ -1494,7 +1635,12 @@ export function TaskWorkspace({
                     ? 'task-control is-primary'
                     : 'task-control'
                 }
-                disabled={busy || status?.state === 'PAUSED'}
+                disabled={
+                  busy ||
+                  !hasProject ||
+                  status?.state === 'PAUSED' ||
+                  groups.queued.length === 0
+                }
                 onClick={() => void control('start')}
               >
                 {t('tasks.start')}
@@ -1508,7 +1654,7 @@ export function TaskWorkspace({
                   : 'task-control'
               }
               data-task-action="resume"
-              disabled={busy || status?.state !== 'PAUSED'}
+              disabled={busy || !hasProject || status?.state !== 'PAUSED'}
               onClick={() => void control('resume')}
             >
               {t('tasks.resume')}
@@ -1516,7 +1662,7 @@ export function TaskWorkspace({
             <button
               type="button"
               className="task-control is-danger"
-              disabled={busy || !runningTask}
+              disabled={busy || !hasProject || !runningTask}
               onClick={() => void control('abort')}
             >
               {t('tasks.abort')}
@@ -1740,6 +1886,33 @@ export function TaskWorkspace({
   }
 
   function renderEmptyDetail() {
+    if (!hasProject) {
+      return (
+        <div className="task-detail-empty">
+          <svg
+            className="task-detail-empty-mark"
+            width="28"
+            height="28"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M4 6h10M4 12h16M4 18h7" />
+            <circle cx="18" cy="6" r="2" />
+            <circle cx="15" cy="18" r="2" />
+          </svg>
+          <h2 className="task-detail-empty-title">{t('tasks.chooseProject')}</h2>
+          <p className="task-detail-empty-text">{t('tasks.chooseProjectHint')}</p>
+          <button type="button" className="task-control is-primary" onClick={startNewTask}>
+            {t('tasks.new')}
+          </button>
+        </div>
+      );
+    }
     return (
       <div className="task-detail-empty">
         <svg

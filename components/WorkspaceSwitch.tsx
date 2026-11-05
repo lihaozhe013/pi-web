@@ -50,12 +50,19 @@ function TasksIcon() {
  * which page is open, and ordinary links keep the keyboard, the browser's
  * context menu, and "open in new tab" working without a roving tabindex.
  */
-export function WorkspaceSwitch({ mode }: { mode: WorkspaceMode }) {
+export function WorkspaceSwitch({
+  mode,
+  tasksHref = '/?mode=tasks'
+}: {
+  mode: WorkspaceMode;
+  /** The task board's project, so the active segment keeps it on reload. */
+  tasksHref?: string;
+}) {
   const { t } = useI18n();
   const onClick = useInAppClick();
   const options = [
     { key: 'chat', href: '/', label: t('workspace.chat') },
-    { key: 'tasks', href: '/?mode=tasks', label: t('workspace.tasks') }
+    { key: 'tasks', href: tasksHref, label: t('workspace.tasks') }
   ] as const;
 
   return (
