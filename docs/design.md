@@ -35,6 +35,13 @@ compaction state report inside the Runs panel rather than below the chat input, 
 composer clean. The composer options button (`...`) sits in the right toolbar between the tools
 preset selector and the sound toggle.
 
+The sidebar's session list scrolls; what belongs to the whole list rather than to one project sits
+below it, outside that scroll: the archive's entry holds the bottom edge above the sidebar's own
+footer, stays reachable however many projects there are, and reads as the end of the list (a
+hairline above it, the count where the rows end) instead of as another project group. It opens the
+archive view, which keeps its own bar with Back, the count and its actions; the entry is not shown
+over that view, and it is not shown at all while nothing is archived.
+
 ## Two workspaces, one shell
 
 The page header carries one segmented control, `Chat | Tasks`, after the sidebar toggle. It is the

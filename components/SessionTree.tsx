@@ -47,12 +47,12 @@ import {
 
 /**
  * The sessions tab's tree: the pinned section, every project as a group of
- * session conversations, and the footer links, or the archive view's rows. It
- * renders the flat rows of lib/session-tree.ts in one virtualized scroll and
- * owns nothing but scroll position, viewport size, which row has focus and a
- * group being dragged (hooks/useGroupDrag.ts); every decision (what is shown,
- * what is open, what is being renamed, where a group goes) comes in through
- * props, so a row scrolled out of view loses no state.
+ * session conversations, or the archive view's rows. It renders the flat rows
+ * of lib/session-tree.ts in one virtualized scroll and owns nothing but scroll
+ * position, viewport size, which row has focus and a group being dragged
+ * (hooks/useGroupDrag.ts); every decision (what is shown, what is open, what is
+ * being renamed, where a group goes) comes in through props, so a row scrolled
+ * out of view loses no state.
  */
 
 type SessionRow = Extract<SidebarRow, { kind: 'session' }>;
@@ -128,7 +128,6 @@ export interface SessionTreeProps {
   onToggleArchiveGroup?(projectKey: string, all: boolean): void;
   /** An archive header's ⋯: Restore all, Delete…. */
   onArchiveGroupMenu?(project: SidebarProject, opener: HTMLElement): void;
-  onOpenArchive(): void;
   /** Scroll a row into view (and maybe focus it); see SessionTreeReveal. */
   reveal?: SessionTreeReveal | null;
   /** The reveal request with this id was scrolled to or dropped: the parent lets go of it. */
@@ -1219,22 +1218,6 @@ const PlainRowView = memo(function PlainRowView({
           data-row-key={row.key}
         >
           {t('sidebar.noLiveSessions')}
-        </div>
-      );
-    case 'footer-archived':
-      return (
-        <div className="session-tree-row session-tree-footer" style={style} data-row-key={row.key}>
-          <button
-            type="button"
-            className="session-tree-footer-button"
-            onClick={() => handlers.current.onOpenArchive()}
-          >
-            <ArchiveIcon size={12} />
-            <span className="session-tree-footer-label">
-              {t('sidebar.archivedCount', { count: row.count })}
-            </span>
-            <ChevronIcon size={10} className="session-tree-footer-chevron" />
-          </button>
         </div>
       );
   }

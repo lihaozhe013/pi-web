@@ -17,16 +17,15 @@ export type SidebarRowKind =
   | 'group-more'
   | 'group-empty'
   | 'spacer'
-  | 'footer-archived'
   | 'archive-group';
 
 /**
  * Per-kind row heights: one rhythm. Session rows, the section headers (a
- * project's, the pinned section's, the archive's projects), the empty
- * group's note and the footer are one height, 28px (44px on a phone, a
- * finger's minimum for the rows); only "show more" is a step shorter. A
- * spacer parts the pinned section from the groups and the groups from the
- * footer; groups themselves sit right on each other, with none between them.
+ * project's, the pinned section's, the archive's projects) and the empty
+ * group's note are one height, 28px (44px on a phone, a finger's minimum for
+ * the rows); only "show more" is a step shorter. A spacer parts the pinned
+ * section from the groups; groups themselves sit right on each other, with
+ * none between them.
  */
 export const SIDEBAR_ROW_HEIGHTS: Record<SidebarLayout, Record<SidebarRowKind, number>> = {
   desktop: {
@@ -37,7 +36,6 @@ export const SIDEBAR_ROW_HEIGHTS: Record<SidebarLayout, Record<SidebarRowKind, n
     'group-more': 26,
     'group-empty': 28,
     spacer: 8,
-    'footer-archived': 28,
     'archive-group': 28
   },
   mobile: {
@@ -48,7 +46,6 @@ export const SIDEBAR_ROW_HEIGHTS: Record<SidebarLayout, Record<SidebarRowKind, n
     'group-more': 36,
     'group-empty': 44,
     spacer: 8,
-    'footer-archived': 44,
     'archive-group': 44
   }
 };
@@ -121,8 +118,7 @@ export type SidebarRow =
       nextShown: number;
     }
   | { kind: 'group-empty'; key: string; project: SidebarProject }
-  | { kind: 'spacer'; key: 'pinned-spacer' | 'footer-spacer' }
-  | { kind: 'footer-archived'; key: 'footer-archived'; count: number }
+  | { kind: 'spacer'; key: 'pinned-spacer' }
   | {
       kind: 'archive-group';
       key: string;
@@ -671,14 +667,8 @@ export function buildSessionTree(input: SessionTreeInput): SessionTreeModel {
   }
 
   // Groups sit right on each other, open or folded: a gap between two of
-  // them would only push the next header away. One spacer parts them from
-  // the archive footer, as one parts the pinned section from them.
-  if (orderedProjects.length > 0 && archivedCount > 0)
-    rows.push({ kind: 'spacer', key: 'footer-spacer' });
-  if (archivedCount > 0)
-    rows.push({ kind: 'footer-archived', key: 'footer-archived', count: archivedCount });
-  // A spacer parts two things: with nothing below the pinned section, it would
-  // just hang under the last row.
+  // them would only push the next header away. A spacer parts two things:
+  // with nothing below the pinned section, it would just hang under it.
   if (rows.at(-1)?.kind === 'spacer') rows.pop();
 
   return {

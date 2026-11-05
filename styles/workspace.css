@@ -112,7 +112,7 @@
 .session-tree-session,
 .session-tree-group,
 .session-tree-drag-source,
-.session-tree-footer-button,
+.sidebar-archive-entry-button,
 .session-tree-drag-ghost,
 .sidebar-files-section-toggle,
 .sidebar-search-input,
@@ -256,10 +256,6 @@
 .session-tree-more-toggle,
 .session-tree-pinned-toggle {
   font-size: calc(11.5px + var(--ui-font-size-offset, 0px));
-}
-
-.session-tree-footer-button {
-  font-size: calc(12.5px + var(--ui-font-size-offset, 0px));
 }
 
 .session-tree-message {

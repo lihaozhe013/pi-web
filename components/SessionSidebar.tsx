@@ -1384,13 +1384,14 @@ export function SessionSidebar({
     [archiveCollapsed, setArchiveView]
   );
 
-  // Opening the archive hides the tree that held focus (the footer link, a
+  // Opening the archive hides the tree that held focus (the archive entry, a
   // menu's opener, the toast's View) and Back removes the archive's own
   // controls; while the view slides in or away, what it covers or what
   // leaves is inert first (focusIfHidden counts both). Focus that went with
-  // them moves to the archive's Back button, then back to the footer link,
-  // or to the tab when that row is not shown.
+  // them moves to the archive's Back button, then back to the entry below the
+  // list, or to the tab when that entry is not shown.
   const archiveBackRef = useRef<HTMLButtonElement>(null);
+  const archiveEntryRef = useRef<HTMLButtonElement>(null);
   const previousArchiveViewRef = useRef(archiveView);
   // Where closing the archive put focus: a fork opened from the archive
   // reveals its row and may take focus from there.
@@ -1402,10 +1403,8 @@ export function SessionSidebar({
       focusIfHidden(archiveBackRef.current);
       return;
     }
-    const footer = sessionsPanelRef.current?.querySelector<HTMLElement>(
-      '[data-row-key="footer-archived"] button'
-    );
-    const target = footer && footer.getClientRects().length > 0 ? footer : selectedTabButton();
+    const entry = archiveEntryRef.current;
+    const target = entry && entry.getClientRects().length > 0 ? entry : selectedTabButton();
     focusIfHidden(target);
     if (target && document.activeElement === target) archiveCloseFocusRef.current = target;
   }, [archiveView, selectedTabButton]);
@@ -2581,13 +2580,15 @@ export function SessionSidebar({
     onGroupMenu: handleGroupMenu,
     onToggleArchiveGroup: handleToggleArchiveGroup,
     onArchiveGroupMenu: handleArchiveGroupMenu,
-    onOpenArchive: () => openArchiveView(),
     // The archive view has no group rows: only the main tree's can be dragged.
     onMoveGroup: moveProject
   } as const;
 
   useHeaderFit(headerRef, t('sidebar.new'));
   const archivedCount = model.archivedCount;
+  // The archive's own view keeps its bar; the tree's entry stays out of the
+  // scrolling list and of the archive itself (the bar answers Back there).
+  const showArchiveEntry = archivedCount > 0 && !archiveView;
 
   return (
     <div ref={sidebarRef} className={`session-sidebar${toast ? ' has-toast' : ''}`}>
@@ -2773,6 +2774,22 @@ export function SessionSidebar({
             )}
           </div>
         </SessionSearch>
+        {showArchiveEntry && (
+          <div className={`sidebar-archive-entry${isMobile ? ' is-mobile' : ''}`}>
+            <button
+              ref={archiveEntryRef}
+              type="button"
+              className="sidebar-archive-entry-button"
+              title={t('sidebar.archivedCount', { count: archivedCount })}
+              aria-label={t('sidebar.archivedCount', { count: archivedCount })}
+              onClick={() => openArchiveView()}
+            >
+              <ArchiveIcon size={12} />
+              <span className="sidebar-archive-entry-label">{t('sidebar.archived')}</span>
+              <span className="sidebar-archive-entry-count">{archivedCount}</span>
+            </button>
+          </div>
+        )}
       </div>
 
       <SidebarMenu
