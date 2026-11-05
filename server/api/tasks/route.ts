@@ -61,7 +61,7 @@ export async function POST(req: Request) {
   try {
     const body = await readTaskBody(req);
     const input: TaskCreateInput = {
-      title: typeof body.title === 'string' ? body.title : '',
+      ...(typeof body.title === 'string' && body.title.trim() ? { title: body.title } : {}),
       description: typeof body.description === 'string' ? body.description : null,
       cwd: typeof body.cwd === 'string' ? body.cwd : '',
       verifyCommands: Array.isArray(body.verify_commands)

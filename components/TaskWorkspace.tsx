@@ -84,14 +84,12 @@ export interface TaskWorkspaceProps {
 type Draft = { mode: 'new' } | { mode: 'edit'; taskId: number } | null;
 
 interface TaskFormState {
-  title: string;
   description: string;
   cwd: string;
   verifyCommands: string;
 }
 
 const EMPTY_FORM: TaskFormState = {
-  title: '',
   description: '',
   cwd: '',
   verifyCommands: ''
@@ -99,8 +97,9 @@ const EMPTY_FORM: TaskFormState = {
 
 function taskForm(task: TaskRecord): TaskFormState {
   return {
-    title: task.title,
-    description: task.description ?? '',
+    // A task from before descriptions were required only has a title; edit
+    // it as the text it represents so the first line keeps naming the task.
+    description: task.description ?? task.title,
     cwd: task.cwd,
     verifyCommands: (task.verifyCommands ?? []).join('\n')
   };
@@ -770,7 +769,7 @@ export function TaskWorkspace({
   }, []);
 
   // A modal dialog takes focus and answers Escape even while focus is still on
-  // the board behind it. An open draft focuses its own title field instead.
+  // the board behind it. An open draft focuses its own description field instead.
   useEffect(() => {
     if (placement !== 'sheet' || draft) return;
     sheetRef.current?.focus();
@@ -792,7 +791,6 @@ export function TaskWorkspace({
       .map((line) => line.trim())
       .filter(Boolean);
     const body: Record<string, unknown> = {
-      title: form.title,
       description: form.description || null,
       cwd,
       verify_commands: verifyCommands
@@ -2290,21 +2288,18 @@ export function TaskWorkspace({
           {draft?.mode === 'new' ? t('tasks.new') : t('tasks.edit')}
         </h2>
         <label className="task-field">
-          <span>{t('tasks.titleLabel')}</span>
-          <input
-            value={form.title}
-            required
-            autoFocus
-            onChange={(event) => setForm({ ...form, title: event.target.value })}
-          />
-        </label>
-        <label className="task-field">
           <span>{t('tasks.descriptionLabel')}</span>
           <textarea
-            rows={4}
+            rows={6}
+            required
+            autoFocus
             value={form.description}
+            aria-describedby="task-description-hint"
             onChange={(event) => setForm({ ...form, description: event.target.value })}
           />
+          <span className="task-hint" id="task-description-hint">
+            {t('tasks.descriptionHint')}
+          </span>
         </label>
         <div className="task-field">
           <label htmlFor="task-cwd">{t('tasks.cwdLabel')}</label>

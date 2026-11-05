@@ -364,7 +364,7 @@ export class TaskOrchestrator {
       cwd: task.cwd,
       sessionId,
       model: policy.model,
-      sessionName: `T${task.id} ${task.title}`.replace(/\s+/g, ' ').slice(0, 160),
+      sessionName: task.title.replace(/\s+/g, ' ').slice(0, 160),
       autonomous: policy.autonomous,
       systemPromptAppend: policy.instructions,
       timeoutMs: policy.taskTimeoutMs,

@@ -47,7 +47,7 @@ export interface ChatTask {
 /** How many conversations the board keeps visible without the chat sidebar. */
 export const CHAT_TASK_LIMIT = 30;
 
-/** Queue tasks identify their prompt this way; a deleted task must not leave a chat row. */
+/** Legacy task prompts used this prefix; keep old sessions out of the chat rows. */
 const QUEUED_TASK_PROMPT_PREFIX = 'You are running task #';
 
 /**

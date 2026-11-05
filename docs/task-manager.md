@@ -102,7 +102,7 @@ remedy; `authorizeCwd: true` approves the one the person named, and the approval
 | Tool           | Arguments                                                                          | Backing code                                                          |
 | -------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
 | `task_list`    | `status?`, `cwd?`, `includeRuns?`                                                  | `queue.listTasks`, the runs table, every project's orchestrator status |
-| `task_create`  | `title`, `description`, `cwd`, `authorizeCwd?`, `verifyCommands?`                    | `queue.createTask`                                                    |
+| `task_create`  | `description`, `cwd`, `title?`, `authorizeCwd?`, `verifyCommands?`                   | `queue.createTask`                                                    |
 | `task_update`  | `id`, the create fields                                                            | `queue.updateTask`                                                    |
 | `task_move`    | `id`, `direction` or `position`                                                    | `queue.moveTask`                                                      |
 | `task_delete`  | `id` \| `ids` \| `completed`, `cwd?`, `confirm`                                     | `queue.deleteTask`, `completedTaskIds`                                |
@@ -111,6 +111,9 @@ remedy; `authorizeCwd: true` approves the one the person named, and the approval
 | `task_config`  | `update?`: the queue-default fields                                                | `lib/tasks/config.ts`, the Queue defaults dialog's data               |
 | `task_watch`   | `action`: `on` \| `off` \| `status`                                                | the extension's watch state                                           |
 | `task_events`  | `afterId?`, `limit?`, `waitMs?` (at most 50 s)                                     | `store.listEventsSince`                                               |
+
+`task_create` accepts a description alone: its first non-empty line becomes the task title. `title`
+remains an optional explicit label for callers that need one.
 
 `task_control` carries the remaining board actions rather than adding a tool per button; the actions
 are the queue controller's, so errors map to the same codes the board already handles
@@ -231,8 +234,8 @@ A digest is one short block: the events, then every queue as it was when the dig
 Only projects that are not idle are listed, so the block stays short.
 
 ```
-- settled task 7 DONE in /repo: bun run typecheck passed
-/repo RUNNING, task 8 running; /repo/app IDLE; wake 3 of 100, as of 2026-01-01T14:35:12.000Z
+- settled DONE in /repo: bun run typecheck passed
+/repo RUNNING, task Write the parser running; /repo/app IDLE; wake 3 of 100, as of 2026-01-01T14:35:12.000Z
 ```
 
 The `as of` time is there because the queue state in a digest is a snapshot, and a late delivery
@@ -301,7 +304,7 @@ Policy, decided and recorded here:
   is watching the queues" while a wake budget is being spent; the watcher is not per project. A wake also lands in the transcript as
   a `pie-task-event` message, so the chat itself is never silently active.
 - **Event cards.** `pie-task-event` custom messages render through the generic custom-message card.
-  A dedicated compact renderer (task id, title, status, verification) can follow without touching
+  A dedicated compact renderer (title, status, verification) can follow without touching
   the delivery path.
 - **Origin marker.** A task row shows a small "Chat" mark when a session queued it. It comes from
   the `created_by` column `task_create` writes, not from parsing descriptions.

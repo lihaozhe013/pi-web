@@ -110,7 +110,7 @@ Each queued task starts one new SDK session through `startRpcSession` in the ser
 
 - The session's `cwd` is the task's `cwd`, so Pi discovers that project's settings, skills, prompt
   templates, and `AGENTS.md` exactly as it does for chat.
-- The session gets a stable id (`newSessionId`) and a name (`T<id> <title>`), so the task row and the
+- The session gets a stable id (`newSessionId`) and a name (the task title), so the task row and the
   chat sidebar point at the same session from the first prompt.
 - Project trust is the same decision chat uses. An untrusted project's local extensions are not
   loaded; a queued run must not be the first thing that executes a repository's
@@ -301,11 +301,11 @@ one is paused: nothing global gates the loops.
 
 `run(task)`:
 
-1. Build the prompt (`lib/tasks/prompt.ts`): title, description, the verification commands, and the
-   working directory. Full mode says a question is available; autonomous mode says to decide and
-   keep working. Both require the work to happen in this directory and a final report.
-2. Start a fresh SDK session through `startRpcSession` with the task's id and name, the selected
-   preset, the queue's model, and the standing instructions as a system-prompt append. The session
+1. Build the prompt (`lib/tasks/prompt.ts`): the description (or the title when it has none), the
+   verification commands, and the working directory. Full mode says a question is available;
+   autonomous mode says to decide and keep working. Both require the work to happen in this directory and a final report.
+2. Start a fresh SDK session through `startRpcSession` with its stable session id and title, the
+   selected preset, the queue's model, and the standing instructions as a system-prompt append. The session
    immediately joins the ordinary registry, so chat can open it.
 3. Send the prompt and wait for `agent_settled`. In autonomous mode, send
    `/goal <task prompt>` instead and wait for the goal package to report `complete` before settling;
@@ -443,7 +443,7 @@ check, the optional web password, and the `json()` helper in `server/http.ts`.
 | Route                         | Purpose                                                                                                                     |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | `GET /api/tasks?cwd=…`        | One project: `{ project, tasks, runs, orchestrator, projects, config, watch }`; `no-store`. `projects` is every queue's summary; `orchestrator.activeSessions` and each summary's `activeSessions` overlay running chat. Without `cwd`, the running or most recently updated project is chosen. |
-| `POST /api/tasks`             | Create. Body: title, description, cwd, verify_commands. Returns `{ task, project }`.                                        |
+| `POST /api/tasks`             | Create. Body: description, cwd, verify_commands, and optional title. Returns `{ task, project }`. The first line of the description becomes the title when title is absent. |
 | `GET /api/tasks/[id]`         | One task and the project it belongs to; used to resolve a `?task=` deep link that has no `cwd`.                              |
 | `PATCH /api/tasks/[id]`       | `{ action: 'update' \| 'move' \| 'retry' \| 'markDone' }`. `409 task_locked` while running.                                 |
 | `DELETE /api/tasks/[id]`      | Same guard, same error.                                                                                                     |
@@ -489,6 +489,8 @@ delivered in two steps so the chat surface is never destabilized by a navigation
   `Task board` chip in the task bar shows the size and a running mark while the panel is closed
   and reopens it. Settings hides the panel without collapsing it. Its collapse choice is independent of
   the Runs panel's, so the two modes keep their own arrangements.
+- Task ids exist only for route and tool addressing. The board, task session names, Web Push
+  notifications, prompts, and queue summaries use the task title instead of a `T<id>` prefix.
 - The chat rows use the same row language as queue tasks: status marker, title, working directory,
   message count, and a status word. Running chats sort first. Selecting one opens a small summary
   with the full title, session id, last activity, and an "Open chat" action; double-clicking the row
@@ -517,11 +519,14 @@ delivered in two steps so the chat surface is never destabilized by a navigation
 - The global task defaults are edited in one dialog opened from the queue's own bar, next to the
   model chip: model, timeouts, the standing task instructions, verification commands, and the
   Autonomous decision mode switch, with Save pinned while the body scrolls.
+- The new-task form asks for a description only. Its first non-empty line becomes the title; an
+  explicit title from Task manager still wins, and a legacy title-only task opens with its title as
+  the description text. There is no separate title field on the board.
 - The working-directory field in that form is the chat shell's `DirectoryPicker` behind a "Choose
   folder" button, with the same validation call the composer uses. Typing a path works too: Save
   validates first, and a rejected directory leaves the form open with the reason under the field
   instead of failing the create request.
-- Editing opens the task in the center work surface: title, status, description, a facts sheet, the
+- Editing opens the task in the center work surface: status, description, a facts sheet, the
   pending question, the activity line, and the live tail, with the actions in a footer that sticks
   while a long tail scrolls. The new-task form uses the same surface, so the first task can be
   created from an empty queue. Where the queue panel cannot dock, the queue takes the center column

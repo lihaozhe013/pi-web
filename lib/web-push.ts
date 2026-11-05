@@ -158,7 +158,7 @@ function taskPushPayload(
   locale: string,
   notification: TaskPushNotification
 ): { title: string; body: string; url: string; tag: string } {
-  const label = notification.task ? `T${notification.task.id} ${notification.task.title}` : null;
+  const label = notification.task?.title ?? null;
   const projectName = notification.project?.cwd
     ? basename(notification.project.cwd) || notification.project.cwd
     : null;

@@ -154,7 +154,7 @@ export function TaskProjectsSidebar({
           : t('tasks.queueState.idle');
     const detail =
       running && task && task.activeTaskId !== null && task.activeTaskTitle
-        ? `T${task.activeTaskId} ${task.activeTaskTitle}`
+        ? task.activeTaskTitle
         : running && activeSessions.length > 0
           ? t('tasks.chatRunningDetail', { title: activeSessions[0].title })
           : paused && task?.pausedReason

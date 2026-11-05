@@ -11,7 +11,7 @@ import { verificationShellName } from './gate';
 import type { TaskRecord } from './types';
 
 export interface TaskPromptInput {
-  task: Pick<TaskRecord, 'id' | 'title' | 'description' | 'cwd' | 'attempts'>;
+  task: Pick<TaskRecord, 'title' | 'description' | 'cwd'>;
   verifyCommands: string[];
   autonomous: boolean;
 }
@@ -20,13 +20,10 @@ export function buildTaskPrompt({ task, verifyCommands, autonomous }: TaskPrompt
   const lines: string[] = [];
   const verificationShell = verificationShellName();
   lines.push(
-    `You are running task #${task.id} from Pie's project task queue in one fresh session.`,
+    `You are running a task from Pie's project task queue in one fresh session.`,
     ''
   );
-  lines.push(`Task: ${task.title}`);
-  if (task.description) {
-    lines.push('', 'Details:', task.description);
-  }
+  lines.push(`Task: ${task.description ?? task.title}`);
   lines.push(
     '',
     'Working directory:',

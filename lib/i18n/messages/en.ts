@@ -1959,8 +1959,8 @@ export const enLocale: LocalePlugin = {
     'tasks.projectAttention': '{count} need attention',
     'tasks.pausedReason': 'Queue paused',
     'tasks.attempts': 'attempt {count}',
-    'tasks.titleLabel': 'Title',
     'tasks.descriptionLabel': 'Description',
+    'tasks.descriptionHint': 'The first line becomes the task title.',
     'tasks.cwdLabel': 'Working directory',
     'tasks.cwdHint':
       'The folder the task runs in. A typed path is resolved the same way as a picked one.',

@@ -379,9 +379,17 @@ export function createTaskManagerExtension(
           promptGuidelines: GUIDELINES,
           executionMode: 'sequential',
           parameters: Type.Object({
-            title: Type.String({ description: 'A short title that names the outcome.' }),
+            title: Type.Optional(
+              Type.String({
+                description:
+                  'A short label. Omit it to use the first line of the description.'
+              })
+            ),
             description: Type.Optional(
-              Type.String({ description: 'What to do, and anything the agent must know.' })
+              Type.String({
+                description:
+                  'What to do, and anything the agent must know. Its first line becomes the title when title is omitted.'
+              })
             ),
             cwd: Type.String({ description: 'The project directory the task runs in.' }),
             authorizeCwd: Type.Optional(

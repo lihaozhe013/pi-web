@@ -105,7 +105,8 @@ export interface TaskListParams {
 }
 
 export interface TaskCreateParams {
-  title: string;
+  /** A short label; omit it to use the first line of the description. */
+  title?: string;
   description?: string | null;
   cwd: string;
   verifyCommands?: string[] | null;
@@ -568,11 +569,7 @@ function describeProject(project: TaskProjectSnapshot): string {
   const parts = [`${label} ${project.state}`];
   if (project.running) parts.push('loop running');
   if (project.activeTaskId !== null) {
-    parts.push(
-      project.activeTaskTitle
-        ? `task ${project.activeTaskId} ${project.activeTaskTitle}`
-        : `task ${project.activeTaskId} running`
-    );
+    parts.push(project.activeTaskTitle ? `task ${project.activeTaskTitle}` : 'task running');
   }
   if (project.pending > 0) parts.push(`${project.pending} queued`);
   if (project.blocked > 0) parts.push(`${project.blocked} blocked`);
@@ -667,7 +664,6 @@ export function formatTaskEventDigest(
 
 function describeEvent(event: TaskEvent): string {
   const parts: string[] = [event.kind];
-  if (event.taskId !== null) parts.push(`task ${event.taskId}`);
   if (event.status) parts.push(event.status);
   const head = parts.join(' ');
   const project = event.projectKey ? `${projectLabel(event.projectKey)}: ` : '';

@@ -181,7 +181,8 @@ export interface TaskWatchRecord {
 }
 
 export interface TaskCreateInput {
-  title: string;
+  /** A short label; omitted for board tasks, whose description supplies it. */
+  title?: string;
   description?: string | null;
   cwd: string;
   verifyCommands?: string[] | null;

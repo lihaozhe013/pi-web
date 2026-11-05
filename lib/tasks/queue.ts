@@ -11,6 +11,7 @@ import { allowFileRoot, getAllowedFileRoots, isExistingFilePathAllowed } from '.
 import { isPathWithinRoots } from '../path-security';
 import { projectIdentityKey } from '../project-identity';
 import { getTaskStore, newClaimToken, type TaskStore } from './store';
+import { TASK_TITLE_MAX_LENGTH, taskTitleFromDescription } from './title';
 import type {
   OrchestratorStatus,
   PendingQuestion,
@@ -24,7 +25,6 @@ import type {
   TaskUpdateInput
 } from './types';
 
-export const TASK_TITLE_MAX_LENGTH = 200;
 export const TASK_DESCRIPTION_MAX_LENGTH = 20_000;
 export const TASK_COMMAND_MAX_LENGTH = 2_000;
 export const TASK_COMMAND_MAX_COUNT = 20;
@@ -89,7 +89,7 @@ export interface TaskQueueOptions {
 
 function cleanTitle(value: unknown): string {
   const title = typeof value === 'string' ? value.trim() : '';
-  if (!title) throw new TaskInputError('A title is required');
+  if (!title) throw new TaskInputError('A title or description is required');
   if (title.length > TASK_TITLE_MAX_LENGTH) {
     throw new TaskInputError(`The title must be at most ${TASK_TITLE_MAX_LENGTH} characters`);
   }
@@ -226,8 +226,8 @@ export class TaskQueue {
   }
 
   async createTask(input: TaskCreateInput): Promise<TaskRecord> {
-    const title = cleanTitle(input?.title);
     const description = cleanDescription(input?.description);
+    const title = cleanTitle(input?.title || taskTitleFromDescription(description));
     const cwd = await this.validateCwd(input?.cwd, { authorize: input?.authorizeCwd === true });
     const projectKey = projectKeyOfCwd(cwd);
     return this.store.insertTask({
@@ -247,8 +247,16 @@ export class TaskQueue {
     if (current.status === 'IN_PROGRESS') throw new TaskLockedError();
 
     const fields: Parameters<TaskStore['updateTaskFields']>[1] = {};
+    if (input?.description !== undefined) {
+      const description = cleanDescription(input.description);
+      fields.description = description;
+      // The board has no separate title field: the first line of the new
+      // description becomes the label unless a caller supplied one.
+      if (input.title === undefined && description) {
+        fields.title = taskTitleFromDescription(description);
+      }
+    }
     if (input?.title !== undefined) fields.title = cleanTitle(input.title);
-    if (input?.description !== undefined) fields.description = cleanDescription(input.description);
     if (input?.cwd !== undefined) {
       const cwd = await this.validateCwd(input.cwd, { authorize: input?.authorizeCwd === true });
       const projectKey = projectKeyOfCwd(cwd);
