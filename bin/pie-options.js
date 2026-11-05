@@ -44,6 +44,7 @@ function getHelpText() {
 Start the Pie UI server, or run one of the commands below.
 
 Commands:
+  start [options]            Start the Pie UI server (same as no command)
   version                    Print the installed Pie version (also -v, --version)
   status                     List running Pie servers
   stop [--port <port>]       Stop a running server
@@ -74,11 +75,16 @@ function toParseError(error) {
   return err;
 }
 
-// Returns { command: "start", ...launch options } for a bare launch, or
-// { command, help, port? } for a subcommand.
+// Returns { command: "start", ...launch options } for a bare launch or an explicit
+// `start` command, or { command, help, port? } for a subcommand.
 function parseCommandLine(args = process.argv.slice(2), env = process.env) {
   const first = args[0];
   const command = first === '-v' || first === '--version' ? 'version' : first;
+  // `start` is the bare launch spelled out: strip it so `pie start -p 8080`
+  // parses exactly like `pie -p 8080`.
+  if (command === 'start') {
+    return { command: 'start', ...parseLaunchOptions(args.slice(1), env) };
+  }
   if (!Object.hasOwn(COMMAND_OPTIONS, command)) {
     return { command: 'start', ...parseLaunchOptions(args, env) };
   }
