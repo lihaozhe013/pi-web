@@ -13,6 +13,7 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { randomUUID } from 'node:crypto';
+import { projectIdentityKey } from '../project-identity';
 import { getAgentDir } from '../session-reader';
 import type {
   PendingQuestion,
@@ -21,6 +22,7 @@ import type {
   TaskEvent,
   TaskEventInput,
   TaskEventKind,
+  TaskProjectSummary,
   TaskRecord,
   TaskRunRecord,
   TaskSettleInput,
@@ -44,6 +46,7 @@ type Row = Record<string, unknown>;
 interface TaskRowInsert {
   title: string;
   description: string | null;
+  projectKey: string;
   cwd: string;
   rank: number;
   allowAskUser: boolean | null;
@@ -56,6 +59,7 @@ export interface TaskFieldUpdate {
   title?: string;
   description?: string | null;
   cwd?: string;
+  projectKey?: string;
   allowAskUser?: boolean | null;
   verifyCommands?: string[] | null;
   sessionId?: string | null;
@@ -124,6 +128,7 @@ function taskFromRow(row: Row): TaskRecord {
     description: row.description === null ? null : String(row.description),
     status: String(row.status) as TaskStatus,
     rank: Number(row.rank),
+    projectKey: row.project_key === null || row.project_key === undefined ? '' : String(row.project_key),
     cwd: String(row.cwd),
     allowAskUser: nullableBoolean(row.allow_ask_user),
     verifyCommands: parseCommands(row.verify_commands),
@@ -159,6 +164,8 @@ function runFromRow(row: Row): TaskRunRecord {
 
 function queueStateFromRow(row: Row): QueueStateRecord {
   return {
+    projectKey: String(row.project_key),
+    cwd: row.cwd === null || row.cwd === undefined ? '' : String(row.cwd),
     state: String(row.state) as QueueState,
     pausedReason: row.paused_reason === null ? null : String(row.paused_reason),
     activeTaskId: row.active_task_id === null ? null : Number(row.active_task_id),
@@ -170,6 +177,7 @@ function eventFromRow(row: Row): TaskEvent {
   return {
     id: Number(row.id),
     taskId: row.task_id === null ? null : Number(row.task_id),
+    projectKey: row.project_key === null || row.project_key === undefined ? null : String(row.project_key),
     kind: String(row.kind) as TaskEventKind,
     status: row.status === null ? null : (String(row.status) as TaskStatus),
     summary: row.summary === null ? null : String(row.summary),
@@ -184,6 +192,23 @@ function watchFromRow(row: Row): TaskWatchRecord {
     startedAt: String(row.started_at),
     wakes: Number(row.wakes)
   };
+}
+
+/** Legacy rows without a project key still belong to their cwd's project. */
+function projectKeyOf(task: Pick<TaskRecord, 'projectKey' | 'cwd'>): string {
+  return task.projectKey || projectIdentityKey(task.cwd);
+}
+
+function tableExists(db: DatabaseSync, name: string): boolean {
+  const row = db
+    .prepare(`SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = ?`)
+    .get(name) as Row | undefined;
+  return Boolean(row);
+}
+
+function hasColumn(db: DatabaseSync, table: string, column: string): boolean {
+  const rows = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name?: unknown }>;
+  return rows.some((entry) => entry.name === column);
 }
 
 const MIGRATIONS: Array<(db: DatabaseSync) => void> = [
@@ -291,6 +316,104 @@ const MIGRATIONS: Array<(db: DatabaseSync) => void> = [
         wakes      INTEGER NOT NULL DEFAULT 0
       );
     `);
+  },
+  // Per-project queues. The project key is the same normalized cwd identity the
+  // session sidebar uses, so a task's cwd is its queue. Ranks are rewritten
+  // inside each project; the old global queue state is mapped to the project
+  // that owned its active task, and every other project starts IDLE.
+  (db) => {
+    if (!hasColumn(db, 'tasks', 'project_key')) {
+      db.exec("ALTER TABLE tasks ADD COLUMN project_key TEXT NOT NULL DEFAULT '';");
+    }
+    const tasks = db.prepare('SELECT id, cwd FROM tasks').all() as Row[];
+    const setProject = db.prepare('UPDATE tasks SET project_key = ? WHERE id = ?');
+    for (const task of tasks) {
+      setProject.run(projectIdentityKey(String(task.cwd)), Number(task.id));
+    }
+
+    const ordered = db
+      .prepare('SELECT id, project_key FROM tasks ORDER BY rank, id')
+      .all() as Row[];
+    const rankByProject = new Map<string, number>();
+    const setRank = db.prepare('UPDATE tasks SET rank = ? WHERE id = ?');
+    for (const task of ordered) {
+      const key = String(task.project_key);
+      const rank = (rankByProject.get(key) ?? 0) + 10;
+      rankByProject.set(key, rank);
+      setRank.run(rank, Number(task.id));
+    }
+
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS project_queue_state (
+        project_key    TEXT PRIMARY KEY,
+        cwd            TEXT NOT NULL DEFAULT '',
+        state          TEXT NOT NULL DEFAULT 'IDLE'
+                         CHECK (state IN ('IDLE','RUNNING','PAUSED')),
+        paused_reason  TEXT,
+        active_task_id INTEGER,
+        updated_at     DATETIME NOT NULL
+      );
+    `);
+
+    const insertState = db.prepare(
+      `INSERT INTO project_queue_state (project_key, cwd, state, paused_reason, active_task_id, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(project_key) DO NOTHING`
+    );
+    const projectCwd = (key: string): string => {
+      const row = db
+        .prepare('SELECT cwd FROM tasks WHERE project_key = ? ORDER BY id LIMIT 1')
+        .get(key) as Row | undefined;
+      return row ? String(row.cwd) : '';
+    };
+
+    if (tableExists(db, 'queue_state')) {
+      const old = db.prepare('SELECT * FROM queue_state WHERE id = 1').get() as Row | undefined;
+      if (old) {
+        const state = String(old.state);
+        const reason = old.paused_reason === null ? null : String(old.paused_reason);
+        const activeId = old.active_task_id === null ? null : Number(old.active_task_id);
+        const updatedAt = String(old.updated_at);
+        if (activeId !== null) {
+          const active = db
+            .prepare('SELECT project_key, cwd FROM tasks WHERE id = ?')
+            .get(activeId) as Row | undefined;
+          if (active) {
+            const key = String(active.project_key);
+            insertState.run(key, String(active.cwd), state, reason, activeId, updatedAt);
+          }
+        } else if (state === 'PAUSED') {
+          const pending = db
+            .prepare("SELECT DISTINCT project_key FROM tasks WHERE status = 'PENDING'")
+            .all() as Row[];
+          for (const row of pending) {
+            const key = String(row.project_key);
+            insertState.run(key, projectCwd(key), 'PAUSED', reason, null, updatedAt);
+          }
+        }
+      }
+    }
+
+    const projects = db.prepare('SELECT DISTINCT project_key FROM tasks').all() as Row[];
+    for (const row of projects) {
+      const key = String(row.project_key);
+      insertState.run(key, projectCwd(key), 'IDLE', null, null, nowIso());
+    }
+
+    if (!hasColumn(db, 'task_events', 'project_key')) {
+      db.exec('ALTER TABLE task_events ADD COLUMN project_key TEXT;');
+    }
+    db.exec(`
+      UPDATE task_events
+         SET project_key = (SELECT project_key FROM tasks WHERE tasks.id = task_events.task_id)
+       WHERE project_key IS NULL AND task_id IS NOT NULL;
+
+      DROP INDEX IF EXISTS tasks_queue;
+      CREATE INDEX IF NOT EXISTS tasks_project_queue ON tasks (project_key, status, rank, id);
+      CREATE INDEX IF NOT EXISTS tasks_project ON tasks (project_key);
+      CREATE INDEX IF NOT EXISTS task_events_project ON task_events (project_key, id);
+    `);
+    if (tableExists(db, 'queue_state')) db.exec('DROP TABLE queue_state;');
   }
 ];
 
@@ -344,12 +467,30 @@ export class TaskStore {
   private migrate(): void {
     const row = this.db.prepare('PRAGMA user_version').get() as Row | undefined;
     let version = row ? Number(row.user_version) : 0;
+    // Project queues rewrite ranks and drop the old queue_state table. Keep a
+    // complete copy before that one-way step; a fresh database has nothing to
+    // preserve. `VACUUM INTO` is safe with WAL and produces one usable file.
+    if (version > 0 && version < 5) this.backupBeforeProjectQueues();
     for (let index = version; index < MIGRATIONS.length; index++) {
       this.transaction(() => {
         MIGRATIONS[index](this.db);
         this.db.exec(`PRAGMA user_version = ${index + 1}`);
       });
       version = index + 1;
+    }
+  }
+
+  private backupBeforeProjectQueues(): void {
+    if (this.path === ':memory:') return;
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const target = `${this.path}.v4-${stamp}.bak`;
+    try {
+      this.db.exec(`VACUUM INTO '${target.replaceAll("'", "''")}'`);
+      console.log(`[pie] backed up the task database to ${target}`);
+    } catch (error) {
+      // A failed backup must not stop the migration: the person can copy the
+      // database by hand before upgrading.
+      console.warn('[pie] could not back up the task database before migration:', error);
     }
   }
 
@@ -387,44 +528,139 @@ export class TaskStore {
 
   // ---------------------------------------------------------------- queue state
 
-  getQueueState(): QueueStateRecord {
-    const row = this.db.prepare('SELECT * FROM queue_state WHERE id = 1').get() as Row | undefined;
+  getQueueState(projectKey: string, cwd = ''): QueueStateRecord {
+    const row = this.db
+      .prepare('SELECT * FROM project_queue_state WHERE project_key = ?')
+      .get(projectKey) as Row | undefined;
     if (!row) {
-      return { state: 'IDLE', pausedReason: null, activeTaskId: null, updatedAt: nowIso() };
+      return {
+        projectKey,
+        cwd,
+        state: 'IDLE',
+        pausedReason: null,
+        activeTaskId: null,
+        updatedAt: nowIso()
+      };
     }
     return queueStateFromRow(row);
   }
 
   setQueueState(
+    projectKey: string,
+    cwd: string,
     patch: Partial<Pick<QueueStateRecord, 'state' | 'pausedReason' | 'activeTaskId'>>,
     originSessionId?: string | null
   ): QueueStateRecord {
-    const current = this.getQueueState();
+    const current = this.getQueueState(projectKey, cwd);
     const next = {
+      cwd: cwd || current.cwd,
       state: patch.state ?? current.state,
       pausedReason: patch.pausedReason !== undefined ? patch.pausedReason : current.pausedReason,
       activeTaskId: patch.activeTaskId !== undefined ? patch.activeTaskId : current.activeTaskId
     };
+    const exists =
+      this.db
+        .prepare('SELECT 1 AS present FROM project_queue_state WHERE project_key = ?')
+        .get(projectKey) !== undefined;
     if (
+      exists &&
       next.state === current.state &&
       next.pausedReason === current.pausedReason &&
-      next.activeTaskId === current.activeTaskId
+      next.activeTaskId === current.activeTaskId &&
+      next.cwd === current.cwd
     ) {
       return current;
     }
     return this.transaction(() => {
       this.db
         .prepare(
-          `UPDATE queue_state SET state = ?, paused_reason = ?, active_task_id = ?, updated_at = ?
-           WHERE id = 1`
+          `INSERT INTO project_queue_state
+             (project_key, cwd, state, paused_reason, active_task_id, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?)
+           ON CONFLICT(project_key) DO UPDATE SET
+             cwd = excluded.cwd,
+             state = excluded.state,
+             paused_reason = excluded.paused_reason,
+             active_task_id = excluded.active_task_id,
+             updated_at = excluded.updated_at`
         )
-        .run(next.state, next.pausedReason, next.activeTaskId, nowIso());
+        .run(
+          projectKey,
+          next.cwd,
+          next.state,
+          next.pausedReason,
+          next.activeTaskId,
+          nowIso()
+        );
       // The active task is already announced by `claimed`; only a change a reader
       // cannot see elsewhere becomes an event.
-      if (next.state !== current.state || next.pausedReason !== current.pausedReason) {
-        this.appendEvent({ kind: 'queue', summary: describeQueueState(next), originSessionId });
+      if (
+        next.state !== current.state ||
+        next.pausedReason !== current.pausedReason
+      ) {
+        this.appendEvent({
+          kind: 'queue',
+          projectKey,
+          summary: describeQueueState(next),
+          originSessionId
+        });
       }
-      return this.getQueueState();
+      return this.getQueueState(projectKey, next.cwd);
+    });
+  }
+
+  /** One row per project that has tasks or a saved queue state. */
+  listProjectSummaries(): TaskProjectSummary[] {
+    const taskRows = this.db
+      .prepare(
+        `SELECT project_key,
+                MAX(cwd) AS cwd,
+                MAX(updated_at) AS updated_at,
+                SUM(CASE WHEN status = 'PENDING' THEN 1 ELSE 0 END) AS pending,
+                SUM(CASE WHEN status = 'IN_PROGRESS' THEN 1 ELSE 0 END) AS running,
+                SUM(CASE WHEN status = 'BLOCKED' THEN 1 ELSE 0 END) AS blocked,
+                SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END) AS failed,
+                SUM(CASE WHEN status = 'DONE' THEN 1 ELSE 0 END) AS done,
+                COUNT(*) AS total
+           FROM tasks
+          GROUP BY project_key`
+      )
+      .all() as Row[];
+    const stateRows = this.db.prepare('SELECT * FROM project_queue_state').all() as Row[];
+    const activeRows = this.db
+      .prepare(`SELECT id, title, project_key FROM tasks WHERE status = 'IN_PROGRESS'`)
+      .all() as Row[];
+
+    const states = new Map(stateRows.map((row) => [String(row.project_key), queueStateFromRow(row)]));
+    const active = new Map(
+      activeRows.map((row) => [
+        String(row.project_key),
+        { id: Number(row.id), title: String(row.title) }
+      ])
+    );
+    const taskByProject = new Map(taskRows.map((row) => [String(row.project_key), row]));
+    const keys = new Set([...taskByProject.keys(), ...states.keys()]);
+
+    return [...keys].map((key) => {
+      const tasks = taskByProject.get(key);
+      const state = states.get(key);
+      const runningTask = active.get(key);
+      const updatedAt = state?.updatedAt || (tasks ? String(tasks.updated_at) : '');
+      return {
+        projectKey: key,
+        cwd: state?.cwd || (tasks ? String(tasks.cwd) : ''),
+        state: state?.state ?? 'IDLE',
+        pausedReason: state?.pausedReason ?? null,
+        activeTaskId: runningTask?.id ?? state?.activeTaskId ?? null,
+        activeTaskTitle: runningTask?.title ?? null,
+        running: false,
+        pending: tasks ? Number(tasks.pending) : 0,
+        blocked: tasks ? Number(tasks.blocked) : 0,
+        failed: tasks ? Number(tasks.failed) : 0,
+        done: tasks ? Number(tasks.done) : 0,
+        total: tasks ? Number(tasks.total) : 0,
+        updatedAt: updatedAt || null
+      };
     });
   }
 
@@ -438,15 +674,18 @@ export class TaskStore {
     const status = input.status ?? null;
     const summary = clipSummary(input.summary);
     const origin = input.originSessionId ?? null;
+    const projectKey = input.projectKey ?? null;
     const result = this.db
       .prepare(
-        `INSERT INTO task_events (task_id, kind, status, summary, origin_session_id, created_at)
-         VALUES (?, ?, ?, ?, ?, ?)`
+        `INSERT INTO task_events
+           (task_id, project_key, kind, status, summary, origin_session_id, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
       )
-      .run(input.taskId ?? null, input.kind, status, summary, origin, at);
+      .run(input.taskId ?? null, projectKey, input.kind, status, summary, origin, at);
     return {
       id: Number(result.lastInsertRowid),
       taskId: input.taskId ?? null,
+      projectKey,
       kind: input.kind,
       status,
       summary,
@@ -460,11 +699,20 @@ export class TaskStore {
     return Number(row.id);
   }
 
-  listEventsSince(afterId: number, limit = TASK_EVENT_PAGE_LIMIT): TaskEvent[] {
+  listEventsSince(
+    afterId: number,
+    limit = TASK_EVENT_PAGE_LIMIT,
+    projectKey?: string | null
+  ): TaskEvent[] {
     const bounded = Math.min(Math.max(Math.trunc(limit), 1), TASK_EVENT_PAGE_LIMIT);
-    const rows = this.db
-      .prepare('SELECT * FROM task_events WHERE id > ? ORDER BY id LIMIT ?')
-      .all(Math.max(Math.trunc(afterId), 0), bounded) as Row[];
+    const rows =
+      projectKey === undefined || projectKey === null
+        ? (this.db
+            .prepare('SELECT * FROM task_events WHERE id > ? ORDER BY id LIMIT ?')
+            .all(Math.max(Math.trunc(afterId), 0), bounded) as Row[])
+        : (this.db
+            .prepare('SELECT * FROM task_events WHERE id > ? AND project_key = ? ORDER BY id LIMIT ?')
+            .all(Math.max(Math.trunc(afterId), 0), projectKey, bounded) as Row[]);
     return rows.map(eventFromRow);
   }
 
@@ -492,8 +740,12 @@ export class TaskStore {
    * The events a session has not seen, without moving its cursor. A watcher
    * peeks first so a wake it decides not to send cannot consume an event.
    */
-  peekSessionEvents(sessionId: string, limit = TASK_EVENT_PAGE_LIMIT): TaskEvent[] {
-    return this.listEventsSince(this.getEventCursor(sessionId), limit);
+  peekSessionEvents(
+    sessionId: string,
+    limit = TASK_EVENT_PAGE_LIMIT,
+    projectKey?: string | null
+  ): TaskEvent[] {
+    return this.listEventsSince(this.getEventCursor(sessionId), limit, projectKey);
   }
 
   /**
@@ -502,11 +754,12 @@ export class TaskStore {
    */
   readSessionEvents(
     sessionId: string,
-    limit = TASK_EVENT_PAGE_LIMIT
+    limit = TASK_EVENT_PAGE_LIMIT,
+    projectKey?: string | null
   ): { events: TaskEvent[]; cursor: number } {
     return this.transaction(() => {
       const cursor = this.getEventCursor(sessionId);
-      const events = this.listEventsSince(cursor, limit);
+      const events = this.listEventsSince(cursor, limit, projectKey);
       if (events.length > 0) this.setEventCursor(sessionId, events[events.length - 1].id);
       return { events, cursor };
     });
@@ -546,8 +799,12 @@ export class TaskStore {
 
   // --------------------------------------------------------------------- tasks
 
-  listTasks(): TaskRecord[] {
-    const rows = this.db.prepare('SELECT * FROM tasks ORDER BY rank, id').all() as Row[];
+  listTasks(projectKey?: string): TaskRecord[] {
+    const rows = projectKey
+      ? (this.db
+          .prepare('SELECT * FROM tasks WHERE project_key = ? ORDER BY rank, id')
+          .all(projectKey) as Row[])
+      : (this.db.prepare('SELECT * FROM tasks ORDER BY project_key, rank, id').all() as Row[]);
     return rows.map(taskFromRow);
   }
 
@@ -556,31 +813,40 @@ export class TaskStore {
     return row ? taskFromRow(row) : null;
   }
 
-  pendingTasks(): TaskRecord[] {
+  pendingTasks(projectKey: string): TaskRecord[] {
     const rows = this.db
-      .prepare(`SELECT * FROM tasks WHERE status = 'PENDING' ORDER BY rank, id`)
-      .all() as Row[];
+      .prepare(
+        `SELECT * FROM tasks WHERE project_key = ? AND status = 'PENDING' ORDER BY rank, id`
+      )
+      .all(projectKey) as Row[];
     return rows.map(taskFromRow);
   }
 
-  inProgressTask(): TaskRecord | null {
-    const row = this.db
-      .prepare(`SELECT * FROM tasks WHERE status = 'IN_PROGRESS' ORDER BY id LIMIT 1`)
-      .get() as Row | undefined;
+  inProgressTask(projectKey?: string): TaskRecord | null {
+    const row = projectKey
+      ? (this.db
+          .prepare(
+            `SELECT * FROM tasks WHERE project_key = ? AND status = 'IN_PROGRESS' ORDER BY id LIMIT 1`
+          )
+          .get(projectKey) as Row | undefined)
+      : (this.db
+          .prepare(`SELECT * FROM tasks WHERE status = 'IN_PROGRESS' ORDER BY id LIMIT 1`)
+          .get() as Row | undefined);
     return row ? taskFromRow(row) : null;
   }
 
   insertTask(input: TaskRowInsert): TaskRecord {
     const result = this.db
       .prepare(
-        `INSERT INTO tasks (title, description, status, rank, cwd, allow_ask_user,
+        `INSERT INTO tasks (title, description, status, rank, project_key, cwd, allow_ask_user,
                             verify_commands, created_by, created_at, updated_at)
-         VALUES (?, ?, 'PENDING', ?, ?, ?, ?, ?, ?, ?)`
+         VALUES (?, ?, 'PENDING', ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         input.title,
         input.description,
         input.rank,
+        input.projectKey,
         input.cwd,
         booleanOrNull(input.allowAskUser),
         serialize(input.verifyCommands),
@@ -593,14 +859,17 @@ export class TaskStore {
     return task;
   }
 
-  nextRank(): number {
-    const row = this.db.prepare('SELECT COALESCE(MAX(rank), 0) AS rank FROM tasks').get() as Row;
+  nextRank(projectKey: string): number {
+    const row = this.db
+      .prepare('SELECT COALESCE(MAX(rank), 0) AS rank FROM tasks WHERE project_key = ?')
+      .get(projectKey) as Row;
     return Number(row.rank) + 10;
   }
 
   /**
    * Update editable fields, refusing a running task in the statement itself.
-   * Returns null when the guard rejected the write.
+   * Returns null when the guard rejected the write. A cwd change carries its
+   * project key with it, so the row moves to the new project's queue.
    */
   updateTaskFields(id: number, fields: TaskFieldUpdate): TaskRecord | null {
     const assignments: string[] = [];
@@ -612,6 +881,10 @@ export class TaskStore {
     if (fields.title !== undefined) push('title', fields.title);
     if (fields.description !== undefined) push('description', fields.description);
     if (fields.cwd !== undefined) push('cwd', fields.cwd);
+    const nextProject =
+      fields.projectKey ??
+      (fields.cwd !== undefined ? projectIdentityKey(fields.cwd) : undefined);
+    if (nextProject !== undefined) push('project_key', nextProject);
     if (fields.allowAskUser !== undefined)
       push('allow_ask_user', booleanOrNull(fields.allowAskUser));
     if (fields.verifyCommands !== undefined)
@@ -637,6 +910,8 @@ export class TaskStore {
   }
 
   setPendingQuestion(id: number, question: PendingQuestion | null): void {
+    const task = this.getTask(id);
+    const projectKey = task ? projectKeyOf(task) : null;
     this.transaction(() => {
       this.db
         .prepare('UPDATE tasks SET pending_question = ?, updated_at = ? WHERE id = ?')
@@ -645,6 +920,7 @@ export class TaskStore {
         this.appendEvent({
           kind: 'question',
           taskId: id,
+          projectKey,
           status: 'IN_PROGRESS',
           summary: question.question
         });
@@ -660,6 +936,8 @@ export class TaskStore {
     id: number,
     input: { answer?: string; cancelled?: boolean; originSessionId?: string | null }
   ): TaskEvent {
+    const task = this.getTask(id);
+    const projectKey = task ? projectKeyOf(task) : null;
     return this.transaction(() => {
       this.db
         .prepare('UPDATE tasks SET pending_question = NULL, updated_at = ? WHERE id = ?')
@@ -668,6 +946,7 @@ export class TaskStore {
       return this.appendEvent({
         kind: 'answered',
         taskId: id,
+        projectKey,
         status: 'IN_PROGRESS',
         summary: input.cancelled ? 'question dismissed' : (answer ?? 'question answered'),
         originSessionId: input.originSessionId
@@ -676,43 +955,77 @@ export class TaskStore {
   }
 
   deleteTask(id: number): boolean {
-    const result = this.db
-      .prepare(`DELETE FROM tasks WHERE id = ? AND status <> 'IN_PROGRESS'`)
-      .run(id);
-    return Number(result.changes) === 1;
+    return this.transaction(() => {
+      const task = this.getTask(id);
+      if (!task) return false;
+      const result = this.db
+        .prepare(`DELETE FROM tasks WHERE id = ? AND status <> 'IN_PROGRESS'`)
+        .run(id);
+      if (Number(result.changes) !== 1) return false;
+      this.clearProjectStateIfEmpty(projectKeyOf(task), task.cwd);
+      return true;
+    });
   }
 
-  /** Rewrite the pending segment as 10, 20, 30, ... inside one transaction. */
-  rewritePendingRanks(orderedIds: number[]): void {
+  /**
+   * A project with nothing left to review is idle; deleting the only failed
+   * task should not leave the project paused forever.
+   */
+  clearProjectStateIfEmpty(projectKey: string, cwd = ''): void {
+    if (!projectKey) return;
+    const row = this.db
+      .prepare(
+        `SELECT COUNT(*) AS count FROM tasks
+          WHERE project_key = ? AND status IN ('PENDING','IN_PROGRESS','BLOCKED','FAILED')`
+      )
+      .get(projectKey) as Row;
+    if (Number(row.count) > 0) return;
+    const state = this.getQueueState(projectKey, cwd);
+    this.setQueueState(projectKey, state.cwd || cwd, {
+      state: 'IDLE',
+      pausedReason: null,
+      activeTaskId: null
+    });
+  }
+
+  /** Rewrite one project's pending segment as 10, 20, 30, ... */
+  rewritePendingRanks(projectKey: string, orderedIds: number[]): void {
     this.transaction(() => {
       const statement = this.db.prepare(
-        `UPDATE tasks SET rank = ?, updated_at = ? WHERE id = ? AND status = 'PENDING'`
+        `UPDATE tasks SET rank = ?, updated_at = ?
+          WHERE id = ? AND project_key = ? AND status = 'PENDING'`
       );
       const now = nowIso();
       orderedIds.forEach((id, index) => {
-        statement.run((index + 1) * 10, now, id);
+        statement.run((index + 1) * 10, now, id, projectKey);
       });
     });
   }
 
   /**
-   * Claim the next pending task. The whole operation is one `BEGIN IMMEDIATE`
-   * transaction: assert that no row is running, then flip the lowest
-   * rank/id pending row while it is still pending.
-   *
-   * A missing pending row is not an error. A running row is: the loop should
-   * never reach this point with one, and continuing would run two agents.
+   * Claim the next pending task in one project. The whole operation is one
+   * `BEGIN IMMEDIATE` transaction: assert that no row in this project is
+   * running, then flip its lowest rank/id pending row while it is still pending.
+   * A task running in another project is not this project's concern.
    */
-  claimNextPending(token: string, sessionId: string): TaskRecord | null {
+  claimNextPending(projectKey: string, token: string, sessionId: string): TaskRecord | null {
     return this.transaction(() => {
       const running = this.db
-        .prepare(`SELECT id FROM tasks WHERE status = 'IN_PROGRESS' LIMIT 1`)
-        .get() as Row | undefined;
-      if (running) throw new Error(`task ${String(running.id)} is already in progress`);
+        .prepare(
+          `SELECT id FROM tasks WHERE project_key = ? AND status = 'IN_PROGRESS' LIMIT 1`
+        )
+        .get(projectKey) as Row | undefined;
+      if (running) {
+        throw new Error(`task ${String(running.id)} is already in progress in this project`);
+      }
 
       const candidate = this.db
-        .prepare(`SELECT id FROM tasks WHERE status = 'PENDING' ORDER BY rank, id LIMIT 1`)
-        .get() as Row | undefined;
+        .prepare(
+          `SELECT id FROM tasks
+            WHERE project_key = ? AND status = 'PENDING'
+            ORDER BY rank, id LIMIT 1`
+        )
+        .get(projectKey) as Row | undefined;
       if (!candidate) return null;
 
       const id = Number(candidate.id);
@@ -724,9 +1037,9 @@ export class TaskStore {
                   pending_question = NULL, result_summary = NULL, exit_code = NULL,
                   verify_output = NULL, finished_at = NULL,
                   run_started_at = ?, updated_at = ?
-            WHERE id = ? AND status = 'PENDING'`
+            WHERE id = ? AND project_key = ? AND status = 'PENDING'`
         )
-        .run(token, sessionId, now, now, id);
+        .run(token, sessionId, now, now, id, projectKey);
       if (Number(result.changes) !== 1) {
         throw new Error(`task ${id} could not be claimed`);
       }
@@ -734,6 +1047,7 @@ export class TaskStore {
       this.appendEvent({
         kind: 'claimed',
         taskId: id,
+        projectKey,
         status: 'IN_PROGRESS',
         summary: claimed.title
       });
@@ -742,7 +1056,7 @@ export class TaskStore {
   }
 
   /**
-   * Write a terminal state, its run record, and the queue state in one
+   * Write a terminal state, its run record, and the project queue state in one
    * transaction. The task update only applies while the caller still owns the
    * claim, so a late writer cannot overwrite a newer attempt.
    */
@@ -752,6 +1066,7 @@ export class TaskStore {
       if (!current || current.claimedToken !== token || current.status !== 'IN_PROGRESS') {
         return null;
       }
+      const projectKey = projectKeyOf(current);
       const now = nowIso();
       const updated = this.db
         .prepare(
@@ -794,21 +1109,31 @@ export class TaskStore {
       this.appendEvent({
         kind: 'settled',
         taskId: id,
+        projectKey,
         status: input.status,
         summary: input.resultSummary
       });
 
       if (input.queueState) {
-        this.setQueueState(input.queueState);
+        this.setQueueState(projectKey, current.cwd, input.queueState);
       }
       return this.getTask(id);
     });
   }
 
-  listRuns(limit = TASK_RUN_HISTORY_LIMIT): TaskRunRecord[] {
-    const rows = this.db
-      .prepare('SELECT * FROM task_runs ORDER BY id DESC LIMIT ?')
-      .all(limit) as Row[];
+  listRuns(projectKey?: string, limit = TASK_RUN_HISTORY_LIMIT): TaskRunRecord[] {
+    const rows = projectKey
+      ? (this.db
+          .prepare(
+            `SELECT r.* FROM task_runs r
+               JOIN tasks t ON t.id = r.task_id
+              WHERE t.project_key = ?
+              ORDER BY r.id DESC LIMIT ?`
+          )
+          .all(projectKey, limit) as Row[])
+      : (this.db
+          .prepare('SELECT * FROM task_runs ORDER BY id DESC LIMIT ?')
+          .all(limit) as Row[]);
     return rows.map(runFromRow);
   }
 
@@ -820,6 +1145,8 @@ export class TaskStore {
   }
 
   markTaskDone(id: number, summary: string | null, originSessionId?: string | null): TaskRecord | null {
+    const task = this.getTask(id);
+    const projectKey = task ? projectKeyOf(task) : null;
     return this.transaction(() => {
       const now = nowIso();
       const result = this.db
@@ -830,12 +1157,21 @@ export class TaskStore {
         )
         .run(summary, now, now, id);
       if (Number(result.changes) !== 1) return null;
-      this.appendEvent({ kind: 'settled', taskId: id, status: 'DONE', summary, originSessionId });
+      this.appendEvent({
+        kind: 'settled',
+        taskId: id,
+        projectKey,
+        status: 'DONE',
+        summary,
+        originSessionId
+      });
       return this.getTask(id);
     });
   }
 
   retryTask(id: number, originSessionId?: string | null): TaskRecord | null {
+    const task = this.getTask(id);
+    const projectKey = task ? projectKeyOf(task) : null;
     return this.transaction(() => {
       const now = nowIso();
       const result = this.db
@@ -850,6 +1186,7 @@ export class TaskStore {
       this.appendEvent({
         kind: 'settled',
         taskId: id,
+        projectKey,
         status: 'PENDING',
         summary: 'returned to the queue',
         originSessionId
@@ -860,26 +1197,29 @@ export class TaskStore {
 
   /**
    * At start-up, a row left running belongs to a child that died with the old
-   * server. It never becomes DONE: the run did not survive.
+   * server. It never becomes DONE: the run did not survive. Only this project's
+   * rows and state are touched.
    */
-  recoverInterrupted(summary: string): TaskRecord[] {
+  recoverInterrupted(projectKey: string, summary: string): TaskRecord[] {
     const now = nowIso();
-    const rows = this.db.prepare(`SELECT * FROM tasks WHERE status = 'IN_PROGRESS'`).all() as Row[];
+    const rows = this.db
+      .prepare(`SELECT * FROM tasks WHERE project_key = ? AND status = 'IN_PROGRESS'`)
+      .all(projectKey) as Row[];
     if (rows.length === 0) return [];
     this.transaction(() => {
       this.db
         .prepare(
           `UPDATE tasks SET status = 'BLOCKED', result_summary = ?, claimed_token = NULL,
                             pending_question = NULL, finished_at = ?, updated_at = ?
-            WHERE status = 'IN_PROGRESS'`
+            WHERE project_key = ? AND status = 'IN_PROGRESS'`
         )
-        .run(summary, now, now);
-      this.db
-        .prepare(
-          `UPDATE queue_state SET state = 'PAUSED', paused_reason = ?, active_task_id = NULL, updated_at = ? WHERE id = 1`
-        )
-        .run(summary, now);
-      this.appendEvent({ kind: 'queue', summary: `PAUSED: ${summary}` });
+        .run(summary, now, now, projectKey);
+      const first = rows[0];
+      this.setQueueState(projectKey, String(first.cwd), {
+        state: 'PAUSED',
+        pausedReason: summary,
+        activeTaskId: null
+      });
     });
     return rows.map(taskFromRow);
   }

@@ -296,6 +296,7 @@ export function registerApiRoutes(app: Hono): void {
   app.get('/api/sessions/:id/state', toHono(sessionsByIdState.GET));
 
   // server/api/tasks/[id]/route.ts
+  app.get('/api/tasks/:id', toHono(tasksById.GET));
   app.patch('/api/tasks/:id', toHono(tasksById.PATCH));
   app.delete('/api/tasks/:id', toHono(tasksById.DELETE));
 

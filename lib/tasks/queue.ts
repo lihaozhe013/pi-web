@@ -9,7 +9,8 @@ import { realpathSync, statSync } from 'node:fs';
 import { normalizeCwd } from '../cwd-path';
 import { allowFileRoot, getAllowedFileRoots, isExistingFilePathAllowed } from '../file-access';
 import { isPathWithinRoots } from '../path-security';
-import { newClaimToken, type TaskStore } from './store';
+import { projectIdentityKey } from '../project-identity';
+import { getTaskStore, newClaimToken, type TaskStore } from './store';
 import type {
   OrchestratorStatus,
   PendingQuestion,
@@ -140,6 +141,11 @@ export function clipOutputTail(text: string, limit = TASK_OUTPUT_TAIL_MAX_LENGTH
   return `…${text.slice(text.length - limit)}`;
 }
 
+/** The project identity a working directory belongs to. */
+export function projectKeyOfCwd(cwd: string): string {
+  return projectIdentityKey(normalizeCwd(cwd));
+}
+
 export class TaskQueue {
   readonly store: TaskStore;
   private readonly now: () => Date;
@@ -194,8 +200,8 @@ export class TaskQueue {
     return roots.size > 0 && isPathWithinRoots(target, roots);
   }
 
-  listTasks(): TaskRecord[] {
-    return this.store.listTasks();
+  listTasks(projectKey?: string): TaskRecord[] {
+    return this.store.listTasks(projectKey);
   }
 
   getTask(id: number): TaskRecord {
@@ -204,34 +210,38 @@ export class TaskQueue {
     return task;
   }
 
-  listRuns(limit?: number): TaskRunRecord[] {
-    return this.store.listRuns(limit);
+  listRuns(projectKey?: string, limit?: number): TaskRunRecord[] {
+    return this.store.listRuns(projectKey, limit);
   }
 
   listRunsForTask(id: number): TaskRunRecord[] {
     return this.store.listRunsForTask(id);
   }
 
-  getQueueState(): QueueStateRecord {
-    return this.store.getQueueState();
+  getQueueState(projectKey: string, cwd = ''): QueueStateRecord {
+    return this.store.getQueueState(projectKey, cwd);
   }
 
   setQueueState(
+    projectKey: string,
+    cwd: string,
     patch: Partial<Pick<QueueStateRecord, 'state' | 'pausedReason' | 'activeTaskId'>>,
     originSessionId?: string | null
   ): QueueStateRecord {
-    return this.store.setQueueState(patch, originSessionId);
+    return this.store.setQueueState(projectKey, cwd, patch, originSessionId);
   }
 
   async createTask(input: TaskCreateInput): Promise<TaskRecord> {
     const title = cleanTitle(input?.title);
     const description = cleanDescription(input?.description);
     const cwd = await this.validateCwd(input?.cwd, { authorize: input?.authorizeCwd === true });
+    const projectKey = projectKeyOfCwd(cwd);
     return this.store.insertTask({
       title,
       description,
+      projectKey,
       cwd,
-      rank: this.store.nextRank(),
+      rank: this.store.nextRank(projectKey),
       allowAskUser: cleanOptionalBoolean(input?.allowAskUser, 'allow_ask_user'),
       verifyCommands: cleanCommands(input?.verifyCommands),
       createdBy: input?.createdBy ?? null,
@@ -247,7 +257,13 @@ export class TaskQueue {
     if (input?.title !== undefined) fields.title = cleanTitle(input.title);
     if (input?.description !== undefined) fields.description = cleanDescription(input.description);
     if (input?.cwd !== undefined) {
-      fields.cwd = await this.validateCwd(input.cwd, { authorize: input?.authorizeCwd === true });
+      const cwd = await this.validateCwd(input.cwd, { authorize: input?.authorizeCwd === true });
+      const projectKey = projectKeyOfCwd(cwd);
+      fields.cwd = cwd;
+      if (projectKey !== current.projectKey) {
+        fields.projectKey = projectKey;
+        fields.rank = this.store.nextRank(projectKey);
+      }
     }
     if (input?.allowAskUser !== undefined) {
       fields.allowAskUser = cleanOptionalBoolean(input.allowAskUser, 'allow_ask_user');
@@ -261,6 +277,9 @@ export class TaskQueue {
       throw this.getTask(id).status === 'IN_PROGRESS'
         ? new TaskLockedError()
         : new TaskNotFoundError();
+    }
+    if (updated.projectKey !== current.projectKey) {
+      this.store.clearProjectStateIfEmpty(current.projectKey, current.cwd);
     }
     return updated;
   }
@@ -284,7 +303,8 @@ export class TaskQueue {
     const current = this.getTask(id);
     if (current.status !== 'PENDING') throw new TaskMoveError();
 
-    const pending = this.store.pendingTasks();
+    const projectKey = current.projectKey;
+    const pending = this.store.pendingTasks(projectKey);
     const index = pending.findIndex((task) => task.id === id);
     if (index < 0) throw new TaskMoveError();
 
@@ -304,17 +324,17 @@ export class TaskQueue {
       const ordered = pending.map((task) => task.id);
       const [moved] = ordered.splice(index, 1);
       ordered.splice(targetIndex, 0, moved);
-      this.store.rewritePendingRanks(ordered);
+      this.store.rewritePendingRanks(projectKey, ordered);
     }
-    return this.listTasks();
+    return this.listTasks(projectKey);
   }
 
   /**
    * Claim the next task and open a session for it. The claim asserts that no
    * other row is running, so the serial invariant does not depend on the loop.
    */
-  claimNext(sessionId: string): TaskRecord | null {
-    return this.store.claimNextPending(newClaimToken(), sessionId);
+  claimNext(projectKey: string, sessionId: string): TaskRecord | null {
+    return this.store.claimNextPending(projectKey, newClaimToken(), sessionId);
   }
 
   attachSession(id: number, sessionId: string): void {
@@ -364,18 +384,36 @@ export class TaskQueue {
     return done;
   }
 
-  /** A restart finds its own interrupted rows and blocks them, never completes them. */
-  recoverInterrupted(): TaskRecord[] {
-    return this.store.recoverInterrupted('orchestrator restarted during the run');
+  /** A restart finds this project's interrupted rows and blocks them. */
+  recoverInterrupted(projectKey: string): TaskRecord[] {
+    return this.store.recoverInterrupted(
+      projectKey,
+      'orchestrator restarted during the run'
+    );
   }
 
-  status(running: boolean): Omit<OrchestratorStatus, 'activity'> {
-    const state = this.store.getQueueState();
+  status(projectKey: string, cwd: string, running: boolean): Omit<OrchestratorStatus, 'activity'> {
+    const state = this.store.getQueueState(projectKey, cwd);
     return {
+      projectKey,
+      cwd: state.cwd,
       state: state.state as QueueState,
       pausedReason: state.pausedReason,
       activeTaskId: state.activeTaskId,
       running
     };
   }
+}
+
+declare global {
+  var __pieTaskQueue: TaskQueue | undefined;
+}
+
+/** One controller per process, recreated when the store singleton changes. */
+export function getTaskQueue(): TaskQueue {
+  const store = getTaskStore();
+  if (!globalThis.__pieTaskQueue || globalThis.__pieTaskQueue.store !== store) {
+    globalThis.__pieTaskQueue = new TaskQueue(store);
+  }
+  return globalThis.__pieTaskQueue;
 }

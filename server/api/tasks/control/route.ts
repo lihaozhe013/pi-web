@@ -1,14 +1,35 @@
+import { normalizeCwd } from '@/lib/cwd-path';
 import { json } from '@/server/http';
 import { getTaskOrchestrator } from '@/lib/tasks/orchestrator';
+import { projectKeyOfCwd, TaskInputError, getTaskQueue } from '@/lib/tasks/queue';
 import { noStore, readTaskBody, taskErrorResponse } from '@/lib/tasks/request';
-import { TaskInputError } from '@/lib/tasks/queue';
 
-/** `start`, `pause`, `resume`, `abort`. Start resolves when the queue drains, so it is not awaited. */
+/**
+ * `start`, `pause`, `resume`, `abort` for one project's queue. The project is
+ * named by `cwd`; abort also accepts `id` so a notification deep link can stop
+ * the task it names. Starting resolves when the queue drains, so it is not
+ * awaited.
+ */
 export async function POST(req: Request) {
   try {
     const body = await readTaskBody(req);
     const action = body.action;
-    const orchestrator = getTaskOrchestrator();
+    const queue = getTaskQueue();
+    const taskId =
+      typeof body.id === 'number' && Number.isInteger(body.id) && body.id > 0
+        ? body.id
+        : null;
+    const requestedCwd =
+      typeof body.cwd === 'string' && body.cwd.trim()
+        ? normalizeCwd(body.cwd.trim())
+        : null;
+    const cwd =
+      requestedCwd ??
+      (taskId !== null ? queue.getTask(taskId).cwd : null);
+    if (!cwd) {
+      throw new TaskInputError('A working directory is required');
+    }
+    const orchestrator = getTaskOrchestrator(projectKeyOfCwd(cwd), cwd);
     if (action === 'start') {
       void orchestrator
         .start()

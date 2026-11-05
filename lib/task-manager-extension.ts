@@ -21,12 +21,17 @@ import { registerSessionLivenessProvider } from './session-liveness';
 import {
   formatTaskEventDigest,
   formatTaskToolResult,
-  queueSnapshot,
+  projectSnapshots,
   TaskTools,
   type TaskToolResult,
   type TaskWatchBudget
 } from './tasks/agent-tools';
-import { getTaskOrchestrator } from './tasks/orchestrator';
+import {
+  getTaskOrchestrator,
+  listTaskProjects
+} from './tasks/orchestrator';
+import { getTaskQueue } from './tasks/queue';
+import { getTaskStore } from './tasks/store';
 
 export const TASK_MANAGER_EXTENSION_NAME = 'pie-task-manager';
 
@@ -61,10 +66,10 @@ const TASK_CONTROL_SCHEMA = Type.Union([
 
 /** Every tool carries these: the queue is serial, and its state is the context. */
 const GUIDELINES = [
-  'The queue runs one task at a time. Each tool result ends with the queue state and the events that happened since your last call; read them before deciding what to do next.',
-  'Every task needs a title that names the outcome and a cwd inside an allowed project directory. Add verification commands when you know them.',
+  'Each project has its own serial queue: one task at a time per project, while different projects may run concurrently. Every tool result ends with all project queues and the events since your last call; read them before deciding what to do next.',
+  'Every task needs a title that names the outcome and a cwd inside an allowed project directory. The cwd is the project identity: starting, pausing, resuming, and aborting a queue take that project cwd. Add verification commands when you know them.',
   'If a directory has never been used, queue the task with authorizeCwd: true only when the user named that directory themselves. The flag approves the path; never set it to get past a refusal on your own.',
-  'Ask the user before deleting a task, aborting a run, or marking work done without a run, and pass confirm: true only after they agree.',
+  'Ask the user before deleting a task, aborting a run, or marking work done without a run, and pass confirm: true only after they agree. Clearing completed tasks needs cwd so one project is not emptied with another.',
   'A queue event digest is a snapshot, and a wake arrives when the turn allows it. Call task_list before you answer, and trust the tool over any text.'
 ];
 
@@ -96,11 +101,11 @@ interface WatchOutcome {
 }
 
 function toolsFor(sessionId: string): TaskTools {
-  const orchestrator = getTaskOrchestrator();
+  const store = getTaskStore();
   return new TaskTools({
-    queue: orchestrator.queue,
-    store: orchestrator.queue.store,
-    orchestrator,
+    queue: getTaskQueue(),
+    store,
+    orchestratorFor: (projectKey, cwd) => getTaskOrchestrator(projectKey, cwd),
     sessionId,
     agentDir: getAgentDir()
   });
@@ -125,11 +130,10 @@ export function createTaskManagerExtension(
     name: TASK_MANAGER_EXTENSION_NAME,
     hidden: true,
     factory: (pi) => {
-      const orchestrator = () => getTaskOrchestrator();
-      const store = () => orchestrator().queue.store;
+      const store = () => getTaskStore();
       let watch: ActiveWatch | null = null;
 
-      const snapshot = () => queueSnapshot(orchestrator().status());
+      const snapshot = () => projectSnapshots(store());
 
       const budget = (): TaskWatchBudget => {
         const row = store().getWatch();
@@ -157,12 +161,13 @@ export function createTaskManagerExtension(
       };
 
       const queueHasWork = (): boolean =>
-        orchestrator()
-          .queue.listTasks()
+        getTaskQueue()
+          .listTasks()
           .some((task) => task.status === 'PENDING' || task.status === 'IN_PROGRESS');
 
       const queueIsIdle = (): boolean =>
-        orchestrator().queue.getQueueState().state === 'IDLE' && !queueHasWork();
+        !queueHasWork() &&
+        listTaskProjects(store()).every((project) => project.state === 'IDLE');
 
       /** Release the timer and the liveness provider, then forget the row. */
       const stopWatch = (sessionId: string): void => {
@@ -343,12 +348,15 @@ export function createTaskManagerExtension(
           name: 'task_list',
           label: 'List tasks',
           description:
-            'List the queue, the queue state, and optionally the recent run history. Read this before changing the queue.',
-          promptSnippet: 'Read the task queue',
+            'List tasks, every project queue state, and optionally the recent run history. Pass cwd to read one project. Read this before changing the queues.',
+          promptSnippet: 'Read the task queues',
           promptGuidelines: GUIDELINES,
           executionMode: 'sequential',
           parameters: Type.Object({
             status: Type.Optional(TASK_STATUS_SCHEMA),
+            cwd: Type.Optional(
+              Type.String({ description: 'Only list this project; omit for every project.' })
+            ),
             includeRuns: Type.Optional(
               Type.Boolean({ description: 'Include the recent run history.' })
             )
@@ -457,7 +465,7 @@ export function createTaskManagerExtension(
           name: 'task_delete',
           label: 'Delete tasks',
           description:
-            'Delete tasks by id, by list of ids, or every finished task. Requires confirm: true.',
+            'Delete tasks by id, by list of ids, or every finished task in one project. Requires confirm: true; clearing completed tasks also needs cwd.',
           promptSnippet: 'Delete tasks',
           promptGuidelines: GUIDELINES,
           executionMode: 'sequential',
@@ -466,6 +474,9 @@ export function createTaskManagerExtension(
             ids: Type.Optional(Type.Array(Type.Number(), { description: 'Several task ids.' })),
             completed: Type.Optional(
               Type.Boolean({ description: 'Delete every finished task instead of named ones.' })
+            ),
+            cwd: Type.Optional(
+              Type.String({ description: 'The project to clear when completed is true.' })
             ),
             confirm: Type.Optional(
               Type.Boolean({ description: 'Must be true; the call is refused without it.' })
@@ -483,12 +494,17 @@ export function createTaskManagerExtension(
           name: 'task_control',
           label: 'Control the queue',
           description:
-            'Start, pause, resume, or abort the queue; retry a blocked or failed task; mark a task done by hand. Abort and markDone require confirm: true. Starting turns the watch on.',
-          promptSnippet: 'Start, pause, resume, abort, retry, or finish the queue',
+            'Start, pause, resume, or abort one project queue (named by cwd); retry a blocked or failed task; mark a task done by hand. Different projects can run concurrently. Abort and markDone require confirm: true. Starting turns the watch on.',
+          promptSnippet: 'Start, pause, resume, abort, retry, or finish a project queue',
           promptGuidelines: GUIDELINES,
           executionMode: 'sequential',
           parameters: Type.Object({
             action: TASK_CONTROL_SCHEMA,
+            cwd: Type.Optional(
+              Type.String({
+                description: 'The project whose queue is controlled; required for start/pause/resume.'
+              })
+            ),
             id: Type.Optional(Type.Number({ description: 'Required for retry and markDone.' })),
             note: Type.Optional(
               Type.String({ description: 'A reason, stored with the transition.' })
@@ -575,7 +591,7 @@ export function createTaskManagerExtension(
           name: 'task_watch',
           label: 'Watch the queue',
           description:
-            'Turn on the watch that wakes this session when a task is claimed, settles, asks a question, or the queue pauses. It ends after a budget, when the queue is idle, or when you turn it off. Only one session watches at a time.',
+            'Turn on the watch that wakes this session when any project queue claims a task, settles one, asks a question, or pauses. It ends after a budget, when every project queue is idle, or when you turn it off. Only one session watches at a time.',
           promptSnippet: 'Wake this session when the queue changes',
           promptGuidelines: GUIDELINES,
           executionMode: 'sequential',
@@ -597,7 +613,7 @@ export function createTaskManagerExtension(
               ok: outcome.ok,
               ...(outcome.code ? { code: outcome.code } : {}),
               ...(outcome.error ? { error: outcome.error } : {}),
-              queue: snapshot(),
+              projects: snapshot(),
               events: [],
               data: {
                 watching: watch !== null,

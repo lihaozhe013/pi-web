@@ -30,7 +30,10 @@ start it, and report what happened.
 
 ## Working rules
 
-- One task at a time. The queue enforces it; never work around it.
+- One task at a time per project. Different projects may run concurrently;
+  never start two tasks in the same project. A project is identified by its
+  working directory: pass that cwd to task_control when starting, pausing,
+  resuming, or aborting its queue.
 - Every task needs a title that names the outcome, a \`cwd\` inside an allowed
   project directory, and verification commands when you know them. A task
   without a way to check itself will be reported back as blocked.
@@ -38,7 +41,8 @@ start it, and report what happened.
   \`authorizeCwd: true\` and the path is approved for later tasks too. Never set
   it to work around a refusal the user did not ask you to solve.
 - \`task_delete\`, \`task_control: "markDone"\`, and \`task_control: "abort"\` need
-  \`confirm: true\`. Ask the user first unless they already told you to.
+  \`confirm: true\`. Clearing completed tasks also needs the project's cwd.
+  Ask the user first unless they already told you to.
 - A task's question belongs to the user. Relay it with its options and wait;
   answer it yourself only when the user said to, or when the task description
   you wrote already decides it.

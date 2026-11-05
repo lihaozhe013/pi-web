@@ -28,6 +28,8 @@ export interface TaskRecord {
   description: string | null;
   status: TaskStatus;
   rank: number;
+  /** The normalized cwd identity every project-scoped query groups by. */
+  projectKey: string;
   cwd: string;
   /** Null means "use the queue default". */
   allowAskUser: boolean | null;
@@ -61,10 +63,30 @@ export interface TaskRunRecord {
 }
 
 export interface QueueStateRecord {
+  projectKey: string;
+  cwd: string;
   state: QueueState;
   pausedReason: string | null;
   activeTaskId: number | null;
   updatedAt: string;
+}
+
+/** One project's queue as the board and the task sidebar read it. */
+export interface TaskProjectSummary {
+  projectKey: string;
+  cwd: string;
+  state: QueueState;
+  pausedReason: string | null;
+  activeTaskId: number | null;
+  activeTaskTitle: string | null;
+  /** True while this process is driving the project's loop. */
+  running: boolean;
+  pending: number;
+  blocked: number;
+  failed: number;
+  done: number;
+  total: number;
+  updatedAt: string | null;
 }
 
 /** The model a task's child starts with; `null` keeps Pi's own default. */
@@ -99,6 +121,8 @@ export interface TaskActivity {
 }
 
 export interface OrchestratorStatus {
+  projectKey: string;
+  cwd: string;
   state: QueueState;
   pausedReason: string | null;
   activeTaskId: number | null;
@@ -119,6 +143,8 @@ export interface TaskEvent {
   id: number;
   /** Null for a queue-level event such as a pause or a configuration write. */
   taskId: number | null;
+  /** The project the event belongs to; null for global configuration writes. */
+  projectKey: string | null;
   kind: TaskEventKind;
   /** The task's status at the time, so a digest needs no second read. */
   status: TaskStatus | null;
@@ -131,6 +157,7 @@ export interface TaskEvent {
 export interface TaskEventInput {
   kind: TaskEventKind;
   taskId?: number | null;
+  projectKey?: string | null;
   status?: TaskStatus | null;
   summary?: string | null;
   originSessionId?: string | null;

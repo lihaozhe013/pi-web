@@ -1,7 +1,6 @@
 import { json } from '@/server/http';
-import { getTaskOrchestrator } from '@/lib/tasks/orchestrator';
+import { getTaskQueue, TaskInputError } from '@/lib/tasks/queue';
 import { noStore, readTaskBody, taskErrorResponse } from '@/lib/tasks/request';
-import { TaskInputError } from '@/lib/tasks/queue';
 import type { TaskMoveAction, TaskUpdateInput } from '@/lib/tasks/types';
 
 function updateFromBody(body: Record<string, unknown>): TaskUpdateInput {
@@ -22,6 +21,24 @@ function updateFromBody(body: Record<string, unknown>): TaskUpdateInput {
   return update;
 }
 
+/** The task behind a deep link, with the project a board should open. */
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await params;
+    const taskId = Number(id);
+    const task = getTaskQueue().getTask(taskId);
+    return json(
+      {
+        task,
+        project: { projectKey: task.projectKey, cwd: task.cwd }
+      },
+      noStore()
+    );
+  } catch (error) {
+    return taskErrorResponse(error);
+  }
+}
+
 /** `update`, `move`, `retry`, and `markDone`; every path respects the running guard. */
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -30,12 +47,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (!Number.isInteger(taskId) || taskId <= 0) throw new TaskInputError('Invalid task id');
     const body = await readTaskBody(req);
     const action = body.action;
-    const orchestrator = getTaskOrchestrator();
-    const queue = orchestrator.queue;
+    const queue = getTaskQueue();
 
     if (action === 'update') {
       const task = await queue.updateTask(taskId, updateFromBody(body));
-      return json({ task }, noStore());
+      return json(
+        {
+          task,
+          project: { projectKey: task.projectKey, cwd: task.cwd }
+        },
+        noStore()
+      );
     }
     if (action === 'move') {
       const move: TaskMoveAction = {};
@@ -64,7 +86,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     const { id } = await params;
     const taskId = Number(id);
     if (!Number.isInteger(taskId) || taskId <= 0) throw new TaskInputError('Invalid task id');
-    getTaskOrchestrator().queue.deleteTask(taskId);
+    getTaskQueue().deleteTask(taskId);
     return json({ deleted: taskId }, noStore());
   } catch (error) {
     return taskErrorResponse(error);

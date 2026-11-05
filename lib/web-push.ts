@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readFileSync } from 'fs';
-import { dirname, join } from 'path';
+import { basename, dirname, join } from 'path';
 import webpush from 'web-push';
 import { writePrivateFileAtomicSync } from './atomic-file';
 import { enLocale } from './i18n/messages/en';
@@ -41,6 +41,8 @@ export interface WebPushNotifier {
 export interface TaskPushNotification {
   kind: 'complete' | 'done' | 'blocked' | 'failed' | 'question';
   task: { id: number; title: string } | null;
+  /** The project whose queue produced the event. */
+  project?: { projectKey: string; cwd: string } | null;
   reason?: string;
 }
 
@@ -157,12 +159,22 @@ function taskPushPayload(
   notification: TaskPushNotification
 ): { title: string; body: string; url: string; tag: string } {
   const label = notification.task ? `T${notification.task.id} ${notification.task.title}` : null;
+  const projectName = notification.project?.cwd
+    ? basename(notification.project.cwd) || notification.project.cwd
+    : null;
+  const projectQuery = notification.project?.cwd
+    ? `&cwd=${encodeURIComponent(notification.project.cwd)}`
+    : '';
   if (notification.kind === 'complete') {
     return {
       title: localeText(locale, 'taskQueueComplete'),
-      body: localeText(locale, 'taskFinished'),
-      url: '/?mode=tasks',
-      tag: 'pie-task-queue'
+      body: projectName
+        ? `${projectName} · ${localeText(locale, 'taskFinished')}`
+        : localeText(locale, 'taskFinished'),
+      url: `/?mode=tasks${projectQuery}`,
+      tag: notification.project
+        ? `pie-task-queue:${notification.project.projectKey}`
+        : 'pie-task-queue'
     };
   }
   const bodyKey: PushTextKey =
@@ -176,8 +188,10 @@ function taskPushPayload(
   const taskId = notification.task?.id ?? 0;
   return {
     title: label ?? localeText(locale, bodyKey),
-    body: localeText(locale, bodyKey),
-    url: `/?mode=tasks&task=${encodeURIComponent(String(taskId))}`,
+    body: projectName
+      ? `${projectName} · ${localeText(locale, bodyKey)}`
+      : localeText(locale, bodyKey),
+    url: `/?mode=tasks${projectQuery}&task=${encodeURIComponent(String(taskId))}`,
     tag: `pie-task-${notification.kind}:${taskId}`
   };
 }

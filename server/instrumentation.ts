@@ -1,6 +1,9 @@
 import { configureHttpDispatcher, readHttpIdleTimeoutMs } from '@/lib/http-dispatcher';
 import { closeAllAgentEventStreams } from '@/lib/agent-event-stream';
-import { shutdownActiveTaskOrchestrator } from '@/lib/tasks/orchestrator';
+import {
+  ensureTaskQueuesRecovered,
+  shutdownTaskOrchestrators
+} from '@/lib/tasks/orchestrator';
 
 /**
  * Process-wide setup that has to happen before the first request, and the shutdown steps that
@@ -23,10 +26,17 @@ export function registerNodeInstrumentation(): void {
   // active child and settle its task before the process goes away. This creates
   // no orchestrator when the queue was never used.
   const shutdownTasks = () => {
-    void shutdownActiveTaskOrchestrator().catch(() => {});
+    void shutdownTaskOrchestrators().catch(() => {});
   };
   process.on('SIGINT', shutdownTasks);
   process.on('SIGTERM', shutdownTasks);
+
+  // A task left IN_PROGRESS belongs to a server that is gone unless another
+  // process holds its project lock. Start the probe now; the first task API
+  // request waits for it, so the board never reports a dead run as running.
+  void ensureTaskQueuesRecovered().catch((error) => {
+    console.warn('[pie] could not recover task queues at startup:', error);
+  });
 
   // A route's module is evaluated on its first request, so the first /api/sessions used to pay
   // for importing the whole pi SDK, seconds on Windows (#964). Start that import now, unawaited

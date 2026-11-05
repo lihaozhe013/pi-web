@@ -1,5 +1,9 @@
 import { json } from '@/server/http';
-import { OrchestratorConflictError, getTaskOrchestrator } from '@/lib/tasks/orchestrator';
+import {
+  OrchestratorConflictError,
+  getTaskOrchestrator
+} from '@/lib/tasks/orchestrator';
+import { getTaskQueue } from '@/lib/tasks/queue';
 import { noStore, readTaskBody, taskErrorResponse } from '@/lib/tasks/request';
 import type { TaskAnswerInput } from '@/lib/tasks/types';
 
@@ -19,7 +23,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (!input.cancelled && !input.answer?.trim()) {
       throw new OrchestratorConflictError('no_pending_question', 'An answer is required');
     }
-    await getTaskOrchestrator().answer(taskId, input);
+    const task = getTaskQueue().getTask(taskId);
+    await getTaskOrchestrator(task.projectKey, task.cwd).answer(taskId, input);
     return json({ answered: taskId }, noStore());
   } catch (error) {
     return taskErrorResponse(error);

@@ -2,29 +2,34 @@
  * The queue tools an operator session can call.
  *
  * Nothing here knows about Pi: every method validates its input, calls the same
- * `TaskQueue` and `TaskOrchestrator` the board uses, and returns a plain object.
- * The extension in `lib/task-manager-extension.ts` only turns these results into
- * tool output, which keeps the rules testable without an agent runtime.
+ * `TaskQueue` and per-project `TaskOrchestrator` the board uses, and returns a
+ * plain object. The extension in `lib/task-manager-extension.ts` only turns
+ * these results into tool output.
  *
  * Two invariants shape every method:
  *
  * - No SQL. A tool that wrote the database directly would bypass the claim
  *   guard, the fencing token, and the working-directory allow-list.
- * - Every result carries the queue snapshot and the events newer than this
- *   session's cursor, so one call always leaves the model grounded in what
- *   actually happened.
+ * - Every result carries every project's queue snapshot and the events newer
+ *   than this session's cursor, so one call always leaves the model grounded in
+ *   what actually happened.
  */
+import { basename } from 'node:path';
 import { getAgentDir } from '../session-reader';
 import { configChangeSummary, readTaskConfig, writeTaskConfig } from './config';
 import { parseTaskConfigPatch } from './config-fields';
-import type { TaskOrchestrator } from './orchestrator';
+import {
+  listTaskProjects,
+  type TaskOrchestrator
+} from './orchestrator';
 import { clipOutputTail, TaskQueue } from './queue';
+import { resolveTaskProject } from './projects';
 import { TASK_EVENT_PAGE_LIMIT, type TaskStore } from './store';
 import type {
-  OrchestratorStatus,
   QueueState,
   TaskConfig,
   TaskEvent,
+  TaskProjectSummary,
   TaskRecord,
   TaskRunRecord,
   TaskStatus
@@ -45,16 +50,6 @@ export const TASK_MANAGER_TOOL_NAMES = [
 
 export type TaskManagerToolName = (typeof TASK_MANAGER_TOOL_NAMES)[number];
 
-/** The queue state every result and digest describes. */
-export function queueSnapshot(status: OrchestratorStatus): TaskQueueSnapshot {
-  return {
-    state: status.state,
-    activeTaskId: status.activeTaskId,
-    pausedReason: status.pausedReason,
-    running: status.running
-  };
-}
-
 /** `task_events` waits at most this long, inside one tool call. */
 export const TASK_EVENTS_MAX_WAIT_MS = 50_000;
 export const TASK_EVENTS_POLL_MS = 250;
@@ -65,18 +60,27 @@ const TASK_TOOL_SUMMARY_MAX_LENGTH = 2_000;
 export interface TaskToolOptions {
   queue: TaskQueue;
   store: TaskStore;
-  orchestrator: TaskOrchestrator;
+  /** The orchestrator that drives one project, resolved lazily. */
+  orchestratorFor: (projectKey: string, cwd: string) => TaskOrchestrator;
   /** The calling session. Its cursor decides which events a result carries. */
   sessionId: string;
   /** Where the queue defaults live; defaults to the shared agent directory. */
   agentDir?: string;
 }
 
-export interface TaskQueueSnapshot {
+/** One project's queue as a tool result or digest reports it. */
+export interface TaskProjectSnapshot {
+  projectKey: string;
+  cwd: string;
   state: QueueState;
   activeTaskId: number | null;
+  activeTaskTitle: string | null;
   pausedReason: string | null;
   running: boolean;
+  pending: number;
+  blocked: number;
+  failed: number;
+  done: number;
 }
 
 /** What every tool call answers with, whether it succeeded or was refused. */
@@ -86,7 +90,8 @@ export interface TaskToolResult {
   code?: string;
   /** A sentence the model can act on; absent on success. */
   error?: string;
-  queue: TaskQueueSnapshot;
+  /** Every project's queue, so the model sees the whole system in one call. */
+  projects: TaskProjectSnapshot[];
   /** Events this session had not seen before this call. */
   events: TaskEvent[];
   data?: Record<string, unknown>;
@@ -94,6 +99,8 @@ export interface TaskToolResult {
 
 export interface TaskListParams {
   status?: TaskStatus;
+  /** Limit the list to one project. Omit for every project. */
+  cwd?: string;
   includeRuns?: boolean;
 }
 
@@ -120,13 +127,16 @@ export interface TaskMoveParams {
 export interface TaskDeleteParams {
   id?: number;
   ids?: number[];
-  /** Delete every finished task. Requires `confirm`. */
+  /** Delete every finished task in the project named by `cwd`. Requires `confirm`. */
   completed?: boolean;
+  cwd?: string;
   confirm?: boolean;
 }
 
 export interface TaskControlParams {
   action: 'start' | 'pause' | 'resume' | 'abort' | 'retry' | 'markDone';
+  /** The project whose queue is controlled; required for start/pause/resume. */
+  cwd?: string;
   id?: number;
   note?: string;
   confirm?: boolean;
@@ -176,11 +186,18 @@ function requireId(value: unknown): number {
   return id;
 }
 
+/** A short, human name for a project key or cwd. */
+export function projectLabel(cwdOrKey: string): string {
+  if (!cwdOrKey) return 'unknown project';
+  return basename(cwdOrKey) || cwdOrKey;
+}
+
 function taskSummary(task: TaskRecord): Record<string, unknown> {
   return {
     id: task.id,
     title: task.title,
     status: task.status,
+    projectKey: task.projectKey,
     cwd: task.cwd,
     createdBy: task.createdBy,
     attempts: task.attempts,
@@ -203,17 +220,38 @@ function runSummary(run: TaskRunRecord): Record<string, unknown> {
   };
 }
 
+export function projectSnapshot(project: TaskProjectSummary): TaskProjectSnapshot {
+  return {
+    projectKey: project.projectKey,
+    cwd: project.cwd,
+    state: project.state,
+    activeTaskId: project.activeTaskId,
+    activeTaskTitle: project.activeTaskTitle,
+    pausedReason: project.pausedReason,
+    running: project.running,
+    pending: project.pending,
+    blocked: project.blocked,
+    failed: project.failed,
+    done: project.done
+  };
+}
+
+/** The whole system as a tool result or digest reports it. */
+export function projectSnapshots(store: TaskStore): TaskProjectSnapshot[] {
+  return listTaskProjects(store).map(projectSnapshot);
+}
+
 export class TaskTools {
   private readonly queue: TaskQueue;
   private readonly store: TaskStore;
-  private readonly orchestrator: TaskOrchestrator;
+  private readonly orchestratorFor: (projectKey: string, cwd: string) => TaskOrchestrator;
   private readonly sessionId: string;
   private readonly agentDir: string;
 
   constructor(options: TaskToolOptions) {
     this.queue = options.queue;
     this.store = options.store;
-    this.orchestrator = options.orchestrator;
+    this.orchestratorFor = options.orchestratorFor;
     this.sessionId = options.sessionId;
     this.agentDir = options.agentDir ?? getAgentDir();
   }
@@ -221,19 +259,24 @@ export class TaskTools {
   // ------------------------------------------------------------------- reading
 
   async list(params: TaskListParams = {}): Promise<TaskToolResult> {
+    const project = params.cwd ? this.projectForCwd(params.cwd) : null;
     const tasks = this.queue
-      .listTasks()
+      .listTasks(project?.projectKey)
       .filter((task) => !params.status || task.status === params.status)
       .map(taskSummary);
     const data: Record<string, unknown> = { tasks };
-    if (params.includeRuns) data.runs = this.queue.listRuns().map(runSummary);
+    if (params.includeRuns) {
+      data.runs = this.queue.listRuns(project?.projectKey).map(runSummary);
+    }
     return this.success(data);
   }
 
   /**
    * Read the events this session has not seen. `waitMs` is a bounded long poll:
    * it exists so a caller can wait for a settle inside one turn, and it is not
-   * the mechanism the watcher uses.
+   * the mechanism the watcher uses. The cursor is global on purpose: filtering
+   * the page by project while advancing one cursor would hide another project's
+   * events forever.
    */
   async events(params: TaskEventsParams = {}): Promise<TaskToolResult> {
     const limit = Math.min(
@@ -304,12 +347,14 @@ export class TaskTools {
   async move(params: TaskMoveParams): Promise<TaskToolResult> {
     return this.attempt(() => {
       const id = requireId(params.id);
+      const task = this.queue.getTask(id);
       const tasks = this.queue.moveTask(id, {
         direction: params.direction,
         position: params.position
       });
       return {
-        order: tasks.filter((task) => task.status === 'PENDING').map((task) => task.id)
+        projectKey: task.projectKey,
+        order: tasks.filter((entry) => entry.status === 'PENDING').map((entry) => entry.id)
       };
     });
   }
@@ -320,9 +365,12 @@ export class TaskTools {
         refusal('confirmation_required', 'Deleting a task needs confirm: true; ask the user first');
       }
       if (params.completed === true) {
-        const done = this.queue.listTasks().filter((task) => task.status === 'DONE');
+        const project = this.requireProject(params.cwd, 'Pass cwd to clear completed tasks in one project');
+        const done = this.queue
+          .listTasks(project.projectKey)
+          .filter((task) => task.status === 'DONE');
         for (const task of done) this.queue.deleteTask(task.id);
-        return { deleted: done.map((task) => task.id) };
+        return { deleted: done.map((task) => task.id), projectKey: project.projectKey };
       }
       const ids = params.ids ?? (params.id !== undefined ? [params.id] : []);
       if (ids.length === 0) refusal('invalid_input', 'Pass an id, ids, or completed: true');
@@ -340,28 +388,49 @@ export class TaskTools {
     return this.attempt(async () => {
       switch (params.action) {
         case 'start': {
-          if (this.orchestrator.running) {
-            refusal('already_running', 'The queue is already running');
+          const project = this.requireProject(
+            params.cwd,
+            'Pass cwd to start a project queue'
+          );
+          const orchestrator = this.orchestratorFor(project.projectKey, project.cwd);
+          if (orchestrator.running) {
+            refusal('already_running', `The queue for ${projectLabel(project.cwd)} is already running`);
           }
           // The loop runs until the queue is empty or paused; awaiting it here
           // would hold the tool call open for the whole run.
-          this.orchestrator.start().catch((error) => {
+          orchestrator.start().catch((error) => {
             console.warn('[pie] the task queue could not start:', error);
           });
-          return { action: 'start', accepted: true };
+          return { action: 'start', projectKey: project.projectKey, cwd: project.cwd };
         }
-        case 'pause':
-          await this.orchestrator.pause(params.note, this.sessionId);
-          return { action: 'pause' };
-        case 'resume':
-          await this.orchestrator.resume();
-          return { action: 'resume' };
-        case 'abort':
+        case 'pause': {
+          const project = this.requireProject(params.cwd, 'Pass cwd to pause a project queue');
+          const status = await this.orchestratorFor(project.projectKey, project.cwd).pause(
+            params.note,
+            this.sessionId
+          );
+          return { action: 'pause', projectKey: status.projectKey };
+        }
+        case 'resume': {
+          const project = this.requireProject(params.cwd, 'Pass cwd to resume a project queue');
+          const status = await this.orchestratorFor(project.projectKey, project.cwd).resume();
+          return { action: 'resume', projectKey: status.projectKey };
+        }
+        case 'abort': {
           if (params.confirm !== true) {
             refusal('confirmation_required', 'Aborting the running task needs confirm: true');
           }
-          await this.orchestrator.abort(this.sessionId);
-          return { action: 'abort' };
+          const project = params.cwd
+            ? this.projectForCwd(params.cwd)
+            : params.id !== undefined
+              ? this.projectForTask(requireId(params.id))
+              : null;
+          if (!project) refusal('invalid_input', 'Pass cwd or id to abort a task');
+          const status = await this.orchestratorFor(project.projectKey, project.cwd).abort(
+            this.sessionId
+          );
+          return { action: 'abort', projectKey: status.projectKey };
+        }
         case 'retry':
           return {
             action: 'retry',
@@ -392,12 +461,13 @@ export class TaskTools {
       if (params.cancelled !== true && !params.answer?.trim()) {
         refusal('invalid_input', 'An answer or cancelled: true is required');
       }
-      await this.orchestrator.answer(
+      const task = this.queue.getTask(id);
+      await this.orchestratorFor(task.projectKey, task.cwd).answer(
         id,
         { answer: params.answer, cancelled: params.cancelled === true },
         this.sessionId
       );
-      return { answered: id, cancelled: params.cancelled === true };
+      return { answered: id, cancelled: params.cancelled === true, projectKey: task.projectKey };
     });
   }
 
@@ -419,6 +489,30 @@ export class TaskTools {
 
   // -------------------------------------------------------------------- results
 
+  /** Every project's queue, used by results and by the watcher digest. */
+  projectsSnapshot(): TaskProjectSnapshot[] {
+    return this.projects().map(projectSnapshot);
+  }
+
+  private projects(): TaskProjectSummary[] {
+    return listTaskProjects(this.store);
+  }
+
+  private projectForCwd(cwd: string): TaskProjectSummary | null {
+    return resolveTaskProject(this.projects(), cwd);
+  }
+
+  private projectForTask(id: number): TaskProjectSummary | null {
+    const task = this.queue.getTask(id);
+    return resolveTaskProject(this.projects(), task.cwd);
+  }
+
+  private requireProject(cwd: string | undefined, message: string): TaskProjectSummary {
+    const project = cwd ? this.projectForCwd(cwd) : null;
+    if (!project) refusal('invalid_input', message);
+    return project;
+  }
+
   private async attempt(
     body: () => Record<string, unknown> | Promise<Record<string, unknown>>
   ): Promise<TaskToolResult> {
@@ -427,10 +521,6 @@ export class TaskTools {
     } catch (error) {
       return this.failure(error);
     }
-  }
-
-  private snapshot(): TaskQueueSnapshot {
-    return queueSnapshot(this.orchestrator.status());
   }
 
   /** The cursor read is best effort: a failure here must not hide the outcome. */
@@ -446,7 +536,7 @@ export class TaskTools {
   private success(data?: Record<string, unknown>, events?: TaskEvent[]): TaskToolResult {
     return {
       ok: true,
-      queue: this.snapshot(),
+      projects: this.projectsSnapshot(),
       events: events ?? this.unseenEvents(),
       ...(data ? { data } : {})
     };
@@ -457,7 +547,7 @@ export class TaskTools {
       ok: false,
       code: errorCode(error),
       error: errorMessage(error),
-      queue: this.snapshot(),
+      projects: this.projectsSnapshot(),
       events: this.unseenEvents()
     };
   }
@@ -469,16 +559,35 @@ export function eventSummary(event: TaskEvent): Record<string, unknown> {
     id: event.id,
     kind: event.kind,
     taskId: event.taskId,
+    projectKey: event.projectKey,
     status: event.status,
     summary: event.summary ? clipOutputTail(event.summary, TASK_TOOL_SUMMARY_MAX_LENGTH) : null,
     createdAt: event.createdAt
   };
 }
 
+function describeProject(project: TaskProjectSnapshot): string {
+  const label = projectLabel(project.cwd || project.projectKey);
+  const parts = [`${label} ${project.state}`];
+  if (project.running) parts.push('loop running');
+  if (project.activeTaskId !== null) {
+    parts.push(
+      project.activeTaskTitle
+        ? `task ${project.activeTaskId} ${project.activeTaskTitle}`
+        : `task ${project.activeTaskId} running`
+    );
+  }
+  if (project.pending > 0) parts.push(`${project.pending} queued`);
+  if (project.blocked > 0) parts.push(`${project.blocked} blocked`);
+  if (project.failed > 0) parts.push(`${project.failed} failed`);
+  if (project.pausedReason) parts.push(`paused: ${project.pausedReason}`);
+  return parts.join(', ');
+}
+
 /**
- * A tool result as text: the outcome first, then the queue, then the data, then
- * the news. The model reads this before deciding what to do next, so the first
- * line has to answer "did it work".
+ * A tool result as text: the outcome first, then the project queues, then the
+ * data, then the news. The model reads this before deciding what to do next, so
+ * the first line has to answer "did it work".
  */
 export function formatTaskToolResult(result: TaskToolResult): string {
   const lines: string[] = [];
@@ -488,13 +597,19 @@ export function formatTaskToolResult(result: TaskToolResult): string {
       : `refused (${result.code ?? 'internal_error'}): ${result.error ?? 'unknown error'}`
   );
 
-  const state = [
-    `queue ${result.queue.state}`,
-    result.queue.running ? 'loop running' : null,
-    result.queue.activeTaskId !== null ? `active task ${result.queue.activeTaskId}` : null,
-    result.queue.pausedReason ? `paused: ${result.queue.pausedReason}` : null
-  ].filter(Boolean);
-  lines.push(state.join(', '));
+  const active = result.projects.filter(
+    (project) =>
+      project.state !== 'IDLE' ||
+      project.activeTaskId !== null ||
+      project.pending > 0 ||
+      project.blocked > 0 ||
+      project.failed > 0
+  );
+  lines.push(
+    active.length > 0
+      ? active.map(describeProject).join(' · ')
+      : 'all project queues idle'
+  );
 
   if (result.data !== undefined) lines.push(JSON.stringify(result.data));
 
@@ -518,24 +633,38 @@ export interface TaskWatchBudget {
 }
 
 /**
- * The one message a wake delivers: what changed, then the queue it changed to.
+ * The one message a wake delivers: what changed, then the queues it changed to.
  * It stays short on purpose; a watch that narrated activity would spend the
  * user's tokens on lines that decide nothing.
  */
 export function formatTaskEventDigest(
   events: TaskEvent[],
-  queue: TaskQueueSnapshot,
+  projects: TaskProjectSnapshot[],
   budget?: TaskWatchBudget
 ): string {
   const lines = events.map((event) => `- ${describeEvent(event)}`);
-  const queueLine = [
-    `queue ${queue.state}`,
-    queue.activeTaskId !== null ? `task ${queue.activeTaskId} running` : null,
-    queue.pausedReason ? `paused: ${queue.pausedReason}` : null
-  ].filter((part): part is string => Boolean(part));
-  if (budget) queueLine.push(`wake ${budget.wakes} of ${budget.maxWakes}`);
-  if (budget?.at) queueLine.push(`as of ${budget.at}`);
-  lines.push(queueLine.join(', '));
+  const touched = new Set(
+    events
+      .map((event) => event.projectKey)
+      .filter((key): key is string => typeof key === 'string')
+  );
+  const visible = projects.filter(
+    (project) =>
+      touched.has(project.projectKey) ||
+      project.state !== 'IDLE' ||
+      project.activeTaskId !== null ||
+      project.pending > 0 ||
+      project.blocked > 0 ||
+      project.failed > 0
+  );
+  const queueLine =
+    visible.length > 0
+      ? `queues: ${visible.map(describeProject).join('; ')}`
+      : 'all project queues idle';
+  const parts = [queueLine];
+  if (budget) parts.push(`wake ${budget.wakes} of ${budget.maxWakes}`);
+  if (budget?.at) parts.push(`as of ${budget.at}`);
+  lines.push(parts.join(', '));
   return lines.join('\n');
 }
 
@@ -544,5 +673,8 @@ function describeEvent(event: TaskEvent): string {
   if (event.taskId !== null) parts.push(`task ${event.taskId}`);
   if (event.status) parts.push(event.status);
   const head = parts.join(' ');
-  return event.summary ? `${head}: ${clipOutputTail(event.summary, 300)}` : head;
+  const project = event.projectKey ? `${projectLabel(event.projectKey)}: ` : '';
+  return event.summary
+    ? `${project}${head}: ${clipOutputTail(event.summary, 300)}`
+    : `${project}${head}`;
 }
