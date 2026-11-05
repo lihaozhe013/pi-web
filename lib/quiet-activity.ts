@@ -7,8 +7,8 @@ import type { AssistantContentBlock, ToolResultMessage } from './types';
  */
 export type TranscriptToolDisplay = 'cards' | 'conversation';
 
-/** The default: kept cards stay in the transcript. */
-export const TRANSCRIPT_TOOL_DISPLAY_DEFAULT: TranscriptToolDisplay = 'cards';
+/** The default: the transcript stays conversation-only; the Runs panel keeps every call. */
+export const TRANSCRIPT_TOOL_DISPLAY_DEFAULT: TranscriptToolDisplay = 'conversation';
 
 /**
  * Exploration calls leave no card: the composer status row carries them while

@@ -470,7 +470,9 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     () => initialChoices?.model ?? null
   );
   const [newSessionDefaultModel, setNewSessionDefaultModel] = useState<SelectedModel | null>(null);
-  const [toolPreset, setToolPreset] = useState<ToolPresetSelection>(CONFIGURED_TOOL_PRESET);
+  // Starts on the first-install default; a saved preference replaces it before
+  // any session is created (see the layout effect below).
+  const [toolPreset, setToolPreset] = useState<ToolPresetSelection>('full');
   // The user's custom tool presets, served from `pie-tool-presets.json`. The
   // list is read once and refreshed after each editor save; the ref lets the
   // session callbacks below resolve a `custom:<id>` selection without becoming

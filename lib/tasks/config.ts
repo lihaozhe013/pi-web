@@ -27,10 +27,10 @@ export function taskConfigPath(agentDir: string = getAgentDir()): string {
 
 /**
  * A timeout is a positive number of milliseconds, or `null` for "no limit".
- * A missing or malformed value falls back to the default rather than to null,
- * so a typo cannot silently remove the watchdog.
+ * A missing or malformed value falls back to the default, which is itself
+ * "no limit" on a first install.
  */
-function timeoutOrNull(value: unknown, fallback: number): number | null {
+function timeoutOrNull(value: unknown, fallback: number | null): number | null {
   if (value === null) return null;
   return typeof value === 'number' && Number.isFinite(value) && value > 0
     ? Math.round(value)

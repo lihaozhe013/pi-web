@@ -11,6 +11,13 @@ import { serializeByKey } from './key-serializer';
 /** Largest `pie-model-settings.json` that is parsed; a larger file is ignored. */
 const SETTINGS_MAX_BYTES = 1024 * 1024;
 
+/**
+ * The cap applied when `pie-model-settings.json` never configured one, shown
+ * pre-filled in Models › General: models with a larger native window run as if
+ * they were this size.
+ */
+export const DEFAULT_CONTEXT_WINDOW_LIMIT = 350_000;
+
 /** General pie model settings, beside pi's own files in the agent directory. */
 export function getModelsSettingsPath(agentDir = getAgentDir()): string {
   return join(agentDir, 'pie-model-settings.json');
@@ -58,33 +65,43 @@ function storeCachedValue(
   fileCache().set(path, { mtimeMs: stats.mtimeMs, size: stats.size, ino: stats.ino, value });
 }
 
-function parseSettingsText(path: string, text: string): number | null {
+/**
+ * The saved value: a positive number, `null` for an explicit "no cap" (a blank
+ * save stores a literal `null` key), or `undefined` when the file does not
+ * configure the key at all, which reads as the first-install default.
+ */
+function parseSettingsText(path: string, text: string): number | null | undefined {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
   } catch {
     console.warn(`[pie] ${path} is not valid JSON; reading the context window limit as unset`);
-    return null;
+    return undefined;
   }
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
     console.warn(
       `[pie] ${path} is not a settings object; reading the context window limit as unset`
     );
-    return null;
+    return undefined;
   }
   const value = (parsed as { contextWindowLimit?: unknown }).contextWindowLimit;
-  if (value === undefined || value === null) return null;
+  // Only a missing key means "never configured"; a present `null` is the
+  // explicit no-cap a blank save writes.
+  if (value === null) return null;
+  if (value === undefined) return undefined;
   const limit = parseContextWindow(value);
   if (limit === undefined) {
     console.warn(`[pie] ${path} has an invalid contextWindowLimit; reading it as unset`);
-    return null;
+    return undefined;
   }
   return limit;
 }
 
 /**
- * The saved cap, or null when it is unset. A missing, unparsable or unreadable
- * file reads as null: no cap must never become a model-listing failure.
+ * The saved cap, the first-install default of 350,000 tokens when never
+ * configured, or `null` for an explicit "no cap" saved as a blank field. A
+ * missing, unparsable or unreadable file reads as the default: a broken file
+ * must never become a model-listing failure.
  */
 export function readContextWindowLimit(path = getModelsSettingsPath()): number | null {
   let stats;
@@ -92,7 +109,7 @@ export function readContextWindowLimit(path = getModelsSettingsPath()): number |
     stats = statSync(path);
   } catch {
     fileCache().delete(path);
-    return null;
+    return DEFAULT_CONTEXT_WINDOW_LIMIT;
   }
   const cached = cachedValue<number>(path, stats);
   if (cached !== undefined) return cached;
@@ -102,15 +119,16 @@ export function readContextWindowLimit(path = getModelsSettingsPath()): number |
   try {
     text = readRegularFileText(path, SETTINGS_MAX_BYTES);
   } catch {
-    // Unreadable (not a regular file, too large): the cap reads as unset.
+    // Unreadable (not a regular file, too large): the cap reads as the default.
     fileCache().delete(path);
-    return null;
+    return DEFAULT_CONTEXT_WINDOW_LIMIT;
   }
   if (text === undefined) {
     fileCache().delete(path);
-    return null;
+    return DEFAULT_CONTEXT_WINDOW_LIMIT;
   }
-  const limit = parseSettingsText(path, text);
+  const parsed = parseSettingsText(path, text);
+  const limit = parsed === undefined ? DEFAULT_CONTEXT_WINDOW_LIMIT : parsed;
   storeCachedValue(path, stats, limit);
   return limit;
 }
@@ -168,7 +186,8 @@ export function readModelOverrideWindows(
 const WRITE_QUEUE: symbol = Symbol.for('pie:context-window-limit-write');
 
 /**
- * Validate and save the cap (null removes it), returning the saved value.
+ * Validate and save the cap (`null` saves the explicit "no cap" a blank field
+ * means), returning the saved value.
  *
  * The write merges into the file's current object, so other pie settings
  * added beside `contextWindowLimit` survive; an unparsable file is set aside
@@ -204,8 +223,9 @@ export async function writeContextWindowLimit(
         }
       }
     }
-    if (saved === null) delete doc.contextWindowLimit;
-    else doc.contextWindowLimit = saved;
+    // A blank save stores a literal `null`, not a missing key: an explicit no
+    // cap must survive reads that treat an unconfigured file as the default.
+    doc.contextWindowLimit = saved;
     writePrivateFileAtomicSync(path, `${JSON.stringify(doc, null, 2)}\n`);
     try {
       storeCachedValue(path, statSync(path), saved);

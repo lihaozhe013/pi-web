@@ -70,7 +70,10 @@ semantics. Global and project model lists have separate cache keys; default and 
 still write global settings and refuse edits shadowed by the selected project's settings.
 
 Settings › Models › General saves a global context window limit in `pie-model-settings.json` in the
-agent directory (`lib/model-context-limit.ts`, served by `server/api/models/context-limit`). Because pi
+agent directory (`lib/model-context-limit.ts`, served by `server/api/models/context-limit`). A
+never-configured file applies the first-install default of 350,000 tokens
+(`DEFAULT_CONTEXT_WINDOW_LIMIT`); saving a blank stores an explicit `null`, which removes the cap.
+Because pi
 compacts from the session model's native `contextWindow`, the limit is applied where models are
 resolved: `withContextWindowLimit()` wraps the `ModelRuntime` the same transparent way
 `withDeferredProviderModels()` does — session runtimes in `lib/rpc-manager.ts`, the shared

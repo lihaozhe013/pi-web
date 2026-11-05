@@ -8,10 +8,11 @@ import { ConfigButton, ConfigField, ConfigSectionTitle } from './SettingsUi';
  *
  * Like the enabled-model switches beside it in the Models panel, a save writes
  * through its API right away instead of waiting for the panel's Save button.
- * The draft is the input's text; blank means no cap. Every model then runs
- * with `min(native, limit)` as its default context window, so pi compacts
- * earlier; a smaller native window keeps itself and an explicit per-model
- * value (the same panel's enabled rows) always wins.
+ * The draft is the input's text; blank saves an explicit no cap. Until a value
+ * is saved the field shows the first-install default (350,000 tokens); every
+ * model then runs with `min(native, limit)` as its default context window, so
+ * pi compacts earlier; a smaller native window keeps itself and an explicit
+ * per-model value (the same panel's enabled rows) always wins.
  */
 export function ModelGeneralSettings() {
   const { t } = useI18n();
@@ -104,7 +105,6 @@ export function ModelGeneralSettings() {
               type="text"
               inputMode="numeric"
               value={draft}
-              placeholder="350000"
               title={t('models.contextLimit')}
               aria-label={t('models.contextLimit')}
               aria-invalid={invalid || undefined}

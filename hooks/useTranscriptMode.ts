@@ -4,20 +4,19 @@ import type { TranscriptToolDisplay } from '@/lib/quiet-activity';
 /**
  * How much of a run the conversation transcript shows.
  *
- * `cards` keeps the default behavior: writes, edits, and patches keep their
- * transcript card, and every other call belongs to the Runs panel.
- * `conversation` moves those cards to the Runs panel too, so the transcript
- * carries the user's messages and the agent's replies and nothing else.
+ * `conversation` is the default: the transcript carries the user's messages and
+ * the agent's replies, and every call belongs to the Runs panel.
+ * `cards` keeps writes, edits, and patches as transcript cards instead.
  */
 export type { TranscriptToolDisplay };
 
 export const TRANSCRIPT_MODE_STORAGE_KEY = 'pi-transcript-mode';
-export const TRANSCRIPT_MODE_DEFAULT: TranscriptToolDisplay = 'cards';
+export const TRANSCRIPT_MODE_DEFAULT: TranscriptToolDisplay = 'conversation';
 
 function readStoredMode(): TranscriptToolDisplay {
   try {
     const raw = window.localStorage.getItem(TRANSCRIPT_MODE_STORAGE_KEY);
-    return raw === 'conversation' ? 'conversation' : 'cards';
+    return raw === 'cards' ? 'cards' : TRANSCRIPT_MODE_DEFAULT;
   } catch {
     return TRANSCRIPT_MODE_DEFAULT;
   }

@@ -1,8 +1,4 @@
-import {
-  CONFIGURED_TOOL_PRESET,
-  isToolPresetSelection,
-  type ToolPresetSelection
-} from './tool-presets';
+import { isToolPresetSelection, type ToolPresetSelection } from './tool-presets';
 
 const STORAGE_KEY = 'pi-tool-preset';
 
@@ -22,20 +18,20 @@ function getBrowserStorage(): StorageLike | null {
 
 /**
  * Only an explicit pick from the tool dropdown is ever stored, so a missing value
- * means "never chose". Those users fall back to the configured preset rather than
- * silently pinning pie's four built-ins over settings.json defaultTools (#700).
- * A stored `custom:<id>` stays valid as a reference; a preset deleted later resolves
- * to the configured defaults where the selection is applied.
+ * means "never chose"; those sessions pin the full coding toolset, the
+ * first-install default. A stored `custom:<id>` stays valid as a reference; a
+ * preset deleted later resolves to the configured defaults where the selection
+ * is applied.
  */
 export function getPreferredToolPreset(
   storage: StorageLike | null = getBrowserStorage()
 ): ToolPresetSelection {
-  if (!storage) return CONFIGURED_TOOL_PRESET;
+  if (!storage) return 'full';
   try {
     const value = storage.getItem(STORAGE_KEY);
-    return isToolPresetSelection(value) ? value : CONFIGURED_TOOL_PRESET;
+    return isToolPresetSelection(value) ? value : 'full';
   } catch {
-    return CONFIGURED_TOOL_PRESET;
+    return 'full';
   }
 }
 

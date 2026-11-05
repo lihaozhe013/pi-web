@@ -4,9 +4,9 @@
  */
 import type { TaskConfig } from './types';
 
-/** Numbers, not `null`: an unreadable value falls back to these, never to "no limit". */
-export const DEFAULT_VERIFY_TIMEOUT_MS = 600_000;
-export const DEFAULT_TASK_TIMEOUT_MS = 3_600_000;
+/** `null` runs without a watchdog: the first-install default is no time limit. */
+export const DEFAULT_VERIFY_TIMEOUT_MS: number | null = null;
+export const DEFAULT_TASK_TIMEOUT_MS: number | null = null;
 
 /** Standing instructions are one prompt-sized block, not a second database. */
 export const TASK_INSTRUCTIONS_MAX_LENGTH = 20_000;
@@ -16,6 +16,6 @@ export const TASK_CONFIG_DEFAULTS: TaskConfig = {
   verifyCommands: [],
   verifyTimeoutMs: DEFAULT_VERIFY_TIMEOUT_MS,
   taskTimeoutMs: DEFAULT_TASK_TIMEOUT_MS,
-  autonomous: false,
+  autonomous: true,
   instructions: ''
 };

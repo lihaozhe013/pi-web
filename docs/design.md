@@ -226,7 +226,8 @@ Current main-transcript behavior:
   keeps their history like any other run.
 - A tool card appears when the call actually starts executing, and not while the model is still
   writing its arguments: a half-streamed JSON blob would intrude, while a running call's card is the
-  progress the user asked for. Writes, edits, and patches are the only calls that keep such a card.
+  progress the user asked for. Writes, edits, and patches are the only calls that keep such a card
+  when the cards setting below is on.
 - Every other call draws no card in the transcript, running, successful or failed. The composer
   status row names it while it runs, and the Runs panel keeps its history: the panel is part of the
   default page, so it is already open, and the toolbar's panel toggle appears only while it is
@@ -247,13 +248,14 @@ Current main-transcript behavior:
   discard anything.
 - Write/edit/patch cards default to expanded. A write that replaces a file shows the changed lines
   as a diff; its final content is not repeated.
-- Settings › General can move those cards to the Runs panel too
-  (`Show write and edit cards in the conversation`, on by default). With it off the transcript
+- Settings › General chooses where those cards live
+  (`Show write and edit cards in the conversation`, off by default). With it off the transcript
   carries the user's messages and the agent's replies and nothing else, so a reader who never
-  inspects the agent's code sees only the conversation. The panel then keeps the writes and edits
+  inspects the agent's code sees only the conversation. The panel keeps the writes and edits
   like any other run, showing the diff a card would have shown, opened while the run is active and
   through its two-second reading hold, then folded into history. Such a run names the file it
-  touched instead of repeating the whole file as arguments. The choice is a browser preference, like
+  touched instead of repeating the whole file as arguments. Turning the setting on keeps the cards
+  in the transcript. The choice is a browser preference, like
   the other chat options; it changes display only, never stored history, exports, or agent context.
 - A turn that wrote files says so in one line (`3 files changed`) under its answer instead of
   listing them as chips: the Runs panel already names the files and carries their diffs.

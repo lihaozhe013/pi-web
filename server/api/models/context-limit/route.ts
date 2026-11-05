@@ -1,6 +1,6 @@
 import { readContextWindowLimit, writeContextWindowLimit } from '@/lib/model-context-limit';
 
-/** The global context window limit for every model; null when no cap is set. */
+/** The global context window limit every model resolves with; `null` is an explicit no cap. */
 export async function GET() {
   try {
     return Response.json({ limit: readContextWindowLimit() });

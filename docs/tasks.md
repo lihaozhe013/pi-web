@@ -377,13 +377,16 @@ whether the person is at the computer, not a different policy for each project.
 {
   "model": null,
   "verifyCommands": [],
-  "verifyTimeoutMs": 600000,
-  "taskTimeoutMs": 3600000,
+  "verifyTimeoutMs": null,
+  "taskTimeoutMs": null,
   "// timeouts": "a positive number of milliseconds, or null for no limit",
-  "autonomous": false,
+  "autonomous": true,
   "instructions": ""
 }
 ```
+
+The first-install defaults are no time limit for either watchdog and autonomous mode on; the file
+is written once the board saves a change, and an unconfigured field falls back to these defaults.
 
 - `model` is the queue's own model for the next run, `{ "provider", "modelId" }` or `null` for Pi's
   default. The board writes it through `PUT /api/tasks/config` (the chip in its header, and the same

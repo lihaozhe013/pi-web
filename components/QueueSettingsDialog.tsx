@@ -27,8 +27,11 @@ interface TimeoutDraft {
 }
 
 /** A stored millisecond value as the person last saw it: the largest unit that divides it. */
-export function timeoutDraftFrom(ms: number | null, fallbackMs: number): TimeoutDraft {
+export function timeoutDraftFrom(ms: number | null, fallbackMs: number | null): TimeoutDraft {
   if (ms === null) {
+    // No stored limit and no numeric fallback: the draft is unlimited, and the
+    // number field stays empty until a limit is typed.
+    if (fallbackMs === null) return { amount: '', unit: 'minutes', unlimited: true };
     const fallback = timeoutDraftFrom(fallbackMs, fallbackMs);
     return { ...fallback, unlimited: true };
   }
@@ -66,10 +69,10 @@ export function QueueSettingsDialog({
   const { t } = useI18n();
   const [model, setModel] = useState<{ provider: string; modelId: string } | null>(config.model);
   const [taskTimeout, setTaskTimeout] = useState(() =>
-    timeoutDraftFrom(config.taskTimeoutMs, TASK_CONFIG_DEFAULTS.taskTimeoutMs ?? 3_600_000)
+    timeoutDraftFrom(config.taskTimeoutMs, TASK_CONFIG_DEFAULTS.taskTimeoutMs)
   );
   const [verifyTimeout, setVerifyTimeout] = useState(() =>
-    timeoutDraftFrom(config.verifyTimeoutMs, TASK_CONFIG_DEFAULTS.verifyTimeoutMs ?? 600_000)
+    timeoutDraftFrom(config.verifyTimeoutMs, TASK_CONFIG_DEFAULTS.verifyTimeoutMs)
   );
   const [commands, setCommands] = useState(() => config.verifyCommands.join('\n'));
   const [autonomous, setAutonomous] = useState(config.autonomous);
@@ -119,13 +122,10 @@ export function QueueSettingsDialog({
   const restoreDefaults = () => {
     setModel(TASK_CONFIG_DEFAULTS.model);
     setTaskTimeout(
-      timeoutDraftFrom(TASK_CONFIG_DEFAULTS.taskTimeoutMs, TASK_CONFIG_DEFAULTS.taskTimeoutMs ?? 0)
+      timeoutDraftFrom(TASK_CONFIG_DEFAULTS.taskTimeoutMs, TASK_CONFIG_DEFAULTS.taskTimeoutMs)
     );
     setVerifyTimeout(
-      timeoutDraftFrom(
-        TASK_CONFIG_DEFAULTS.verifyTimeoutMs,
-        TASK_CONFIG_DEFAULTS.verifyTimeoutMs ?? 0
-      )
+      timeoutDraftFrom(TASK_CONFIG_DEFAULTS.verifyTimeoutMs, TASK_CONFIG_DEFAULTS.verifyTimeoutMs)
     );
     setCommands(TASK_CONFIG_DEFAULTS.verifyCommands.join('\n'));
     setAutonomous(TASK_CONFIG_DEFAULTS.autonomous);
