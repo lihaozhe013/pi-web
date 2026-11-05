@@ -27,12 +27,13 @@ Do not build an IDE, file workspace, Git/worktree manager, embedded terminal, mu
 or comprehensive configuration center. Pie does not implement or manage subagents; installed Pi
 extensions remain Pi's responsibility. Prefer a good default over speculative settings.
 
-The one exception is a single serial task queue, described in [Tasks](tasks.md): one active task at
-a time, each executed by a fresh Pi CLI child process over Pi's own RPC protocol. It adds no second
-agent protocol and no parallelism, and the chat experience must keep working without it. The queue
-also has one management surface, described in [Task manager](task-manager.md): an ordinary chat
-session in its own project whose tools read and change the queue. Those tools control the queue, not
-agents; they add no subagent runtime and no second way to start work.
+The one exception is a task queue per project, described in [Tasks](tasks.md): one active task at a
+time in each working directory, each executed by a fresh Pi CLI child process over Pi's own RPC
+protocol. Different projects may run at the same time; there is no parallelism inside a project, no
+global worker pool, and no second agent protocol. The chat experience must keep working without it.
+The queues also have one management surface, described in [Task manager](task-manager.md): an
+ordinary chat session in its own project whose tools read and change the queues. Those tools control
+the queues, not agents; they add no subagent runtime and no second way to start work.
 
 Historical management pages, settings, and project-specific style layers remain in the code. They
 are not product commitments. Review them individually and leave configuration to Pi or its CLI when
@@ -60,8 +61,8 @@ All project documentation is maintained in English, without translated copies.
 | [Architecture](architecture.md)           | Current entry points and boundaries   |
 | [Runtime](runtime.md)                     | Vite, Hono, and how a request is served |
 | [Desktop shell](desktop.md)               | Tauri 2 window and desktop packaging  |
-| [Tasks](tasks.md)                         | Serial task queue, execution boundary |
-| [Task manager](task-manager.md)           | Agent-driven queue control            |
+| [Tasks](tasks.md)                         | Per-project task queues, execution boundary |
+| [Task manager](task-manager.md)           | Agent-driven queue control                  |
 | [Packaging](../packaging/README.md)       | Local portable builds                 |
 
 These documents replace the upstream snapshot, fork-specific design guide, translated guides,

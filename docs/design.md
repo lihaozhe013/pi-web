@@ -51,12 +51,12 @@ marked by surface, weight, and accent icon as well as by `aria-current`, and eac
 ordinary link to a real URL (`/` and `/?mode=tasks`). Reload, open in new tab, and the Web Push deep
 links all land in the right workspace.
 
-The shell does not move between the views. The session sidebar keeps its place and keeps listing
-conversations, the sidebar toggle and the switch keep their position in the toolbar, and the
-right-hand inspector swaps its content: Runs in chat, the Queue in tasks. Both use the same docked
-column, width and collapse language, so the center's edge does not move when the workspace changes.
-A conversation picked in the sidebar leaves the task view for that conversation; the `Chat` segment
-returns to the conversation the active project last had open. Settings stays where it always is, in
+The shell does not move between the views. The sidebar keeps its place and its width; in chat it
+lists conversations, and in tasks it lists projects. The sidebar toggle and the switch keep their
+position in the toolbar, and the right-hand inspector swaps its content: Runs in chat, the Queue in
+tasks. Both use the same docked column, width and collapse language, so the center's edge does not
+move when the workspace changes. A project picked in the task sidebar switches the board to that
+queue; the `Chat` segment returns to the conversation the active project last had open. Settings stays where it always is, in
 the sidebar's footer, so the task view has no second Settings entry and no second header row of its
 own. Phones keep the same control with shorter padding.
 
@@ -68,11 +68,20 @@ links, without cards, frames or gradients.
 
 ## The task workspace
 
-`?mode=tasks` replaces the conversation with the serial task queue described in [Tasks](tasks.md),
-chosen from the page's `Chat | Tasks` switch. It keeps the app's sidebar and toolbar: the center
-column is the work surface that reads the selected task, and the same right-hand column that carries
-Runs in chat carries the Queue here, grouped by status. The result mirrors the chat page — sidebar,
-center, inspector — and the queue is the only task list, so the same row never appears twice.
+`?mode=tasks` replaces the conversation with the per-project task queues described in
+[Tasks](tasks.md), chosen from the page's `Chat | Tasks` switch. It keeps the app's sidebar frame
+and toolbar: the left panel becomes a project list, the center column is the work surface that reads
+the selected task, and the same right-hand column that carries Runs in chat carries the Queue here,
+grouped by status. The result mirrors the chat page — panel, center, inspector — and the queue is
+the only task list, so the same row never appears twice.
+
+The project panel is the task workspace's navigator. Each row is one working directory: its name,
+the running task or its path, a status dot and the number queued; projects with a running, paused,
+or queued task sit in an Active section above the rest. A project with tasks but no conversation is
+still a row. "Add project" opens the same directory picker the task form uses. A click switches
+`?cwd=`, and the board, the Queue panel, and the selection move together; the running task is
+selected automatically, so the project that needs attention is the one on screen. The panel uses
+the conversation sidebar's header and row language, not a second navigation style.
 
 The queue panel is docked on desktop, open until the person collapses it, and resizable from its
 left edge with the same handle, limits and remembered width as the Runs panel. Its own header closes
@@ -91,8 +100,9 @@ and the controls say why.
 
 The task bar above the work surface holds the queue state, one model chip (the queue default, "Pi
 default: <model>" when unset), the clear-completed action, the queue-defaults opener, the
-start/pause/resume/stop controls, and New task. The action that moves the queue is the bar's one
-strong control while tasks exist; New task is strong only when the queue is empty. A slider button
+start/pause/resume/stop controls, and New task. The bar starts with the project's name and path, so
+the queue is never ambiguous. The action that moves the queue is the bar's one strong control while
+tasks exist; New task is strong only when the queue is empty. A slider button
 beside the model chip opens the queue's own defaults — model, timeouts, verification commands,
 question policy, and the standing task instructions — in the app's standard dialog shell, with its
 actions (including "Restore defaults") pinned to the bottom while the body scrolls. A timeout is a
@@ -113,8 +123,9 @@ reading with the batch actions and names the count in the surface, because a tin
 state. Removing several tasks, completed ones included, asks once in the same popover the row menu
 uses: the queue has no undo, but the sessions themselves are only linked, never deleted.
 
-The queue polls: once a second while a task runs or a question waits, otherwise every five seconds,
-never while the page is hidden, and once when it returns. A waiting `ask_user` question renders
+The queue polls: once a second while any project runs or a question waits, otherwise every five
+seconds, never while the page is hidden, and once when it returns. Every poll returns all project
+summaries, so the project panel stays current without one request per project. A waiting `ask_user` question renders
 through the same panel the composer uses, above the work surface and inside the task's pane, so a
 reload or a Web Push notification still finds it. Opening the task's session leaves the workspace
 for the ordinary conversation view, where the transcript is read-only until the task finishes. Where
@@ -123,7 +134,8 @@ sheet with its own bar and Close button, so the queue stays the page's navigator
 
 Nothing about this workspace changes the chat view when the parameter is absent. `?mode=tasks`
 deliberately skips the remembered-session restore so a reload stays in the task workspace, while
-`?task=<id>` opens one task directly. The per-tab mode memory remains unbuilt.
+`?cwd=<path>` opens one project and `?task=<id>` opens one task directly (resolving its project when
+`cwd` is absent). The per-tab mode memory remains unbuilt.
 
 ## Quiet, clear, polished
 

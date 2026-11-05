@@ -26,7 +26,7 @@ process. Bun manages dependencies and script invocation.
 | Agent runtime            | `lib/rpc-manager.ts`                                                                        |
 | Saved session reading    | `lib/session-reader.ts`                                                                     |
 | Shared types             | `lib/types.ts`, `lib/pi-types.ts`                                                           |
-| Task queue               | `lib/tasks/`, `server/api/tasks/`, `components/TaskWorkspace.tsx`                           |
+| Task queues              | `lib/tasks/`, `server/api/tasks/`, `components/TaskWorkspace.tsx`, `components/TaskProjectsSidebar.tsx` |
 | Task manager             | `lib/task-manager-extension.ts`, `lib/tasks/agent-tools.ts`, `lib/tasks/manager-project.ts` |
 | HTTP APIs                | `server/api/`, registered in `server/routes.ts`                                             |
 | Server assembly          | `server/app.ts`, `server/index.ts`, `server/middleware/security.ts`                         |
@@ -36,13 +36,14 @@ process. Bun manages dependencies and script invocation.
 | Portable packaging       | `packaging/`                                                                                |
 | Desktop shell            | `src-tauri/`, `packaging/desktop.mjs`                                                       |
 
-`AppShell` owns the page frame for both views: the session sidebar, the toolbar with the
+`AppShell` owns the page frame for both views: the left sidebar, the toolbar with the
 `Chat | Tasks` switch, the center column, and one resizable right-hand panel. The center renders the
 conversation or the task work surface from `components/TaskWorkspace.tsx`; the right panel renders
-Runs in chat and the task Queue in `?mode=tasks`. The sidebar and toolbar are not rebuilt, so the
-task view keeps the session list and the Settings entry in place. `TaskWorkspace` owns the queue
-state and portals its list into the right panel, which keeps that panel full height beside the
-center instead of nesting it in the work surface.
+Runs in chat and the task Queue in `?mode=tasks`. The sidebar frame and toolbar are not rebuilt, but
+its contents are mode-specific: `SessionSidebar` in chat and `TaskProjectsSidebar` in tasks, so the
+task view lists projects and keeps the Settings entry in place. `TaskWorkspace` owns the queue state
+and portals its list into the right panel, which keeps that panel full height beside the center
+instead of nesting it in the work surface.
 
 ## Browser appearance and settings
 
@@ -86,41 +87,45 @@ Pie hosts ordinary Pi SDK sessions. It does not spawn or control subagents, main
 or create Git worktrees. There are no subagent HTTP routes or specialized transcript viewers.
 Installed extensions follow Pi's normal loading semantics and render through generic tool and
 extension UI paths. The one tool surface Pie registers itself is the queue's management tools in
-[Task manager](task-manager.md); they act on the serial queue, not on agents.
+[Task manager](task-manager.md); they act on the project queues, not on agents.
 
-One scheduled surface exists: the serial task queue in [Tasks](tasks.md). It never runs two tasks at
-once, never reuses a session between tasks, and speaks only Pi's RPC records to a Pi CLI child
-process. It imports nothing from `lib/rpc-manager.ts`, so deleting `lib/tasks`, `server/api/tasks`, and
-the task workspace leaves chat behavior unchanged. A task's session is an ordinary Pi session and
-renders through the normal transcript; while its process runs, that session is read-only in chat so
-two writers never share one session file.
+One scheduled surface exists: the per-project task queues in [Tasks](tasks.md). A project never
+runs two tasks at once, but different projects may run one each; a task never reuses a session,
+and every attempt speaks only Pi's RPC records to a Pi CLI child process. It imports nothing from
+`lib/rpc-manager.ts`, so deleting `lib/tasks`, `server/api/tasks`, and the task workspace leaves chat
+behavior unchanged. A task's session is an ordinary Pi session and renders through the normal
+transcript; while its process runs, that session is read-only in chat so two writers never share one
+session file.
 
-## Serial task queue
+## Per-project task queues
 
-The queue stores tasks in SQLite (`<agentDir>/pie-tasks.db`, `node:sqlite`, WAL) and claims one
-`PENDING` row per transaction, asserting that no other row is `IN_PROGRESS`. Each attempt starts a
-new `pi --mode rpc` child in the task's working directory with a new session id; the loop waits for
-`agent_settled`, runs the configured verification commands, and settles the task. Standing
-instructions from the queue defaults are appended to every task prompt, so rules such as committing
-when the work is done are soft constraints the agent follows rather than queue code. `FAILED` and
-`BLOCKED` both pause the loop until a person resumes it, and a restart settles any row left
-`IN_PROGRESS` as `BLOCKED`.
+The queues store tasks in SQLite (`<agentDir>/pie-tasks.db`, `node:sqlite`, WAL) with a
+`project_key` and a per-project rank. Each project's claim is one transaction that selects its
+lowest `PENDING` row and asserts no row in that project is `IN_PROGRESS`; another project's claim
+is a different transaction and may succeed at the same time. Each attempt starts a new
+`pi --mode rpc` child in the task's working directory with a new session id; that project's loop
+waits for `agent_settled`, runs the configured verification commands, and settles the task.
+Standing instructions from the shared queue defaults are appended to every task prompt, so rules
+such as committing when the work is done are soft constraints the agent follows rather than queue
+code. `FAILED` and `BLOCKED` pause that project's loop until a person resumes it; other projects
+keep running, and a restart settles any row left `IN_PROGRESS` as `BLOCKED` once it confirms no
+other server holds that project's lock.
 
 Run controls travel as RPC commands (`abort`), and `ask_user` reaches the browser through Pi's
 extension UI sub-protocol, so the tool keeps one implementation for both the in-process chat session
 and a task child. The queue owns no model behavior: prompts, tools, models, and extensions are Pi's,
 resolved from the same agent directory chat uses.
 
-Configuration, the queue lock, and the chat-side contact points stay small:
-`<agentDir>/pie-task-orchestrator.json` holds the queue defaults and is re-read per run,
-`<agentDir>/pie-tasks.lock` is the `proper-lockfile` lock that keeps one process driving the queue,
-and `lib/tasks/active-sessions.ts` is an in-memory set of session ids. `GET /api/agent/running` and
+Configuration, the project locks, and the chat-side contact points stay small:
+`<agentDir>/pie-task-orchestrator.json` holds the shared queue defaults and is re-read per run,
+`<agentDir>/pie-task-locks/<sha256(projectKey)>.lock` is the `proper-lockfile` lock that keeps one
+process driving that project, and `lib/tasks/active-sessions.ts` is an in-memory set of session ids. `GET /api/agent/running` and
 `GET /api/sessions` include those ids so the composer in chat mode can disable itself, and the agent
 route refuses a prompt for a session in the set. `lib/tasks/config.ts` owns the defaults,
 `lib/tasks/prompt.ts` the task prompt and standing instructions, `lib/tasks/gate.ts` the
 verification commands, and `lib/tasks/request.ts` the route validation and error mapping.
-`server/instrumentation.ts` uses the same shutdown signal to abort the active child and settle its
-task.
+`server/instrumentation.ts` uses the same shutdown signal to abort every live project loop's child
+and settle each task.
 
 The [task manager](task-manager.md) adds a third contact point: `lib/rpc-manager.ts` loads one
 extension factory when the session's working directory is `<agentDir>/task-manager`, so that
@@ -271,8 +276,8 @@ version that supports lockfile version 3.
   data.
 - Session forking and in-session branch navigation are different operations.
 - Closing a runtime must release resources and allow extensions to shut down.
-- The task queue keeps its claim atomic, its single-child rule, and its independence from the chat
-  runtime; a task's session is never reused for a second attempt.
+- The task queues keep each claim atomic, their one-child-per-project rule, and their
+  independence from the chat runtime; a task's session is never reused for a second attempt.
 - Shared file APIs still support attachments, inline media, uploads, and references. A removed file
   browser does not make every file helper unused.
 - Path authorization, origin validation, and credential handling remain security boundaries.

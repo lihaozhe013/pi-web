@@ -1,8 +1,8 @@
 # Task Manager: an agent that drives the queue
 
-**Status: approved design, in progress.** This document specifies a management surface for the
-serial task queue described in [Tasks](tasks.md). The event layer and the tools are implemented; the
-sections below describe the whole design, and the implementation status table says what exists.
+**Status: implemented.** This document specifies a management surface for the per-project task
+queues described in [Tasks](tasks.md). The sections below describe the built behavior; the
+implementation status table records what exists.
 
 ## What it is
 
@@ -14,7 +14,7 @@ starts and stops tasks, and reports what happened.
 
 It is not a new runtime. It is one Pi extension loaded into one working directory, ten tools over
 the existing queue controller, and a durable event log the extension reads. No subagents, no
-parallel execution, no second protocol, no separate daemon.
+parallel execution inside a project, no second protocol, no separate daemon.
 
 ## Boundary
 
@@ -22,14 +22,16 @@ parallel execution, no second protocol, no separate daemon.
 narrows that refusal the same way [Tasks](tasks.md) already narrowed it for the queue:
 
 - **Allowed:** one ordinary chat session in one dedicated project, whose tools read and change the
-  serial queue through `lib/tasks/queue.ts` and `lib/tasks/orchestrator.ts`.
-- **Still refused:** subagent spawning or control, parallel execution, agent profiles, worktrees, a
-  second agent protocol, raw SQL access to the queue database, and the tools appearing in any other
-  project or in a tool preset.
+  per-project queues through `lib/tasks/queue.ts` and `lib/tasks/orchestrator.ts`.
+- **Allowed:** starting, pausing, or inspecting different projects independently; the manager names
+  a project by its working directory.
+- **Still refused:** subagent spawning or control, parallel execution inside a project, agent
+  profiles, worktrees, a second agent protocol, raw SQL access to the queue database, and the tools
+  appearing in any other project or in a tool preset.
 
-The tools control the queue, not agents. The queue stays the only scheduler, and every rule it
-enforces today (one `IN_PROGRESS` row, fencing tokens, an immutable running task, `cwd`
-authorization) applies to the agent exactly as it applies to the board.
+The tools control the queues, not agents. The project queues stay the only schedulers, and every
+rule they enforce today (one `IN_PROGRESS` row per project, fencing tokens, an immutable running
+task, `cwd` authorization) applies to the agent exactly as it applies to the board.
 
 ## Why a project, not a mode
 
@@ -97,28 +99,32 @@ allow-list the board uses. A directory no session has used yet is refused with a
 remedy; `authorizeCwd: true` approves the one the person named, and the approval is written to
 `<agentDir>/pie-allowed-roots.json` so it outlives the process.
 
-| Tool           | Arguments                                                                          | Backing code                                               |
-| -------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| `task_list`    | `status?`, `includeRuns?`                                                          | `queue.listTasks`, the runs table, `orchestrator.status()` |
-| `task_create`  | `title`, `description`, `cwd`, `authorizeCwd?`, `allowAskUser?`, `verifyCommands?` | `queue.createTask`                                         |
-| `task_update`  | `id`, the create fields                                                            | `queue.updateTask`                                         |
-| `task_move`    | `id`, `direction` or `position`                                                    | `queue.moveTask`                                           |
-| `task_delete`  | `id` \| `ids` \| `completed`, `confirm`                                            | `queue.deleteTask`, `completedTaskIds`                     |
-| `task_control` | `action`, `id?`, `note?`                                                           | `start`, `pause`, `resume`, `abort`, `retry`, `markDone`   |
-| `task_answer`  | `answer?`, `cancelled?`                                                            | `orchestrator.answer`                                      |
-| `task_config`  | `update?`: the queue-default fields                                                | `lib/tasks/config.ts`, the Queue defaults dialog's data    |
-| `task_watch`   | `action`: `on` \| `off` \| `status`                                                | the extension's watch state                                |
-| `task_events`  | `afterId?`, `waitMs?` (at most 50 s)                                               | `store.listEventsSince`                                    |
+| Tool           | Arguments                                                                          | Backing code                                                          |
+| -------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `task_list`    | `status?`, `cwd?`, `includeRuns?`                                                  | `queue.listTasks`, the runs table, every project's orchestrator status |
+| `task_create`  | `title`, `description`, `cwd`, `authorizeCwd?`, `allowAskUser?`, `verifyCommands?` | `queue.createTask`                                                    |
+| `task_update`  | `id`, the create fields                                                            | `queue.updateTask`                                                    |
+| `task_move`    | `id`, `direction` or `position`                                                    | `queue.moveTask`                                                      |
+| `task_delete`  | `id` \| `ids` \| `completed`, `cwd?`, `confirm`                                     | `queue.deleteTask`, `completedTaskIds`                                |
+| `task_control` | `action`, `cwd?`, `id?`, `note?`                                                   | `start`, `pause`, `resume`, `abort`, `retry`, `markDone`              |
+| `task_answer`  | `answer?`, `cancelled?`                                                            | `orchestrator.answer`                                                 |
+| `task_config`  | `update?`: the queue-default fields                                                | `lib/tasks/config.ts`, the Queue defaults dialog's data               |
+| `task_watch`   | `action`: `on` \| `off` \| `status`                                                | the extension's watch state                                           |
+| `task_events`  | `afterId?`, `limit?`, `waitMs?` (at most 50 s)                                     | `store.listEventsSince`                                               |
 
 `task_control` carries the remaining board actions rather than adding a tool per button; the actions
 are the queue controller's, so errors map to the same codes the board already handles
 (`task_locked`, `task_not_found`, `invalid_input`, `already_running`, `no_pending_question`).
+`cwd` names the project for `task_list`, `task_control`, and `completed` deletion; `id` is enough
+for operations on one task, because the task resolves its own project.
 
 Rules attached to the tool definitions, in `promptGuidelines` and in `AGENTS.md`:
 
-- `executionMode: 'sequential'` on every tool. The queue is serial; two concurrent claims are a bug.
-- Every result carries the queue snapshot (`state`, `activeTaskId`, `pausedReason`) and the events
-  newer than the session's cursor, so a single tool call always leaves the agent grounded.
+- `executionMode: 'sequential'` on every tool. Each project queue is serial; two concurrent claims
+  in one project are a bug.
+- Every result carries all project snapshots (state, active task, pending and attention counts) and
+  the events newer than the session's cursor, so a single tool call always leaves the agent
+  grounded.
 - `task_control: 'start'` turns watching on (it returns the watch facts). `pause`, `resume`, `abort`
   and `retry` do not.
 - Destructive actions (`task_delete`, `markDone`, clearing completed tasks, `abort`) require the
@@ -130,20 +136,23 @@ Rules attached to the tool definitions, in `promptGuidelines` and in `AGENTS.md`
 ## The event log
 
 Status changes need durable storage, not an in-process callback: a session may be closed, the server
-may restart, and the agent must be able to catch up. `lib/tasks/store.ts` gains schema step
-`user_version = 3` for the events, plus a fourth step that adds `tasks.created_by` so the board can
-mark work a chat queued:
+may restart, and the agent must be able to catch up. `lib/tasks/store.ts` keeps the events in the
+same database as the tasks; the project-queue migration (`user_version = 5`) adds `project_key`, so
+a digest can name the project an event belongs to:
 
 ```sql
 CREATE TABLE task_events (
   id                INTEGER PRIMARY KEY AUTOINCREMENT,
-  task_id           INTEGER,              -- NULL for queue-level events
+  task_id           INTEGER,              -- NULL for project-level events
+  project_key       TEXT,                 -- projectIdentityKey(cwd)
   kind              TEXT NOT NULL,        -- claimed | settled | question | answered | queue | config
   status            TEXT,                 -- the task's status at the time, for digests
   summary           TEXT,
   origin_session_id TEXT,                 -- the session whose tool call caused it, if any
   created_at        TEXT NOT NULL
 );
+
+CREATE INDEX task_events_project ON task_events (project_key, id);
 
 CREATE TABLE task_event_cursors (
   session_id    TEXT PRIMARY KEY,
@@ -162,34 +171,35 @@ Event writes go inside the transactions that already exist, never in a separate 
 
 | Transition                      | Event                                              |
 | ------------------------------- | -------------------------------------------------- |
-| `claimNextPending`              | `claimed`, the task id and its title               |
+| `claimNext(projectKey)`         | `claimed`, the task id and its title               |
 | `settleTask`                    | `settled`, the final status and summary            |
 | `setPendingQuestion` (non-null) | `question`, the question and options               |
 | `setPendingQuestion` (null)     | `answered`, the answer or a dismissal              |
-| `setQueueState`                 | `queue`, the new state and pause reason            |
+| `setQueueState(projectKey)`     | `queue`, the new state and pause reason            |
 | `markTaskDone`, `retryTask`     | `settled`, a human or agent override with its note |
 | `recoverInterrupted`            | `queue`, a restart note                            |
 | queue defaults written          | `config`, which fields changed                     |
 
-The invariant this buys: a `task_events` row and the `tasks`/`queue_state` row it describes are
-either both written or both absent, so the agent can never be told about a state the board does not
-show. The one exception is `config`: the defaults live in a JSON file, so its event is appended
+The invariant this buys: a `task_events` row and the `tasks`/`project_queue_state` row it describes
+are either both written or both absent, so the agent can never be told about a state the board
+does not show. The one exception is `config`: the defaults live in a JSON file, so its event is appended
 right after the file write rather than sharing a transaction with it. A missing `config` event is
 not a failed configuration.
 
 Only a real transition is an event. A write that changes nothing appends nothing, and a change to
-`queue_state.active_task_id` alone does not append: the claim it belongs to is already `claimed`.
+`project_queue_state.active_task_id` alone does not append: the claim it belongs to is already
+`claimed`.
 
 ## Implementation status
 
 | Phase | State       | What exists                                                                                    |
 | ----- | ----------- | ---------------------------------------------------------------------------------------------- |
-| 1     | Done        | Schema `user_version = 4`, events in the existing transactions, per-session cursors, watch row |
-| 2     | Not started | The tools over the queue controller                                                            |
-| 3     | Not started | The project directory and `POST /api/tasks/manager`                                            |
-| 4     | Not started | The extension factory and its conditional injection                                            |
-| 5     | Not started | Watch polling, liveness, budgets, replay                                                       |
-| 6     | Not started | Browser entry point, chip, i18n, origin mark                                                   |
+| 1     | Done        | Schema `user_version = 5`, per-project events, per-session cursors, watch row                  |
+| 2     | Done        | The tools over the per-project queue controller                                               |
+| 3     | Done        | The project directory and `POST /api/tasks/manager`                                           |
+| 4     | Done        | The extension factory and its conditional injection                                           |
+| 5     | Done        | Watch polling, liveness, budgets, replay; a digest spans every project                        |
+| 6     | Done        | Browser entry point, chip, i18n, origin mark                                                  |
 
 ## Delivery
 
@@ -217,11 +227,12 @@ transition the next time it acts.
 4. Register `registerSessionLivenessProvider({ name: 'task-manager-watch', isActive })` so the ten
    minute idle eviction does not end the watch.
 
-A digest is one short block: the events, then the queue as it was when the digest was written.
+A digest is one short block: the events, then every queue as it was when the digest was written.
+Only projects that are not idle are listed, so the block stays short.
 
 ```
-- settled task 7 DONE: bun run typecheck passed
-queue RUNNING, task 8 running, wake 3 of 100, as of 2026-01-01T14:35:12.000Z
+- settled task 7 DONE in /repo: bun run typecheck passed
+/repo RUNNING, task 8 running; /repo/app IDLE; wake 3 of 100, as of 2026-01-01T14:35:12.000Z
 ```
 
 The `as of` time is there because the queue state in a digest is a snapshot, and a late delivery
@@ -236,7 +247,7 @@ Activity lines and tool-stream noise never do.
 | Explicit start | Watch begins only through `task_watch: 'on'` or `task_control: 'start'`. Reopening a session never resumes it.                           |
 | Idle session   | A wake is only sent while the session is idle; a busy session keeps its events unseen until its turn ends.                               |
 | Budget         | 100 wakes or 2 hours per watch, whichever comes first. Reaching it leaves a "watch ended" note and stops.                                |
-| Natural end    | Once the watch has seen work, an `IDLE` queue with no pending or running task ends it at the next poll, even when nothing new happened.  |
+| Natural end    | Once the watch has seen work, every queue being `IDLE` with no pending or running task ends it at the next poll, even when nothing new happened. |
 | Origin filter  | Events whose `origin_session_id` is this session are not re-delivered; the tool result already showed them.                              |
 | Single watcher | One row in `task_manager_watch`. A second `task_watch: 'on'` from a live session is refused with the watcher's session id.               |
 | Restart        | A restart drops the watch and the liveness provider. The next session start replays the backlog as one digest with no triggered turn.    |
@@ -267,8 +278,8 @@ Policy, decided and recorded here:
 
 ## Queue control policy
 
-- `start` is allowed. Driving the queue is the point of the feature; the queue still pauses on
-  `BLOCKED`/`FAILED` and still runs one task at a time.
+- `start` is allowed. Driving the queues is the point of the feature; each project still pauses on
+  `BLOCKED`/`FAILED` and still runs one task at a time, while another project may be running.
 - `abort` requires `confirm`, and the digest that follows names the task and the reason.
 - `delete`, `markDone` and clearing completed tasks require `confirm` and a note. The board keeps
   its own confirmation, because a person's click is not the agent's claim.
@@ -285,7 +296,7 @@ Policy, decided and recorded here:
   ignores the selection for the loadout: any coding preset changes only the coding tools, and Chat
   only has no effect. The queue tools ride beside whatever the person picks.
 - **Watch state.** `GET /api/tasks` includes the one watch row, so the board shows "A chat session
-  is watching this queue" while a wake budget is being spent. A wake also lands in the transcript as
+  is watching the queues" while a wake budget is being spent; the watcher is not per project. A wake also lands in the transcript as
   a `pie-task-event` message, so the chat itself is never silently active.
 - **Event cards.** `pie-task-event` custom messages render through the generic custom-message card.
   A dedicated compact renderer (task id, title, status, verification) can follow without touching
@@ -299,7 +310,7 @@ Policy, decided and recorded here:
 
 - The tools exist only in one directory. They are not reachable from the browser's `set_tools`, from
   a custom preset, from a task's child process, or from any other project.
-- The agent uses the queue controller, so `cwd` validation, command length bounds, the one-running
+- The agent uses the queue controller, so `cwd` validation, command length bounds, the per-project one-running
   claim and the fencing tokens apply unchanged. No raw SQL passes through a tool.
 - Approving a directory is the one decision the agent can make that widens its own reach, so it is
   explicit (`authorizeCwd`, allowed on create and on update), it is the person's directory by the
@@ -311,19 +322,22 @@ Policy, decided and recorded here:
   rebuilt. Deleting it restores Pi's default behaviour, not a crash.
 - The watcher is unbounded in duration but bounded in wakes and time, and it is visible and
   stoppable. An agent that keeps watching cannot outlive its budget.
-- The queue still refuses to run when another process holds `pie-tasks.lock`; the tools surface that
-  conflict instead of pretending to start.
+- A project's queue still refuses to run when another process holds its
+  `pie-task-locks/<sha256(projectKey)>.lock`; the tools surface that conflict instead of pretending
+  to start. Other projects are unaffected.
 
 ## Verification
 
 Testing is manual; the project keeps no tests. Open the task manager project, send a
-message, and watch the tools read and change the queue; add, move, and delete one task by hand.
+message, and watch the tools read and change the queues; add, move, and delete one task by hand.
+Then queue a task in a second project, start both from the same conversation, and confirm the
+digest and `task_list` name each project and its own state.
 
 ## Implementation phases
 
 | Phase | Deliverable                                                           | Exit criterion                                                                      |
 | ----- | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| 1     | Schema v3, event writes in existing transactions, cursor reads        | A settle and its event are visible in one transaction; a restart keeps both.        |
+| 1     | Schema v5, per-project events, cursor reads                            | A settle and its event are visible in one transaction; a restart keeps both.        |
 | 2     | `lib/tasks/agent-tools.ts` with the ten tools                         | Tools drive a temporary queue end to end without HTTP.                              |
 | 3     | `lib/tasks/manager-project.ts`, `POST /api/tasks/manager`             | The directory and `AGENTS.md` appear once and only when needed.                     |
 | 4     | `lib/task-manager-extension.ts`, injection in `rpc-manager.ts`        | A session in that directory exposes the tools; the same session elsewhere does not. |
@@ -341,6 +355,7 @@ message, and watch the tools read and change the queue; add, move, and delete on
 | Status delivery           | Durable `task_events` log, pull-on-tool-result by default, explicit `task_watch` push on change         |
 | Wake policy               | Automatic on decision points, opt-in per watch, 100 wakes or 2 hours, one watcher, no resume on restart |
 | Question answering        | Relay by default; the agent may answer when the user authorises it, and the answer is recorded          |
-| Queue control             | `start` allowed; `abort`, deletes and `markDone` need explicit confirmation                             |
+| Queue control             | Per project: `start` allowed; `abort`, deletes and `markDone` need explicit confirmation                 |
+| Concurrency               | One task per project; different projects may run at the same time                                       |
 | Orchestrator instructions | An `AGENTS.md` written once in the project, editable afterwards, never rewritten by Pie                 |
 | Coupling                  | One extension factory in `rpc-manager.ts`, removable with the rest of the feature                       |

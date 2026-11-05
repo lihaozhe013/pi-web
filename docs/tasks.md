@@ -1,27 +1,30 @@
-# Serial Task Orchestrator
+# Per-project Task Queues
 
-A local, strictly serial task queue: a small Jira for one person. Tasks are queued, claimed one at a
-time, and each one is executed by a brand-new Pi agent process with its own session. When the
-process ends, its context ends with it; the next task starts from an empty window.
+A local task queue for one person: a small Jira per project. Each working directory has its own
+strictly serial queue. Tasks in one project are claimed one at a time and each is executed by a
+brand-new Pi agent process with its own session. When the process ends, its context ends with it;
+the next task in that project starts from an empty window. Different projects have different
+queues and may each run one task at the same time, so the queue count is the concurrency limit.
 
-This document is the design and the record of what was built. Phases 1-4 and the page-level part of
-phase 5 are implemented: one `Chat | Tasks` switch sits in the page header of both views, and the
-session actions that used to share that header now live in the Runs panel. The mode-specific
-inspector and the per-tab mode memory were not built. The sections below describe the implemented
-behavior, with the differences noted where the built version is narrower than the original plan.
+This document is the design and the record of what was built. The queue, the `Chat | Tasks` switch,
+and the project panel are implemented. The sections below describe the implemented behavior, with
+the differences noted where the built version is narrower than the original plan.
 
 ## Why this is not the boundary the project had
 
 `docs/README.md` and `docs/architecture.md` previously ruled out a multi-agent orchestrator and a
 subagent/queue feature. This document replaces that part of the boundary with a narrower rule:
 
-- **Allowed:** one serial queue, one active task at a time, executed as a Pi CLI child process
-  driven over Pi's own RPC protocol.
-- **Allowed:** one management surface for that queue, described in [Task manager](task-manager.md):
-  an ordinary chat session in its own project whose tools read and change the queue. It controls the
-  queue, not agents.
-- **Still refused:** parallel execution, agent profiles, worktrees, a second agent protocol,
-  subagent spawning or control, and any orchestration of Pi internals.
+- **Allowed:** one serial queue per working directory, one active task per project at a time,
+  executed as a Pi CLI child process driven over Pi's own RPC protocol.
+- **Allowed:** different projects running their own tasks concurrently, each in its own child
+  process and its own session.
+- **Allowed:** one management surface for every queue, described in
+  [Task manager](task-manager.md): an ordinary chat session in its own project whose tools read and
+  change the queues. It controls the queues, not agents.
+- **Still refused:** parallel execution inside one project, a global worker pool, agent profiles,
+  worktrees, a second agent protocol, subagent spawning or control, and any orchestration of Pi
+  internals.
 
 The queue owns scheduling, persistence, and progress reporting. It owns no agent capability: it
 starts the installed Pi CLI and speaks Pi's documented RPC records. Deleting `lib/tasks`,
@@ -29,8 +32,12 @@ starts the installed Pi CLI and speaks Pi's documented RPC records. Deleting `li
 
 ## Goals
 
-- **Strict serial execution.** Never two tasks at once, in one process or across processes.
-- **Zero context bleeding.** Every task runs in a fresh OS process with a fresh session; the queue
+- **Strict serial execution per project.** Never two tasks at once in the same working directory,
+  in one process or across processes. The project, not the repository, is the unit: `/repo` and
+  `/repo/packages/app` are separate queues.
+- **Projects run in parallel.** A queue for another project may run while the first one is busy;
+  the concurrency limit is the number of projects with work.
+- **Zero context bleeding.** Every task runs in a fresh OS process with a fresh session; a queue
   never reuses a session to save tokens.
 - **Durable queue.** Survives reloads and server restarts; every transition is a single SQLite
   transaction with the state guard in the SQL itself.
@@ -41,7 +48,8 @@ starts the installed Pi CLI and speaks Pi's documented RPC records. Deleting `li
 
 ## Non-goals
 
-- Parallelism, worker pools, priorities beyond manual rank, dependencies between tasks.
+- Parallelism inside one project, worker pools, a global concurrency cap, priorities beyond manual
+  rank, dependencies between tasks.
 - Pull requests, branches, worktrees, or pushes. The queue never publishes; whether a run commits is
   a standing instruction the person writes into the task prompt.
 - Multi-user operation, remote execution, or a hosted service.
@@ -68,7 +76,7 @@ lib/tasks/orchestrator.ts          the only loop: claim → run → gate → set
 | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Agent runtime (`lib/rpc-manager.ts`) | No import in either direction. The two systems share only the agent directory and Pi's session directory. The one contact point is a read-only guard the agent route consults so a running task's session stays read-only (see below). |
 | Pi                                   | Uses the installed CLI and its documented RPC records. No new protocol, no SDK internals.                                                                                                                                              |
-| Web layer                            | Seven REST routes underneath one client hook. The board can be removed without touching chat.                                                                                                                                          |
+| Web layer                            | Eight REST routes underneath one client hook. The board can be removed without touching chat.                                                                                                                                          |
 | Packaging                            | No new dependency. Storage uses Node's built-in `node:sqlite`; the CLI is resolved from the app's own `node_modules`.                                                                                                                  |
 | Desktop shell                        | None. `src-tauri/` and `packaging/desktop.mjs` are untouched.                                                                                                                                                                          |
 
@@ -160,6 +168,7 @@ CREATE TABLE tasks (
   status           TEXT NOT NULL DEFAULT 'PENDING'
                      CHECK (status IN ('PENDING','IN_PROGRESS','DONE','BLOCKED','FAILED')),
   rank             INTEGER NOT NULL,
+  project_key      TEXT NOT NULL,        -- projectIdentityKey(cwd)
   cwd              TEXT NOT NULL,
   allow_ask_user   INTEGER,              -- NULL: use the queue default
   verify_commands  TEXT,                 -- JSON array; NULL: use the queue default
@@ -176,7 +185,7 @@ CREATE TABLE tasks (
   finished_at      DATETIME
 );
 
-CREATE INDEX tasks_queue ON tasks (status, rank, id);
+CREATE INDEX tasks_project_queue ON tasks (project_key, status, rank, id);
 
 CREATE TABLE task_runs (                 -- one row per attempt; retries keep their history
   id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -191,18 +200,38 @@ CREATE TABLE task_runs (                 -- one row per attempt; retries keep th
   finished_at    DATETIME
 );
 
-CREATE TABLE queue_state (               -- exactly one row
-  id              INTEGER PRIMARY KEY CHECK (id = 1),
+CREATE TABLE project_queue_state (       -- one row per project
+  project_key     TEXT PRIMARY KEY,
+  cwd             TEXT NOT NULL,
   state           TEXT NOT NULL,         -- IDLE | RUNNING | PAUSED
   paused_reason   TEXT,
   active_task_id  INTEGER,
   updated_at      DATETIME NOT NULL
 );
+
+CREATE TABLE task_events (               -- durable feed, one row per transition
+  id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  task_id           INTEGER,
+  project_key       TEXT,
+  kind              TEXT NOT NULL,
+  status            TEXT,
+  summary           TEXT,
+  origin_session_id TEXT,
+  created_at        DATETIME NOT NULL
+);
+
+CREATE INDEX task_events_project ON task_events (project_key, id);
 ```
 
-`rank` stays an integer: the queue is small, inserts take `max(rank) + 10`, and any reorder rewrites
-the pending segment as 10, 20, 30, … inside one transaction. No fractional keys, no gaps to
-maintain, deterministic order with `ORDER BY rank, id`.
+The live queue state moved from one global row to one row per project. A server can drive several
+projects at once; each project's pause reason, active task, and running loop are independent. The
+database migration from the old single queue is one-way (`user_version = 5`), and it first writes a
+`VACUUM INTO <db>.v4-<stamp>.bak` backup.
+
+`rank` stays an integer and is scoped to a project: inserts take that project's
+`max(rank) + 10`, and any reorder rewrites only that project's pending segment as 10, 20, 30, …
+inside one transaction. No fractional keys, no gaps to maintain, deterministic order with
+`ORDER BY rank, id`.
 
 ## Queue controller
 
@@ -211,15 +240,15 @@ a stale caller cannot win a race it lost.
 
 | Operation            | Rule                                                                                                                                                                                                                                                                                                        |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `createTask`         | Title required; `cwd` must exist and pass the file-access allow-list check; rank appended at the end; status `PENDING`.                                                                                                                                                                                     |
+| `createTask`         | Title required; `cwd` must exist and pass the file-access allow-list check; the project key is derived from `cwd`; rank appended at the end of that project; status `PENDING`.                                                                                                                                |
 | `updateTask`         | `IN_PROGRESS` is refused with `TaskLockedError`.                                                                                                                                                                                                                                                            |
 | `deleteTask`         | `IN_PROGRESS` is refused. Other statuses may be deleted; `task_runs` follows by cascade.                                                                                                                                                                                                                    |
-| `moveTask`           | Reorders within the pending segment only; a non-pending task is refused. Accepts "move up", "move down", or an absolute position.                                                                                                                                                                           |
-| `claimNext`          | One `BEGIN IMMEDIATE` transaction: assert no row is `IN_PROGRESS`; select the lowest `rank`/`id` `PENDING` row; update it to `IN_PROGRESS` with a fresh `claimed_token`, `attempts + 1`, and `run_started_at`, `WHERE id = ? AND status = 'PENDING'`; require `changes === 1`. No pending row means `null`. |
-| `settle`             | One transaction: the final status, `result_summary`, `exit_code`, `finished_at`, a `task_runs` row, and `queue_state`. The update is conditioned on the task still being `IN_PROGRESS` with the caller's token.                                                                                             |
+| `moveTask`           | Reorders within one project's pending segment only; a non-pending task is refused. Accepts "move up", "move down", or an absolute position.                                                                                                                                                                 |
+| `claimNext`          | One `BEGIN IMMEDIATE` transaction scoped to a project: assert no row in that project is `IN_PROGRESS`; select its lowest `rank`/`id` `PENDING` row; update it to `IN_PROGRESS` with a fresh `claimed_token`, `attempts + 1`, and `run_started_at`, `WHERE id = ? AND status = 'PENDING'`; require `changes === 1`. No pending row means `null`. |
+| `settle`             | One transaction: the final status, `result_summary`, `exit_code`, `finished_at`, a `task_runs` row, and the project's `project_queue_state`. The update is conditioned on the task still being `IN_PROGRESS` with the caller's token.                                                                       |
 | `retryTask`          | `BLOCKED`/`FAILED` → `PENDING`. Attempts are counted at claim time.                                                                                                                                                                                                                                         |
 | `markDone`           | Human override, recorded with a note; the board asks for confirmation.                                                                                                                                                                                                                                      |
-| `recoverInterrupted` | At start-up, a row left `IN_PROGRESS` becomes `BLOCKED` with `result_summary = "orchestrator restarted during the run"`, because its child died with the old server.                                                                                                                                        |
+| `recoverInterrupted` | At start-up, a row left `IN_PROGRESS` in one project becomes `BLOCKED` with `result_summary = "orchestrator restarted during the run"`, because its child died with the old server.                                                                                                                         |
 
 ### State machine
 
@@ -241,23 +270,31 @@ pause the loop; neither retries on its own.
 
 ## Orchestrator loop
 
-`lib/tasks/orchestrator.ts` is a per-process singleton (a `globalThis` key) plus one
-`proper-lockfile` lock at `<agentDir>/pie-tasks.lock` so that two servers — a second checkout, or a
-stale process — cannot both drive the queue.
+`lib/tasks/orchestrator.ts` keeps one loop per project in a process-local registry
+(`globalThis.__pieTaskOrchestrators`). Each loop has its own `proper-lockfile` lock at
+`<agentDir>/pie-task-locks/<sha256(projectKey)>.lock`, so two servers — a second checkout, or a
+stale process — cannot both drive the same project. Different projects have different lock files
+and may be driven at the same time.
 
 ```
-start()
-  ├─ take the lock, recoverInterrupted(), set state RUNNING
-  └─ loop:
-       if state is PAUSED or stopping: stop
-       task = claimNext()
-       if task is null:
-            state = IDLE, notify "queue complete", stop
-       else:
-            run(task)            — see below
-            on DONE: continue
-            on BLOCKED/FAILED: state = PAUSED with the reason, notify, stop
+getTaskOrchestrator(projectKey, cwd)
+  └─ start()
+       ├─ take this project's lock, recoverInterrupted(projectKey), set its state RUNNING
+       └─ loop:
+            if this project is PAUSED or stopping: stop
+            task = claimNext(projectKey)
+            if task is null:
+                 state = IDLE, notify "project queue complete", stop
+            else:
+                 run(task)            — see below
+                 on DONE: continue
+                 on BLOCKED/FAILED: state = PAUSED with the reason, notify, stop
 ```
+
+Recovery at startup walks the stored project summaries. A project whose lock is free and that has
+an interrupted `IN_PROGRESS` row is blocked and paused; a project whose lock is held by another
+server is left alone, because that server owns it. The dashboard can start another project while
+one is paused: nothing global gates the loops.
 
 `run(task)`:
 
@@ -293,8 +330,9 @@ Aborting settles as `BLOCKED` rather than rolling back to `PENDING`, because an 
 Explicit `retry` is the way back.
 
 Shutdown: `server/instrumentation.ts` already owns SIGINT/SIGTERM handling for streams and
-sessions. It gains one call that kills the active child and settles its task as `BLOCKED`, so a
-server restart never leaves a zombie agent writing into a directory the user believes is idle.
+sessions. It calls `shutdownTaskOrchestrators()`, which aborts every live project loop in turn and
+settles each active child as `BLOCKED`, so a server restart never leaves a zombie agent writing
+into a directory the user believes is idle.
 
 Notifications reuse the existing Web Push path (`lib/web-push.ts`, `server/api/push`): queue complete,
 task failed or blocked, and — importantly — a question waiting.
@@ -336,8 +374,8 @@ Parent-side handling:
   stops for a person is the point — while `abort` remains the escape hatch. The `timeout` field RPC
   supports is deliberately unused: a wall clock should not answer for the user.
 
-One question at a time: the tool is already `executionMode: 'sequential'`, and the serial queue
-means nothing else is running anyway.
+One question at a time: the tool is already `executionMode: 'sequential'`, and a project's serial
+queue means nothing else is running in that project anyway.
 
 ## Verification gate
 
@@ -409,15 +447,16 @@ task prompt and decides how to follow it.
 All routes are under `/api/tasks` and sit behind the shared `server/middleware/security.ts` origin
 check, the optional web password, and the `json()` helper in `server/http.ts`.
 
-| Route                         | Purpose                                                                                     |
-| ----------------------------- | ------------------------------------------------------------------------------------------- |
-| `GET /api/tasks`              | `{ tasks, runs, orchestrator, config }`; `no-store`. Polled by the board.                   |
-| `POST /api/tasks`             | Create. Body: title, description, cwd, allow_ask_user, verify_commands.                     |
-| `PATCH /api/tasks/[id]`       | `{ action: 'update' \| 'move' \| 'retry' \| 'markDone' }`. `409 task_locked` while running. |
-| `DELETE /api/tasks/[id]`      | Same guard, same error.                                                                     |
-| `POST /api/tasks/control`     | `{ action: 'start' \| 'pause' \| 'resume' \| 'abort' }`.                                    |
-| `POST /api/tasks/[id]/answer` | `{ answer?: string, cancelled?: boolean }` for the pending question.                        |
-| `GET /api/tasks/[id]/output`  | The live tail of the active task, from the in-memory buffer.                                |
+| Route                         | Purpose                                                                                                                     |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/tasks?cwd=…`        | One project: `{ project, tasks, runs, orchestrator, projects, config, watch }`; `no-store`. `projects` is every queue's summary. Without `cwd`, the running or most recently updated project is chosen. |
+| `POST /api/tasks`             | Create. Body: title, description, cwd, allow_ask_user, verify_commands. Returns `{ task, project }`.                         |
+| `GET /api/tasks/[id]`         | One task and the project it belongs to; used to resolve a `?task=` deep link that has no `cwd`.                              |
+| `PATCH /api/tasks/[id]`       | `{ action: 'update' \| 'move' \| 'retry' \| 'markDone' }`. `409 task_locked` while running.                                 |
+| `DELETE /api/tasks/[id]`      | Same guard, same error.                                                                                                     |
+| `POST /api/tasks/control`     | `{ action: 'start' \| 'pause' \| 'resume' \| 'abort', cwd?, id? }`. `cwd` names the project; `id` resolves it for `abort`.  |
+| `POST /api/tasks/[id]/answer` | `{ answer?: string, cancelled?: boolean }` for the pending question.                                                        |
+| `GET /api/tasks/[id]/output`  | The live tail of the active task, from the in-memory buffer.                                                                |
 
 Validation mirrors the rest of the app: bounded body, `cwd` must exist and be readable through the
 existing file-access allow-list, and no path is ever accepted from the client for anything but a
@@ -437,11 +476,18 @@ delivered in two steps so the chat surface is never destabilized by a navigation
   second mount would have to repeat the provider tree. The parameter name is the one the tabs use in
   step 2, so the URL never changes. `?task=<id>` opens one task directly, which is the URL a Web Push
   notification links to.
-- The workspace keeps the app's sidebar and toolbar. The center column is one work surface for the
-  task being read, and the queue grouped by status (running, queued, blocked, done) sits in the same
-  right-hand panel the Runs panel uses in chat. The queue is one list, not a board that repeats the
-  same rows. Step 2 later replaced the sidebar entry with the header switch, so the session sidebar
-  keeps listing conversations only.
+- The workspace keeps the app's toolbar. In task mode the left panel is a project list instead of
+  the conversation tree: one row per working directory, with its queue state, the running task,
+  and the number queued. A project with tasks but no conversation is still listed, and "Add
+  project" opens the same directory picker the task form uses. The center column is one work
+  surface for the task being read, and the queue grouped by status (running, queued, blocked,
+  done) sits in the same right-hand panel the Runs panel uses in chat. The queue is one list, not
+  a board that repeats the same rows.
+- Clicking a project switches the queue panel and the work surface to that project's queue. The
+  project is a URL parameter (`?mode=tasks&cwd=<path>`), so a reload, a new tab, and a Web Push
+  deep link all reopen the same project. A task that starts running moves its project to the
+  active section and selects the task; without a `cwd` the server opens the project with a running
+  task, or the most recently updated one.
 - The queue panel is docked on desktop, open until collapsed, and resizable from its left edge with
   the same handle, limits and remembered width as the Runs panel; its own header closes it. A
   `Queue` chip in the task bar shows the size and a running mark while the panel is closed and
@@ -489,8 +535,9 @@ delivered in two steps so the chat surface is never destabilized by a navigation
 - A pending question appears in two places, both already styled: above the work surface, and in the
   task's pane. It answers through `AskUserPanel`'s existing request shape rather than a second
   component.
-- Polling: 1 s while a task is running or a question is pending, 5 s otherwise, suspended while the
-  page is hidden and refreshed once on return. No new SSE machinery.
+- Polling: 1 s while any project is running or a question is pending, 5 s otherwise, suspended
+  while the page is hidden and refreshed once on return. Each poll returns all project summaries,
+  so the project panel stays current without one request per project. No new SSE machinery.
 - Accessibility and responsiveness follow `docs/design.md`: semantic theme variables, visible focus,
   keyboard-only operation, reduced-motion respect, and the narrow layout keeps the queue in the
   center with the detail as a full-height sheet.
@@ -504,12 +551,12 @@ and the queue's move into the right-hand inspector slot, and leaves the per-tab 
   navigation, not a tab set with panels: each choice is a real URL (`/` and `/?mode=tasks`), the
   active one carries `aria-current="page"`, and both are ordinary links, so reload, a new tab, and a
   Web Push deep link all land in the right view.
-- The switch and the shell never move between views: the session sidebar stays open and keeps
-  listing conversations, the toolbar keeps its row, the center column swaps the conversation for the
-  task work surface, and the right-hand inspector swaps Runs for the Queue. Settings stays in the
-  sidebar footer, so the task view has no second Settings entry. A sidebar session leaves the task
-  view for that conversation; the `Chat` segment returns to the conversation the active project last
-  had open.
+- The switch and the shell never move between views: the toolbar keeps its row, the center column
+  swaps the conversation for the task work surface, and the right-hand inspector swaps Runs for the
+  Queue. The left panel is mode-specific: chat lists conversations, tasks lists projects. Settings
+  stays in the sidebar footer, so the task view has no second Settings entry. A task's "Open
+  session" leaves for that conversation; the `Chat` segment returns to the conversation the active
+  project last had open.
 - The task bar, directly below the shell toolbar and the same height, carries the queue state, the
   model chip, the queue-defaults opener, the clear-completed action, and the start/pause/resume/stop
   controls plus New task. Its empty or unselected surface explains what it shows instead of leaving
@@ -551,7 +598,7 @@ disabled composer instead of breaking.
   `POST /api/cwd/validate`, the endpoint the chat shell already trusts, so a picked folder joins
   that allow-list and `~`/relative paths resolve the same way in both places; `lib/cwd-path.ts` is
   the one spelling of that resolution.
-- The queue writes only inside its own database, its lock file, its agent sessions, and — when
+- The queue writes only inside its own database, its per-project lock files, its agent sessions, and — when
   explicitly enabled — the task's repository index.
 - A verified task never becomes `DONE` because of a crashed process; a crash is always `FAILED`.
 - Verification is a separate process with its own shell. It inherits the environment, so a command
@@ -563,8 +610,11 @@ disabled composer instead of breaking.
 ## Verification
 
 Testing is manual; the project keeps no tests and no test runner. Walk the queue by hand: create a
-task, start the orchestrator, watch one attempt run to `agent_settled`, fail a verification command
-to confirm it blocks, then restart the server and confirm nothing is left `IN_PROGRESS`.
+task in one project, start its queue, and watch one attempt run to `agent_settled`; fail a
+verification command to confirm that project pauses; then create a task in a second project and
+start both queues at once, confirming the two tasks run concurrently while a third task in the
+first project waits behind the running one. Restart the server and confirm nothing is left
+`IN_PROGRESS` and each project's state is consistent.
 
 ## Implementation phases
 
@@ -580,22 +630,24 @@ to confirm it blocks, then restart the server and confirm nothing is left `IN_PR
 
 | Phase        | What exists now                                                                                                                                                                                                                                                    |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1            | `lib/tasks/store.ts` and `lib/tasks/queue.ts`. Schema `user_version = 2`, WAL, per-process singleton, SQL guards for claim/update/delete/rank.                                                                                                       |
+| 1            | `lib/tasks/store.ts` and `lib/tasks/queue.ts`. Schema `user_version = 5` (per-project queues and events), WAL, per-process singleton, SQL guards for claim/update/delete/rank scoped by project.                                                       |
 | 2            | `lib/ask-user-cli-extension.ts`, `lib/tasks/rpc-session.ts`, `lib/tasks/runner.ts`, `lib/tasks/prompt.ts`, and a scripted child. LF framing, U+2028 inside a string, correlation, tree kill, question round-trip. |
-| 3            | `lib/tasks/gate.ts`, `lib/tasks/orchestrator.ts`, `server/instrumentation.ts` shutdown, and the seven `/api/tasks` routes. `lib/project-trust.ts` decides `--approve`; `lib/tasks/active-sessions.ts` is the only module chat imports.                               |
-| 4            | `components/TaskWorkspace.tsx`, `?mode=tasks`/`?task=` in `AppShell`, `styles/tasks.css`, and task keys in all three locales.                                                                                                                                         |
+| 3            | `lib/tasks/gate.ts`, `lib/tasks/orchestrator.ts` (one loop and one lock per project), `server/instrumentation.ts` shutdown, and the `/api/tasks` routes. `lib/project-trust.ts` decides `--approve`; `lib/tasks/active-sessions.ts` is the only module chat imports. |
+| 4            | `components/TaskWorkspace.tsx`, `components/TaskProjectsSidebar.tsx`, `?mode=tasks`/`?cwd=`/`?task=` in `AppShell`, `styles/tasks.css`, and task keys in all three locales.                                                                                          |
 | 5 (optional) | The `Chat                                                                                                                                                                                                                                                          | Tasks` switch in both page headers, and the session actions moved into the Runs panel (`components/SessionPanelActions.tsx`). Not built: the mode-specific inspector and the per-tab mode memory. |
 
-Queue defaults live in `<agentDir>/pie-task-orchestrator.json`, read on every run so an edit applies
-to the next task. The queue lock is `<agentDir>/pie-tasks.lock`. The `ask_user` extension is loaded
-from `lib/ask-user-cli-extension.ts`; `package.json.files` ships that file and the two modules it
+Queue defaults live in `<agentDir>/pie-task-orchestrator.json`, one global file read on every run so
+an edit applies to the next task in every project. Each project's lock is
+`<agentDir>/pie-task-locks/<sha256(projectKey)>.lock`. The `ask_user` extension is loaded from
+`lib/ask-user-cli-extension.ts`; `package.json.files` ships that file and the two modules it
 imports, so a portable install can start the same child.
 
 ## Invariants to preserve
 
-- One `IN_PROGRESS` row at most, enforced by the claim transaction, not by the loop.
+- One `IN_PROGRESS` row per project at most, enforced by the project-scoped claim transaction, not
+  by the loop.
 - Every task attempt is a new session id and a new process; a session is never reused for a second
-  attempt.
+  attempt. Different projects may have one attempt each at the same time.
 - `IN_PROGRESS` tasks cannot be edited, deleted, or reordered — from any client.
 - A task's terminal state is written with its run record in one transaction.
 - Killing the server leaves no live child process.
@@ -619,11 +671,11 @@ What it does not change here:
 
 | Decision               | Value                                                                                             |
 | ---------------------- | ------------------------------------------------------------------------------------------------- |
-| Execution boundary     | `pi --mode rpc` child process per task, one queue for all workspaces                              |
-| Task working directory | Stored per task; the queue is global so strict serial order spans projects                        |
+| Execution boundary     | `pi --mode rpc` child process per task, one serial queue per working directory                    |
+| Task working directory | Stored per task and the project key; different projects can run at the same time                  |
 | Abort outcome          | `BLOCKED`, loop paused                                                                            |
 | `ask_user`             | Queue default off, per-task override, wait indefinitely when enabled, Web Push, abort as the exit |
-| Verification commands  | Global config plus per-task override; no project-local config                                     |
+| Verification commands  | One global config plus per-task override; no per-project config in the first version              |
 | Task instructions      | Free text in the queue defaults, appended to every task prompt; soft constraints only             |
 | Storage                | `node:sqlite` database in the agent directory                                                     |
 | Interface roll-out     | Task workspace first, two-mode top bar second                                                     |
