@@ -232,7 +232,9 @@ export function AppShell() {
     let runningKey = '';
     const loadSessions = async () => {
       try {
-        const response = await fetch('/api/sessions', { cache: 'no-store' });
+        const response = await fetch('/api/sessions?includeTransient=1', {
+          cache: 'no-store'
+        });
         if (!response.ok) return;
         const data = (await response.json()) as { sessions: SessionInfo[] };
         if (!stopped) handleSessionsChange(data.sessions);

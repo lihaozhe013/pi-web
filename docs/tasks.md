@@ -511,7 +511,9 @@ delivered in two steps so the chat surface is never destabilized by a navigation
   surface for the task being read, and the board sits in the same right-hand panel the Runs panel
   uses in chat. The board has a Chats section above the queue groups (running, queued, blocked,
   done); a conversation that also has a queue task is represented by that task, so the same work
-  never appears twice.
+  never appears twice. A fresh conversation appears immediately as a "New chat" row even before its
+  first message is persisted; only task mode asks for transient draft sessions, so the chat
+  sidebar's behaviour is unchanged.
 - Clicking a project switches the board and the work surface to that project. The project is a URL
   parameter (`?mode=tasks&cwd=<path>`), so a reload, a new tab, and a Web Push deep link all reopen
   the same project. A chat session that starts running moves its project to the active section and

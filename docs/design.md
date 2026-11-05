@@ -74,7 +74,8 @@ and toolbar: the left panel becomes a project list, the center column is the wor
 the selected task or chat, and the same right-hand column that carries Runs in chat carries the
 board here. The board has a Chats section above the queue groups, because a conversation is project
 work too. A conversation that has a queue task is represented by that task, so the same work never
-appears twice.
+appears twice. A fresh conversation is visible as a "New chat" row before its first message is
+persisted, because task mode includes transient draft runtimes.
 
 The project panel is the task workspace's navigator. Each row is one working directory: its name,
 the running task or chat, a status dot and the number queued; projects with a running chat, running

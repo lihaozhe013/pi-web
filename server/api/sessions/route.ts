@@ -22,13 +22,16 @@ export async function GET(req: Request) {
     // `summary=1` serves header/stat metadata so the sidebar can paint without
     // waiting for every session transcript to be parsed.
     const summary = searchParams.get('summary') === '1';
+    // Task mode shows a fresh conversation as a task before its first message
+    // is persisted. Chat mode keeps the default, which hides idle draft runtimes.
+    const includeTransient = searchParams.get('includeTransient') === '1';
     perf?.span('start');
     const persistedSessionsPromise = summary ? listSessionSummaries() : listAllSessions({ force });
     // Capture before awaiting: mutations during the scan still require a later refresh.
     const sessionListVersion = getSessionListVersion();
     const [persistedSessions, runtimeSessions] = await Promise.all([
       persistedSessionsPromise,
-      attachSessionProjectInfo(getRpcSessionInfos())
+      attachSessionProjectInfo(getRpcSessionInfos({ includeTransient }))
     ]);
     perf?.span('scan+projects');
     const sessions = mergeSessionLists(persistedSessions, runtimeSessions);

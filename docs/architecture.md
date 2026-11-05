@@ -140,6 +140,10 @@ project's chat sessions get the queue tools. The tools call the same controller 
 the extension reads the queue's event table through the same polling design. Nothing else in the
 runtime learns that the feature exists.
 
+Task mode requests `/api/sessions?includeTransient=1`, so an idle draft runtime created by the
+composer is visible as a New chat task before its first message exists. Chat mode keeps the default
+catalog, which hides those drafts.
+
 Session catalog entries are grouped by their recorded working directory. Directory validation and
 model lookup do not inspect Git or infer a replacement directory for a missing checkout. A missing
 directory is an error. Pins, archive status, search, and running indicators apply to individual

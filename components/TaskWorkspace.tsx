@@ -2104,7 +2104,7 @@ export function TaskWorkspace({
               {t('tasks.messageCount', { count: chat.session.messageCount })}
             </span>
           </p>
-          {chat.session.firstMessage && (
+          {chat.session.messageCount > 0 && chat.session.firstMessage && (
             <p className="task-detail-text">{chat.session.firstMessage}</p>
           )}
         </header>

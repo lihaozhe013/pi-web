@@ -77,7 +77,10 @@ export function chatTasksForProject(
       const awaiting = input.awaitingIds.has(session.id);
       return {
         session,
-        title: session.name?.trim() || session.firstMessage?.trim() || '',
+        title:
+          session.name?.trim() ||
+          (session.messageCount > 0 ? session.firstMessage?.trim() : '') ||
+          '',
         running,
         awaiting,
         status: running

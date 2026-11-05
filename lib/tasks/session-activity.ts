@@ -28,7 +28,11 @@ export interface RunningProjectSession extends TaskActiveSession {
 const QUEUED_TASK_PROMPT_PREFIX = 'You are running task #';
 
 function sessionTitle(session: SessionInfo): string {
-  return session.name?.trim() || session.firstMessage?.trim() || 'Chat';
+  return (
+    session.name?.trim() ||
+    (session.messageCount > 0 ? session.firstMessage?.trim() : '') ||
+    'Chat'
+  );
 }
 
 /** Every chat session currently executing, grouped by its project key. */
