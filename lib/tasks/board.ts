@@ -4,6 +4,7 @@
  */
 import { ASK_USER_OTHER_LABEL } from '../ask-user-labels';
 import { projectIdentityKey } from '../project-identity';
+import { isQueuedTaskPrompt } from './prompt';
 import type { ExtensionUiRequest, SessionInfo } from '../types';
 import type {
   OrchestratorStatus,
@@ -47,9 +48,6 @@ export interface ChatTask {
 /** How many conversations the board keeps visible without the chat sidebar. */
 export const CHAT_TASK_LIMIT = 30;
 
-/** Legacy task prompts used this prefix; keep old sessions out of the chat rows. */
-const QUEUED_TASK_PROMPT_PREFIX = 'You are running task #';
-
 /**
  * The project's live conversations that the queue does not already represent.
  * Task sessions own their session rows, so they are filtered out to keep one
@@ -71,7 +69,7 @@ export function chatTasksForProject(
   const rows = sessions
     .filter((session) => {
       if (input.linkedSessionIds.has(session.id)) return false;
-      if (session.firstMessage.startsWith(QUEUED_TASK_PROMPT_PREFIX)) return false;
+      if (isQueuedTaskPrompt(session.firstMessage)) return false;
       return (session.projectKey || projectIdentityKey(session.cwd)) === input.projectKey;
     })
     .map((session): ChatTask => {

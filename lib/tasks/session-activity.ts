@@ -14,6 +14,7 @@ import {
   getRunningRpcSessionIds
 } from '../rpc-manager';
 import { activeTaskSessionIds } from './active-sessions';
+import { isQueuedTaskPrompt } from './prompt';
 import type { SessionInfo } from '../types';
 import { emptyProjectSummary } from './projects';
 import type { TaskActiveSession, TaskProjectSummary } from './types';
@@ -23,9 +24,6 @@ export interface RunningProjectSession extends TaskActiveSession {
   cwd: string;
   modified: string;
 }
-
-/** A legacy queue task prompt; it must never look like a human chat. */
-const QUEUED_TASK_PROMPT_PREFIX = 'You are running task #';
 
 function sessionTitle(session: SessionInfo): string {
   return (
@@ -46,7 +44,7 @@ export function runningProjectSessions(): RunningProjectSession[] {
       (session) =>
         running.has(session.id) &&
         !taskSessions.has(session.id) &&
-        !session.firstMessage.startsWith(QUEUED_TASK_PROMPT_PREFIX)
+        !isQueuedTaskPrompt(session.firstMessage)
     )
     .map((session) => ({
       sessionId: session.id,

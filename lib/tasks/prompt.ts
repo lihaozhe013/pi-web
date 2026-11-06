@@ -10,6 +10,17 @@
 import { verificationShellName } from './gate';
 import type { TaskRecord } from './types';
 
+export const QUEUED_TASK_PROMPT_HEADER =
+  "You are running a task from Pie's project task queue in one fresh session.";
+
+export function isQueuedTaskPrompt(text: string | null | undefined): boolean {
+  if (!text) return false;
+  return (
+    text.startsWith(QUEUED_TASK_PROMPT_HEADER) ||
+    text.startsWith('You are running task #')
+  );
+}
+
 export interface TaskPromptInput {
   task: Pick<TaskRecord, 'title' | 'description' | 'cwd'>;
   verifyCommands: string[];
@@ -20,7 +31,7 @@ export function buildTaskPrompt({ task, verifyCommands, autonomous }: TaskPrompt
   const lines: string[] = [];
   const verificationShell = verificationShellName();
   lines.push(
-    `You are running a task from Pie's project task queue in one fresh session.`,
+    QUEUED_TASK_PROMPT_HEADER,
     ''
   );
   lines.push(`Task: ${task.description ?? task.title}`);

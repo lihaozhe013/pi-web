@@ -20,6 +20,7 @@ import type {
 import { normalizeToolCalls } from './normalize';
 import { withoutMessageSignatures } from './message-signatures';
 import { getThinkingPreview, isMessageGroupAnchor } from './message-display';
+import { isGoalEntry } from './goal-driver';
 import { projectIdentityKey } from './project-identity';
 import { sessionPathKey } from './session-path';
 import { skillExpansionToCommand } from './slash-display';
@@ -660,6 +661,28 @@ export interface BuildSessionContextOptions {
   excludeLeaf?: boolean;
   /** Session id used to build lazy URLs for historical tool-result images. */
   sessionId?: string;
+  allEntries?: readonly SessionEntry[];
+}
+
+function isGoalSetEntry(entry: SessionEntry): boolean {
+  if (entry.type !== 'custom' || !isGoalEntry(entry)) return false;
+  const data = entry.data as { kind?: unknown; goal?: { objective?: unknown } } | undefined;
+  return (
+    Boolean(data) &&
+    data?.kind === 'set' &&
+    typeof data?.goal?.objective === 'string' &&
+    data.goal.objective.trim().length > 0
+  );
+}
+
+function isInitialGoalEntry(entries: readonly SessionEntry[], targetId: string): boolean {
+  for (const e of entries) {
+    if (e.type === 'message' && e.message?.role === 'user') return false;
+    if (isGoalSetEntry(e)) {
+      return e.id === targetId;
+    }
+  }
+  return false;
 }
 
 export function buildSessionContext(
@@ -682,11 +705,15 @@ export function buildSessionContext(
   const hasMore = Boolean(tail && tail > 0 && sliced[0]?.parentId);
   const turnsBefore = hasMore ? countTurnsBefore(entries, sliced[0]) : 0;
 
+  const opts: BuildSessionContextOptions = options.allEntries
+    ? options
+    : { ...options, allEntries: entries };
+
   // Convert messages and their IDs together to keep fork/navigation targets aligned.
   const messages: AgentMessage[] = [];
   const entryIds: string[] = [];
   for (const entry of sliced) {
-    const m = entryToUiMessage(entry, options);
+    const m = entryToUiMessage(entry, opts);
     if (m) {
       messages.push(m);
       entryIds.push(entry.id);
@@ -707,7 +734,10 @@ export function buildSessionContext(
  * The fields of entryToUiMessage()'s result that isMessageGroupAnchor() reads,
  * without converting the entry's body.
  */
-function turnAnchorShape(entry: SessionEntry): Parameters<typeof isMessageGroupAnchor>[0] | null {
+function turnAnchorShape(
+  entry: SessionEntry,
+  allEntries?: readonly SessionEntry[]
+): Parameters<typeof isMessageGroupAnchor>[0] | null {
   switch (entry.type) {
     case 'message':
       return entry.message.role === 'system' ? null : (entry.message as AgentMessage);
@@ -717,6 +747,11 @@ function turnAnchorShape(entry: SessionEntry): Parameters<typeof isMessageGroupA
       return entry.summary ? { role: 'user' } : null;
     case 'custom_message':
       return { role: 'custom', customType: entry.customType, display: entry.display };
+    case 'custom':
+      if (allEntries && isInitialGoalEntry(allEntries, entry.id)) {
+        return { role: 'user' };
+      }
+      return null;
     default:
       return null;
   }
@@ -733,7 +768,7 @@ function countTurnsBefore(entries: SessionEntry[], oldest: SessionEntry): number
   let turns = 0;
   let current = oldest.parentId ? byId.get(oldest.parentId) : undefined;
   while (current) {
-    const shape = turnAnchorShape(current);
+    const shape = turnAnchorShape(current, entries);
     if (shape && isMessageGroupAnchor(shape)) turns++;
     current = current.parentId ? byId.get(current.parentId) : undefined;
   }
@@ -748,8 +783,11 @@ function countTurnsBefore(entries: SessionEntry[], oldest: SessionEntry): number
  * user messages out of the window in agent-heavy sessions (a 50-entry window
  * over a tool-heavy session can hold a single user message).
  */
-function countsTowardTail(entry: SessionEntry): boolean {
+function countsTowardTail(entry: SessionEntry, allEntries?: readonly SessionEntry[]): boolean {
   if (entry.type === 'compaction') return true;
+  if (entry.type === 'custom' && allEntries && isInitialGoalEntry(allEntries, entry.id)) {
+    return true;
+  }
   if (entry.type !== 'message') return false;
   const role = (entry as { message?: { role?: string } }).message?.role;
   return role === 'user' || role === 'assistant';
@@ -791,7 +829,7 @@ export function sliceActiveBranch(
   const rawCap = rawWindowCap(tail);
   while (current) {
     chain.push(current);
-    if (countsTowardTail(current)) visible++;
+    if (countsTowardTail(current, entries)) visible++;
     if (visible >= tail || chain.length >= rawCap) break;
     current = current.parentId ? byId.get(current.parentId) : undefined;
   }
@@ -944,6 +982,17 @@ function entryToUiMessage(
         details: entry.details,
         timestamp: parseEntryTimestamp(entry.timestamp)
       };
+    case 'custom': {
+      if (options.allEntries && isInitialGoalEntry(options.allEntries, entry.id)) {
+        const data = entry.data as { goal: { objective: string } };
+        return {
+          role: 'user',
+          content: data.goal.objective,
+          timestamp: parseEntryTimestamp(entry.timestamp)
+        };
+      }
+      return null;
+    }
     default:
       return null;
   }

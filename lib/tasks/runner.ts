@@ -443,6 +443,14 @@ export function startTaskRun(request: TaskRunRequest): TaskRunHandle {
       }
 
       setActivity('starting', null);
+      if (request.autonomous) {
+        await session.send({ type: 'append_user_message', message: request.prompt });
+        if (abortRequested) {
+          await abortSession();
+          finish(outcome('aborted', 'aborted by user'));
+          return;
+        }
+      }
       const kickoff = request.autonomous
         ? goalCommand('start', goalObjective(request.prompt))
         : request.prompt;

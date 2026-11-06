@@ -181,6 +181,7 @@ export interface AgentSessionLike {
 
   readonly bindExtensions?: unknown;
   dispose(): void;
+  refreshContext?(): void;
   reload(options?: { beforeSessionStart?: () => void | Promise<void> }): Promise<void>;
   subscribe(listener: (event: AgentSessionEvent) => void): () => void;
   prompt(

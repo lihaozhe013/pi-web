@@ -1,4 +1,4 @@
-import type { ThinkingLevel } from '@earendil-works/pi-agent-core';
+import type { AgentMessage, ThinkingLevel } from '@earendil-works/pi-agent-core';
 import {
   createAgentSessionFromServices,
   createAgentSessionServices,
@@ -814,6 +814,29 @@ export class AgentSessionWrapper {
     return { cancelled: false };
   }
 
+  appendUserMessage(text: string): string {
+    const userMessage: AgentMessage = {
+      role: 'user',
+      content: [{ type: 'text', text }],
+      timestamp: Date.now()
+    };
+    const entryId = this.inner.sessionManager.appendMessage(userMessage);
+    this.inner.refreshContext?.();
+    const entry = this.inner.sessionManager.getEntry(entryId);
+    if (entry) {
+      this.emit({ type: 'entry_appended', entry: entry as unknown as AgentEvent['entry'] });
+    }
+    this.emit({
+      type: 'message_start',
+      message: userMessage
+    });
+    this.emit({
+      type: 'message_end',
+      message: userMessage
+    });
+    return entryId;
+  }
+
   private emit(event: AgentEvent): void {
     for (const listener of this.listeners) {
       try {
@@ -1164,6 +1187,13 @@ export class AgentSessionWrapper {
           } finally {
             if (!this.isRunning()) this.forceShutdownOnIdle = false;
           }
+
+        case 'append_user_message': {
+          const message = typeof command.message === 'string' ? command.message : '';
+          if (!message) throw new Error('A message is required');
+          const entryId = this.appendUserMessage(message);
+          return { entryId };
+        }
 
         case 'goal': {
           // The installed package owns the goal. Pie forwards the command the
