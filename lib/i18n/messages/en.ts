@@ -93,6 +93,9 @@ export const enLocale: LocalePlugin = {
     'settings.transcriptToolCards': 'Show write and edit cards in the conversation',
     'settings.transcriptToolCardsDescription':
       "Off keeps the conversation to your messages and the agent's replies: writes, edits, and patches then appear only in the Runs panel, with their diffs.",
+    'settings.diffSideBySide': 'Show diffs side by side',
+    'settings.diffSideBySideDescription':
+      'Off draws every change inline: the removed line above the line that replaces it, one column that fits a narrow card. On draws old and new in two columns.',
     'settings.sidebar': 'Sidebar',
     'settings.filesPlacement': 'File browser',
     'settings.filesPlacementBelow': 'Below sessions',

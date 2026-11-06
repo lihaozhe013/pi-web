@@ -97,6 +97,14 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
   },
   {
     section: 'general',
+    label: 'settings.diffSideBySide',
+    description: 'settings.diffSideBySideDescription',
+    target: 'settings-diff-layout',
+    keywords:
+      'diff side by side split inline stacked columns write edit patch 并排 並排 内联 內聯 单栏 單欄 两栏 兩欄 分栏 分欄 拆分'
+  },
+  {
+    section: 'general',
     label: 'settings.enterSendMode',
     target: 'settings-send-key',
     keywords: 'enter ctrl cmd send keyboard 发送 回车 傳送 換行 快捷键'

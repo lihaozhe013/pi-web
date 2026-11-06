@@ -91,6 +91,9 @@ export const zhTWLocale: LocalePlugin = {
     'settings.transcriptToolCards': '在對話中顯示寫入與編輯卡片',
     'settings.transcriptToolCardsDescription':
       '關閉後對話只保留你的訊息與 AI 的回覆，寫入、編輯與補丁只在右側 Runs 面板顯示，並附上 diff。',
+    'settings.diffSideBySide': '並排顯示 diff',
+    'settings.diffSideBySideDescription':
+      '關閉時每處改動單欄內聯顯示：被刪除的行在上、取代它的行在下，更省空間。開啟後新舊內容分兩欄並排顯示。',
     'settings.sidebar': '側邊欄',
     'settings.filesPlacement': '檔案瀏覽器',
     'settings.filesPlacementBelow': '工作階段下方',

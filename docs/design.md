@@ -247,7 +247,10 @@ Current main-transcript behavior:
   own status colors as compact subcards ahead of a script disclosure. Closing the panel does not
   discard anything.
 - Write/edit/patch cards default to expanded. A write that replaces a file shows the changed lines
-  as a diff; its final content is not repeated.
+  as a diff; its final content is not repeated. Diffs draw inline: the removed line above the line
+  that replaces it, one column a narrow card fits. `Show diffs side by side` in Settings › General
+  switches them to two columns; a phone stays inline whatever it says. The choice is a browser
+  preference, display only.
 - Settings › General chooses where those cards live
   (`Show write and edit cards in the conversation`, off by default). With it off the transcript
   carries the user's messages and the agent's replies and nothing else, so a reader who never

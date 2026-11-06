@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useDiffSideBySide } from '@/hooks/useDiffLayout';
 import { useI18n } from '@/hooks/useI18n';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import {
@@ -32,13 +33,17 @@ export function SplitPatchView({ text }: { text: string }) {
 }
 
 /**
- * The patch as the viewport can show it. Two columns need two code columns side
- * by side, which a phone does not have: there the same rows read as one column
- * — a removed line above the line that replaces it, each with its own number —
- * the way the file viewer's diff has always been drawn. See `unifiedDiffLines()`.
+ * The patch as the settings and the viewport can show it. Side by side is a
+ * choice, off by default: inline draws the same rows as one column — a removed
+ * line above the line that replaces it, each with its own number, the way the
+ * file viewer's diff has always been drawn. Two columns need two code columns
+ * beside each other, which a phone does not have, so there the rows stay
+ * stacked whatever the choice says. See `unifiedDiffLines()`.
  */
 export function SplitFilesView({ files }: { files: SplitDiffFile[] }) {
-  const layout: PatchDiffLayout = useIsMobile() ? 'stacked' : 'split';
+  const sideBySide = useDiffSideBySide();
+  const isMobile = useIsMobile();
+  const layout: PatchDiffLayout = sideBySide && !isMobile ? 'split' : 'stacked';
   return <PatchDiffFiles files={files} layout={layout} />;
 }
 

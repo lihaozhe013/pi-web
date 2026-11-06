@@ -1,4 +1,5 @@
 import { setEnterSendMode, useEnterSendMode } from '@/hooks/useEnterSendMode';
+import { setDiffSideBySide, useDiffSideBySide } from '@/hooks/useDiffLayout';
 import { setTranscriptToolDisplay, useTranscriptToolDisplay } from '@/hooks/useTranscriptMode';
 import { useI18n } from '@/hooks/useI18n';
 import { sendAgentCommand } from '@/lib/agent-client';
@@ -136,6 +137,7 @@ function GeneralSettings({
   const { locale, setLocale, supportedLocales, t } = useI18n();
   const enterSendMode = useEnterSendMode();
   const toolDisplay = useTranscriptToolDisplay();
+  const diffSideBySide = useDiffSideBySide();
   const [shellSettings, setShellSettings] = useState<ToolSettingsResponse | null>(null);
   const [shellSaving, setShellSaving] = useState(false);
   const [shellError, setShellError] = useState<string | null>(null);
@@ -303,6 +305,18 @@ function GeneralSettings({
             />
           </div>
           <div
+            id="settings-diff-layout"
+            className="settings-chat-option settings-chat-switch-option"
+          >
+            <span>{t('settings.diffSideBySide')}</span>
+            <ConfigSwitch
+              checked={diffSideBySide}
+              label={t('settings.diffSideBySide')}
+              describedBy="settings-diff-layout-description"
+              onChange={setDiffSideBySide}
+            />
+          </div>
+          <div
             className="settings-chat-option settings-chat-switch-option"
             id="settings-send-key"
             role="radiogroup"
@@ -354,6 +368,9 @@ function GeneralSettings({
         </div>
         <p id="settings-transcript-tool-cards-description" className="settings-general-description">
           {t('settings.transcriptToolCardsDescription')}
+        </p>
+        <p id="settings-diff-layout-description" className="settings-general-description">
+          {t('settings.diffSideBySideDescription')}
         </p>
         <p id="settings-cache-miss-notices-description" className="settings-general-description">
           {t('settings.cacheMissNoticesDescription')}
