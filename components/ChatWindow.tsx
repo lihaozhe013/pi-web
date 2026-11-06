@@ -1079,11 +1079,11 @@ export function ChatWindow({
     [onContextUsageChange]
   );
 
-  // Images attach to the prompt. Other files go through the file explorer's
-  // upload into the working directory, never replacing a file already there,
-  // and come back as attachment chips whose `@` mentions the send spells out.
-  // The composer's attach button takes the same path, for phones that cannot
-  // drop files.
+  // Everything dropped onto the chat — images included — goes through the file
+  // explorer's upload into the working directory, never replacing a file already
+  // there, and comes back as attachment chips whose `@` mentions the send spells
+  // out. The composer's attach button and paste take the same path, for phones
+  // that cannot drop files and for the clipboard.
   const uploadDroppedFiles = useCallback(
     async (files: File[]) => {
       const cwd = session?.cwd ?? newSessionCwd;
@@ -1131,8 +1131,7 @@ export function ChatWindow({
 
   const onDrop = useCallback(
     (items: DroppedItem[]) => {
-      const { images, files, folders } = splitDroppedItems(items);
-      if (images.length > 0) chatInputRef?.current?.addImages(images);
+      const { files, folders } = splitDroppedItems(items);
       if (folders.length > 0) {
         addNotice({
           type: 'warning',
@@ -1141,7 +1140,7 @@ export function ChatWindow({
       }
       if (files.length > 0) void uploadDroppedFiles(files);
     },
-    [addNotice, chatInputRef, t, uploadDroppedFiles]
+    [addNotice, t, uploadDroppedFiles]
   );
 
   const onAttachFiles = useCallback(

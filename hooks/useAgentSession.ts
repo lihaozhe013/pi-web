@@ -374,19 +374,8 @@ export interface ChatInputHandle {
   insertIfEmpty: (content: string) => void;
   replaceMessage: (message: UserMessage) => void;
   prependText: (text: string) => void;
-  addImages: (files: File[]) => void;
   rekeyDraft: (previousKey: string, nextKey: string) => void;
-  restoreSubmission: (
-    text: string,
-    images?: Array<{ data: string; mimeType: string }>,
-    targetDraftKey?: string
-  ) => void;
-}
-
-export interface AttachedImage {
-  data: string;
-  mimeType: string;
-  previewUrl: string;
+  restoreSubmission: (text: string, targetDraftKey?: string) => void;
 }
 
 type SelectedModel = { provider: string; modelId: string };
@@ -728,8 +717,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   }, []);
 
   const restoreSubmission = useCallback(
-    (text: string, images: AttachedImage[] | undefined, targetDraftKey: string | undefined) => {
-      const draftImages = images?.map(({ data, mimeType }) => ({ data, mimeType }));
+    (text: string, targetDraftKey: string | undefined) => {
       const destinationDraftKey = resolveComposerDraftKey(targetDraftKey);
       if (
         !sessionHookMountedRef.current &&
@@ -739,9 +727,9 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         return;
       const input = opts.chatInputRef?.current;
       if (input) {
-        input.restoreSubmission(text, draftImages, destinationDraftKey);
+        input.restoreSubmission(text, destinationDraftKey);
       } else if (destinationDraftKey) {
-        restoreDraftSubmission(destinationDraftKey, text, draftImages);
+        restoreDraftSubmission(destinationDraftKey, text);
       }
     },
     [newSessionDraftKey, opts.chatInputRef, resolveComposerDraftKey]
@@ -2225,11 +2213,11 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   handleAgentEventRef.current = handleAgentEvent;
 
   const handleSend = useCallback(
-    async (message: string, images?: AttachedImage[]) => {
+    async (message: string) => {
       const trimmedMessage = message.trim();
-      if (!trimmedMessage && !images?.length) return;
+      if (!trimmedMessage) return;
       if (agentRunningRef.current || bashRunningRef.current) {
-        restoreSubmission(message, images, composerDraftKey);
+        restoreSubmission(message, composerDraftKey);
         return;
       }
       if (editEntryId) {
@@ -2239,18 +2227,18 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         setEdit(null);
         if (!(await handleNavigateRef.current?.(entryId))) {
           setEdit(entryId);
-          restoreSubmission(message, images, composerDraftKey);
+          restoreSubmission(message, composerDraftKey);
           return;
         }
       }
-      const isSlashCommandPrompt = !images?.length && trimmedMessage.startsWith('/');
+      const isSlashCommandPrompt = trimmedMessage.startsWith('/');
 
-      const isBashCommand = !images?.length && trimmedMessage.startsWith('!');
+      const isBashCommand = trimmedMessage.startsWith('!');
       if (isBashCommand) {
         const isExcluded = trimmedMessage.startsWith('!!');
         const bashCmd = (isExcluded ? trimmedMessage.slice(2) : trimmedMessage.slice(1)).trim();
         if (!bashCmd) {
-          restoreSubmission(message, images, composerDraftKey);
+          restoreSubmission(message, composerDraftKey);
           return;
         }
         await executeBashRef.current?.(bashCmd, isExcluded);
@@ -2261,15 +2249,9 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       cancelEventStreamGrace();
       rpcPromptPendingRef.current = true;
 
-      const imageBlocks = images?.map((img) => ({
-        type: 'image' as const,
-        source: { type: 'base64' as const, media_type: img.mimeType, data: img.data }
-      }));
       const userMsg: AgentMessage = {
         role: 'user',
-        content: imageBlocks?.length
-          ? [...(message.trim() ? [{ type: 'text' as const, text: message }] : []), ...imageBlocks]
-          : message,
+        content: message,
         timestamp: Date.now()
       };
       setMessages((prev) => [...prev, userMsg]);
@@ -2282,11 +2264,6 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       pendingScrollToUserRef.current = true;
       setPromptAnchorActive(true);
 
-      const piImages = images?.map((img) => ({
-        type: 'image' as const,
-        data: img.data,
-        mimeType: img.mimeType
-      }));
       let sentSessionId: string | null = null;
       let promptRequestStarted = false;
 
@@ -2319,8 +2296,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
           promptRequestStarted = true;
           await sendAgentCommand(sid, {
             type: 'prompt',
-            message,
-            ...(piImages?.length ? { images: piImages } : {})
+            message
           });
           promoteNewSession(1, message);
         } else if (session) {
@@ -2329,8 +2305,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
           promptRequestStarted = true;
           await sendAgentCommand(session.id, {
             type: 'prompt',
-            message,
-            ...(piImages?.length ? { images: piImages } : {})
+            message
           });
         } else {
           throw new Error('No active session for the prompt');
@@ -2356,7 +2331,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
             : [...prev.slice(0, optimisticIndex), ...prev.slice(optimisticIndex + 1)];
         });
         addNotice({ type: 'error', message: e instanceof Error ? e.message : String(e) });
-        restoreSubmission(message, images, composerDraftKey);
+        restoreSubmission(message, composerDraftKey);
         optimisticUserMessageKeyRef.current = null;
         // Rejection only describes this submission. Another tab or an event we
         // missed may still have a real run active for the same session, so keep
@@ -2413,7 +2388,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       } catch (e) {
         console.error('Failed to execute shell command:', e);
         addNotice({ type: 'error', message: e instanceof Error ? e.message : String(e) });
-        restoreSubmission(inputText, undefined, composerDraftKey);
+        restoreSubmission(inputText, composerDraftKey);
       } finally {
         bashRunningRef.current = false;
         setPendingBash(null);
@@ -2976,9 +2951,9 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   // current run or start a new turn if it settled while the request was in
   // flight. Direct steer/followUp calls can strand a message in an idle queue.
   const sendStreamingPrompt = useCallback(
-    async (message: string, behavior: 'steer' | 'followUp', images?: AttachedImage[]) => {
+    async (message: string, behavior: 'steer' | 'followUp') => {
       const sid = sessionIdRef.current;
-      const restore = () => restoreSubmission(message, images, composerDraftKey);
+      const restore = () => restoreSubmission(message, composerDraftKey);
       // A pending history edit must branch when sent, never join the current run.
       if (editEntryId) {
         restore();
@@ -2989,17 +2964,11 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         addNotice({ type: 'error', message: 'No active session for the queued message' });
         return;
       }
-      const piImages = images?.map((img) => ({
-        type: 'image' as const,
-        data: img.data,
-        mimeType: img.mimeType
-      }));
       try {
         await sendAgentCommand(sid, {
           type: 'prompt',
           message,
-          streamingBehavior: behavior,
-          ...(piImages?.length ? { images: piImages } : {})
+          streamingBehavior: behavior
         });
       } catch (e) {
         console.error('Failed to submit streaming prompt:', e);
@@ -3017,22 +2986,22 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   );
 
   const handleSteer = useCallback(
-    async (message: string, images?: AttachedImage[]) => {
-      await sendStreamingPrompt(message, 'steer', images);
+    async (message: string) => {
+      await sendStreamingPrompt(message, 'steer');
     },
     [sendStreamingPrompt]
   );
 
   const handlePromptWithStreamingBehavior = useCallback(
-    async (message: string, behavior: 'steer' | 'followUp', images?: AttachedImage[]) => {
-      await sendStreamingPrompt(message, behavior, images);
+    async (message: string, behavior: 'steer' | 'followUp') => {
+      await sendStreamingPrompt(message, behavior);
     },
     [sendStreamingPrompt]
   );
 
   const handleFollowUp = useCallback(
-    async (message: string, images?: AttachedImage[]) => {
-      await sendStreamingPrompt(message, 'followUp', images);
+    async (message: string) => {
+      await sendStreamingPrompt(message, 'followUp');
     },
     [sendStreamingPrompt]
   );

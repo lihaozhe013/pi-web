@@ -64,26 +64,74 @@ export function uploadFiles(
 export type DroppedItem = { kind: 'file'; file: File } | { kind: 'folder'; name: string };
 
 /**
- * Sorts a chat drop: images are attached to the prompt as before, other files
- * are uploaded into the working directory and attached as chips, and folders are
- * left out because the upload endpoint takes files only.
+ * Sorts a chat drop: every file, images included, uploads into the working
+ * directory and attaches as chips. Folders are left out because a browser drop
+ * only names them; nothing of their contents reaches the page.
  * @param items The dropped items, in drop order
- * @returns The images, the files to upload, and the names of skipped folders
+ * @returns The files to upload and the names of skipped folders
  */
 export function splitDroppedItems(items: DroppedItem[]): {
-  images: File[];
   files: File[];
   folders: string[];
 } {
-  const images: File[] = [];
   const files: File[] = [];
   const folders: string[] = [];
   for (const item of items) {
     if (item.kind === 'folder') folders.push(item.name);
-    else if (item.file.type.startsWith('image/')) images.push(item.file);
     else files.push(item.file);
   }
-  return { images, files, folders };
+  return { files, folders };
+}
+
+const PASTED_IMAGE_EXTENSIONS: Record<string, string> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/gif': 'gif',
+  'image/webp': 'webp',
+  'image/svg+xml': 'svg'
+};
+
+/**
+ * Whether a name is the generic one browsers give a raw clipboard image, such
+ * as a screenshot's `image.png`. Files copied in a file manager keep real names.
+ */
+function isGenericImageName(name: string, mimeType: string): boolean {
+  const extension = PASTED_IMAGE_EXTENSIONS[mimeType];
+  if (!extension) return false;
+  return name.toLowerCase() === `image.${extension}`;
+}
+
+/** A timestamped name one paste can call its own, so two screenshots never collide. */
+function pastedImageName(mimeType: string, sequence: number): string {
+  const stamp = new Date()
+    .toISOString()
+    .replace(/[-:]/g, '')
+    .replace('T', '-')
+    .slice(0, 19);
+  const extension = PASTED_IMAGE_EXTENSIONS[mimeType] ?? 'png';
+  return `pasted-${stamp}-${sequence}.${extension}`;
+}
+
+/**
+ * Names clipboard screenshots before their upload. Browsers call every pasted
+ * screenshot `image.png`, so a second paste would collide with the first one
+ * in the working directory and the chip would reference the wrong picture.
+ * Files copied in a file manager keep their own names: they already have real
+ * ones.
+ * @param files The files taken from a paste event
+ * @returns The same files; screenshots carry a fresh, distinctive name
+ */
+export function namePastedFiles(files: File[]): File[] {
+  let sequence = 0;
+  return files.map((file) => {
+    if (!file.type.startsWith('image/')) return file;
+    if (!isGenericImageName(file.name, file.type)) return file;
+    sequence += 1;
+    return new File([file], pastedImageName(file.type, sequence), {
+      type: file.type,
+      lastModified: file.lastModified
+    });
+  });
 }
 
 /**

@@ -1,14 +1,7 @@
 import type { AttachedFile } from './attached-files';
-import { MAX_ATTACHED_IMAGES, isBase64ImageWithinLimits } from './image-attachments';
-
-export interface ChatDraftImage {
-  data: string;
-  mimeType: string;
-}
 
 export interface ChatDraft {
   value: string;
-  images: ChatDraftImage[];
   /** Files the composer references by chip; absent while none are attached. */
   files?: AttachedFile[];
 }
@@ -16,11 +9,8 @@ export interface ChatDraft {
 const drafts = new Map<string, ChatDraft>();
 
 function cloneDraft(draft: ChatDraft): ChatDraft {
+  const clone: ChatDraft = { value: draft.value };
   const files = (draft.files ?? []).map((file) => ({ ...file }));
-  const clone: ChatDraft = {
-    value: draft.value,
-    images: draft.images.map((image) => ({ ...image }))
-  };
   // An empty list is not stored, so a draft that carries no files keeps the
   // shape it had before chips existed.
   if (files.length > 0) clone.files = files;
@@ -28,7 +18,7 @@ function cloneDraft(draft: ChatDraft): ChatDraft {
 }
 
 function isEmptyDraft(draft: ChatDraft): boolean {
-  return !draft.value && draft.images.length === 0 && !draft.files?.length;
+  return !draft.value && !draft.files?.length;
 }
 
 export function getDraft(key: string): ChatDraft | null {
@@ -60,37 +50,19 @@ export function mergeRestoredSubmissionText(submitted: string, current: string):
  */
 export function mergeRestoredSubmissionDraft(
   submittedText: string,
-  submittedImages: ChatDraftImage[] | undefined,
   currentText: string,
-  currentImages: ChatDraftImage[],
   currentFiles: AttachedFile[] = []
 ): ChatDraft {
-  const images = [...(submittedImages ?? []), ...currentImages]
-    .filter(isBase64ImageWithinLimits)
-    .slice(0, MAX_ATTACHED_IMAGES)
-    .map(({ data, mimeType }) => ({ data, mimeType }));
-
   const restored: ChatDraft = {
-    value: mergeRestoredSubmissionText(submittedText, currentText),
-    images
+    value: mergeRestoredSubmissionText(submittedText, currentText)
   };
   if (currentFiles.length > 0) restored.files = currentFiles.map((file) => ({ ...file }));
   return restored;
 }
 
-export function restoreDraftSubmission(
-  key: string,
-  text: string,
-  images?: ChatDraftImage[]
-): ChatDraft {
-  const current = getDraft(key) ?? { value: '', images: [] };
-  const restored = mergeRestoredSubmissionDraft(
-    text,
-    images,
-    current.value,
-    current.images,
-    current.files
-  );
+export function restoreDraftSubmission(key: string, text: string): ChatDraft {
+  const current = getDraft(key) ?? { value: '' };
+  const restored = mergeRestoredSubmissionDraft(text, current.value, current.files);
   setDraft(key, restored);
   return restored;
 }
@@ -112,13 +84,7 @@ export function rekeyDraft(
   if (!previous) return next;
 
   const merged = next
-    ? mergeRestoredSubmissionDraft(
-        next.value,
-        next.images,
-        previous.value,
-        previous.images,
-        previous.files
-      )
+    ? mergeRestoredSubmissionDraft(next.value, previous.value, previous.files)
     : previous;
   setDraft(nextKey, merged);
   return cloneDraft(merged);

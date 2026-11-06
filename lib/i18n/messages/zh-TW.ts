@@ -781,9 +781,6 @@ export const zhTWLocale: LocalePlugin = {
     'chat.commandCopy': '複製最後一則助理訊息',
     'chat.commandClone': '將目前分支複製為獨立新工作階段',
     'chat.compacted': '已壓縮',
-    'chat.imageNotSupportedTitle': '圖片可能無法傳送',
-    'chat.imageNotSupportedBody':
-      '目前選擇的模型（{model}）不支援圖片輸入，附加的圖片可能會被忽略。',
     'chat.dropNeedsCwd': '請先選擇工作目錄，再加入檔案。',
     'chat.dropUploaded': '已將 {count} 個檔案複製到工作目錄',
     'chat.dropAlreadyExists': '工作目錄中已有同名檔案，未覆寫，引用的是既有檔案：{names}',

@@ -780,9 +780,6 @@ export const zhCNLocale: LocalePlugin = {
     'chat.commandCopy': '复制最后一条助手消息',
     'chat.commandClone': '将当前分支复制为独立新会话',
     'chat.compacted': '已压缩',
-    'chat.imageNotSupportedTitle': '图片可能无法发送',
-    'chat.imageNotSupportedBody':
-      '当前选择的模型（{model}）不支持图片输入，附加的图片可能会被忽略。',
     'chat.dropNeedsCwd': '请先选择工作目录，再添加文件。',
     'chat.dropUploaded': '已将 {count} 个文件复制到工作目录',
     'chat.dropAlreadyExists': '工作目录中已有同名文件，未覆盖，引用的是已有文件：{names}',

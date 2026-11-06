@@ -23,14 +23,9 @@ import {
   mergeRestoredSubmissionDraft,
   mergeRestoredSubmissionText,
   rekeyDraft as rekeyStoredDraft,
-  setDraft,
-  type ChatDraftImage
+  setDraft
 } from '@/lib/draft-store';
-import {
-  MAX_ATTACHED_IMAGE_BYTES,
-  MAX_ATTACHED_IMAGES,
-  isBase64ImageWithinLimits
-} from '@/lib/image-attachments';
+import { namePastedFiles } from '@/lib/file-upload-client';
 import {
   buildEntriesFromFiles,
   buildAtInsertText,
@@ -43,7 +38,6 @@ import { addAttachedFiles, composeMessageWithFiles, type AttachedFile } from '@/
 import { getMarkdownListContinuation } from '@/lib/markdown-list-continuation';
 import { isBareMcpCommand, isBuiltinMcpCommand } from '@/lib/mcp-command';
 import { FolderIcon, getFileIcon } from './FileIcons';
-import { ImagePreview } from './ImagePreview';
 import { DismissButton } from './DismissButton';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useEnterSendMode } from '@/hooks/useEnterSendMode';
@@ -63,22 +57,12 @@ import type { GoalAction, GoalFacts } from '@/lib/goal-driver';
 
 export { filterModelOptions } from './ModelSelector';
 
-export interface AttachedImage {
-  data: string; // base64, no prefix
-  mimeType: string;
-  previewUrl: string; // object URL for display
-}
-
 interface Props {
-  onSend: (message: string, images?: AttachedImage[]) => void;
+  onSend: (message: string) => void;
   onAbort: () => void;
-  onSteer?: (message: string, images?: AttachedImage[]) => void;
-  onFollowUp?: (message: string, images?: AttachedImage[]) => void;
-  onPromptWithStreamingBehavior?: (
-    message: string,
-    behavior: 'steer' | 'followUp',
-    images?: AttachedImage[]
-  ) => void;
+  onSteer?: (message: string) => void;
+  onFollowUp?: (message: string) => void;
+  onPromptWithStreamingBehavior?: (message: string, behavior: 'steer' | 'followUp') => void;
   isStreaming: boolean;
   /** Text-only composer without the session controls or outer spacing. */
   compact?: boolean;
@@ -135,7 +119,7 @@ interface Props {
   draftKey?: string;
   /** Session working directory — enables the @ file autocomplete menu */
   cwd?: string | null;
-  /** Files picked with the attach button, handled like files dropped onto the chat. Without it the button takes images only. */
+  /** Files picked or pasted into the composer, uploaded into the working directory like a drop. */
   onAttachFiles?: (files: File[]) => void;
   /** The goal an installed goal package keeps for this session, shown in the composer hub. */
   goal?: GoalFacts;
@@ -150,11 +134,9 @@ export interface ChatInputHandle {
   insertIfEmpty: (text: string) => void;
   replaceMessage: (message: UserMessage) => void;
   prependText: (text: string) => void;
-  addImages: (files: File[]) => void;
-  /** Files already written into the working directory, attached as chips. */
   addFileMentions: (paths: string[]) => void;
   rekeyDraft: (previousKey: string, nextKey: string) => void;
-  restoreSubmission: (text: string, images?: ChatDraftImage[], targetDraftKey?: string) => void;
+  restoreSubmission: (text: string, targetDraftKey?: string) => void;
   focus: () => void;
 }
 
@@ -515,12 +497,8 @@ export function isRunEndStrayClick(detail: number, msSinceRunEnd: number): boole
   return detail > 0 && msSinceRunEnd < RUN_END_CLICK_GUARD_MS;
 }
 
-export function canClearBuiltinCommandInput(
-  message: string,
-  imageCount: number,
-  submittedMessage: string
-): boolean {
-  return imageCount === 0 && message.trim() === submittedMessage;
+export function canClearBuiltinCommandInput(message: string, submittedMessage: string): boolean {
+  return message.trim() === submittedMessage;
 }
 
 /**
@@ -609,85 +587,12 @@ export function buildSlashCommandLayout(
   };
 }
 
-const CLIENT_IMAGE_COMPRESSION_THRESHOLD_BYTES = 1024 * 1024;
-const CLIENT_MAX_IMAGE_SIDE = 1024;
-const CLIENT_JPEG_QUALITY = 0.85;
-
-export function shouldCompressImageFile(file: Pick<File, 'size' | 'type'>): boolean {
-  return file.size > CLIENT_IMAGE_COMPRESSION_THRESHOLD_BYTES && file.type !== 'image/gif';
-}
-
-function readImageFile(file: Blob, mimeType: string): Promise<{ data: string; mimeType: string }> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const data = typeof reader.result === 'string' ? reader.result.split(',')[1] : undefined;
-      if (!data) {
-        reject(new Error('Failed to read image'));
-        return;
-      }
-      resolve({ data, mimeType });
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
-export async function compressImageFile(file: File): Promise<{ data: string; mimeType: string }> {
-  const original = () => readImageFile(file, file.type);
-  if (!shouldCompressImageFile(file) || typeof createImageBitmap !== 'function') return original();
-
-  const bitmap = await createImageBitmap(file).catch(() => null);
-  if (!bitmap) return original();
-
-  try {
-    const scale = Math.min(1, CLIENT_MAX_IMAGE_SIDE / Math.max(bitmap.width, bitmap.height));
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return original();
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    const data = canvas.toDataURL('image/jpeg', CLIENT_JPEG_QUALITY).split(',')[1];
-    return data && data.length < Math.ceil(file.size / 3) * 4
-      ? { data, mimeType: 'image/jpeg' }
-      : original();
-  } catch {
-    return original();
-  } finally {
-    bitmap.close();
-  }
-}
-
-function imageToDraftImage(image: AttachedImage): ChatDraftImage {
-  return { data: image.data, mimeType: image.mimeType };
-}
-
-function draftImageToAttachedImage(image: ChatDraftImage): AttachedImage {
-  return {
-    ...image,
-    previewUrl: `data:${image.mimeType};base64,${image.data}`
-  };
-}
-
-function draftImagesToAttachedImages(images: ChatDraftImage[] | undefined): AttachedImage[] {
-  return (images ?? [])
-    .filter(isBase64ImageWithinLimits)
-    .slice(0, MAX_ATTACHED_IMAGES)
-    .map(draftImageToAttachedImage);
-}
-
-export function canRestoreUserMessage(
-  value: string,
-  attachedImageCount: number,
-  pendingImageCount: number,
-  attachedFileCount = 0
-): boolean {
-  return (
-    !value.trim() && attachedImageCount === 0 && pendingImageCount === 0 && attachedFileCount === 0
-  );
+/**
+ * A composer that only restores a message over an empty draft: the draft must
+ * hold neither text nor chips.
+ */
+function canRestoreUserMessage(value: string, attachedFileCount: number): boolean {
+  return !value.trim() && attachedFileCount === 0;
 }
 
 export function getUserMessageText(message: UserMessage): string {
@@ -696,28 +601,6 @@ export function getUserMessageText(message: UserMessage): string {
     .filter((block): block is TextContent => block.type === 'text')
     .map((block) => block.text)
     .join('\n');
-}
-
-export function getUserMessageDraftImages(message: UserMessage): ChatDraftImage[] {
-  if (typeof message.content === 'string') return [];
-  return message.content.flatMap((block) => {
-    if (block.type !== 'image') return [];
-
-    // Support both the current nested image format and older flat pi-ai entries.
-    const flat = block as unknown as { data?: unknown; mimeType?: unknown };
-    const data = block.source?.type === 'base64' ? block.source.data : flat.data;
-    const mimeType = block.source?.type === 'base64' ? block.source.media_type : flat.mimeType;
-    if (typeof data !== 'string' || typeof mimeType !== 'string') return [];
-
-    const image = { data, mimeType };
-    return isBase64ImageWithinLimits(image) ? [image] : [];
-  });
-}
-
-function revokeImagePreview(image: AttachedImage): void {
-  if (image.previewUrl.startsWith('blob:')) {
-    URL.revokeObjectURL(image.previewUrl);
-  }
 }
 
 function QueuedMessageRow({ kind, text }: { kind: 'steer' | 'follow-up'; text: string }) {
@@ -838,17 +721,6 @@ export function ModelErrorBanner({ error }: { error?: string | null }) {
   return <ModelNoticeBanner tone="error" title={t('chat.modelError')} body={error} />;
 }
 
-/** True when the selected model is known to accept image input (#584). Unknown modality info never blocks the user. */
-export function modelSupportsImageInput(
-  model: { provider: string; modelId: string } | null | undefined,
-  modelList: { id: string; name: string; provider: string; input?: string[] }[] | undefined
-): boolean {
-  if (!model) return true;
-  const entry = modelList?.find((m) => m.provider === model.provider && m.id === model.modelId);
-  if (!entry || !entry.input) return true;
-  return entry.input.includes('image');
-}
-
 /** Surfaces `enabledModels` patterns that matched nothing, so a typo is visible (#307). */
 export function ModelScopeWarningBanner({ warnings }: { warnings?: string[] }) {
   const { t } = useI18n();
@@ -930,16 +802,13 @@ export const ChatInput = memo(
     const [toolDropdownOpen, setToolDropdownOpen] = useState(false);
     const [thinkingDropdownOpen, setThinkingDropdownOpen] = useState(false);
     const [controlsMenuOpen, setControlsMenuOpen] = useState(false);
-    const [attachedImages, setAttachedImages] = useState<AttachedImage[]>(() =>
-      draftKey ? draftImagesToAttachedImages(getDraft(draftKey)?.images) : []
-    );
-    // Files dropped or picked into the composer show as chips; their `@path`
-    // mentions join the prompt only when it is sent.
+    // Files dropped, picked, or pasted into the composer show as chips; their
+    // `@path` mentions join the prompt only when it is sent.
     const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>(() =>
       draftKey ? (getDraft(draftKey)?.files ?? []) : []
     );
     const trimmedValue = value.trimStart();
-    const bashMode = attachedImages.length === 0 && trimmedValue.startsWith('!');
+    const bashMode = trimmedValue.startsWith('!');
     const bashExcluded = bashMode && trimmedValue.startsWith('!!');
     const [slashMenuOpen, setSlashMenuOpen] = useState(false);
     const [slashActiveIndex, setSlashActiveIndex] = useState(0);
@@ -948,7 +817,6 @@ export const ChatInput = memo(
     const [atMenuOpen, setAtMenuOpen] = useState(false);
     const [atMenuMaxHeight, setAtMenuMaxHeight] = useState<number | null>(null);
     const [atActiveIndex, setAtActiveIndex] = useState(0);
-    const [imageWarningDismissed, setImageWarningDismissed] = useState(false);
     const [historyMenuOpen, setHistoryMenuOpen] = useState(false);
     const [historyActiveIndex, setHistoryActiveIndex] = useState(0);
     const [builtinCommandPending, setBuiltinCommandPending] = useState(false);
@@ -988,11 +856,8 @@ export const ChatInput = memo(
     const fileIndexFetchingRef = useRef<string | null>(null);
     const draftKeyRef = useRef(draftKey);
     const valueRef = useRef(value);
-    const attachedImagesRef = useRef(attachedImages);
     const attachedFilesRef = useRef(attachedFiles);
-    const pendingImageCountRef = useRef(0);
     valueRef.current = value;
-    attachedImagesRef.current = attachedImages;
     attachedFilesRef.current = attachedFiles;
 
     useImperativeHandle(ref, () => ({
@@ -1013,27 +878,13 @@ export const ChatInput = memo(
       replaceMessage(message: UserMessage) {
         const ta = textareaRef.current;
         const current = ta ? ta.value : value;
-        if (
-          !canRestoreUserMessage(
-            current,
-            attachedImagesRef.current.length,
-            pendingImageCountRef.current,
-            attachedFilesRef.current.length
-          )
-        )
-          return;
+        if (!canRestoreUserMessage(current, attachedFilesRef.current.length)) return;
 
         const restoredText = getUserMessageText(message);
-        const restoredImages = draftImagesToAttachedImages(getUserMessageDraftImages(message));
         valueRef.current = restoredText;
-        attachedImagesRef.current = restoredImages;
         setValue(restoredText);
         setAtQuery(null);
         setHistoryMenuOpen(false);
-        setAttachedImages((prev) => {
-          prev.forEach(revokeImagePreview);
-          return restoredImages;
-        });
         requestAnimationFrame(() => {
           if (!ta) return;
           ta.focus();
@@ -1066,38 +917,20 @@ export const ChatInput = memo(
           return;
         }
 
-        const currentDraft = {
-          value: valueRef.current,
-          images: attachedImagesRef.current.map(imageToDraftImage)
-        };
-        const moved = rekeyStoredDraft(previousKey, nextKey, currentDraft) ?? {
-          value: '',
-          images: []
-        };
-        const unchanged =
-          moved.value === currentDraft.value &&
-          moved.images.length === currentDraft.images.length &&
-          moved.images.every(
-            (image, index) =>
-              image.data === currentDraft.images[index]?.data &&
-              image.mimeType === currentDraft.images[index]?.mimeType
-          );
+        const currentDraft = { value: valueRef.current, files: attachedFilesRef.current };
+        const moved = rekeyStoredDraft(previousKey, nextKey, currentDraft) ?? { value: '' };
+        // The merge keeps this composer's chips; only the text can change.
+        const unchanged = moved.value === currentDraft.value;
         draftKeyRef.current = nextKey;
         if (unchanged) return;
 
-        const movedImages = draftImagesToAttachedImages(moved.images);
         valueRef.current = moved.value;
-        attachedImagesRef.current = movedImages;
         setValue(moved.value);
-        setAttachedImages((current) => {
-          current.forEach(revokeImagePreview);
-          return movedImages;
-        });
         setAtQuery(null);
         setHistoryMenuOpen(false);
       },
-      restoreSubmission(text: string, images?: ChatDraftImage[], targetDraftKey?: string) {
-        if (!text.trim() && !images?.length) return;
+      restoreSubmission(text: string, targetDraftKey?: string) {
+        if (!text.trim()) return;
 
         // clearInput is queued before the submission handler runs. Compose with
         // that queued state so a fast rejection cannot observe stale DOM text and
@@ -1109,30 +942,17 @@ export const ChatInput = memo(
           !targetsCurrentComposer && destinationDraftKey ? getDraft(destinationDraftKey) : null;
         const restoredDraft = mergeRestoredSubmissionDraft(
           text,
-          images,
           targetsCurrentComposer ? valueRef.current : (storedDraft?.value ?? ''),
-          targetsCurrentComposer
-            ? attachedImagesRef.current.map(imageToDraftImage)
-            : (storedDraft?.images ?? [])
+          targetsCurrentComposer ? attachedFilesRef.current : (storedDraft?.files ?? [])
         );
         // The first optimistic message switches ChatWindow out of its empty-state
         // layout and remounts this component. Persist synchronously so recovery is
         // not lost if this instance is the one being unmounted.
         if (destinationDraftKey) setDraft(destinationDraftKey, restoredDraft);
         if (!targetsCurrentComposer) return;
-        const restoredImages = images?.length
-          ? [
-              ...draftImagesToAttachedImages(images).slice(
-                0,
-                Math.max(0, MAX_ATTACHED_IMAGES - attachedImagesRef.current.length)
-              ),
-              ...attachedImagesRef.current
-            ].slice(0, MAX_ATTACHED_IMAGES)
-          : attachedImagesRef.current;
         // Session promotion can rekey this composer before React flushes the
         // functional updates below, so update the imperative snapshot first.
         valueRef.current = restoredDraft.value;
-        attachedImagesRef.current = restoredImages;
         setValue((current) => {
           const restored = mergeRestoredSubmissionText(text, current);
           valueRef.current = restored;
@@ -1140,15 +960,6 @@ export const ChatInput = memo(
         });
         setAtQuery(null);
         setHistoryMenuOpen(false);
-        if (images?.length) {
-          setAttachedImages((current) => {
-            const available = Math.max(0, MAX_ATTACHED_IMAGES - current.length);
-            const restored = draftImagesToAttachedImages(images).slice(0, available);
-            const next = restored.length > 0 ? [...restored, ...current] : current;
-            attachedImagesRef.current = next;
-            return next;
-          });
-        }
         requestAnimationFrame(() => {
           const ta = textareaRef.current;
           if (!ta) return;
@@ -1178,9 +989,6 @@ export const ChatInput = memo(
         replaceTextareaRange(ta, start, end, sep + text);
         setAtQuery(null);
       },
-      addImages(files: File[]) {
-        processImageFiles(files);
-      },
       addFileMentions(paths: string[]) {
         // The compact quote composer takes no attachments.
         if (compact || paths.length === 0) return;
@@ -1191,67 +999,15 @@ export const ChatInput = memo(
       }
     }));
 
-    const processImageFiles = useCallback(
-      async (files: File[]) => {
-        if (compact) return;
-        const remaining = Math.max(
-          0,
-          MAX_ATTACHED_IMAGES - attachedImagesRef.current.length - pendingImageCountRef.current
-        );
-        const imageFiles = files
-          .filter((f) => f.type.startsWith('image/') && f.size <= MAX_ATTACHED_IMAGE_BYTES)
-          .slice(0, remaining);
-        if (!imageFiles.length) return;
-        pendingImageCountRef.current += imageFiles.length;
-        try {
-          const newImages = await Promise.all(
-            imageFiles.map(async (file) => ({
-              ...(await compressImageFile(file)),
-              previewUrl: URL.createObjectURL(file)
-            }))
-          );
-          setAttachedImages((prev) => {
-            const accepted = newImages.slice(0, Math.max(0, MAX_ATTACHED_IMAGES - prev.length));
-            newImages.slice(accepted.length).forEach(revokeImagePreview);
-            const next = [...prev, ...accepted];
-            attachedImagesRef.current = next;
-            return next;
-          });
-        } finally {
-          pendingImageCountRef.current -= imageFiles.length;
-        }
-      },
-      [compact]
-    );
-
     const handleFilePick = useCallback(
       (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(e.target.files ?? []);
         // Clearing the value lets the same file be picked again.
         e.target.value = '';
         if (onAttachFiles) onAttachFiles(files);
-        else processImageFiles(files);
       },
-      [onAttachFiles, processImageFiles]
+      [onAttachFiles]
     );
-
-    const removeImage = useCallback((index: number) => {
-      setAttachedImages((prev) => {
-        const next = [...prev];
-        const [removed] = next.splice(index, 1);
-        if (removed) revokeImagePreview(removed);
-        attachedImagesRef.current = next;
-        return next;
-      });
-    }, []);
-
-    const clearImages = useCallback(() => {
-      attachedImagesRef.current = [];
-      setAttachedImages((prev) => {
-        prev.forEach(revokeImagePreview);
-        return [];
-      });
-    }, []);
 
     const removeFile = useCallback((index: number) => {
       setAttachedFiles((prev) => {
@@ -1273,21 +1029,16 @@ export const ChatInput = memo(
       setHistoryMenuOpen(false);
       if (draftKey) clearDraft(draftKey);
       if (draftKeyRef.current && draftKeyRef.current !== draftKey) clearDraft(draftKeyRef.current);
-      clearImages();
       clearFiles();
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
       }
-    }, [clearFiles, clearImages, draftKey]);
+    }, [clearFiles, draftKey]);
 
     useEffect(() => {
       if (!draftKey || draftKeyRef.current !== draftKey) return;
-      setDraft(draftKey, {
-        value,
-        images: attachedImages.map(imageToDraftImage),
-        files: attachedFiles
-      });
-    }, [attachedFiles, attachedImages, draftKey, value]);
+      setDraft(draftKey, { value, files: attachedFiles });
+    }, [attachedFiles, draftKey, value]);
 
     useEffect(() => {
       const previousDraftKey = draftKeyRef.current;
@@ -1296,7 +1047,6 @@ export const ChatInput = memo(
       if (previousDraftKey) {
         setDraft(previousDraftKey, {
           value: valueRef.current,
-          images: attachedImagesRef.current.map(imageToDraftImage),
           files: attachedFilesRef.current
         });
       }
@@ -1304,18 +1054,12 @@ export const ChatInput = memo(
       const draft = draftKey ? getDraft(draftKey) : null;
       draftKeyRef.current = draftKey;
       const nextValue = draft?.value ?? '';
-      const nextImages = draftImagesToAttachedImages(draft?.images);
       const nextFiles = draft?.files ?? [];
       valueRef.current = nextValue;
-      attachedImagesRef.current = nextImages;
       attachedFilesRef.current = nextFiles;
       setValue(nextValue);
       setAtQuery(null);
       setHistoryMenuOpen(false);
-      setAttachedImages((prev) => {
-        prev.forEach(revokeImagePreview);
-        return nextImages;
-      });
       setAttachedFiles(nextFiles);
     }, [draftKey]);
 
@@ -1361,43 +1105,23 @@ export const ChatInput = memo(
       return () => ta.removeEventListener('beforeinput', continueList);
     }, []);
 
-    useEffect(() => {
-      return () => {
-        attachedImagesRef.current.forEach(revokeImagePreview);
-      };
-    }, []);
-
     const runBuiltinCommand = useCallback(
       async (msg: string): Promise<boolean> => {
-        if (
-          attachedImages.length ||
-          attachedFiles.length ||
-          !msg.startsWith('/') ||
-          !onBuiltinCommand
-        )
-          return false;
+        if (attachedFiles.length || !msg.startsWith('/') || !onBuiltinCommand) return false;
         if (builtinCommandPendingRef.current) return true;
         builtinCommandPendingRef.current = true;
         setBuiltinCommandPending(true);
         try {
           const result = await onBuiltinCommand(msg);
           if (!result.handled) return false;
-          if (
-            !result.error &&
-            canClearBuiltinCommandInput(
-              valueRef.current,
-              attachedImagesRef.current.length + attachedFilesRef.current.length,
-              msg
-            )
-          )
-            clearInput();
+          if (!result.error && canClearBuiltinCommandInput(valueRef.current, msg)) clearInput();
           return true;
         } finally {
           builtinCommandPendingRef.current = false;
           setBuiltinCommandPending(false);
         }
       },
-      [attachedFiles.length, attachedImages.length, clearInput, onBuiltinCommand]
+      [attachedFiles.length, clearInput, onBuiltinCommand]
     );
 
     const handleSend = useCallback(async () => {
@@ -1407,23 +1131,14 @@ export const ChatInput = memo(
         value,
         attachedFiles.map((file) => file.path)
       );
-      if (!msg && !attachedImages.length) return;
+      if (!msg) return;
       onAudioUnlock?.();
       const builtinAllowed = !isStreaming || offersBuiltinSlashCommandWhileStreaming(msg);
       if (builtinAllowed && (await runBuiltinCommand(msg))) return;
       if (isStreaming) return;
       clearInput();
-      onSend(msg, attachedImages.length ? attachedImages : undefined);
-    }, [
-      value,
-      attachedFiles,
-      attachedImages,
-      isStreaming,
-      runBuiltinCommand,
-      onSend,
-      clearInput,
-      onAudioUnlock
-    ]);
+      onSend(msg);
+    }, [value, attachedFiles, isStreaming, runBuiltinCommand, onSend, clearInput, onAudioUnlock]);
 
     const slashQuery =
       !compact && value.startsWith('/') && !/\s/.test(value.slice(1))
@@ -1460,18 +1175,9 @@ export const ChatInput = memo(
         ? t(slashQuery ? 'chat.match' : 'chat.command')
         : t(slashQuery ? 'chat.matches' : 'chat.commands', { count: filteredSlashCommands.length });
     const hasInputText = Boolean(value.trim());
-    const hasAttachments = attachedImages.length > 0 || attachedFiles.length > 0;
+    const hasAttachments = attachedFiles.length > 0;
     const canQueueStreamingMessage = hasInputText || hasAttachments;
     const stackedComposer = stacksComposerLayout(compact, isMobile, isStreaming);
-    // Warn when images are attached but the selected model is known not to accept
-    // image input (#584), including a resolved default. Unknown models stay silent.
-    const showImageUnsupportedWarning =
-      attachedImages.length > 0 &&
-      !modelSupportsImageInput(model, modelList) &&
-      !imageWarningDismissed;
-    useEffect(() => {
-      if (attachedImages.length === 0) setImageWarningDismissed(false);
-    }, [attachedImages.length]);
 
     // ── @ file autocomplete ──────────────────────────────────────────────────
     // Recomputed from the text before the caret on every change/caret move.
@@ -1664,22 +1370,21 @@ export const ChatInput = memo(
           value,
           attachedFiles.map((file) => file.path)
         );
-        if (!msg && !attachedImages.length) return;
+        if (!msg) return;
         onAudioUnlock?.();
-        const images = attachedImages.length ? attachedImages : undefined;
-        const hasQueuedAttachments = attachedImages.length > 0 || attachedFiles.length > 0;
+        const hasQueuedAttachments = attachedFiles.length > 0;
         const queue = () => {
           const streamingBehavior = mode === 'steer' ? 'steer' : 'followUp';
           if (msg.startsWith('/') && onPromptWithStreamingBehavior) {
             clearInput();
-            onPromptWithStreamingBehavior(msg, streamingBehavior, images);
+            onPromptWithStreamingBehavior(msg, streamingBehavior);
             return;
           }
           clearInput();
           if (mode === 'steer' && onSteer) {
-            onSteer(msg, images);
+            onSteer(msg);
           } else if (mode === 'followup' && onFollowUp) {
-            onFollowUp(msg, images);
+            onFollowUp(msg);
           }
         };
         if (
@@ -1706,7 +1411,6 @@ export const ChatInput = memo(
       [
         value,
         attachedFiles,
-        attachedImages,
         onBuiltinCommand,
         onPromptWithStreamingBehavior,
         onSteer,
@@ -1946,14 +1650,18 @@ export const ChatInput = memo(
     const handlePaste = useCallback(
       (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
         const items = Array.from(e.clipboardData?.items ?? []);
-        const imageItems = items.filter((item) => item.type.startsWith('image/'));
-        if (!compact && imageItems.length) {
-          e.preventDefault();
-          const files = imageItems
+        // Everything the clipboard holds as a file — screenshots, copied files —
+        // uploads into the working directory, exactly like a drop would.
+        const fileItems = items.filter((item) => item.kind === 'file');
+        if (!compact && fileItems.length && onAttachFiles) {
+          const files = fileItems
             .map((item) => item.getAsFile())
             .filter((f): f is File => f !== null);
-          processImageFiles(files);
-          return;
+          if (files.length) {
+            e.preventDefault();
+            onAttachFiles(namePastedFiles(files));
+            return;
+          }
         }
 
         const html = e.clipboardData.getData('text/html');
@@ -1987,7 +1695,7 @@ export const ChatInput = memo(
           ta.setSelectionRange(start + markdown.length, start + markdown.length);
         });
       },
-      [compact, processImageFiles, updateAtQuery]
+      [compact, onAttachFiles, updateAtQuery]
     );
 
     useEffect(() => {
@@ -2185,7 +1893,6 @@ export const ChatInput = memo(
           <input
             ref={fileInputRef}
             type="file"
-            accept={onAttachFiles ? undefined : 'image/*'}
             multiple
             style={{ display: 'none' }}
             onChange={handleFilePick}
@@ -2194,22 +1901,6 @@ export const ChatInput = memo(
         <div style={{ maxWidth: 'var(--chat-content-max-width, 820px)', margin: '0 auto' }}>
           <ModelErrorBanner error={modelError} />
           <ModelScopeWarningBanner warnings={modelScopeWarnings} />
-          {showImageUnsupportedWarning &&
-            (() => {
-              const entry = modelList?.find(
-                (m) => m.provider === model?.provider && m.id === model?.modelId
-              );
-              return (
-                <ModelNoticeBanner
-                  tone="warning"
-                  title={t('chat.imageNotSupportedTitle')}
-                  body={t('chat.imageNotSupportedBody', {
-                    model: entry?.name || model?.modelId || ''
-                  })}
-                  onClose={() => setImageWarningDismissed(true)}
-                />
-              );
-            })()}
           {/* Queued steering / follow-up messages (delivered by pi on upcoming turns) */}
           {(queuedMessages?.steering.length ?? 0) + (queuedMessages?.followUp.length ?? 0) > 0 && (
             <div
@@ -2409,63 +2100,6 @@ export const ChatInput = memo(
               ))}
             </div>
           )}
-          {/* Image previews */}
-          {attachedImages.length > 0 && (
-            <div style={{ display: 'flex', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
-              {attachedImages.map((img, i) => (
-                <div key={i} style={{ position: 'relative', flexShrink: 0 }}>
-                  <ImagePreview key={img.previewUrl} src={img.previewUrl}>
-                    <img
-                      src={img.previewUrl}
-                      alt=""
-                      style={{
-                        width: 56,
-                        height: 56,
-                        objectFit: 'cover',
-                        borderRadius: 6,
-                        border: '1px solid var(--border)',
-                        display: 'block'
-                      }}
-                    />
-                  </ImagePreview>
-                  <button
-                    type="button"
-                    onClick={() => removeImage(i)}
-                    style={{
-                      position: 'absolute',
-                      top: -4,
-                      right: -4,
-                      width: 16,
-                      height: 16,
-                      borderRadius: '50%',
-                      background: 'var(--bg-panel)',
-                      border: '1px solid var(--border)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      cursor: 'pointer',
-                      padding: 0,
-                      color: 'var(--text-muted)'
-                    }}
-                  >
-                    <svg
-                      width="8"
-                      height="8"
-                      viewBox="0 0 8 8"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                    >
-                      <line x1="1" y1="1" x2="7" y2="7" />
-                      <line x1="7" y1="1" x2="1" y2="7" />
-                    </svg>
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
           {/* Main input */}
           <div style={{ position: 'relative', minWidth: 0 }}>
             {historyMenuOpen && inputHistory.length > 0 && (

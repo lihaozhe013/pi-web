@@ -320,9 +320,14 @@ entry.
 
 ## Files attached to a prompt
 
-A file dropped onto the chat, or picked with the composer's attach button, is copied into the
-working directory without replacing anything already there, and then shown as a chip beside the
-composer — the same row images use. The chip carries an icon chosen by extension (a PDF, a Word
+A file dropped onto the chat, pasted from the clipboard, or picked with the composer's attach
+button is copied into the working directory without replacing anything already there, and then
+shown as a chip beside the composer. Images take the same path: a dropped or pasted picture is a
+file like any other, and the agent reads it from disk at its own resolution. A pasted screenshot
+arrives named `image.png`, so it is renamed to a timestamped `pasted-…` name before the upload —
+otherwise the second screenshot would collide with the first and the chip would reference the
+wrong picture; files copied in a file manager keep their own names. The chip carries an icon chosen
+by extension (a PDF, a Word
 document, the language of a code file, and a plain page for anything unrecognized), the file name,
 and a remove button; it is announced as an attached file and its tooltip keeps the relative path.
 Removing a chip only drops the reference: the copied file stays in the working directory. `@` typed
