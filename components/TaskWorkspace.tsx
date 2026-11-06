@@ -1414,12 +1414,9 @@ export function TaskWorkspace({
     : null;
 
   const chatTitle = (chat: ChatTask) => chat.title || t('tasks.untitledChat');
+  // Board chats are live work only, so a row is always running or waiting.
   const chatStatusLabel = (chat: ChatTask) =>
-    chat.running
-      ? chat.awaiting
-        ? t('tasks.chatWaiting')
-        : t('tasks.status.inProgress')
-      : t('tasks.queueState.idle');
+    chat.awaiting ? t('tasks.chatWaiting') : t('tasks.status.inProgress');
 
   const renderChatRow = (chat: ChatTask) => {
     const active = selectedChat?.session.id === chat.session.id;

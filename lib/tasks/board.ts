@@ -35,7 +35,7 @@ export interface TaskGroups {
   done: TaskRecord[];
 }
 
-/** A conversation is project work too; the board shows it beside queued tasks. */
+/** A live conversation is project work too; the board shows it beside queued tasks. */
 export interface ChatTask {
   session: SessionInfo;
   title: string;
@@ -51,9 +51,11 @@ export const CHAT_TASK_LIMIT = 30;
 const QUEUED_TASK_PROMPT_PREFIX = 'You are running task #';
 
 /**
- * The project's conversations that the queue does not already represent.
+ * The project's live conversations that the queue does not already represent.
  * Task sessions own their session rows, so they are filtered out to keep one
- * row per piece of work. Running chats come first; recent idle chats follow.
+ * row per piece of work, and only running or input-waiting conversations stay:
+ * the board is the queue, so idle conversations go back to the chat sidebar
+ * and finished work appears only in the Finished drawer.
  */
 export function chatTasksForProject(
   sessions: readonly SessionInfo[],
@@ -83,15 +85,10 @@ export function chatTasksForProject(
           '',
         running,
         awaiting,
-        status: running
-          ? 'IN_PROGRESS'
-          : awaiting
-            ? 'BLOCKED'
-            : session.messageCount > 0
-              ? 'DONE'
-              : 'PENDING'
+        status: running ? 'IN_PROGRESS' : 'BLOCKED'
       };
     })
+    .filter((chat) => chat.running || chat.awaiting)
     .sort(
       (a, b) =>
         Number(b.running) - Number(a.running) ||

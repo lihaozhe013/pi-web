@@ -7,8 +7,11 @@ session: the next queued task in that project starts from an empty window. Becau
 an ordinary SDK session, it appears in chat immediately, can be read while it runs, and can be
 continued after it finishes.
 
-Chat sessions are first-class work on the same board. A conversation appears as a task-shaped row
-in its project, and any running conversation keeps that project active. Chat may run in parallel:
+Chat sessions are first-class work on the same board. A live conversation — one that is running
+or waiting for input — appears as a task-shaped row in its project, and any running conversation
+keeps that project active. An idle conversation is not queue work: it goes back to the chat
+sidebar, so finished work appears on the board only in the Finished drawer. Chat may run in
+parallel:
 several conversations in one project can run at once, and a conversation may start while a queued
 task is already running. The queue has the lower priority. A started queue claims its next task
 only while no conversation is running in the project; if a conversation is still running when a
@@ -481,9 +484,11 @@ delivered in two steps so the chat surface is never destabilized by a navigation
   surface for the task being read, and the board sits in the same right-hand panel the Runs panel
   uses in chat. The board has a Chats section above the active queue groups (running, queued, and
   blocked) and a Finished drawer below them; a conversation that also has a queue task is
-  represented by that task, so the same work never appears twice. A fresh conversation appears immediately as a "New chat" row even before its
-  first message is persisted; only task mode asks for transient draft sessions, so the chat
-  sidebar's behaviour is unchanged.
+  represented by that task, so the same work never appears twice. The Chats section holds only
+  live work: a conversation leaves the board when it goes idle, because the panel is the queue
+  and the Finished drawer is the only place finished things appear. A conversation that starts
+  running appears immediately as a "New chat" row even before its first message is persisted;
+  only task mode asks for transient draft sessions, so the chat sidebar's behaviour is unchanged.
 - Clicking a project switches the board and the work surface to that project. The project is a URL
   parameter (`?mode=tasks&cwd=<path>`), so a reload, a new tab, and a Web Push deep link all reopen
   the same project. A chat session that starts running moves its project to the active section and
