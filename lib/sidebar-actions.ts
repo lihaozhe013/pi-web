@@ -9,7 +9,8 @@
  * everywhere a saved session is, after the actions that manage the session and
  * before Delete. Never first: a menu's first item takes focus when it opens,
  * so Enter right after opening would leave the tab. Also the requests behind
- * a project group's "Delete all sessions", with `fetch` passed in.
+ * a project group's "Delete this project" (the sessions part; the removal of
+ * the project itself is a ui-state write), with `fetch` passed in.
  */
 
 import {
@@ -128,7 +129,7 @@ export function forkFailureMessage(
 /** Session ids per POST /api/sessions/delete (the route's MAX_SESSION_DELETE_IDS). */
 export const PROJECT_DELETE_IDS_PER_REQUEST = 500;
 
-/** What a project's "Delete all sessions" did, summed over its requests. */
+/** What a project's "Delete this project" deleted, summed over its requests. */
 export interface ProjectSessionsDeleteOutcome {
   deleted: string[];
   /** Session ids kept because they started running after the confirmation. */

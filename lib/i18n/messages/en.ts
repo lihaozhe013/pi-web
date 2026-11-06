@@ -458,10 +458,13 @@ export const enLocale: LocalePlugin = {
     'sidebar.forkEmpty': 'Nothing to fork: this branch has no messages yet',
     'sidebar.forkUnavailable': 'This session can’t be forked',
     'sidebar.forkFailed': 'Couldn’t fork: {error}',
-    'sidebar.deleteProjectSessions': 'Delete all sessions… · {count}',
-    'sidebar.deleteProjectSessionsHeading': 'Delete all sessions in {name}',
-    'sidebar.deleteProjectSessionsMessage':
-      'Pinned and archived sessions go too. This can’t be undone.',
+    'sidebar.deleteProject': 'Delete this project…',
+    'sidebar.deleteProjectHeading': 'Delete {name}?',
+    'sidebar.deleteProjectMessage':
+      'The project leaves the sidebar and its {count} sessions are deleted — pinned and archived ones included. This can’t be undone.',
+    'sidebar.deleteProjectEmptyMessage':
+      'The empty project leaves the sidebar. This can’t be undone.',
+    'sidebar.deleteProjectConfirm': 'Delete project',
     'sidebar.deleteProjectSessionsRunning': 'Sessions running now are kept ({count}).',
     'sidebar.deleteArchivedInProjectHeading': 'Delete archived sessions in {name}',
     'sidebar.deleteAllArchivedHeading': 'Delete all archived sessions',

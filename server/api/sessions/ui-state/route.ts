@@ -18,8 +18,8 @@ import {
 // The sidebar's pins, archive, project order and project names
 // (lib/session-ui-state.ts). Ids and projectKeys are not checked against the
 // session list: an entry for a session that is gone is harmless, and deleting
-// a session removes its entry; a project no longer shown keeps its place in
-// the order and its name.
+// a session removes its entry; a project without sessions keeps its place in
+// the order and its name until "remove-project" takes them out.
 
 const NO_STORE = { 'Cache-Control': 'no-store' };
 

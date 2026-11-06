@@ -1911,7 +1911,7 @@ export function SessionSidebar({
     [archiveConversations, conversationByRootId, treeSelectionInput]
   );
 
-  // A project's "Delete all sessions…" (and the archive's deletes): the menu
+  // A project's "Delete this project…" (and the archive's deletes): the menu
   // turns into its question, focus on Cancel (the sheet's on a phone), so
   // Enter deletes nothing; Cancel goes back to the list. Delete closes the
   // menu and sends the conversations the question counts at that moment, running
@@ -1929,14 +1929,23 @@ export function SessionSidebar({
   const deleteConversationIds = useCallback(
     async (runKey: string, ids: readonly string[], focusTarget: () => HTMLElement | null) => {
       setMenu(null);
-      if (ids.length === 0 || deletingRunsRef.current.has(runKey)) return;
+      if (deletingRunsRef.current.has(runKey)) return;
+      if (ids.length === 0) {
+        // Nothing to delete ("Delete this project" on one without sessions):
+        // the removal is the ui-state write; the view still settles, so focus
+        // lands on what took the group's place.
+        void loadSessions().then(() => focusAfterCommit(focusTarget));
+        return;
+      }
       deletingRunsRef.current.add(runKey);
       showToast(t('sidebar.deletingSessions'));
       try {
         const outcome = await deleteProjectSessions(ids, fetch);
         for (const id of outcome.deleted) onSessionDeleted?.(id);
-        // A group goes with its last session (in the tree, unless it is
-        // current or pinned): focus that fell to the page with it moves on.
+        // A group goes only when its sessions and its record are gone
+        // ("Delete this project" took both), and stays while running ones are
+        // kept or it is the current project: focus that fell to the page with
+        // it moves on.
         void loadSessions().then(() => focusAfterCommit(focusTarget));
         if (outcome.error !== null) {
           showToast(t('sidebar.deleteFailed', { error: outcome.error }));
@@ -1956,14 +1965,20 @@ export function SessionSidebar({
     [focusAfterCommit, loadSessions, onSessionDeleted, showToast, t]
   );
 
-  const deleteAllProjectSessions = useCallback(
+  // "Delete this project": the group leaves the sidebar for good — one
+  // ui-state write (its saved key, its pin and its name) applied at once — and
+  // its sessions go with it, as the confirmation counts them. A project that
+  // keeps sessions after the delete (running ones) still shows, through them;
+  // a refused removal write is re-recorded on its own while sessions remain.
+  const deleteProject = useCallback(
     (project: SidebarProject) => {
+      void applyUiState({ action: 'remove-project', projectKey: project.key });
       const { ids } = conversationsToDelete(treeSelectionInput, project.key);
       void deleteConversationIds(`project:${project.key}`, ids, () =>
         groupHeaderButton(project.key)
       );
     },
-    [deleteConversationIds, groupHeaderButton, treeSelectionInput]
+    [applyUiState, deleteConversationIds, groupHeaderButton, treeSelectionInput]
   );
 
   // The archive's own menus: a project header's ⋯ (Restore all, Delete
@@ -2207,7 +2222,6 @@ export function SessionSidebar({
 
   const groupMenuItems = (project: SidebarProject, olderCount: number): SidebarMenuItem[] => {
     const archivedCount = archiveIndex.countByProject.get(project.key) ?? 0;
-    const deletable = conversationsToDelete(treeSelectionInput, project.key);
     // Within the project's band; disabled at its edges.
     const up = adjacentProjectMove(model.projects, project.key, 'up');
     const down = adjacentProjectMove(model.projects, project.key, 'down');
@@ -2231,7 +2245,7 @@ export function SessionSidebar({
           }
     );
     // Three groups, by what they act on: the project itself, its place in the
-    // list, its sessions (Delete all last, in red).
+    // list, its sessions (Delete this project last, in red).
     return [
       {
         type: 'item',
@@ -2315,11 +2329,10 @@ export function SessionSidebar({
       },
       {
         type: 'item',
-        id: 'delete-all',
-        label: t('sidebar.deleteProjectSessions', { count: deletable.ids.length }),
+        id: 'delete-project',
+        label: t('sidebar.deleteProject'),
         icon: <TrashIcon />,
         danger: true,
-        disabled: deletable.ids.length === 0,
         onSelect: ({ keepOpen }) => {
           keepOpen();
           askProjectDelete(project.key, true);
@@ -2328,13 +2341,16 @@ export function SessionSidebar({
     ];
   };
 
-  // A menu's delete question (a project's "Delete all sessions…", the
-  // archive's deletes); its counts are live.
+  // A menu's delete question (a project's "Delete this project…", the
+  // archive's deletes); its counts are live. `allowEmpty` lets a project with
+  // no sessions confirm: removing the group is the point then.
   const deleteQuestionBody = ({
     heading,
     headingTitle,
     notes,
     count,
+    confirmLabel,
+    allowEmpty = false,
     onConfirm,
     onCancel
   }: {
@@ -2342,6 +2358,8 @@ export function SessionSidebar({
     headingTitle?: string;
     notes: string[];
     count: number;
+    confirmLabel?: string;
+    allowEmpty?: boolean;
     onConfirm: () => void;
     onCancel: () => void;
   }): ReactNode => (
@@ -2358,10 +2376,10 @@ export function SessionSidebar({
         <button
           type="button"
           className="sidebar-menu-question-confirm"
-          disabled={count === 0}
+          disabled={count === 0 && !allowEmpty}
           onClick={onConfirm}
         >
-          {t('sidebar.deleteCount', { count })}
+          {confirmLabel ?? t('sidebar.deleteCount', { count })}
         </button>
         {!isMobile && (
           <button
@@ -2380,14 +2398,18 @@ export function SessionSidebar({
   const projectDeleteBody = (project: SidebarProject): ReactNode => {
     const { ids, running } = conversationsToDelete(treeSelectionInput, project.key);
     return deleteQuestionBody({
-      heading: t('sidebar.deleteProjectSessionsHeading', { name: project.name }),
+      heading: t('sidebar.deleteProjectHeading', { name: project.name }),
       headingTitle: project.root,
       notes: [
-        t('sidebar.deleteProjectSessionsMessage'),
+        ids.length > 0
+          ? t('sidebar.deleteProjectMessage', { count: ids.length })
+          : t('sidebar.deleteProjectEmptyMessage'),
         ...(running > 0 ? [t('sidebar.deleteProjectSessionsRunning', { count: running })] : [])
       ],
       count: ids.length,
-      onConfirm: () => deleteAllProjectSessions(project),
+      confirmLabel: t('sidebar.deleteProjectConfirm'),
+      allowEmpty: true,
+      onConfirm: () => deleteProject(project),
       onCancel: () => askProjectDelete(project.key, false)
     });
   };

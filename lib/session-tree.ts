@@ -569,7 +569,10 @@ export function buildSessionTree(input: SessionTreeInput): SessionTreeModel {
     rows.push({ kind: 'spacer', key: 'pinned-spacer' });
   }
 
-  // Projects: live non-pinned conversations, the current project, pinned projects.
+  // Projects: live non-pinned conversations, the current project, pinned
+  // projects, and every saved key (the order holds what the sidebar has shown):
+  // a project stays a group once recorded, sessions or not, until "Delete this
+  // project" takes it out.
   const projectKeys: string[] = [...projectConversations.keys()];
   const seen = new Set(projectKeys);
   const addKey = (key: string) => {
@@ -579,6 +582,7 @@ export function buildSessionTree(input: SessionTreeInput): SessionTreeModel {
   };
   if (currentProject) addKey(currentProject.key);
   for (const key of Object.keys(uiState.projects)) addKey(key);
+  for (const key of uiState.projectOrder ?? []) addKey(key);
 
   const projects = projectKeys.map((key) => resolver.get(key));
   // A Map: a stored key such as "constructor" must not find a prototype member.
@@ -589,7 +593,8 @@ export function buildSessionTree(input: SessionTreeInput): SessionTreeModel {
   const recordable = (project: SidebarProject) => project.pinned || savedKeys.has(project.key);
   // Projects without a place come first, in the fallback order, the ones that
   // are not saved on their own (transient only, the empty current project)
-  // before the others: saving those then changes nothing on screen.
+  // before the others: saving those then changes nothing on screen. Saved keys
+  // (the order) keep their place whether their groups hold sessions or not.
   type Indexed = { project: SidebarProject; index: number };
   const orderBand = (
     band: Indexed[],

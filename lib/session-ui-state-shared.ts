@@ -47,9 +47,11 @@ export interface SessionUiState {
   projects: Record<string, SessionUiProjectState>;
   /**
    * projectKeys of the sidebar's groups, top first, pinned and other projects
-   * in one list (each band keeps the relative order of its own keys). Keys of
-   * projects no longer shown stay, so a project that comes back takes its old
-   * place. Absent while empty.
+   * in one list (each band keeps the relative order of its own keys). Every
+   * key is a group the sidebar keeps showing, sessions or not, until
+   * "remove-project" takes it out (a group's "Delete this project"); a new
+   * group without a place yet renders above the saved ones. Absent while
+   * empty.
    */
   projectOrder?: string[];
   /**
@@ -89,7 +91,14 @@ export type SessionUiStateRequest =
       add: string[];
     }
   /** A project's display name; null (or an empty name) removes it, and the folder name shows again. */
-  | { action: 'rename-project'; projectKey: string; name: string | null };
+  | { action: 'rename-project'; projectKey: string; name: string | null }
+  /**
+   * A project leaves the sidebar for good: its key goes out of `projectOrder`,
+   * its pin and its display name go too. Its sessions are deleted apart from
+   * this (the group menu's "Delete this project"); ones that survive (running
+   * then) keep the group visible until they go.
+   */
+  | { action: 'remove-project'; projectKey: string };
 
 export interface SessionUiStateResponse {
   state: SessionUiState;
@@ -446,11 +455,20 @@ export function parseSessionUiStateRequest(body: unknown): ParseResult {
       }
       return { ok: true, request: { action: 'rename-project', projectKey: body.projectKey, name } };
     }
+    case 'remove-project': {
+      if (!isProjectString(body.projectKey)) {
+        return {
+          ok: false,
+          error: `projectKey must be a non-empty string of at most ${MAX_PROJECT_STRING_LENGTH} characters`
+        };
+      }
+      return { ok: true, request: { action: 'remove-project', projectKey: body.projectKey } };
+    }
     default:
       return {
         ok: false,
         error:
-          'action must be "set", "restore", "pin-project", "add-projects", "move-project" or "rename-project"'
+          'action must be "set", "restore", "pin-project", "add-projects", "move-project", "rename-project" or "remove-project"'
       };
   }
 }
@@ -723,6 +741,19 @@ export function applySessionUiStateRequest(
       // copy goes through the same rule, so a name the server refuses changes nothing.
       const name = projectDisplayName(request.name);
       if (name !== undefined && writeProjectName(next, request.projectKey, name)) changed = true;
+      break;
+    }
+    case 'remove-project': {
+      const { projectKey } = request;
+      if (next.projectOrder) {
+        const order = next.projectOrder.filter((key) => key !== projectKey);
+        if (writeProjectOrder(next, order)) changed = true;
+      }
+      if (hasOwn(next.projects, projectKey)) {
+        delete next.projects[projectKey];
+        changed = true;
+      }
+      if (writeProjectName(next, projectKey, null)) changed = true;
       break;
     }
   }
