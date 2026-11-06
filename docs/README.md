@@ -52,8 +52,9 @@ when doing so reduces complexity. There is no permanent separation between inher
 enhancements.
 
 Development, verification, and optional portable packaging are local, and verification is manual:
-the project ships no tests and no test runner. No CI, public release pipeline, or automated update
-commitment is maintained.
+the project ships no tests and no test runner. The only automation is the build-only `ci` workflow
+described in [desktop shell](desktop.md): it produces the Windows installer and the portable
+archive on demand and replaces a single release, and no automated update channel is maintained.
 
 ## Documentation
 

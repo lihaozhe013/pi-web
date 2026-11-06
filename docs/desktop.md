@@ -69,7 +69,8 @@ the shell already probes.
 ## Node.js
 
 The shell needs a Node.js binary, not Bun or a dependency installation. It accepts a version that
-satisfies the server's floor (`>= 22.5.0`, for `node:sqlite`). Resolution order:
+satisfies the server's floor (`>= 22.14.0`, for `node:sqlite` and `module.findPackageJSON`).
+Resolution order:
 
 1. `PIE_DESKTOP_NODE`
 2. `nodePath` in `desktop.json`
@@ -189,12 +190,21 @@ bun run desktop:build            # payload + release binary + platform package
 `desktop:dev` attaches to the development server at `http://127.0.0.1:30141`; it never starts a
 second server in the checkout. `PIE_DESKTOP_SERVER_URL` overrides the address.
 
-Pushing the `ci` branch runs `.github/workflows/windows-desktop.yml`, the only automated build: a
-Windows x86-64 runner installs Bun, Node.js, and stable Rust, runs `bun run desktop:build`, uploads
-the NSIS installer as the only artifact, and replaces the `ci-latest` release with it. The
-installer carries the payload inside, so it is the whole product; the previous release and its tag
-are deleted first, which keeps one downloadable build per branch. It runs no tests and builds no
-other platform.
+Pushing the `ci` branch runs `.github/workflows/ci.yml`, the only automated build, and it is
+build-only: no tests, no typecheck, no other platform. Two jobs run in parallel. A Windows x86-64
+runner builds the NSIS installer; the payload ships inside it, so the installer is the whole
+desktop product. An Ubuntu runner builds the portable archive with `bun run package:portable`, the
+same pipeline the desktop payload uses: built interface, server bundle, production dependencies,
+and no Node.js runtime in the archive. A third job then replaces the `ci-latest` release with both
+files, deleting the previous release and its tag first, so one tag always points at the newest `ci`
+build.
+
+The archive is the server-side build: it runs on Node.js alone (`>= 22.14`, for `node:sqlite` and
+`module.findPackageJSON`) and needs network access for the `rg` and `fd` binaries Pi downloads on
+first use. It carries nothing to compile on the target machine, and its production dependency tree
+ships prebuilds for every supported platform, so one Linux-built archive starts on macOS and
+Windows as well. The archive name therefore carries no platform
+(`pie-<version>-portable.tar.gz`); `PORTABLE.json` records the build host.
 
 `desktop:build` runs the portable pipeline, writes `build/desktop/payload.tar.gz` plus
 `payload.json` (version, size, SHA-256), builds the release binary, and packages the host platform.

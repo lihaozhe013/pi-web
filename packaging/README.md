@@ -1,12 +1,15 @@
 # Local Portable Packaging
 
-Build portable archives locally. There is no CI, public release pipeline, or npm publication step.
+Build portable archives locally, or let the build-only `ci` workflow do it: it builds the archive
+on the `ci` branch and replaces the `ci-latest` release with it. Nothing is published to npm.
 
 ## Requirements
 
 The build machine needs Git, the latest Bun release, the latest Node.js LTS release, and
-gzip-capable `tar`. Build for the same operating system and architecture as the target. Linux
-packages require glibc; Alpine/musl and cross-compilation are unsupported.
+gzip-capable `tar`. Build on the host platform you run the packager on; cross-compilation is
+unsupported. The production dependency tree ships prebuilds for macOS, Linux, and Windows on x64 and
+arm64, so the archive also starts on the other platforms, but a build made for the platform you ship
+is the one that stays certain. Linux hosts require glibc; Alpine/musl is unsupported.
 
 ```sh
 bun install --frozen-lockfile
@@ -32,7 +35,9 @@ so the packager forwards the source commit as `PIE_COMMIT` and the build's versi
 form (`0.1.0+1c02256`). The final archive contains `dist`, `build/server`, and complete production
 `node_modules`.
 
-Output defaults to `build/portable/`. Temporary directories are cleaned up afterward. Registry
+Output defaults to `build/portable/` as `pie-<version>-portable.tar.gz` plus its `.sha256`. The name
+carries no platform, because the archive is not tied to the build host. Temporary directories are
+cleaned up afterward. Registry
 access is needed during packaging.
 
 `PORTABLE.json` records the version, commit, platform, and actual Node.js and Bun versions. Commit

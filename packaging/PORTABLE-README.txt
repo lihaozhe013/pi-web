@@ -3,9 +3,12 @@ Pie portable package
 Personal-use build of a minimal GUI for the Pi coding agent. There is no
 automated release service or self-updater.
 
-Prerequisite: the latest Node.js LTS release on PATH. Bun is needed to build,
-not to run this archive. Use the archive matching your operating system, CPU,
-and Linux libc.
+Prerequisite: Node.js 22.14.0 or newer on PATH. Bun is needed to build, not to
+run this archive. The archive is not tied to a build host: its production
+dependencies carry prebuilds for macOS, Linux, and Windows on x64 and arm64.
+Linux hosts need glibc, not musl. Cross-platform use is not certified: verify
+this copy on the platform you ship it to. Native dependencies may require system
+libraries.
 
 From the extracted directory:
   node bin/pie.js --no-open
@@ -14,11 +17,8 @@ From the extracted directory:
 
 The application directory must be writable (Pie keeps run records there).
 Keep the complete directory, including build/server, dist and node_modules. Do
-not copy node_modules between platforms. Build locally with the latest Bun
-release and the latest Node.js LTS release.
-
-Linux packages target glibc, not Alpine/musl. Cross-platform certification is
-not provided. Native dependencies may require system libraries.
+not mix node_modules from another build. Build with the latest Bun release and
+the latest Node.js LTS release.
 
 For remote access, prefer SSH forwarding:
   ssh -N -L 30141:127.0.0.1:30141 user@server

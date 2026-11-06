@@ -18,13 +18,14 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
-export function artifactName(version, platform = process.platform, arch = process.arch) {
+/**
+ * Archive name for a portable build. The name carries no platform: the production
+ * dependency tree ships prebuilds for every supported platform, so one archive runs
+ * on Linux, macOS, and Windows alike. `PORTABLE.json` records where it was built.
+ */
+export function artifactName(version) {
   if (!/^[\w.+-]+$/.test(version)) throw new Error('Invalid package version');
-  if (!['linux', 'darwin', 'win32'].includes(platform) || !['x64', 'arm64'].includes(arch)) {
-    throw new Error(`Unsupported target: ${platform}-${arch}`);
-  }
-  // Linux releases target glibc, not Alpine/musl.
-  return `pie-${version}-${platform}-${arch}${platform === 'linux' ? '-glibc' : ''}`;
+  return `pie-${version}-portable`;
 }
 
 /**
