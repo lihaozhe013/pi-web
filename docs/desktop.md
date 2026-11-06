@@ -189,6 +189,10 @@ bun run desktop:build            # payload + release binary + platform package
 `desktop:dev` attaches to the development server at `http://127.0.0.1:30141`; it never starts a
 second server in the checkout. `PIE_DESKTOP_SERVER_URL` overrides the address.
 
+Pushing the `ci` branch runs `.github/workflows/windows-desktop.yml`, the only automated build: a
+Windows x86-64 runner installs Bun, Node.js, and stable Rust, runs `bun run desktop:build`, and
+uploads the NSIS installer as an artifact. It runs no tests and builds no other platform.
+
 `desktop:build` runs the portable pipeline, writes `build/desktop/payload.tar.gz` plus
 `payload.json` (version, size, SHA-256), builds the release binary, and packages the host platform.
 `--payload <archive>` reuses an existing archive and `--skip-payload` reuses `build/desktop`.
