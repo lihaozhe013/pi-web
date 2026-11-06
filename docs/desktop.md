@@ -190,8 +190,11 @@ bun run desktop:build            # payload + release binary + platform package
 second server in the checkout. `PIE_DESKTOP_SERVER_URL` overrides the address.
 
 Pushing the `ci` branch runs `.github/workflows/windows-desktop.yml`, the only automated build: a
-Windows x86-64 runner installs Bun, Node.js, and stable Rust, runs `bun run desktop:build`, and
-uploads the NSIS installer as an artifact. It runs no tests and builds no other platform.
+Windows x86-64 runner installs Bun, Node.js, and stable Rust, runs `bun run desktop:build`, uploads
+the NSIS installer as the only artifact, and replaces the `ci-latest` release with it. The
+installer carries the payload inside, so it is the whole product; the previous release and its tag
+are deleted first, which keeps one downloadable build per branch. It runs no tests and builds no
+other platform.
 
 `desktop:build` runs the portable pipeline, writes `build/desktop/payload.tar.gz` plus
 `payload.json` (version, size, SHA-256), builds the release binary, and packages the host platform.
